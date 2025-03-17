@@ -1,39 +1,38 @@
 #!/bin/bash
+set -e
 
 # Setup GitHub CLI in DevContainer
-# This script installs and configures GitHub CLI for use in DevContainers
+# This script configures GitHub CLI for minimal viable access to GitHub repositories
 
-echo "Setting up GitHub CLI for DevContainer..."
+echo "Configuring GitHub CLI for repository access..."
 
-# Check if GitHub CLI is already installed
-if ! command -v gh &> /dev/null; then
-    echo "Installing GitHub CLI..."
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-    sudo apt update
-    sudo apt install gh -y
-fi
-
-# Configure Git to use HTTPS instead of SSH
-echo "Configuring Git to use HTTPS for GitHub..."
+# Configure Git to use HTTPS instead of SSH (more reliable in containers)
 git config --global url."https://github.com/".insteadOf git@github.com:
 
-# Remind user to authenticate
-echo ""
-echo "GitHub CLI setup complete!"
-echo ""
-echo "To authenticate with GitHub, run:"
-echo "  gh auth login --web"
-echo ""
-echo "After authentication, set your Git user information:"
-echo "  git config --global user.name \"Your Name\""
-echo "  git config --global user.email \"your.email@example.com\""
-echo ""
-echo "You can also use GitHub CLI to create PRs, view issues, and more:"
-echo "  gh pr create        # Create a pull request"
-echo "  gh issue list       # List issues"
-echo "  gh repo view        # View repository details"
-echo ""
+# Set default no-pager for GitHub CLI
+echo 'export GH_PAGER=""' >> ~/.bashrc
 
-echo "Setup completed successfully!"
+# Create a simple helper function for GitHub CLI in bashrc
+cat >> ~/.bashrc << 'EOF'
+
+# GitHub CLI helper function
+ghauth() {
+  echo "Authenticating with GitHub..."
+  gh auth login --web
+  echo "Setting up Git identity (required for commits)..."
+  echo "Run: git config --global user.name \"Your Name\""
+  echo "Run: git config --global user.email \"your@email.com\""
+}
+EOF
+
+echo ""
+echo "✅ GitHub CLI configuration complete!"
+echo ""
+echo "To authenticate, type 'ghauth' in your terminal"
+echo ""
+echo "GitHub CLI is ready to use with commands like:"
+echo "  gh repo clone REPO              # Clone a repository"
+echo "  gh pr create                    # Create a pull request"
+echo "  gh pr checkout NUMBER           # Check out a pull request"
+echo "  gh pr merge                     # Merge a pull request"
+echo ""

@@ -4,7 +4,7 @@
 Test Categories:
 1. Basic Data Retrieval - Tests basic functionality and data validation
 2. Data Source Selection - Tests source selection logic and fallback behavior
-3. Cache Performance - Tests caching behavior and performance 
+3. Cache Performance - Tests caching behavior and performance
 4. Date Validation - Tests date boundary conditions and error handling
 5. General Edge Cases - Common error scenarios and boundary conditions
 
@@ -23,10 +23,15 @@ import psutil
 import os
 from datetime import timedelta, timezone, datetime
 from typing import Any, cast as type_cast, Tuple, Dict, List, AsyncGenerator
+import asyncio
+import sys
+import gc
+import logging
 
 from utils.logger_setup import get_logger
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import Interval, MarketType
+from tests.utils.debug_helpers import debug_datetime_comparison
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -461,19 +466,25 @@ async def test_vision_to_rest_fallback(
 @pytest.mark.real
 @pytest.mark.asyncio
 async def test_date_validation(manager: DataSourceManager, now: arrow.Arrow) -> None:
-    """Test date validation and error handling."""
+    """Test date validations in the DataSourceManager.
+
+    Tests:
+    1. Rejects future dates
+    2. Rejects when start time is after end time
+    """
+    # Enhanced logging with clear test stages
     log_test_motivation(
         "Date Validation Test",
-        "Data integrity begins with proper time range validation. This test ensures that our "
-        "system properly handles invalid date ranges and prevents nonsensical data requests that "
-        "could affect trading decisions.",
-        expectations=[
+        "Data integrity begins with proper time range validation. This test ensures that our system "
+        "properly handles invalid date ranges and prevents nonsensical data requests that could "
+        "affect trading decisions.",
+        [
             "Rejects future date requests",
             "Prevents invalid time ranges",
             "Provides clear error messages",
             "Maintains system stability",
         ],
-        implications=[
+        [
             "Prevents invalid data queries",
             "Ensures data consistency",
             "Improves error handling",
@@ -489,11 +500,16 @@ async def test_date_validation(manager: DataSourceManager, now: arrow.Arrow) -> 
         "╠═══════════════════════════════════════════════════════════════════════════"
     )
 
-    # Test future date rejection
+    # Test future date validation
     logger.info("║ Testing Future Date Validation:")
     logger.info(f"║   • Current time: {now.format('YYYY-MM-DD HH:mm:ss')} UTC")
     future_time = now.shift(days=1)
     logger.info(f"║   • Future time: {future_time.format('YYYY-MM-DD HH:mm:ss')} UTC")
+
+    # Use our specialized debug helper
+    debug_datetime_comparison(
+        now.datetime, future_time.datetime, "current_time", "future_time"
+    )
 
     with pytest.raises(ValueError, match="is in the future"):
         await manager.get_data(
@@ -512,7 +528,12 @@ async def test_date_validation(manager: DataSourceManager, now: arrow.Arrow) -> 
     logger.info(f"║   • Start time: {start_time.format('YYYY-MM-DD HH:mm:ss')} UTC")
     logger.info(f"║   • End time: {end_time.format('YYYY-MM-DD HH:mm:ss')} UTC")
 
-    with pytest.raises(ValueError, match="must be before"):
+    # Use our specialized debug helper
+    debug_datetime_comparison(
+        start_time.datetime, end_time.datetime, "start_time", "end_time"
+    )
+
+    with pytest.raises(ValueError, match="is after end time"):
         await manager.get_data(
             symbol=TEST_SYMBOL,
             interval=TEST_INTERVAL,

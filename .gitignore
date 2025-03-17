@@ -90,4 +90,7 @@ sdist
 develop-eggs
 .installed.cfg
 lib
-lib64 
+lib64
+
+# Cache
+cache/
