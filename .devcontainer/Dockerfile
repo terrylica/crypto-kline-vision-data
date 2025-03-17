@@ -17,3 +17,15 @@ RUN pip3 install twine pytest>=8.0.0 pytest-asyncio>=0.23.5
 
 # Add .local/bin to PATH for the vscode user to remove WARNINGs
 RUN echo "export PATH=\$PATH:/home/vscode/.local/bin" >> /home/vscode/.bashrc
+
+# Configure Git for better DevContainer experience
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git-lfs \
+    && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+
+# Fix SSH config for DevContainer
+RUN mkdir -p /home/vscode/.ssh && \
+    echo "Host github.com\n\tStrictHostKeyChecking no\n" >> /home/vscode/.ssh/config && \
+    chown -R vscode:vscode /home/vscode/.ssh && \
+    chmod 700 /home/vscode/.ssh && \
+    chmod 600 /home/vscode/.ssh/config
