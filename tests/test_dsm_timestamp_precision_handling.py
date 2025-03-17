@@ -1,11 +1,20 @@
 #!/usr/bin/env python
-"""Integration tests for DataSourceManager focusing on time boundaries and data formats.
+"""Integration tests for DataSourceManager focusing on time formats and precision.
 
 Focus areas:
-1. Time boundary behaviors
+1. Time boundary behaviors and alignment
 2. Input format validation and defaults
 3. Output format consistency and guarantees
-4. Timezone handling and conversions
+4. Timestamp precision handling
+5. Timezone handling and conversions
+
+This is the primary file for all timestamp format and precision related tests.
+It defines the core expectations and guarantees about how timestamps are handled.
+
+Related tests:
+- For specific boundary edge cases: see test_data_source_manager_boundary.py
+- For year boundary specific tests: see test_data_source_manager_year_boundary.py
+- For general validation and data tests: see test_data_source_manager_consolidated.py
 """
 
 import pytest
@@ -16,9 +25,9 @@ from typing import Any, cast as type_cast
 import numpy as np
 import pytest_asyncio
 
-from ml_feature_set.utils.logger_setup import get_logger
-from ml_feature_set.binance_data_services.core.data_source_manager import DataSourceManager
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval, MarketType
+from utils.logger_setup import get_logger
+from core.data_source_manager import DataSourceManager
+from utils.market_constraints import Interval, MarketType
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -74,12 +83,18 @@ def to_arrow(dt: Any) -> arrow.Arrow:
         raise ValueError(f"Cannot convert {type(dt)} to Arrow: {str(e)}")
 
 
-def log_test_motivation(test_name: str, motivation: str, expectations: list[str], implications: list[str]) -> None:
+def log_test_motivation(
+    test_name: str, motivation: str, expectations: list[str], implications: list[str]
+) -> None:
     """Log detailed test motivation and expectations."""
     logger.info("")
-    logger.info("╔════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╔════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
     logger.info(f"║ 🧪 TEST CASE: {test_name}")
-    logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╠════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
     logger.info("║ 🎯 MOTIVATION:")
     for line in motivation.split("\n"):
         logger.info(f"║   {line.strip()}")
@@ -94,18 +109,26 @@ def log_test_motivation(test_name: str, motivation: str, expectations: list[str]
     for i, imp in enumerate(implications, 1):
         logger.info(f"║   {i}. {imp}")
 
-    logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╚════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
 
 
 def log_dataframe_info(df: pd.DataFrame, source: str) -> None:
     """Log detailed DataFrame information for analysis."""
-    logger.info("╔════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╔════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
     logger.info(f"║ 📊 DATA ANALYSIS REPORT - {source}")
-    logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╠════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
 
     if df.empty:
         logger.warning("║ ⚠️  DataFrame is empty!")
-        logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════")
+        logger.info(
+            "╚════════════════════════════════════════════════════════════════════════════════════════════════════════"
+        )
         return
 
     # Basic Information
@@ -123,8 +146,12 @@ def log_dataframe_info(df: pd.DataFrame, source: str) -> None:
     logger.info("║ ⏰ Time Range Analysis:")
     first_ts = to_arrow(df.index[0])
     last_ts = to_arrow(df.index[-1])
-    logger.info(f"║   • 🔵 First Record: {first_ts.format('YYYY-MM-DD HH:mm:ss.SSSSSS')} UTC")
-    logger.info(f"║   • 🔴 Last Record: {last_ts.format('YYYY-MM-DD HH:mm:ss.SSSSSS')} UTC")
+    logger.info(
+        f"║   • 🔵 First Record: {first_ts.format('YYYY-MM-DD HH:mm:ss.SSSSSS')} UTC"
+    )
+    logger.info(
+        f"║   • 🔴 Last Record: {last_ts.format('YYYY-MM-DD HH:mm:ss.SSSSSS')} UTC"
+    )
     logger.info(f"║   • ⌛ Total Duration: {last_ts - first_ts}")
     logger.info(f"║   • 🎯 Record Count: {len(df):,}")
 
@@ -135,7 +162,9 @@ def log_dataframe_info(df: pd.DataFrame, source: str) -> None:
         sample_val = df[col].iloc[0]
         logger.info(f"║   • {col}: {df[col].dtype} (e.g., {sample_val})")
 
-    logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════")
+    logger.info(
+        "╚════════════════════════════════════════════════════════════════════════════════════════════════════════"
+    )
 
 
 @pytest_asyncio.fixture
@@ -173,9 +202,15 @@ async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Ar
         # Case 1: Clean second boundaries
         (base_time.floor("second"), base_time.floor("second").shift(seconds=10)),
         # Case 2: Millisecond precision
-        (base_time.shift(microseconds=500000), base_time.shift(seconds=10, microseconds=750000)),
+        (
+            base_time.shift(microseconds=500000),
+            base_time.shift(seconds=10, microseconds=750000),
+        ),
         # Case 3: Microsecond precision
-        (base_time.shift(microseconds=123456), base_time.shift(seconds=10, microseconds=987654)),
+        (
+            base_time.shift(microseconds=123456),
+            base_time.shift(seconds=10, microseconds=987654),
+        ),
     ]
 
     for start_time, end_time in test_cases:
@@ -189,7 +224,10 @@ async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Ar
             use_cache=False,
         )
 
-        log_dataframe_info(df, f"Alignment Test ({start_time.format('ss.SSSSSS')} to {end_time.format('ss.SSSSSS')})")
+        log_dataframe_info(
+            df,
+            f"Alignment Test ({start_time.format('ss.SSSSSS')} to {end_time.format('ss.SSSSSS')})",
+        )
 
         # Verify index properties
         assert isinstance(df.index, pd.DatetimeIndex), "Index must be DatetimeIndex"
@@ -197,7 +235,9 @@ async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Ar
 
         # Check timestamp precision
         index_microseconds = df.index.astype(np.int64) % 1_000_000
-        assert np.all(index_microseconds == 0), "Timestamps should be aligned to seconds"
+        assert np.all(
+            index_microseconds == 0
+        ), "Timestamps should be aligned to seconds"
 
 
 @pytest.mark.real
@@ -206,7 +246,8 @@ async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arro
     """Test how DataSourceManager handles different input time formats."""
     log_test_motivation(
         "Input Format Handling",
-        "Testing DataSourceManager's ability to handle various input time formats " "and understanding what formats are accepted/rejected.",
+        "Testing DataSourceManager's ability to handle various input time formats "
+        "and understanding what formats are accepted/rejected.",
         expectations=[
             "Accepts datetime objects",
             "Accepts pandas Timestamps",
@@ -229,7 +270,10 @@ async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arro
         # Python datetime
         (base_time.datetime, (base_time + time_window).datetime),
         # Pandas Timestamp
-        (pd.Timestamp(base_time.datetime), pd.Timestamp((base_time + time_window).datetime)),
+        (
+            pd.Timestamp(base_time.datetime),
+            pd.Timestamp((base_time + time_window).datetime),
+        ),
         # Arrow object (converted to datetime)
         (base_time, base_time.shift(minutes=5)),
     ]
@@ -248,7 +292,9 @@ async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arro
         log_dataframe_info(df, f"Format Test ({type(start_time).__name__})")
 
         # Verify consistent output format regardless of input
-        assert isinstance(df.index, pd.DatetimeIndex), "Output index must be DatetimeIndex"
+        assert isinstance(
+            df.index, pd.DatetimeIndex
+        ), "Output index must be DatetimeIndex"
         assert df.index.tz == timezone.utc, "Output must be UTC timezone-aware"
 
         # Verify data types of key columns
@@ -317,7 +363,9 @@ async def test_output_format_guarantees(manager: DataSourceManager, now: arrow.A
 
     # Verify timestamp alignment
     time_diffs = df.index.to_series().diff().dropna()
-    assert (time_diffs == pd.Timedelta(seconds=1)).all(), "Timestamps must be 1-second aligned"
+    assert (
+        time_diffs == pd.Timedelta(seconds=1)
+    ).all(), "Timestamps must be 1-second aligned"
 
 
 @pytest.mark.real
@@ -347,7 +395,10 @@ async def test_timestamp_precision_handling(manager: DataSourceManager, now: arr
         # Case 1: Exact second boundary
         (base_time.floor("second"), base_time.floor("second").shift(seconds=5)),
         # Case 2: Sub-second precision
-        (base_time.shift(microseconds=123456), base_time.shift(seconds=5, microseconds=654321)),
+        (
+            base_time.shift(microseconds=123456),
+            base_time.shift(seconds=5, microseconds=654321),
+        ),
     ]
 
     for start_time, end_time in test_cases:
@@ -364,15 +415,22 @@ async def test_timestamp_precision_handling(manager: DataSourceManager, now: arr
             use_cache=False,
         )
 
-        log_dataframe_info(df, f"Precision Test ({start_time.format('ss.SSSSSS')} to {end_time.format('ss.SSSSSS')})")
+        log_dataframe_info(
+            df,
+            f"Precision Test ({start_time.format('ss.SSSSSS')} to {end_time.format('ss.SSSSSS')})",
+        )
 
         # Verify close_time precision
         close_time_micros = pd.Series(df["close_time"].values).astype(str).str[-6:]
-        assert not (close_time_micros == "000000").all(), "close_time should maintain microsecond precision"
+        assert not (
+            close_time_micros == "000000"
+        ).all(), "close_time should maintain microsecond precision"
 
         # Check index alignment
         index_microseconds = df.index.astype(np.int64) % 1_000_000
-        assert np.sum(index_microseconds) == 0, "Index timestamps should be second-aligned"
+        assert (
+            np.sum(index_microseconds) == 0
+        ), "Index timestamps should be second-aligned"
 
 
 @pytest.mark.real
@@ -415,9 +473,15 @@ async def test_data_point_relationships(manager: DataSourceManager, now: arrow.A
     assert (df["low"] <= df["close"]).all(), "Low should be <= close"
 
     # Verify volume relationships
-    assert (df["taker_buy_volume"] <= df["volume"]).all(), "Taker buy volume should be <= total volume"
-    assert (df["taker_buy_quote_volume"] <= df["quote_volume"]).all(), "Taker buy quote volume should be <= total quote volume"
+    assert (
+        df["taker_buy_volume"] <= df["volume"]
+    ).all(), "Taker buy volume should be <= total volume"
+    assert (
+        df["taker_buy_quote_volume"] <= df["quote_volume"]
+    ).all(), "Taker buy quote volume should be <= total quote volume"
 
     # Verify time-based patterns
     time_diffs = df.index.to_series().diff().dropna()
-    assert (time_diffs == pd.Timedelta(seconds=1)).all(), "Time difference between points should be exactly 1 second"
+    assert (
+        time_diffs == pd.Timedelta(seconds=1)
+    ).all(), "Time difference between points should be exactly 1 second"

@@ -8,7 +8,7 @@ from typing import Dict, Optional, Tuple, Any
 import pandas as pd
 import pyarrow as pa
 
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 from .vision_constraints import validate_cache_checksum
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
@@ -89,7 +89,9 @@ class UnifiedCacheManager:
         """
         return f"{symbol}_{interval}_{date.strftime('%Y%m')}"
 
-    async def save_to_cache(self, df: pd.DataFrame, symbol: str, interval: str, date: datetime) -> Tuple[str, int]:
+    async def save_to_cache(
+        self, df: pd.DataFrame, symbol: str, interval: str, date: datetime
+    ) -> Tuple[str, int]:
         """Save DataFrame to cache.
 
         Args:
@@ -132,7 +134,9 @@ class UnifiedCacheManager:
         logger.info(f"Cached {record_count} records to {cache_path}")
         return checksum, record_count
 
-    async def load_from_cache(self, symbol: str, interval: str, date: datetime) -> Optional[pd.DataFrame]:
+    async def load_from_cache(
+        self, symbol: str, interval: str, date: datetime
+    ) -> Optional[pd.DataFrame]:
         """Load data from cache if available.
 
         Args:

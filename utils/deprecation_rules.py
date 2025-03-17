@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 from functools import lru_cache
 import pandas as pd
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 from .market_constraints import Interval as MarketInterval
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
@@ -64,12 +64,22 @@ class TimeUnit(str, enum.Enum):
     @classmethod
     def from_shorthand(cls, shorthand: str) -> TimeUnit:
         """Convert shorthand notation to TimeUnit enum."""
-        _shorthand_map = {"s": cls.SECOND, "m": cls.MINUTE, "h": cls.HOUR, "d": cls.DAY, "w": cls.WEEK, "M": cls.MONTH, "y": cls.YEAR}
+        _shorthand_map = {
+            "s": cls.SECOND,
+            "m": cls.MINUTE,
+            "h": cls.HOUR,
+            "d": cls.DAY,
+            "w": cls.WEEK,
+            "M": cls.MONTH,
+            "y": cls.YEAR,
+        }
         try:
             return _shorthand_map[shorthand.lower()]
         except KeyError:
             valid_units = ", ".join(_shorthand_map.keys())
-            raise IntervalParseError(f"Invalid time unit '{shorthand}'. Valid units are: {valid_units}")
+            raise IntervalParseError(
+                f"Invalid time unit '{shorthand}'. Valid units are: {valid_units}"
+            )
 
     @classmethod
     def from_market_interval(cls, interval: MarketInterval) -> TimeUnit:
@@ -109,9 +119,13 @@ class Interval:
     def __post_init__(self):
         """Validate interval value after initialization."""
         if not isinstance(self.value, int):
-            raise IntervalParseError(f"Interval value must be an integer, got {type(self.value)}")
+            raise IntervalParseError(
+                f"Interval value must be an integer, got {type(self.value)}"
+            )
         if not self.MIN_VALUE <= self.value <= self.MAX_VALUE:
-            raise IntervalParseError(f"Interval value must be between {self.MIN_VALUE} and {self.MAX_VALUE}, got {self.value}")
+            raise IntervalParseError(
+                f"Interval value must be between {self.MIN_VALUE} and {self.MAX_VALUE}, got {self.value}"
+            )
 
     @classmethod
     def from_string(cls, interval: str) -> Interval:
@@ -153,7 +167,9 @@ class Interval:
             value = int(value_str)
             time_unit = TimeUnit.from_shorthand(unit_str)
         except (ValueError, IntervalParseError) as e:
-            raise IntervalParseError(f"Invalid market interval: {interval.value}") from e
+            raise IntervalParseError(
+                f"Invalid market interval: {interval.value}"
+            ) from e
 
         return cls(value=value, unit=time_unit)
 

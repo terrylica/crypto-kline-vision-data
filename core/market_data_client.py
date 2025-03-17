@@ -8,16 +8,16 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any, Set, Union
 import pandas as pd
 import numpy as np
-from ml_feature_set.utils.logger_setup import get_logger
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval, MarketType, get_market_capabilities
-from ml_feature_set.binance_data_services.utils.time_alignment import (
+from utils.logger_setup import get_logger
+from utils.market_constraints import Interval, MarketType, get_market_capabilities
+from utils.time_alignment import (
     adjust_time_window,
     get_bar_close_time,
     get_interval_floor,
     is_bar_complete,
 )
-from ml_feature_set.binance_data_services.utils.hardware_monitor import HardwareMonitor
-from ml_feature_set.binance_data_services.utils.validation import DataValidation
+from utils.hardware_monitor import HardwareMonitor
+from utils.validation import DataValidation
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -40,7 +40,9 @@ def create_http_client(
     connector = aiohttp.TCPConnector(limit=max_connections, force_close=False)
 
     return aiohttp.ClientSession(
-        timeout=timeout, connector=connector, headers={"Accept": "application/json", "User-Agent": "EnhancedRetriever/2.0"}
+        timeout=timeout,
+        connector=connector,
+        headers={"Accept": "application/json", "User-Agent": "EnhancedRetriever/2.0"},
     )
 
 
@@ -95,7 +97,16 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:  # type: ignore
             logger.debug(f"{col} microseconds: {df[col].iloc[0].microsecond}")
 
     # Convert numeric columns efficiently
-    numeric_cols = ["open", "high", "low", "close", "volume", "quote_volume", "taker_buy_base", "taker_buy_quote"]
+    numeric_cols = [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "quote_volume",
+        "taker_buy_base",
+        "taker_buy_quote",
+    ]
     df[numeric_cols] = df[numeric_cols].astype(np.float64)  # type: ignore
     df["trades"] = df["trades"].astype(np.int32)  # type: ignore
 
@@ -133,7 +144,9 @@ class EnhancedRetriever:
         if market_type != MarketType.SPOT:
             raise ValueError("Only SPOT market type supports 1-second data")
         if self._capabilities.max_limit != self.CHUNK_SIZE:
-            raise ValueError(f"API limit {self._capabilities.max_limit} doesn't match CHUNK_SIZE {self.CHUNK_SIZE}")
+            raise ValueError(
+                f"API limit {self._capabilities.max_limit} doesn't match CHUNK_SIZE {self.CHUNK_SIZE}"
+            )
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -154,7 +167,11 @@ class EnhancedRetriever:
             all_endpoints = (
                 [self._capabilities.primary_endpoint]
                 + self._capabilities.backup_endpoints
-                + ([self._capabilities.data_only_endpoint] if self._capabilities.data_only_endpoint else [])
+                + (
+                    [self._capabilities.data_only_endpoint]
+                    if self._capabilities.data_only_endpoint
+                    else []
+                )
             )
 
             endpoint = all_endpoints[self._endpoint_index]
@@ -210,21 +227,35 @@ class EnhancedRetriever:
                         "limit": self.CHUNK_SIZE,
                     }
 
-                    logger.debug(f"Fetching chunk: {start_ms} -> {end_ms} from {endpoint_url}")
+                    logger.debug(
+                        f"Fetching chunk: {start_ms} -> {end_ms} from {endpoint_url}"
+                    )
                     async with self.client.get(endpoint_url, params=params) as response:  # type: ignore
                         response.raise_for_status()
                         data: List[List[Any]] = await response.json()
 
                         # Validate and log response
                         if not isinstance(data, list):
-                            logger.warning(f"Unexpected response format from {endpoint_url}: {data}")
-                            raise ValueError(f"Expected list response, got {type(data)}")
+                            logger.warning(
+                                f"Unexpected response format from {endpoint_url}: {data}"
+                            )
+                            raise ValueError(
+                                f"Expected list response, got {type(data)}"
+                            )
 
-                        logger.debug(f"Received {len(data)} records")  # Changed from info to debug
+                        logger.debug(
+                            f"Received {len(data)} records"
+                        )  # Changed from info to debug
                         if data:
-                            first_ts = datetime.fromtimestamp(int(data[0][0]) / 1000, tz=timezone.utc)
-                            last_ts = datetime.fromtimestamp(int(data[-1][0]) / 1000, tz=timezone.utc)
-                            logger.debug(f"First timestamp: {first_ts}\nLast timestamp: {last_ts}\nTime span: {last_ts - first_ts}")
+                            first_ts = datetime.fromtimestamp(
+                                int(data[0][0]) / 1000, tz=timezone.utc
+                            )
+                            last_ts = datetime.fromtimestamp(
+                                int(data[-1][0]) / 1000, tz=timezone.utc
+                            )
+                            logger.debug(
+                                f"First timestamp: {first_ts}\nLast timestamp: {last_ts}\nTime span: {last_ts - first_ts}"
+                            )
 
                         return data, endpoint_url  # type: ignore
 
@@ -236,10 +267,14 @@ class EnhancedRetriever:
                     await asyncio.sleep(self.RETRY_DELAY)
                 continue
 
-        logger.error(f"Failed to fetch chunk after {self.MAX_RETRIES} retries: {str(last_error)}")
+        logger.error(
+            f"Failed to fetch chunk after {self.MAX_RETRIES} retries: {str(last_error)}"
+        )
         raise last_error or Exception("Failed to fetch chunk after all retries")
 
-    def _validate_request_params(self, symbol: str, interval: Interval, start_time: datetime, end_time: datetime) -> None:
+    def _validate_request_params(
+        self, symbol: str, interval: Interval, start_time: datetime, end_time: datetime
+    ) -> None:
         """Validate request parameters using utility functions.
 
         Args:
@@ -261,7 +296,9 @@ class EnhancedRetriever:
             timeout=30,  # Increased for large datasets
         )
 
-    def _calculate_chunks(self, start_ms: int, end_ms: int, interval: Interval) -> List[Tuple[int, int]]:
+    def _calculate_chunks(
+        self, start_ms: int, end_ms: int, interval: Interval
+    ) -> List[Tuple[int, int]]:
         """Calculate optimal chunk sizes for the time window.
 
         Args:
@@ -274,7 +311,9 @@ class EnhancedRetriever:
         """
         # Count available endpoints
         endpoint_count = (
-            1 + len(self._capabilities.backup_endpoints) + (1 if self._capabilities.data_only_endpoint else 0)  # Primary endpoint
+            1
+            + len(self._capabilities.backup_endpoints)
+            + (1 if self._capabilities.data_only_endpoint else 0)  # Primary endpoint
         )
 
         # Calculate total records needed
@@ -287,7 +326,9 @@ class EnhancedRetriever:
         # - But no more chunks than records (can't split a record)
         # - And no chunk larger than max_limit
         min_chunks = min(endpoint_count, total_records)
-        max_chunks_by_limit = (total_records + self._capabilities.max_limit - 1) // self._capabilities.max_limit
+        max_chunks_by_limit = (
+            total_records + self._capabilities.max_limit - 1
+        ) // self._capabilities.max_limit
         num_chunks = max(min_chunks, max_chunks_by_limit)
 
         # Calculate chunk size in milliseconds, ensuring it's a multiple of the interval
@@ -313,9 +354,12 @@ class EnhancedRetriever:
         # Log chunk boundaries for verification
         for i, (chunk_start, chunk_end) in enumerate(chunks):
             start_time = datetime.fromtimestamp(chunk_start / 1000, tz=timezone.utc)
-            end_time = datetime.fromtimestamp((chunk_end + 1) / 1000, tz=timezone.utc)  # Add 1ms back for logging
+            end_time = datetime.fromtimestamp(
+                (chunk_end + 1) / 1000, tz=timezone.utc
+            )  # Add 1ms back for logging
             logger.debug(
-                f"Chunk {i + 1}/{len(chunks)}: {start_time} -> {end_time} " f"({(chunk_end - chunk_start + 1)/interval_ms:.0f} intervals)"
+                f"Chunk {i + 1}/{len(chunks)}: {start_time} -> {end_time} "
+                f"({(chunk_end - chunk_start + 1)/interval_ms:.0f} intervals)"
             )
 
         return chunks  # type: ignore
@@ -336,10 +380,14 @@ class EnhancedRetriever:
 
         # Allow 1ms tolerance
         if abs(duration - expected_duration) > 0.001:
-            logger.warning(f"Irregular bar duration at {open_time}: {duration}s (expected {expected_duration}s)")
+            logger.warning(
+                f"Irregular bar duration at {open_time}: {duration}s (expected {expected_duration}s)"
+            )
         return duration
 
-    def _validate_historical_bars(self, df: pd.DataFrame, current_time: datetime) -> int:
+    def _validate_historical_bars(
+        self, df: pd.DataFrame, current_time: datetime
+    ) -> int:
         """Validate historical bar completion.
 
         Args:
@@ -374,7 +422,10 @@ class EnhancedRetriever:
             expected_close = get_bar_close_time(open_time, interval)  # type: ignore
 
             if close_time != expected_close:
-                logger.warning(f"Bar at {open_time} has incorrect close time: " f"{close_time} (expected {expected_close})")
+                logger.warning(
+                    f"Bar at {open_time} has incorrect close time: "
+                    f"{close_time} (expected {expected_close})"
+                )
 
         # Verify time alignment
         for ts in df["open_time"]:  # type: ignore
@@ -408,7 +459,9 @@ class EnhancedRetriever:
         # Ensure times are in UTC and properly aligned
         start_time = start_time.astimezone(timezone.utc)
         end_time = end_time.astimezone(timezone.utc)
-        adjusted_start, adjusted_end = adjust_time_window(start_time, end_time, interval)
+        adjusted_start, adjusted_end = adjust_time_window(
+            start_time, end_time, interval
+        )
 
         if adjusted_start != start_time or adjusted_end != end_time:
             logger.info(
@@ -455,7 +508,9 @@ class EnhancedRetriever:
             df = process_kline_data(all_data)
 
             # Log initial state before deduplication
-            logger.debug(f"Initial DataFrame shape before deduplication: {df.shape}")  # Changed from info to debug
+            logger.debug(
+                f"Initial DataFrame shape before deduplication: {df.shape}"
+            )  # Changed from info to debug
 
             # Check for duplicates and log details
             duplicates = df.duplicated(subset=["open_time"], keep=False)
@@ -467,7 +522,9 @@ class EnhancedRetriever:
                 )
 
                 # Log a sample of duplicate records for analysis
-                for ts in duplicate_df["open_time"].unique()[:2]:  # Show first 2 duplicate pairs
+                for ts in duplicate_df["open_time"].unique()[
+                    :2
+                ]:  # Show first 2 duplicate pairs
                     dup_rows = duplicate_df[duplicate_df["open_time"] == ts]
                     logger.error(f"\nDuplicate records at {ts}:")  # Keep as error
                     for _, row in dup_rows.iterrows():
@@ -477,7 +534,9 @@ class EnhancedRetriever:
             df = df.drop_duplicates(subset=["open_time"], keep="first")
             df = df.sort_values("open_time").reset_index(drop=True)  # type: ignore
 
-            logger.debug(f"Final DataFrame shape after deduplication: {df.shape}")  # Changed from info to debug
+            logger.debug(
+                f"Final DataFrame shape after deduplication: {df.shape}"
+            )  # Changed from info to debug
 
             # Validate time alignment
             self._validate_bar_alignment(df, interval)
@@ -486,7 +545,9 @@ class EnhancedRetriever:
             current_time = datetime.now(timezone.utc)
             incomplete_bars = [ts for ts in df["open_time"] if not is_bar_complete(ts, current_time)]  # type: ignore
             if incomplete_bars:
-                logger.error(f"Found {len(incomplete_bars)} incomplete bars")  # Keep as error
+                logger.error(
+                    f"Found {len(incomplete_bars)} incomplete bars"
+                )  # Keep as error
         else:
             df = pd.DataFrame()
 

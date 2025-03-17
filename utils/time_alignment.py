@@ -15,8 +15,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, List
 import re
 
-from ml_feature_set.utils.logger_setup import get_logger
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval
+from utils.logger_setup import get_logger
+from utils.market_constraints import Interval
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -60,7 +60,15 @@ class TimeUnit:
     @classmethod
     def get_all_units(cls) -> List["TimeUnit"]:
         """Get all available units in descending order of size."""
-        return [cls.WEEK(), cls.DAY(), cls.HOUR(), cls.MINUTE(), cls.SECOND(), cls.MILLI(), cls.MICRO()]
+        return [
+            cls.WEEK(),
+            cls.DAY(),
+            cls.HOUR(),
+            cls.MINUTE(),
+            cls.SECOND(),
+            cls.MILLI(),
+            cls.MICRO(),
+        ]
 
 
 def get_interval_micros(interval: Interval) -> int:
@@ -206,7 +214,11 @@ def adjust_time_window(
     end_floor = get_interval_floor(end_time, interval)
 
     # For start time: round UP if there are any sub-interval units
-    adjusted_start = get_interval_ceiling(start_time, interval) if start_time > start_floor else start_floor
+    adjusted_start = (
+        get_interval_ceiling(start_time, interval)
+        if start_time > start_floor
+        else start_floor
+    )
 
     # For end time: check if we're in an incomplete interval
     interval_td = get_interval_timedelta(interval)
@@ -229,7 +241,9 @@ def adjust_time_window(
     return adjusted_start, adjusted_end
 
 
-def is_bar_complete(bar_time: datetime, current_time: datetime, interval: Interval = Interval.SECOND_1) -> bool:
+def is_bar_complete(
+    bar_time: datetime, current_time: datetime, interval: Interval = Interval.SECOND_1
+) -> bool:
     """Check if a bar is complete based on its timestamp.
 
     A bar is considered complete when:

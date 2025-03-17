@@ -53,7 +53,7 @@ import time
 import numpy as np
 import warnings
 
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 from .vision_constraints import (
     TimestampedDataFrame,
     validate_cache_path,
@@ -77,7 +77,7 @@ from .vision_constraints import (
     validate_dataframe_integrity,
     detect_timestamp_unit,
 )
-from ml_feature_set.binance_data_services.utils.download_handler import DownloadHandler
+from utils.download_handler import DownloadHandler
 
 # Type variables for generic type hints
 T = TypeVar("T", bound=TimestampedDataFrame)
@@ -160,7 +160,9 @@ class CacheMetadata:
         }
         self._save_metadata()
 
-    def get_cache_info(self, symbol: str, interval: str, date: datetime) -> Optional[Dict[str, str | int | float]]:
+    def get_cache_info(
+        self, symbol: str, interval: str, date: datetime
+    ) -> Optional[Dict[str, str | int | float]]:
         """Get cache information for a specific data point.
 
         Args:
@@ -186,7 +188,12 @@ class SafeMemoryMap:
         self._mmap = pa.memory_map(str(self.path), "r")
         return self._mmap
 
-    def __exit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[object]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[Exception],
+        exc_tb: Optional[object],
+    ) -> None:
         if self._mmap is not None:
             self._mmap.close()
 
@@ -224,7 +231,11 @@ class VisionDataClient(Generic[T]):
         self.interval = interval
         self.cache_dir = cache_dir
         self.use_cache = use_cache
-        self.max_concurrent_downloads = max_concurrent_downloads if max_concurrent_downloads else MAX_CONCURRENT_DOWNLOADS
+        self.max_concurrent_downloads = (
+            max_concurrent_downloads
+            if max_concurrent_downloads
+            else MAX_CONCURRENT_DOWNLOADS
+        )
         self._current_mmap = None
         self._current_mmap_path = None
 
@@ -232,9 +243,13 @@ class VisionDataClient(Generic[T]):
         if cache_dir and use_cache:
             try:
                 # Create symbol-specific cache directory
-                self.symbol_cache_dir = get_cache_path(cache_dir, self.symbol, self.interval, datetime.now(timezone.utc)).parent
+                self.symbol_cache_dir = get_cache_path(
+                    cache_dir, self.symbol, self.interval, datetime.now(timezone.utc)
+                ).parent
                 self.symbol_cache_dir.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Created cache directory structure at: {self.symbol_cache_dir}")
+                logger.info(
+                    f"Created cache directory structure at: {self.symbol_cache_dir}"
+                )
 
                 # Initialize metadata manager
                 self.metadata = CacheMetadata(cache_dir)
@@ -250,23 +265,38 @@ class VisionDataClient(Generic[T]):
             self.metadata = None
 
         # Initialize temporary file paths for downloads
-        self._data_path = Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_data.zip"
-        self._checksum_path = Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_checksum"
+        self._data_path = (
+            Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_data.zip"
+        )
+        self._checksum_path = (
+            Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_checksum"
+        )
 
         # Initialize HTTP client with optimal settings for download constraints
         max_connections = MAX_CONCURRENT_DOWNLOADS * FILES_PER_DAY
         self.client = httpx.AsyncClient(
-            limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections), timeout=httpx.Timeout(10.0)
+            limits=httpx.Limits(
+                max_connections=max_connections,
+                max_keepalive_connections=max_connections,
+            ),
+            timeout=httpx.Timeout(10.0),
         )
 
         # Initialize download handler
-        self.download_handler = DownloadHandler(self.client, max_retries=5, min_wait=4, max_wait=60)
+        self.download_handler = DownloadHandler(
+            self.client, max_retries=5, min_wait=4, max_wait=60
+        )
 
     async def __aenter__(self) -> "VisionDataClient[T]":
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[object]) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[Exception],
+        exc_tb: Optional[object],
+    ) -> None:
         """Async context manager exit."""
         if self._current_mmap is not None:  # type: ignore
             self._current_mmap.close()  # type: ignore
@@ -283,7 +313,11 @@ class VisionDataClient(Generic[T]):
         Returns:
             Path to cache file
         """
-        return get_cache_path(self.cache_dir, self.symbol, self.interval, date) if self.cache_dir else Path()
+        return (
+            get_cache_path(self.cache_dir, self.symbol, self.interval, date)
+            if self.cache_dir
+            else Path()
+        )
 
     def _get_checksum_url(self, date: datetime) -> str:
         """Get checksum URL for a specific date.
@@ -323,7 +357,9 @@ class VisionDataClient(Generic[T]):
                 response.raise_for_status()
 
                 # Log response details
-                logger.info(f'HTTP Request: GET {url} "{response.status_code} {response.reason_phrase}"')
+                logger.info(
+                    f'HTTP Request: GET {url} "{response.status_code} {response.reason_phrase}"'
+                )
 
                 if response.status_code == 200:
                     # Check content length
@@ -343,7 +379,9 @@ class VisionDataClient(Generic[T]):
 
                     return True
                 else:
-                    logger.error(f"Unexpected status code {response.status_code} from {url}")
+                    logger.error(
+                        f"Unexpected status code {response.status_code} from {url}"
+                    )
                     return False
 
         except httpx.RequestError as e:
@@ -444,7 +482,9 @@ class VisionDataClient(Generic[T]):
             logger.error(f"Unexpected error saving to cache: {e}")
             raise
 
-    async def _load_from_cache(self, cache_path: Path, columns: Optional[Sequence[str]] = None) -> TimestampedDataFrame:
+    async def _load_from_cache(
+        self, cache_path: Path, columns: Optional[Sequence[str]] = None
+    ) -> TimestampedDataFrame:
         """Load data from cache with optimized memory usage."""
         start_time_perf = time.perf_counter()
 
@@ -471,11 +511,15 @@ class VisionDataClient(Generic[T]):
             # Convert to pandas with zero-copy if possible
             t0 = time.perf_counter()
             df = table.to_pandas(zero_copy_only=True, date_as_object=False, use_threads=True, split_blocks=True, self_destruct=True)  # type: ignore
-            logger.info(f"Arrow to pandas conversion took: {time.perf_counter() - t0:.6f}s")
+            logger.info(
+                f"Arrow to pandas conversion took: {time.perf_counter() - t0:.6f}s"
+            )
 
             # Set index and validate
             if CANONICAL_INDEX_NAME not in df.columns:  # type: ignore
-                raise ValueError(f"Required index column {CANONICAL_INDEX_NAME} not found in data")
+                raise ValueError(
+                    f"Required index column {CANONICAL_INDEX_NAME} not found in data"
+                )
 
             df.set_index(CANONICAL_INDEX_NAME, inplace=True)  # type: ignore
             df.index = pd.to_datetime(df.index, utc=True)  # type: ignore
@@ -514,7 +558,9 @@ class VisionDataClient(Generic[T]):
             if not self.cache_dir:
                 return False
 
-            cache_path = get_cache_path(self.cache_dir, self.symbol, self.interval, start_time)
+            cache_path = get_cache_path(
+                self.cache_dir, self.symbol, self.interval, start_time
+            )
 
             # Check if we have metadata
             cache_info = self.metadata.get_cache_info(self.symbol, self.interval, start_time)  # type: ignore
@@ -522,7 +568,9 @@ class VisionDataClient(Generic[T]):
                 logger.warning("Invalid cache metadata")
                 return False
             # Validate cache integrity
-            if not validate_cache_checksum(cache_path, str(cache_info["checksum"] if cache_info else "")):
+            if not validate_cache_checksum(
+                cache_path, str(cache_info["checksum"] if cache_info else "")
+            ):
                 logger.warning("Cache checksum validation failed")
                 return False
             # Check if cache contains required data
@@ -559,7 +607,9 @@ class VisionDataClient(Generic[T]):
         validate_dataframe_integrity(df)
         self._validate_timestamp_ordering(df)  # Add timestamp validation
 
-    def _validate_time_boundaries(self, df: pd.DataFrame, start_time: datetime, end_time: datetime) -> None:
+    def _validate_time_boundaries(
+        self, df: pd.DataFrame, start_time: datetime, end_time: datetime
+    ) -> None:
         """Validate data completeness at time boundaries.
 
         Args:
@@ -592,7 +642,9 @@ class VisionDataClient(Generic[T]):
         # Validate minimal intervals
         if (end_time - start_time) <= timedelta(seconds=1):
             if len(df) < 1:
-                raise ValueError(f"Insufficient data for minimal interval: {start_time} to {end_time}")
+                raise ValueError(
+                    f"Insufficient data for minimal interval: {start_time} to {end_time}"
+                )
 
     def _validate_timestamp_ordering(self, df: pd.DataFrame) -> None:
         """Validate timestamp ordering and uniqueness.
@@ -655,7 +707,9 @@ class VisionDataClient(Generic[T]):
                 # Validate cache for this date
                 if self._validate_cache(start_time, end_time):
                     # Attempt to read from cache first
-                    logger.info(f"Loading data from cache for {start_time} to {end_time}")
+                    logger.info(
+                        f"Loading data from cache for {start_time} to {end_time}"
+                    )
                     df = await self._load_from_cache(cache_path, columns)
 
                     # Filter to requested time range
@@ -763,13 +817,24 @@ class VisionDataClient(Generic[T]):
 
                             # Save the full day's data to cache
                             logger.info(f"Saving data to cache: {cache_path}")
-                            checksum, record_count = await self._save_to_cache(df, cache_path, date)
+                            checksum, record_count = await self._save_to_cache(
+                                df, cache_path, date
+                            )
 
                             # Update metadata if available
                             if self.metadata:
-                                self.metadata.register_cache(self.symbol, self.interval, date, cache_path, checksum, record_count)
+                                self.metadata.register_cache(
+                                    self.symbol,
+                                    self.interval,
+                                    date,
+                                    cache_path,
+                                    checksum,
+                                    record_count,
+                                )
                                 self.metadata._save_metadata()
-                                logger.info(f"Updated cache metadata for {date.strftime('%Y-%m-%d')}")
+                                logger.info(
+                                    f"Updated cache metadata for {date.strftime('%Y-%m-%d')}"
+                                )
                         except Exception as e:
                             logger.error(f"Failed to save to cache: {e}")
                             # Continue with the next date even if caching fails
@@ -802,8 +867,14 @@ class VisionDataClient(Generic[T]):
         """
         # Create temporary directory for downloads
         temp_dir = Path(tempfile.mkdtemp())
-        data_file = temp_dir / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_data.zip"
-        checksum_file = temp_dir / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_checksum"
+        data_file = (
+            temp_dir
+            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_data.zip"
+        )
+        checksum_file = (
+            temp_dir
+            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_checksum"
+        )
 
         try:
             # Download data and checksum files
@@ -883,16 +954,26 @@ class VisionDataClient(Generic[T]):
                     # Add DEBUG logging for close_time conversion steps
                     logger.debug("\n=== Close Time Conversion Debug ===")
                     logger.debug(f"Original close_time dtype: {df['close_time'].dtype}")
-                    logger.debug(f"Original close_time sample: {df['close_time'].iloc[0]}")
+                    logger.debug(
+                        f"Original close_time sample: {df['close_time'].iloc[0]}"
+                    )
 
                     # Convert close_time to match REST API format exactly
                     df["close_time"] = df["close_time"].astype(np.int64)  # type: ignore
                     logger.debug(f"After int64 conversion: {df['close_time'].iloc[0]}")
 
-                    if len(str(df["close_time"].iloc[0])) == 19:  # nanoseconds  # type: ignore
-                        logger.debug("Detected nanosecond precision, converting to microseconds")
-                        df["close_time"] = df["close_time"] // 1000  # Convert to microseconds
-                        logger.debug(f"After nanosecond conversion: {df['close_time'].iloc[0]}")
+                    if (
+                        len(str(df["close_time"].iloc[0])) == 19
+                    ):  # nanoseconds  # type: ignore
+                        logger.debug(
+                            "Detected nanosecond precision, converting to microseconds"
+                        )
+                        df["close_time"] = (
+                            df["close_time"] // 1000
+                        )  # Convert to microseconds
+                        logger.debug(
+                            f"After nanosecond conversion: {df['close_time'].iloc[0]}"
+                        )
 
                     # Add 999999 microseconds to match REST API behavior
                     before_final = df["close_time"].iloc[0]
@@ -905,7 +986,9 @@ class VisionDataClient(Generic[T]):
                     # Verify microsecond precision
                     sample_close = pd.Timestamp(df["close_time"].iloc[0])
                     logger.debug(f"Sample close time as timestamp: {sample_close}")
-                    logger.debug(f"Sample close time microseconds: {sample_close.microsecond}")
+                    logger.debug(
+                        f"Sample close time microseconds: {sample_close.microsecond}"
+                    )
 
                     logger.info(f"Converted close_time. Sample value: {df['close_time'].iloc[0]}")  # type: ignore
                 except Exception as e:
@@ -916,7 +999,9 @@ class VisionDataClient(Generic[T]):
                 # Set index with validation
                 df.set_index("open_time", inplace=True)  # type: ignore
                 if not isinstance(df.index, pd.DatetimeIndex):
-                    raise ValueError(f"Index is not DatetimeIndex after setting: {type(df.index)}")
+                    raise ValueError(
+                        f"Index is not DatetimeIndex after setting: {type(df.index)}"
+                    )
 
                 # Drop ignored column
                 df = df.drop(columns=["ignored"])
@@ -926,7 +1011,9 @@ class VisionDataClient(Generic[T]):
                     df.index = df.index.tz_localize("UTC")  # type: ignore
                 # Ensure index has consistent microsecond precision
                 df.index = df.index.map(lambda x: x.replace(microsecond=0))  # type: ignore
-                logger.info("Localized index to UTC with consistent microsecond precision")
+                logger.info(
+                    "Localized index to UTC with consistent microsecond precision"
+                )
 
                 # Verify data continuity
                 time_diffs = df.index.to_series().diff()  # type: ignore
@@ -960,7 +1047,9 @@ class VisionDataClient(Generic[T]):
             except Exception as e:
                 logger.error(f"Error cleaning up temporary files: {str(e)}")
 
-    async def prefetch(self, start_time: datetime, end_time: datetime, max_days: int = 5) -> None:
+    async def prefetch(
+        self, start_time: datetime, end_time: datetime, max_days: int = 5
+    ) -> None:
         """Prefetch data for future use with concurrent downloads.
 
         Args:
@@ -991,7 +1080,9 @@ class VisionDataClient(Generic[T]):
             # Only prefetch if:
             # 1. Data isn't already cached
             # 2. Data is likely available based on consolidation window
-            if not self._validate_cache(current, current + timedelta(days=1)) and is_data_likely_available(current):
+            if not self._validate_cache(
+                current, current + timedelta(days=1)
+            ) and is_data_likely_available(current):
                 dates.append(current)  # type: ignore
             current += timedelta(days=1)
             days_checked += 1
@@ -1024,6 +1115,9 @@ class VisionDataClient(Generic[T]):
             Path to the temporary file
         """
         temp_file = tempfile.NamedTemporaryFile(
-            prefix=f"{self.symbol}_{self.interval}_{prefix}_", suffix=".tmp", delete=False, dir=tempfile.gettempdir()
+            prefix=f"{self.symbol}_{self.interval}_{prefix}_",
+            suffix=".tmp",
+            delete=False,
+            dir=tempfile.gettempdir(),
         )
         return Path(temp_file.name)

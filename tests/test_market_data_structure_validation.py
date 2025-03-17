@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 import pytest_asyncio
 
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -91,7 +91,11 @@ def validate_market_data_structure(df: pd.DataFrame) -> None:
     assert df["trades"].dtype in ["int32", "int64", "float64"], f"trades column has incorrect type: {df['trades'].dtype}"  # type: ignore
 
 
-def validate_time_integrity(df: pd.DataFrame, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None) -> None:
+def validate_time_integrity(
+    df: pd.DataFrame,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+) -> None:
     """Validate chronological integrity and time windows."""
     # Chronological order
     assert df["open_time"].is_monotonic_increasing, "Data is not in chronological order"  # type: ignore
@@ -113,7 +117,9 @@ def validate_time_integrity(df: pd.DataFrame, start_time: Optional[datetime] = N
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_market_data_integrity(api_session: aiohttp.ClientSession, test_symbol: str, test_interval: str):
+async def test_market_data_integrity(
+    api_session: aiohttp.ClientSession, test_symbol: str, test_interval: str
+):
     """Test market data integrity with real API data."""
     now = datetime.now(timezone.utc)
     start_time = now - timedelta(minutes=5)
@@ -169,7 +175,9 @@ async def test_market_data_integrity(api_session: aiohttp.ClientSession, test_sy
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_market_data_consistency(api_session: aiohttp.ClientSession, test_symbol: str, test_interval: str):
+async def test_market_data_consistency(
+    api_session: aiohttp.ClientSession, test_symbol: str, test_interval: str
+):
     """Test consistency of market data structure between fetches."""
     now = datetime.now(timezone.utc)
     # Use historical data to avoid live data changes

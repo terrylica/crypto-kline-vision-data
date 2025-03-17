@@ -1,22 +1,17 @@
 #!/usr/bin/env python
-"""Tests for enhanced caching functionality in DataSourceManager."""
+"""Tests for cache functionality in DataSourceManager."""
 
 import pytest
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-import tempfile
 import asyncio
 
-from ml_feature_set.binance_data_services.core.data_source_manager import DataSourceManager, DataSource
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval
+from core.data_source_manager import DataSourceManager, DataSource
+from utils.market_constraints import Interval
+from tests.utils.cache_test_utils import corrupt_cache_file
 
-
-@pytest.fixture
-def temp_cache_dir():
-    """Create temporary cache directory."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
+# Using the common temp_cache_dir fixture from conftest.py
 
 
 @pytest.mark.asyncio
@@ -32,7 +27,13 @@ async def test_cache_lifecycle(temp_cache_dir):
     end_time = start_time + timedelta(minutes=5)
 
     # Initial fetch and cache
-    df1 = await manager.get_data(symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, use_cache=True)
+    df1 = await manager.get_data(
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        use_cache=True,
+    )
     assert not df1.empty, "Initial fetch should return data"
 
     # Verify cache stats
@@ -42,7 +43,13 @@ async def test_cache_lifecycle(temp_cache_dir):
     assert stats["errors"] == 0, "No cache errors"
 
     # Fetch again to test cache hit
-    df2 = await manager.get_data(symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, use_cache=True)
+    df2 = await manager.get_data(
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        use_cache=True,
+    )
     assert not df2.empty, "Second fetch should return data"
     pd.testing.assert_frame_equal(df1, df2, check_dtype=True)
 
@@ -51,17 +58,27 @@ async def test_cache_lifecycle(temp_cache_dir):
     assert stats["hits"] == 1, "Second fetch should be a cache hit"
 
     # Test cache validation
-    is_valid, error = await manager.validate_cache_integrity(symbol=symbol, interval=interval.value, date=start_time)
+    is_valid, error = await manager.validate_cache_integrity(
+        symbol=symbol, interval=interval.value, date=start_time
+    )
     assert is_valid, f"Cache should be valid, got error: {error}"
 
     # Test cache repair (force by corrupting cache)
     if manager.cache_manager:  # Type check for linter
-        cache_path = manager.cache_manager.get_cache_path(symbol, interval.value, start_time)
-        with open(cache_path, "wb") as f:
-            f.write(b"corrupted data")
+        cache_path = manager.cache_manager.get_cache_path(
+            symbol, interval.value, start_time
+        )
+        # Use common utility to corrupt the cache file
+        corrupt_cache_file(cache_path)
 
     # Attempt to fetch corrupted data
-    df3 = await manager.get_data(symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, use_cache=True)
+    df3 = await manager.get_data(
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        use_cache=True,
+    )
     assert not df3.empty, "Fetch after repair should return data"
     pd.testing.assert_frame_equal(df1, df3, check_dtype=True)
 
@@ -82,18 +99,33 @@ async def test_concurrent_cache_access(temp_cache_dir):
     end_time = start_time + timedelta(minutes=10)
 
     # Initial fetch to populate cache
-    df_initial = await manager.get_data(symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, use_cache=True)
+    df_initial = await manager.get_data(
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        use_cache=True,
+    )
     assert not df_initial.empty, "Initial fetch should return data"
 
     # Reset cache stats after initial fetch
     manager._cache_stats = {"hits": 0, "misses": 0, "errors": 0}
 
     # Define time windows for concurrent access (using subsets of the cached data)
-    time_windows = [(start_time + timedelta(minutes=i), start_time + timedelta(minutes=i + 1)) for i in range(5)]
+    time_windows = [
+        (start_time + timedelta(minutes=i), start_time + timedelta(minutes=i + 1))
+        for i in range(5)
+    ]
 
     # Concurrent fetches
     async def fetch_data(start_time, end_time):
-        return await manager.get_data(symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, use_cache=True)
+        return await manager.get_data(
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            interval=interval,
+            use_cache=True,
+        )
 
     # Execute concurrent fetches
     results = await asyncio.gather(*[fetch_data(st, et) for st, et in time_windows])
@@ -102,8 +134,12 @@ async def test_concurrent_cache_access(temp_cache_dir):
     for i, df in enumerate(results):
         assert not df.empty, f"Fetch {i} should return data"
         st, et = time_windows[i]
-        expected_subset = df_initial[(df_initial.index >= st) & (df_initial.index <= et)]
-        pd.testing.assert_frame_equal(df.sort_index(), expected_subset.sort_index(), check_dtype=True)
+        expected_subset = df_initial[
+            (df_initial.index >= st) & (df_initial.index <= et)
+        ]
+        pd.testing.assert_frame_equal(
+            df.sort_index(), expected_subset.sort_index(), check_dtype=True
+        )
 
     # Verify cache performance
     stats = manager.get_cache_stats()
@@ -153,17 +189,29 @@ async def test_cache_data_integrity(temp_cache_dir):
 
     # Fetch with different data sources
     df_vision = await manager.get_data(
-        symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, enforce_source=DataSource.VISION
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        enforce_source=DataSource.VISION,
     )
 
     df_rest = await manager.get_data(
-        symbol=symbol, start_time=start_time, end_time=end_time, interval=interval, enforce_source=DataSource.REST
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        enforce_source=DataSource.REST,
     )
 
     # Verify data consistency
     assert df_vision.index.dtype == df_rest.index.dtype, "Index dtype should match"
-    assert getattr(df_vision.index, "tz", None) == timezone.utc, "Vision data should be in UTC"
-    assert getattr(df_rest.index, "tz", None) == timezone.utc, "REST data should be in UTC"
+    assert (
+        getattr(df_vision.index, "tz", None) == timezone.utc
+    ), "Vision data should be in UTC"
+    assert (
+        getattr(df_rest.index, "tz", None) == timezone.utc
+    ), "REST data should be in UTC"
 
     # Verify column dtypes
     for col, dtype in DataSourceManager.OUTPUT_DTYPES.items():

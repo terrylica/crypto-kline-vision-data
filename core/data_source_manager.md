@@ -14,8 +14,8 @@ The `DataSourceManager` serves as a mediator between different Binance data sour
 ### Module Location
 
 ```python
-from ml_feature_set.binance_data_services.core.data_source_manager import DataSourceManager
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval, MarketType
+from core.data_source_manager import DataSourceManager
+from utils.market_constraints import Interval, MarketType
 ```
 
 ## System Architecture

@@ -27,7 +27,9 @@ MILLISECOND_DIGITS: Final[int] = 13
 MICROSECOND_DIGITS: Final[int] = 16
 
 # Data availability constraints
-CONSOLIDATION_DELAY = timedelta(hours=12)  # Time Binance needs to consolidate daily data
+CONSOLIDATION_DELAY = timedelta(
+    hours=48
+)  # Time Binance needs to consolidate daily data - increased from 12h to 48h for safety margin
 
 # Type variable for DataFrame with enforced index
 T = TypeVar("T")
@@ -108,7 +110,9 @@ class CacheValidationError(NamedTuple):
 
 # File constraints
 MIN_VALID_FILE_SIZE: Final[int] = 1024  # 1KB minimum for valid data files
-MAX_CACHE_AGE: Final[timedelta] = timedelta(days=30)  # Maximum age before cache revalidation
+MAX_CACHE_AGE: Final[timedelta] = timedelta(
+    days=30
+)  # Maximum age before cache revalidation
 METADATA_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 
 
@@ -146,7 +150,9 @@ def classify_error(error: Exception) -> VisionErrorType:
 
 
 def validate_cache_integrity(
-    cache_path: Path, max_age: timedelta = MAX_CACHE_AGE, min_size: int = MIN_VALID_FILE_SIZE
+    cache_path: Path,
+    max_age: timedelta = MAX_CACHE_AGE,
+    min_size: int = MIN_VALID_FILE_SIZE,
 ) -> Optional[CacheValidationError]:
     """Validate cache file integrity.
 
@@ -160,26 +166,44 @@ def validate_cache_integrity(
     """
     try:
         if not cache_path.exists():
-            return CacheValidationError(VisionErrorType.CACHE_INVALID.value, "Cache file does not exist", True)
+            return CacheValidationError(
+                VisionErrorType.CACHE_INVALID.value, "Cache file does not exist", True
+            )
 
         stats = cache_path.stat()
 
         # Check file size
         if stats.st_size < min_size:
-            return CacheValidationError(VisionErrorType.CACHE_INVALID.value, f"Cache file too small: {stats.st_size} bytes", True)
+            return CacheValidationError(
+                VisionErrorType.CACHE_INVALID.value,
+                f"Cache file too small: {stats.st_size} bytes",
+                True,
+            )
 
         # Check age
-        age = datetime.now(timezone.utc) - datetime.fromtimestamp(stats.st_mtime, timezone.utc)
+        age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+            stats.st_mtime, timezone.utc
+        )
         if age > max_age:
-            return CacheValidationError(VisionErrorType.CACHE_INVALID.value, f"Cache too old: {age.days} days", True)
+            return CacheValidationError(
+                VisionErrorType.CACHE_INVALID.value,
+                f"Cache too old: {age.days} days",
+                True,
+            )
 
         return None
 
     except Exception as e:
-        return CacheValidationError(VisionErrorType.FILE_SYSTEM.value, f"Error validating cache: {str(e)}", False)
+        return CacheValidationError(
+            VisionErrorType.FILE_SYSTEM.value,
+            f"Error validating cache: {str(e)}",
+            False,
+        )
 
 
-def get_vision_url(symbol: str, interval: str, date: datetime, file_type: FileType) -> str:
+def get_vision_url(
+    symbol: str, interval: str, date: datetime, file_type: FileType
+) -> str:
     """Generate standard Vision URLs.
 
     Args:
@@ -245,7 +269,8 @@ def validate_data_availability(start_time: datetime, end_time: datetime) -> None
     """
     if not is_data_likely_available(start_time):
         raise ValueError(
-            f"Data for {start_time.date()} is not yet available. " f"Binance Vision requires {CONSOLIDATION_DELAY} after day completion."
+            f"Data for {start_time.date()} is not yet available. "
+            f"Binance Vision requires {CONSOLIDATION_DELAY} after day completion."
         )
     if end_time.date() > datetime.now(timezone.utc).date():
         raise ValueError(f"Cannot request future data: {end_time.date()}")
@@ -296,7 +321,9 @@ class TimestampedDataFrame(pd.DataFrame):
     def __setitem__(self, key, value):  # type: ignore
         """Override to prevent modification of index."""
         if key == CANONICAL_INDEX_NAME:  # type: ignore
-            raise ValueError(f"Cannot modify {CANONICAL_INDEX_NAME} directly - it is reserved for index")
+            raise ValueError(
+                f"Cannot modify {CANONICAL_INDEX_NAME} directly - it is reserved for index"
+            )
         super().__setitem__(key, value)  # type: ignore
 
 
@@ -342,7 +369,9 @@ def validate_time_range(
     return start_time, end_time
 
 
-def validate_time_boundaries(df: pd.DataFrame, start_time: datetime, end_time: datetime) -> None:
+def validate_time_boundaries(
+    df: pd.DataFrame, start_time: datetime, end_time: datetime
+) -> None:
     """Validate that DataFrame covers the requested time range.
 
     Args:
@@ -385,7 +414,9 @@ def validate_time_boundaries(df: pd.DataFrame, start_time: datetime, end_time: d
 
     if data_start_floor > start_time_floor:
         logger.error(f"Data starts later than requested: {data_start} > {start_time}")
-        raise ValueError(f"Data starts later than requested: {data_start} > {start_time}")
+        raise ValueError(
+            f"Data starts later than requested: {data_start} > {start_time}"
+        )
     if data_end_floor < end_time_floor:
         logger.error(f"Data ends earlier than requested: {data_end} < {end_time}")
         raise ValueError(f"Data ends earlier than requested: {data_end} < {end_time}")
@@ -514,13 +545,22 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
 
     # Validate close_time format (should be microseconds or nanoseconds)
     close_time_digits = len(str(df["close_time"].iloc[0]))  # type: ignore
-    if close_time_digits not in [16, 19]:  # Accept both microsecond (16) and nanosecond (19) precision
-        raise ValueError(f"close_time has wrong precision: {close_time_digits} digits, expected 16 (microseconds) or 19 (nanoseconds)")
+    if close_time_digits not in [
+        16,
+        19,
+    ]:  # Accept both microsecond (16) and nanosecond (19) precision
+        raise ValueError(
+            f"close_time has wrong precision: {close_time_digits} digits, expected 16 (microseconds) or 19 (nanoseconds)"
+        )
 
     # If nanoseconds, convert to microseconds and ensure exact REST API format
     if close_time_digits == 19:
-        df["close_time"] = df["close_time"] // 1000  # Convert nanoseconds to microseconds
-        df["close_time"] = df["close_time"].astype(np.int64) * 1000 + 999999  # Match REST API format  # type: ignore
+        df["close_time"] = (
+            df["close_time"] // 1000
+        )  # Convert nanoseconds to microseconds
+        df["close_time"] = (
+            df["close_time"].astype(np.int64) * 1000 + 999999
+        )  # Match REST API format  # type: ignore
 
 
 def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:

@@ -21,7 +21,7 @@ This package provides efficient market data retrieval from Binance Vision using 
 ### Basic Usage
 
 ```python
-from ml_feature_set.binance_data_services import DataSourceManager
+from binance_data_services import DataSourceManager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,7 +46,7 @@ print(df.head())
 ### Advanced Usage
 
 ```python
-from ml_feature_set.binance_data_services import DataSourceManager, DataSource
+from binance_data_services import DataSourceManager, DataSource
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -60,7 +60,7 @@ try:
         end_time=datetime(2024, 1, 6, tzinfo=timezone.utc),
         enforce_source=DataSource.VISION
     )
-    
+
     # Force REST API for recent data
     df_recent = await manager.get_data(
         symbol="BTCUSDT",
@@ -75,7 +75,7 @@ except Exception as e:
 ### Efficient Data Loading
 
 ```python
-from ml_feature_set.binance_data_services import DataSourceManager
+from binance_data_services import DataSourceManager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -140,6 +140,7 @@ Typical performance metrics:
 #### Methods
 
 - `fetch(start_time: datetime, end_time: datetime, columns: Optional[List[str]] = None) -> TimestampedDataFrame`
+
   - Retrieves market data for the specified time range
   - Supports column selection for efficient data loading
   - Returns timezone-aware DataFrame indexed by open_time
@@ -164,6 +165,7 @@ Only 1-second interval ("1s") is supported by this client.
 The system implements a layered architecture with a mediator pattern at its core:
 
 1. Mediator Layer (`DataSourceManager`):
+
    - Smart source selection between REST and Vision APIs
    - 36-hour threshold for Vision API preference
    - Unified data format standardization
@@ -173,7 +175,9 @@ The system implements a layered architecture with a mediator pattern at its core
    - Market type handling (SPOT, FUTURES)
 
 2. Data Source Layer:
+
    - REST API Client (`EnhancedRetriever`):
+
      - Optimized for recent data (< 36 hours)
      - Chunk-based retrieval (1000 records/chunk)
      - Hardware-aware connection pooling
@@ -190,6 +194,7 @@ The system implements a layered architecture with a mediator pattern at its core
      - Comprehensive error classification
 
 3. Cache Layer (`UnifiedCacheManager`):
+
    - Arrow-based columnar storage
    - Monthly file organization
    - JSON metadata tracking

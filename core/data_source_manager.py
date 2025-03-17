@@ -7,12 +7,12 @@ from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
 
-from ml_feature_set.utils.logger_setup import get_logger
-from ml_feature_set.binance_data_services.utils.market_constraints import Interval, MarketType
-from ml_feature_set.binance_data_services.utils.time_alignment import adjust_time_window
-from ml_feature_set.binance_data_services.core.market_data_client import EnhancedRetriever
-from ml_feature_set.binance_data_services.core.vision_data_client import VisionDataClient
-from .cache_manager import UnifiedCacheManager
+from utils.logger_setup import get_logger
+from utils.market_constraints import Interval, MarketType
+from utils.time_alignment import adjust_time_window
+from core.market_data_client import EnhancedRetriever
+from core.vision_data_client import VisionDataClient
+from core.cache_manager import UnifiedCacheManager
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -94,14 +94,21 @@ class DataSourceManager:
         # Store original vision client cache settings and disable its caching
         self._vision_original_cache = None
         if vision_client:
-            self._vision_original_cache = {"dir": vision_client.cache_dir, "use_cache": vision_client.use_cache}
+            self._vision_original_cache = {
+                "dir": vision_client.cache_dir,
+                "use_cache": vision_client.use_cache,
+            }
             vision_client.use_cache = False
             vision_client.cache_dir = None
         self.vision_client = vision_client
 
         # Initialize cache manager if caching is enabled
         self.use_cache = use_cache and cache_dir is not None
-        self.cache_manager = UnifiedCacheManager(cache_dir) if (use_cache and cache_dir is not None) else None
+        self.cache_manager = (
+            UnifiedCacheManager(cache_dir)
+            if (use_cache and cache_dir is not None)
+            else None
+        )
         self._cache_stats = {"hits": 0, "misses": 0, "errors": 0}
 
     def get_cache_stats(self) -> Dict[str, int]:
@@ -112,7 +119,9 @@ class DataSourceManager:
         """
         return self._cache_stats.copy()
 
-    async def validate_cache_integrity(self, symbol: str, interval: str, date: datetime) -> Tuple[bool, Optional[str]]:
+    async def validate_cache_integrity(
+        self, symbol: str, interval: str, date: datetime
+    ) -> Tuple[bool, Optional[str]]:
         """Validate cache integrity for a specific data point.
 
         Args:
@@ -144,7 +153,10 @@ class DataSourceManager:
             # Verify data types
             for col, dtype in self.OUTPUT_DTYPES.items():
                 if str(df[col].dtype) != dtype:
-                    return False, f"Invalid dtype for {col}: expected {dtype}, got {df[col].dtype}"
+                    return (
+                        False,
+                        f"Invalid dtype for {col}: expected {dtype}, got {df[col].dtype}",
+                    )
 
             # Verify index
             if not isinstance(df.index, pd.DatetimeIndex):
@@ -176,7 +188,9 @@ class DataSourceManager:
             self.cache_manager.invalidate_cache(symbol, interval, date)
 
             # Refetch and cache data
-            df = await self._fetch_from_source(symbol, date, date + timedelta(days=1), Interval(interval))
+            df = await self._fetch_from_source(
+                symbol, date, date + timedelta(days=1), Interval(interval)
+            )
             if df.empty:
                 return False
 
@@ -187,7 +201,9 @@ class DataSourceManager:
             logger.error(f"Cache repair failed: {e}")
             return False
 
-    def _estimate_data_points(self, start_time: datetime, end_time: datetime, interval: Interval) -> int:
+    def _estimate_data_points(
+        self, start_time: datetime, end_time: datetime, interval: Interval
+    ) -> int:
         """Estimate number of data points for a time range.
 
         Args:
@@ -206,7 +222,9 @@ class DataSourceManager:
         else:
             raise ValueError(f"Unsupported interval: {interval}")
 
-    def _should_use_vision_api(self, start_time: datetime, end_time: datetime, interval: Interval) -> bool:
+    def _should_use_vision_api(
+        self, start_time: datetime, end_time: datetime, interval: Interval
+    ) -> bool:
         """Determine if Vision API should be used based on request parameters.
 
         Args:
@@ -232,7 +250,9 @@ class DataSourceManager:
             return True
 
         # Rule 2: Try Vision API first for all other cases
-        logger.info("Using Vision API: Default choice (will fall back to REST if unavailable)")
+        logger.info(
+            "Using Vision API: Default choice (will fall back to REST if unavailable)"
+        )
         return True
 
     def _validate_dates(self, start_time: datetime, end_time: datetime) -> None:
@@ -263,7 +283,9 @@ class DataSourceManager:
         if df.empty:
             # Create empty DataFrame with correct structure
             df = pd.DataFrame(
-                columns=pd.Index(["open_time"] + list(self.OUTPUT_DTYPES.keys())),  # Convert list to Index
+                columns=pd.Index(
+                    ["open_time"] + list(self.OUTPUT_DTYPES.keys())
+                ),  # Convert list to Index
                 dtype=object,
             )
             for col, dtype in self.OUTPUT_DTYPES.items():
@@ -296,7 +318,12 @@ class DataSourceManager:
         return df
 
     async def _fetch_from_source(
-        self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval, use_vision: bool = True
+        self,
+        symbol: str,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Interval,
+        use_vision: bool = True,
     ) -> pd.DataFrame:
         """Fetch data from the appropriate source.
 
@@ -317,11 +344,15 @@ class DataSourceManager:
                 try:
                     if not self.vision_client:
                         self.vision_client = VisionDataClient(
-                            symbol=symbol, interval=interval.value, use_cache=False  # We use our own cache
+                            symbol=symbol,
+                            interval=interval.value,
+                            use_cache=False,  # We use our own cache
                         )
                     df = await self.vision_client.fetch(start_time, end_time)
                     if df.empty:
-                        logger.warning("Vision API returned no records, falling back to REST")
+                        logger.warning(
+                            "Vision API returned no records, falling back to REST"
+                        )
                         use_vision = False
                 except Exception as e:
                     logger.warning(f"Vision API fetch failed: {e}")
@@ -378,13 +409,19 @@ class DataSourceManager:
         if use_cache and self.cache_manager:
             try:
                 # Check if cache exists and is valid
-                is_valid, error = await self.validate_cache_integrity(symbol, interval.value, start_time)
+                is_valid, error = await self.validate_cache_integrity(
+                    symbol, interval.value, start_time
+                )
 
                 if is_valid:
-                    cached_data = await self.cache_manager.load_from_cache(symbol=symbol, interval=interval.value, date=start_time)
+                    cached_data = await self.cache_manager.load_from_cache(
+                        symbol=symbol, interval=interval.value, date=start_time
+                    )
                     if cached_data is not None:
                         # Slice cached data to exact time range
-                        mask = (cached_data.index >= start_time) & (cached_data.index < end_time)
+                        mask = (cached_data.index >= start_time) & (
+                            cached_data.index < end_time
+                        )
                         cached_data = cached_data.loc[mask].copy()
                         if not cached_data.empty:
                             self._cache_stats["hits"] += 1
@@ -398,10 +435,14 @@ class DataSourceManager:
                         # Attempt to repair if validation failed (but not for cache misses)
                         if await self.repair_cache(symbol, interval.value, start_time):
                             logger.info("Cache repair successful")
-                            cached_data = await self.cache_manager.load_from_cache(symbol=symbol, interval=interval.value, date=start_time)
+                            cached_data = await self.cache_manager.load_from_cache(
+                                symbol=symbol, interval=interval.value, date=start_time
+                            )
                             if cached_data is not None:
                                 # Slice repaired data to exact time range
-                                mask = (cached_data.index >= start_time) & (cached_data.index < end_time)
+                                mask = (cached_data.index >= start_time) & (
+                                    cached_data.index < end_time
+                                )
                                 cached_data = cached_data.loc[mask].copy()
                                 if not cached_data.empty:
                                     return cached_data
@@ -422,12 +463,16 @@ class DataSourceManager:
             use_vision = self._should_use_vision_api(start_time, end_time, interval)
 
         # Fetch from source
-        df = await self._fetch_from_source(symbol, start_time, end_time, interval, use_vision)
+        df = await self._fetch_from_source(
+            symbol, start_time, end_time, interval, use_vision
+        )
 
         # Cache result if enabled
         if not df.empty and use_cache and self.cache_manager:
             try:
-                await self.cache_manager.save_to_cache(df=df, symbol=symbol, interval=interval.value, date=start_time)
+                await self.cache_manager.save_to_cache(
+                    df=df, symbol=symbol, interval=interval.value, date=start_time
+                )
                 logger.info(f"Cached {len(df)} records for {symbol}")
             except Exception as e:
                 logger.warning(f"Failed to cache data: {e}")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -37,7 +37,9 @@ class DataValidation:
         except (KeyError, ValueError) as e:
             if isinstance(e, KeyError) or "MarketType" in str(e):
                 valid_types = [m.name for m in MarketType]
-                raise ValueError(f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}")
+                raise ValueError(
+                    f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}"
+                )
             raise
 
     @classmethod
@@ -47,7 +49,9 @@ class DataValidation:
             MarketType[market_type.upper()]
         except KeyError:
             valid_types = [m.name for m in MarketType]
-            raise ValueError(f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}")
+            raise ValueError(
+                f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}"
+            )
 
     @classmethod
     def validate_symbol_format(cls, symbol: str, market_type: str = "spot") -> None:
@@ -58,10 +62,15 @@ class DataValidation:
 
             pattern = re.compile(r"^[A-Z0-9]{3,}$")
             if not pattern.match(symbol):
-                raise ValueError(f"Invalid symbol format for {market.name}: {symbol}. " f"Must follow format: {capabilities.symbol_format}")
+                raise ValueError(
+                    f"Invalid symbol format for {market.name}: {symbol}. "
+                    f"Must follow format: {capabilities.symbol_format}"
+                )
         except KeyError:
             valid_types = [m.name for m in MarketType]
-            raise ValueError(f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}")
+            raise ValueError(
+                f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}"
+            )
 
     @classmethod
     def validate_dates(cls, start_date: datetime, end_date: datetime) -> None:
@@ -80,14 +89,18 @@ class DataValidation:
             raise ValueError("Start date cannot be more than 1000 days old")
 
     @classmethod
-    async def validate_symbol_exists(cls, session: aiohttp.ClientSession, symbol: str, market_type: str = "spot") -> None:
+    async def validate_symbol_exists(
+        cls, session: aiohttp.ClientSession, symbol: str, market_type: str = "spot"
+    ) -> None:
         """Validate that the symbol exists by attempting to fetch a single kline."""
         try:
             market = MarketType[market_type.upper()]
             endpoint_url = get_endpoint_url(market)
         except KeyError:
             valid_types = [m.name for m in MarketType]
-            raise ValueError(f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}")
+            raise ValueError(
+                f"Invalid market type: {market_type}. Must be one of: {', '.join(valid_types)}"
+            )
 
         # Check if symbol exists by attempting to fetch a single kline
         now = datetime.now(timezone.utc)
@@ -127,7 +140,9 @@ class DataValidation:
 
         # Check time window order
         if start_time >= end_time:
-            raise ValueError(f"Start time ({start_time}) must be before end time ({end_time})")
+            raise ValueError(
+                f"Start time ({start_time}) must be before end time ({end_time})"
+            )
 
         # Remove future date validation to allow testing with future dates
         # current_time = datetime.now(timezone.utc)
@@ -137,7 +152,9 @@ class DataValidation:
         # Check reasonable time range (e.g., not too far in the past)
         max_days_back = 1000  # Binance typically keeps data for about 1000 days
         if (datetime.now(timezone.utc) - start_time).days > max_days_back:
-            raise ValueError(f"Start time cannot be more than {max_days_back} days in the past")
+            raise ValueError(
+                f"Start time cannot be more than {max_days_back} days in the past"
+            )
 
         # Check minimum window size
         if (end_time - start_time).total_seconds() < 1:

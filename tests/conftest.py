@@ -5,6 +5,10 @@ import pytest
 from datetime import datetime, timedelta, timezone
 import aiohttp
 from typing import AsyncGenerator
+import tempfile
+from pathlib import Path
+import shutil
+import pandas as pd
 
 
 @pytest.fixture
@@ -39,3 +43,42 @@ def test_symbol() -> str:
 def test_interval() -> str:
     """Fixture to provide a test time interval."""
     return "1s"
+
+
+@pytest.fixture
+def temp_cache_dir():
+    """Create temporary cache directory."""
+    temp_dir = Path(tempfile.mkdtemp())
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def sample_ohlcv_data():
+    """Create sample OHLCV data."""
+    dates = pd.date_range(
+        start="2022-01-13 15:15:00",
+        end="2022-01-14 15:45:00",
+        freq="15min",
+        tz=timezone.utc,
+    )
+
+    df = pd.DataFrame(
+        {
+            "open": [43798.71] * len(dates),
+            "high": [43802.42] * len(dates),
+            "low": [43208.00] * len(dates),
+            "close": [43312.84] * len(dates),
+            "volume": [670.47] * len(dates),
+            "close_time": list(range(len(dates))),
+            "quote_volume": [29000000.0] * len(dates),
+            "trades": [1000] * len(dates),
+            "taker_buy_volume": [300.0] * len(dates),
+            "taker_buy_quote_volume": [13000000.0] * len(dates),
+        },
+        index=dates,
+    )
+    df.index.name = "open_time"
+    return df

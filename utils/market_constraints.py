@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import Dict, List, Optional
 import re
 
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -42,7 +42,14 @@ class Interval(Enum):
         num, unit = match.groups()
         num = int(num)
 
-        multipliers = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "M": 2592000}  # Approximate - using 30 days
+        multipliers = {
+            "s": 1,
+            "m": 60,
+            "h": 3600,
+            "d": 86400,
+            "w": 604800,
+            "M": 2592000,
+        }  # Approximate - using 30 days
 
         return num * multipliers[unit]
 
@@ -87,7 +94,9 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint="https://data-api.binance.vision",
         api_version="v3",
-        supported_intervals=[interval for interval in Interval],  # All intervals including 1s
+        supported_intervals=[
+            interval for interval in Interval
+        ],  # All intervals including 1s
         symbol_format="BTCUSDT",
         description=(
             "Spot market with comprehensive support for all intervals including 1-second data. "
@@ -112,7 +121,10 @@ def is_interval_supported(market_type: MarketType, interval: Interval) -> bool:
 
 def get_minimum_interval(market_type: MarketType) -> Interval:
     """Get the minimum supported interval for a market type."""
-    return min(MARKET_CAPABILITIES[market_type].supported_intervals, key=lambda x: x.to_seconds())
+    return min(
+        MARKET_CAPABILITIES[market_type].supported_intervals,
+        key=lambda x: x.to_seconds(),
+    )
 
 
 def get_endpoint_url(market_type: MarketType, use_data_only: bool = False) -> str:

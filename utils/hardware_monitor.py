@@ -7,7 +7,7 @@ import aiohttp
 from typing import Dict, Optional, List, Coroutine, Any
 from dataclasses import dataclass
 
-from ml_feature_set.utils.logger_setup import get_logger
+from utils.logger_setup import get_logger
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -29,7 +29,9 @@ class HardwareMonitor:
         self._metrics: Optional[HardwareMetrics] = None
         self._last_update = 0
         self._update_interval = 1  # 1 second updates for responsive scaling
-        self._bandwidth_requirement = 0.05  # Reduced to 0.05MB per connection (more realistic)
+        self._bandwidth_requirement = (
+            0.05  # Reduced to 0.05MB per connection (more realistic)
+        )
         self._binance_rate_limit = 1200  # Binance's rate limit per minute
         self._endpoints = [
             "https://api.binance.com",
@@ -66,12 +68,16 @@ class HardwareMonitor:
             logger.warning(f"Failed to measure network speed: {e}")
             return 50.0  # Default to 50 Mbps
 
-    async def _measure_single_endpoint(self, session: aiohttp.ClientSession, endpoint: str) -> float:
+    async def _measure_single_endpoint(
+        self, session: aiohttp.ClientSession, endpoint: str
+    ) -> float:
         """Measure bandwidth for a single endpoint."""
         try:
             start_time = asyncio.get_event_loop().time()
             async with session.get(
-                f"{endpoint}/api/v3/klines", params={"symbol": "BTCUSDT", "interval": "1s", "limit": 100}, timeout=2.0
+                f"{endpoint}/api/v3/klines",
+                params={"symbol": "BTCUSDT", "interval": "1s", "limit": 100},
+                timeout=2.0,
             ) as response:
                 data = await response.read()
                 duration = asyncio.get_event_loop().time() - start_time
@@ -90,7 +96,11 @@ class HardwareMonitor:
         cpu_times = psutil.cpu_times_percent()  # type: ignore
         iowait = getattr(cpu_times, "iowait", 0.0)  # type: ignore
 
-        return HardwareMetrics(cpu_count=cpu_count, memory_available_gb=memory_available_gb, iowait_percent=iowait)
+        return HardwareMetrics(
+            cpu_count=cpu_count,
+            memory_available_gb=memory_available_gb,
+            iowait_percent=iowait,
+        )
 
     async def update_metrics(self) -> None:
         """Update hardware metrics including network speed."""
@@ -117,7 +127,10 @@ class HardwareMonitor:
             Dictionary containing optimal concurrency and the factors considered
         """
         if not self._metrics:
-            return {"optimal_concurrency": base_concurrent_requests, "limiting_factor": "no_metrics"}
+            return {
+                "optimal_concurrency": base_concurrent_requests,
+                "limiting_factor": "no_metrics",
+            }
 
         # CPU-based concurrency - Use 2x CPU threads for optimal I/O operations
         cpu_optimal = self._metrics.cpu_count * 2
@@ -129,7 +142,9 @@ class HardwareMonitor:
         # Network-based concurrency
         if self._metrics.network_bandwidth_mbps:
             # More aggressive network utilization
-            network_optimal = int(self._metrics.network_bandwidth_mbps / (self._bandwidth_requirement * 8))
+            network_optimal = int(
+                self._metrics.network_bandwidth_mbps / (self._bandwidth_requirement * 8)
+            )
             # Consider multiple endpoints
             network_optimal *= len(self._endpoints)
         else:
@@ -144,12 +159,24 @@ class HardwareMonitor:
         iowait_factor = 0.8 if self._metrics.iowait_percent > 50 else 1.0
 
         # Calculate final concurrency
-        optimal = min(cpu_optimal, memory_optimal, network_optimal, rate_limit_optimal, max_concurrent_requests)
+        optimal = min(
+            cpu_optimal,
+            memory_optimal,
+            network_optimal,
+            rate_limit_optimal,
+            max_concurrent_requests,
+        )
         optimal = max(min_concurrent_requests, int(optimal * iowait_factor))
 
         return {
             "optimal_concurrency": optimal,
-            "limiting_factor": self._determine_limiting_factor(optimal, cpu_optimal, memory_optimal, network_optimal, rate_limit_optimal),
+            "limiting_factor": self._determine_limiting_factor(
+                optimal,
+                cpu_optimal,
+                memory_optimal,
+                network_optimal,
+                rate_limit_optimal,
+            ),
             "metrics": {
                 "cpu_optimal": cpu_optimal,
                 "memory_optimal": memory_optimal,
@@ -161,8 +188,18 @@ class HardwareMonitor:
         }
 
     def _determine_limiting_factor(
-        self, optimal: int, cpu_optimal: int, memory_optimal: int, network_optimal: int, rate_limit_optimal: int
+        self,
+        optimal: int,
+        cpu_optimal: int,
+        memory_optimal: int,
+        network_optimal: int,
+        rate_limit_optimal: int,
     ) -> str:
         """Determine which factor is limiting concurrency."""
-        factors = {"cpu": cpu_optimal, "memory": memory_optimal, "network": network_optimal, "rate_limit": rate_limit_optimal}
+        factors = {
+            "cpu": cpu_optimal,
+            "memory": memory_optimal,
+            "network": network_optimal,
+            "rate_limit": rate_limit_optimal,
+        }
         return min(factors.items(), key=lambda x: x[1])[0]

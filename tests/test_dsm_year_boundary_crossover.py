@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-"""Test data source manager behavior across 2024-2025 boundary."""
+"""Test data source manager behavior specifically across 2024-2025 boundary.
+
+Focus areas:
+1. Data consistency across year boundary
+2. Handling of timestamp precision changes between years
+3. Data source fallback behavior for historical data near boundaries
+
+Note: 
+- General date validation tests are in test_data_source_manager_consolidated.py
+- Recent data fallback tests are in test_data_source_manager_consolidated.py
+- Format/precision tests are in test_data_source_manager_format_precision.py
+"""
 
 import pytest
 import pandas as pd
@@ -9,12 +20,12 @@ import pytest_asyncio
 from datetime import datetime
 from typing import AsyncGenerator
 
-from ml_feature_set.utils.logger_setup import get_logger
-from ml_feature_set.binance_data_services.core.data_source_manager import (
+from utils.logger_setup import get_logger
+from core.data_source_manager import (
     DataSourceManager,
     DataSource,
 )
-from ml_feature_set.binance_data_services.utils.market_constraints import (
+from utils.market_constraints import (
     Interval,
     MarketType,
 )
@@ -41,7 +52,9 @@ async def test_year_boundary_data_consistency_1s(dsm: DataSourceManager) -> None
     """Test data consistency when fetching 1-second data across 2024-2025 boundary."""
     logger.info("=" * 80)
     logger.info("TEST: Data Consistency Across 2024-2025 Year Boundary")
-    logger.info("Purpose: Verify data integrity and consistency when fetching 1-second data across the 2024-2025 transition")
+    logger.info(
+        "Purpose: Verify data integrity and consistency when fetching 1-second data across the 2024-2025 transition"
+    )
     logger.info(f"Time Range: From {BEFORE_BOUNDARY} to {AFTER_BOUNDARY}")
     logger.info("=" * 80)
 
@@ -73,7 +86,9 @@ async def test_year_boundary_data_consistency_1s(dsm: DataSourceManager) -> None
     expected_dtypes = DataSourceManager.get_output_format()
     for col, dtype in expected_dtypes.items():
         assert col in df.columns, f"Missing column: {col}"
-        assert df[col].dtype == dtype, f"Incorrect dtype for {col}: {df[col].dtype} != {dtype}"
+        assert (
+            df[col].dtype == dtype
+        ), f"Incorrect dtype for {col}: {df[col].dtype} != {dtype}"
     logger.info("✓ All columns present with correct datatypes")
 
     # Check data continuity around boundary
@@ -88,12 +103,19 @@ async def test_year_boundary_data_consistency_1s(dsm: DataSourceManager) -> None
     # Check for suspicious gaps
     logger.info("Step 6: Checking for suspicious gaps in data...")
     max_expected_gap = pd.Timedelta(seconds=5)
-    time_diffs = pd.Series([boundary_data.index[i+1] - boundary_data.index[i] 
-                           for i in range(len(boundary_data)-1)], index=boundary_data.index[:-1])
+    time_diffs = pd.Series(
+        [
+            boundary_data.index[i + 1] - boundary_data.index[i]
+            for i in range(len(boundary_data) - 1)
+        ],
+        index=boundary_data.index[:-1],
+    )
     suspicious_gaps = time_diffs[time_diffs > max_expected_gap]
 
     if not suspicious_gaps.empty:
-        logger.warning(f"Found {len(suspicious_gaps)} suspicious gaps around year boundary:")
+        logger.warning(
+            f"Found {len(suspicious_gaps)} suspicious gaps around year boundary:"
+        )
         for gap_start, gap_duration in zip(boundary_data.index[:-1], suspicious_gaps):
             gap_end = gap_start + gap_duration
             logger.warning(f"Gap from {gap_start} to {gap_end} ({gap_duration})")
@@ -106,7 +128,9 @@ async def test_timestamp_precision_change(dsm: DataSourceManager) -> None:
     """Test handling of timestamp precision change in 2025."""
     logger.info("=" * 80)
     logger.info("TEST: Timestamp Precision Change Handling")
-    logger.info("Purpose: Verify correct handling of timestamp precision changes between 2024 and 2025")
+    logger.info(
+        "Purpose: Verify correct handling of timestamp precision changes between 2024 and 2025"
+    )
     logger.info("=" * 80)
 
     # Get data from before 2025
@@ -152,17 +176,26 @@ async def test_timestamp_precision_change(dsm: DataSourceManager) -> None:
 
 @pytest.mark.asyncio
 async def test_data_source_fallback_behavior(dsm: DataSourceManager) -> None:
-    """Test data source fallback behavior near current time."""
+    """Test data source fallback behavior for historical data near year boundary.
+
+    This test specifically focuses on historical data across the 2024-2025 boundary
+    to verify that data source selection and fallback behave correctly with historical
+    data that spans the year transition.
+
+    Note: For recent data fallback behavior, see test_data_source_manager_consolidated.py
+    """
     logger.info("=" * 80)
-    logger.info("TEST: Data Source Fallback Behavior")
-    logger.info("Purpose: Verify consistency between Vision API and REST API data sources")
+    logger.info("TEST: Historical Data Source Fallback Behavior Near Year Boundary")
+    logger.info(
+        "Purpose: Verify consistency between Vision API and REST API data sources for historical data"
+    )
     logger.info("=" * 80)
 
     time_range = f"From {REFERENCE_DATE - timedelta(days=2)} to {REFERENCE_DATE - timedelta(hours=1)}"
     logger.info(f"Testing period: {time_range}")
 
     # First try with Vision API
-    logger.info("Step 1: Fetching data from Vision API...")
+    logger.info("Step 1: Fetching historical data from Vision API...")
     df_vision = await dsm.get_data(
         symbol=SYMBOL,
         interval=Interval.SECOND_1,
@@ -173,7 +206,7 @@ async def test_data_source_fallback_behavior(dsm: DataSourceManager) -> None:
     logger.info(f"✓ Retrieved {len(df_vision)} data points from Vision API")
 
     # Then try with REST API
-    logger.info("Step 2: Fetching data from REST API...")
+    logger.info("Step 2: Fetching historical data from REST API...")
     df_rest = await dsm.get_data(
         symbol=SYMBOL,
         interval=Interval.SECOND_1,
@@ -184,7 +217,7 @@ async def test_data_source_fallback_behavior(dsm: DataSourceManager) -> None:
     logger.info(f"✓ Retrieved {len(df_rest)} data points from REST API")
 
     # Compare results
-    logger.info("Step 3: Comparing data from both sources...")
+    logger.info("Step 3: Comparing historical data from both sources...")
     if not df_vision.empty and not df_rest.empty:
         common_timestamps = df_vision.index.intersection(df_rest.index)
         logger.info(f"Found {len(common_timestamps)} common timestamps between sources")
@@ -194,7 +227,9 @@ async def test_data_source_fallback_behavior(dsm: DataSourceManager) -> None:
             rest_slice = df_rest.loc[common_timestamps]
 
             # Compare values for key columns
-            logger.info("Step 4: Validating data consistency across sources...")
+            logger.info(
+                "Step 4: Validating historical data consistency across sources..."
+            )
             for col in ["open", "high", "low", "close", "volume"]:
                 vision_col = vision_slice[col]
                 rest_col = rest_slice[col]
@@ -205,51 +240,4 @@ async def test_data_source_fallback_behavior(dsm: DataSourceManager) -> None:
                     check_index=True,
                     obj=f"Column {col} values differ between sources",
                 )
-            logger.info("✓ Data from both sources matches within tolerance")
-
-
-@pytest.mark.asyncio
-async def test_future_date_handling(dsm: DataSourceManager) -> None:
-    """Test handling of future dates relative to current time."""
-    logger.info("=" * 80)
-    logger.info("TEST: Future Date Handling")
-    logger.info("Purpose: Verify proper rejection of requests for future data")
-    logger.info("=" * 80)
-
-    # Get current time and calculate future dates
-    current_time = datetime.now(timezone.utc)
-    future_start = current_time + timedelta(days=1)
-    future_end = current_time + timedelta(days=2)
-    logger.info(f"Current time: {current_time}")
-    logger.info(f"Attempting to fetch future data from {future_start} to {future_end}")
-
-    with pytest.raises(ValueError, match="is in the future"):
-        await dsm.get_data(
-            symbol=SYMBOL,
-            interval=Interval.SECOND_1,
-            start_time=future_start,
-            end_time=future_end,
-        )
-    logger.info("✓ Future date request properly rejected")
-
-
-@pytest.mark.asyncio
-async def test_invalid_date_order(dsm: DataSourceManager) -> None:
-    """Test handling of invalid date order."""
-    logger.info("=" * 80)
-    logger.info("TEST: Invalid Date Order Handling")
-    logger.info("Purpose: Verify proper rejection of requests with invalid date order")
-    logger.info("=" * 80)
-
-    end_time = REFERENCE_DATE - timedelta(days=2)
-    start_time = REFERENCE_DATE - timedelta(days=1)  # Start after end
-    logger.info(f"Attempting to fetch data with invalid order: start={start_time}, end={end_time}")
-
-    with pytest.raises(ValueError, match=".*after.*"):
-        await dsm.get_data(
-            symbol=SYMBOL,
-            interval=Interval.SECOND_1,
-            start_time=start_time,
-            end_time=end_time,
-        )
-    logger.info("✓ Invalid date order properly rejected")
+            logger.info("✓ Historical data from both sources matches within tolerance")
