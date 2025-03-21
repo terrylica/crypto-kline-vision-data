@@ -54,7 +54,7 @@ import numpy as np
 import warnings
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheKeyManager
+from utils.cache_validator import CacheKeyManager, SafeMemoryMap, CacheValidator
 from utils.validation import DataValidation
 from .vision_constraints import (
     TimestampedDataFrame,
@@ -180,27 +180,6 @@ class CacheMetadata:
         """
         cache_key = self.get_cache_key(symbol, interval, date)
         return self.metadata.get(cache_key)
-
-
-class SafeMemoryMap:
-    """Context manager for safe memory map handling."""
-
-    def __init__(self, path: Path):
-        self.path = path
-        self._mmap = None
-
-    def __enter__(self) -> pa.MemoryMappedFile:
-        self._mmap = pa.memory_map(str(self.path), "r")
-        return self._mmap
-
-    def __exit__(
-        self,
-        exc_type: Optional[type],
-        exc_val: Optional[Exception],
-        exc_tb: Optional[object],
-    ) -> None:
-        if self._mmap is not None:
-            self._mmap.close()
 
 
 class VisionDataClient(Generic[T]):

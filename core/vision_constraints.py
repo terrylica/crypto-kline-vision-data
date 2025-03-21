@@ -11,6 +11,15 @@ import hashlib
 import logging
 import numpy as np
 
+# Import centralized validation utilities
+from utils.validation import DataValidation, DataFrameValidator
+from utils.cache_validator import (
+    CacheValidator,
+    CacheKeyManager,
+    SafeMemoryMap,
+    CacheValidationError,
+)
+
 # Type definitions for semantic clarity and safety
 TimeseriesIndex = NewType("TimeseriesIndex", pd.DatetimeIndex)
 CachePath = NewType("CachePath", Path)
@@ -100,14 +109,6 @@ class FileExtensions(NamedTuple):
     METADATA: str = ".json"
 
 
-class CacheValidationError(NamedTuple):
-    """Cache validation error details."""
-
-    error_type: str
-    message: str
-    is_recoverable: bool
-
-
 # File constraints
 MIN_VALID_FILE_SIZE: Final[int] = 1024  # 1KB minimum for valid data files
 MAX_CACHE_AGE: Final[timedelta] = timedelta(
@@ -164,41 +165,8 @@ def validate_cache_integrity(
     Returns:
         Error details if validation fails, None if valid
     """
-    try:
-        if not cache_path.exists():
-            return CacheValidationError(
-                VisionErrorType.CACHE_INVALID.value, "Cache file does not exist", True
-            )
-
-        stats = cache_path.stat()
-
-        # Check file size
-        if stats.st_size < min_size:
-            return CacheValidationError(
-                VisionErrorType.CACHE_INVALID.value,
-                f"Cache file too small: {stats.st_size} bytes",
-                True,
-            )
-
-        # Check age
-        age = datetime.now(timezone.utc) - datetime.fromtimestamp(
-            stats.st_mtime, timezone.utc
-        )
-        if age > max_age:
-            return CacheValidationError(
-                VisionErrorType.CACHE_INVALID.value,
-                f"Cache too old: {age.days} days",
-                True,
-            )
-
-        return None
-
-    except Exception as e:
-        return CacheValidationError(
-            VisionErrorType.FILE_SYSTEM.value,
-            f"Error validating cache: {str(e)}",
-            False,
-        )
+    # Use centralized CacheValidator
+    return CacheValidator.validate_cache_integrity(cache_path, max_age, min_size)
 
 
 def get_vision_url(
@@ -235,26 +203,9 @@ def is_data_likely_available(target_date: datetime) -> bool:
 
     Returns:
         True if data is likely available based on Binance Vision's constraints
-
-    Note:
-        Binance Vision has two key constraints:
-        1. Data for a day is only available after that day is complete
-        2. There's a consolidation delay (~12 hours) after day completion
     """
-    now = datetime.now(timezone.utc)
-
-    # Convert target_date to start of day in UTC for consistent comparison
-    target_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    if target_day.date() < now.date():
-        # Past dates are always available
-        return True
-    elif target_day.date() == now.date():
-        # Today's data is only available after consolidation delay
-        return now - target_day > CONSOLIDATION_DELAY
-    else:
-        # Future dates are never available
-        return False
+    # Use centralized validation utility
+    return DataValidation.is_data_likely_available(target_date, CONSOLIDATION_DELAY)
 
 
 def validate_data_availability(start_time: datetime, end_time: datetime) -> None:
@@ -267,13 +218,8 @@ def validate_data_availability(start_time: datetime, end_time: datetime) -> None
     Raises:
         ValueError: If data is definitely not available for the time range
     """
-    if not is_data_likely_available(start_time):
-        raise ValueError(
-            f"Data for {start_time.date()} is not yet available. "
-            f"Binance Vision requires {CONSOLIDATION_DELAY} after day completion."
-        )
-    if end_time.date() > datetime.now(timezone.utc).date():
-        raise ValueError(f"Cannot request future data: {end_time.date()}")
+    # Use centralized validation utility
+    DataValidation.validate_data_availability(start_time, end_time, CONSOLIDATION_DELAY)
 
 
 class TimestampedDataFrame(pd.DataFrame):
@@ -338,11 +284,8 @@ def validate_cache_path(path: Path) -> CachePath:
 
 def enforce_utc_timestamp(dt: datetime) -> datetime:
     """Ensure timestamp is UTC."""
-    if not isinstance(dt, datetime):
-        raise TypeError(f"Expected datetime object, got {type(dt)}")
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=CANONICAL_TIMEZONE)
-    return dt.astimezone(CANONICAL_TIMEZONE)
+    # Use centralized utility
+    return DataValidation.enforce_utc_timestamp(dt)
 
 
 def validate_column_names(columns: list[str]) -> list[str]:
@@ -360,281 +303,55 @@ def validate_time_range(
     start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
 ) -> tuple[Optional[datetime], Optional[datetime]]:
     """Validate and normalize time range parameters."""
-    if start_time is not None:
-        start_time = enforce_utc_timestamp(start_time)
-    if end_time is not None:
-        end_time = enforce_utc_timestamp(end_time)
-    if start_time and end_time and start_time >= end_time:
-        raise ValueError("End time must be after start time")
-    return start_time, end_time
+    # Use centralized utility
+    return DataValidation.validate_time_range(start_time, end_time)
 
 
 def validate_time_boundaries(
     df: pd.DataFrame, start_time: datetime, end_time: datetime
 ) -> None:
-    """Validate that DataFrame covers the requested time range.
-
-    Args:
-        df: DataFrame to validate
-        start_time: Start time (inclusive)
-        end_time: End time (exclusive)
-
-    Raises:
-        ValueError: If data doesn't cover requested time range
-    """
-    # For empty DataFrame, just validate the time range itself
-    if df.empty:
-        if start_time > end_time:
-            raise ValueError(f"Start time {start_time} is after end time {end_time}")
-        if end_time > datetime.now(timezone.utc):
-            raise ValueError(f"End time {end_time} is in the future")
-        return
-
-    # Ensure index is timezone-aware
-    if df.index.tz is None:
-        raise ValueError("DataFrame index must be timezone-aware")
-
-    # Convert times to UTC for comparison
-    start_time = enforce_utc_timestamp(start_time)
-    end_time = enforce_utc_timestamp(end_time)
-
-    # Get actual data boundaries
-    data_start = df.index.min()
-    data_end = df.index.max()
-
-    # Log time range details
-    logger.info(f"Requested time range: {start_time} to {end_time}")
-    logger.info(f"Available data range: {data_start} to {data_end}")
-
-    # Check if data covers requested range, ignoring microsecond precision
-    data_start_floor = data_start.replace(microsecond=0)
-    data_end_floor = data_end.replace(microsecond=0)
-    start_time_floor = start_time.replace(microsecond=0)
-    end_time_floor = end_time.replace(microsecond=0)
-
-    # Adjust end_time_floor for exclusive comparison
-    # We need data up to but not including the end time
-    adjusted_end_time_floor = end_time_floor - timedelta(seconds=1)
-
-    if data_start_floor > start_time_floor:
-        logger.error(f"Data starts later than requested: {data_start} > {start_time}")
-        raise ValueError(
-            f"Data starts later than requested: {data_start} > {start_time}"
-        )
-    if data_end_floor < adjusted_end_time_floor:
-        logger.error(
-            f"Data ends earlier than requested: {data_end} < {adjusted_end_time_floor}"
-        )
-        raise ValueError(
-            f"Data ends earlier than requested: {data_end} < {adjusted_end_time_floor}"
-        )
-
-    # Check for gaps in data
-    timestamps = df.index.to_series()
-    time_diffs = timestamps.diff()
-    gaps = time_diffs[time_diffs > timedelta(seconds=1)]
-
-    if not gaps.empty:
-        logger.warning(f"Found {len(gaps)} gaps in data:")
-        for idx, gap in gaps.head().items():
-            logger.warning(f"Gap at {idx}: {gap}")
-
-    # Check for duplicates
-    duplicates = df.index.duplicated()
-    if duplicates.any():
-        logger.warning(f"Found {duplicates.sum()} duplicate timestamps")
-
-    # Verify data is sorted
-    if not df.index.is_monotonic_increasing:
-        raise ValueError("Data is not sorted by time")
+    """Validate that DataFrame covers the requested time range."""
+    # Use centralized utility
+    DataValidation.validate_time_boundaries(df, start_time, end_time)
 
 
 def validate_symbol_format(symbol: str) -> None:
-    """Validate trading pair symbol format.
-
-    Args:
-        symbol: Trading pair symbol to validate
-
-    Raises:
-        ValueError: If symbol format is invalid
-    """
-    if not symbol or len(symbol) < 5:  # Minimum valid symbol length (e.g., "BTCUSDT")
-        raise ValueError(f"Invalid symbol format: {symbol}")
+    """Validate trading pair symbol format."""
+    # Use centralized utility
+    DataValidation.validate_symbol_format(symbol)
 
 
 def validate_dataframe_integrity(df: pd.DataFrame) -> None:
-    """Validate DataFrame structure and integrity.
-
-    Args:
-        df: DataFrame to validate
-
-    Raises:
-        ValueError: If DataFrame fails validation
-    """
-    if df is None:
-        raise ValueError("DataFrame is None")
-
-    # Empty DataFrame is allowed but should be properly structured
-    if df.empty:
-        required_columns = {
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "close_time",
-            "quote_volume",
-            "trades",
-            "taker_buy_volume",
-            "taker_buy_quote_volume",
-        }
-        if not all(col in df.columns for col in required_columns):
-            raise ValueError("Empty DataFrame missing required columns")
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("Empty DataFrame must have DatetimeIndex")
-        if df.index.tz != timezone.utc:
-            raise ValueError("Empty DataFrame index must be UTC")
-        return
-
-    # For non-empty DataFrame, validate structure and data
-    if not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("Index must be DatetimeIndex")
-
-    if df.index.tz != timezone.utc:
-        raise ValueError("Index timezone must be UTC")
-
-    required_columns = {
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "close_time",
-        "quote_volume",
-        "trades",
-        "taker_buy_volume",
-        "taker_buy_quote_volume",
-    }
-    missing_columns = required_columns - set(df.columns)
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-
-    # Validate data types
-    expected_types = {
-        "open": ["float64"],
-        "high": ["float64"],
-        "low": ["float64"],
-        "close": ["float64"],
-        "volume": ["float64"],
-        "close_time": ["int64"],
-        "quote_volume": ["float64"],
-        "trades": ["int64"],
-        "taker_buy_volume": ["float64"],
-        "taker_buy_quote_volume": ["float64"],
-    }
-
-    for col, expected in expected_types.items():
-        if str(df[col].dtype) not in expected:
-            raise ValueError(
-                f"Column {col} has wrong type: {df[col].dtype}, expected one of {expected}"
-            )
-
-    # Validate value ranges
-    if (df["high"] < df["low"]).any():
-        raise ValueError("Found high price less than low price")
-
-    if (df["volume"] < 0).any():
-        raise ValueError("Found negative volume")
-
-    if (df["trades"] < 0).any():
-        raise ValueError("Found negative trade count")
-
-    # Validate timestamp ordering
-    if not df.index.is_monotonic_increasing:
-        raise ValueError("Index is not monotonically increasing")
-
-    # Validate close_time format (should be microseconds or nanoseconds)
-    close_time_digits = len(str(df["close_time"].iloc[0]))
-    if close_time_digits not in [
-        16,
-        19,
-    ]:  # Accept both microsecond (16) and nanosecond (19) precision
-        raise ValueError(
-            f"close_time has wrong precision: {close_time_digits} digits, expected 16 (microseconds) or 19 (nanoseconds)"
-        )
-
-    # If nanoseconds, convert to microseconds and ensure exact REST API format
-    if close_time_digits == 19:
-        df["close_time"] = (
-            df["close_time"] // 1000
-        )  # Convert nanoseconds to microseconds
-        df["close_time"] = (
-            df["close_time"].astype(np.int64) * 1000 + 999999
-        )  # Match REST API format
+    """Validate DataFrame structure and integrity."""
+    # Use centralized DataFrameValidator
+    DataFrameValidator.validate_dataframe(df)
 
 
 def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
-    """Validate cache file against stored checksum.
-
-    Args:
-        cache_path: Path to cache file
-        stored_checksum: Previously stored checksum
-
-    Returns:
-        True if checksum matches, False otherwise
-    """
-    try:
-        current_checksum = hashlib.sha256(cache_path.read_bytes()).hexdigest()
-        return current_checksum == stored_checksum
-    except Exception as e:
-        logger.error(f"Error validating cache checksum: {e}")
-        return False
+    """Validate cache file against stored checksum."""
+    # Use centralized CacheValidator
+    return CacheValidator.validate_cache_checksum(cache_path, stored_checksum)
 
 
 def validate_cache_metadata(
     cache_info: Optional[dict],
     required_fields: list[str] = ["checksum", "record_count"],
 ) -> bool:
-    """Validate cache metadata contains required information.
-
-    Args:
-        cache_info: Cache metadata dictionary
-        required_fields: List of required fields in metadata
-
-    Returns:
-        True if metadata is valid, False otherwise
-    """
-    if not cache_info:
-        return False
-    return all(field in cache_info for field in required_fields)
+    """Validate cache metadata contains required information."""
+    # Use centralized CacheValidator
+    return CacheValidator.validate_cache_metadata(cache_info, required_fields)
 
 
 def validate_cache_records(record_count: int) -> bool:
-    """Validate cache contains records.
-
-    Args:
-        record_count: Number of records in cache
-
-    Returns:
-        True if record count is valid, False otherwise
-    """
-    return record_count > 0
+    """Validate cache contains records."""
+    # Use centralized CacheValidator
+    return CacheValidator.validate_cache_records(record_count)
 
 
 def get_cache_path(cache_dir: Path, symbol: str, interval: str, date: datetime) -> Path:
-    """Generate standardized cache file path.
-
-    Args:
-        cache_dir: Base cache directory
-        symbol: Trading pair symbol
-        interval: Time interval
-        date: Target date
-
-    Returns:
-        Path to cache file
-    """
-    year_month: str = date.strftime("%Y%m")
-    return cache_dir / symbol / interval / f"{year_month}.arrow"
+    """Generate standardized cache file path."""
+    # Use centralized CacheKeyManager
+    return CacheKeyManager.get_cache_path(cache_dir, symbol, interval, date)
 
 
 logger = logging.getLogger(__name__)

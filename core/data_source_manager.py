@@ -14,7 +14,7 @@ from utils.time_alignment import (
     filter_time_range,
 )
 from utils.validation import DataFrameValidator, DataValidation
-from utils.cache_validator import SafeMemoryMap
+from utils.cache_validator import SafeMemoryMap, CacheValidator
 from utils.config import (
     OUTPUT_DTYPES,
     VISION_DATA_DELAY_HOURS,
@@ -348,99 +348,8 @@ class DataSourceManager:
             f"Index type before formatting: {type(df.index) if not df.empty else 'none'}"
         )
 
-        if df.empty:
-            # Create empty DataFrame with correct structure using centralized format
-            empty_df = pd.DataFrame(
-                columns=list(self.OUTPUT_DTYPES.keys()),
-                index=pd.DatetimeIndex(
-                    [], name=CANONICAL_INDEX_NAME, tz=DEFAULT_TIMEZONE
-                ),
-            )
-
-            # Apply proper data types
-            for col, dtype in self.OUTPUT_DTYPES.items():
-                empty_df[col] = empty_df[col].astype(dtype)
-
-            return empty_df
-
-        # Check if we have an open_time column that will remain after indexing
-        has_separate_open_time = False
-        if "open_time" in df.columns and df.index.name != "open_time":
-            has_separate_open_time = True
-            # If open_time is not already the index, save a copy before indexing
-            if df.index.name != "open_time":
-                logger.debug(
-                    "Detected separate open_time column that will remain after indexing"
-                )
-                original_open_time = df["open_time"].copy()
-
-        # Ensure open_time is the index and in UTC
-        if "open_time" in df.columns:
-            df.set_index("open_time", inplace=True)
-
-        if df.index.tz is None:
-            df.index = df.index.tz_localize(DEFAULT_TIMEZONE)
-        elif df.index.tz != DEFAULT_TIMEZONE:
-            df.index = df.index.tz_convert(DEFAULT_TIMEZONE)
-
-        # Set correct index name
-        df.index.name = CANONICAL_INDEX_NAME
-
-        # Normalize column names for consistency
-        column_mapping = {
-            "taker_buy_base": "taker_buy_volume",
-            "taker_buy_quote": "taker_buy_quote_volume",
-        }
-        df = df.rename(columns=column_mapping)
-
-        # Ensure correct columns and types
-        required_columns = list(self.OUTPUT_DTYPES.keys())
-
-        # Filter to required columns if they exist
-        existing_columns = [col for col in required_columns if col in df.columns]
-        df = df[existing_columns]
-
-        # Add any missing columns with default values
-        for col in set(required_columns) - set(existing_columns):
-            if self.OUTPUT_DTYPES[col].startswith("float"):
-                df[col] = 0.0
-            elif self.OUTPUT_DTYPES[col].startswith("int"):
-                df[col] = 0
-            else:
-                df[col] = None
-
-        # Ensure correct column order
-        df = df[required_columns]
-
-        # Set correct dtypes
-        for col, dtype in self.OUTPUT_DTYPES.items():
-            df[col] = df[col].astype(dtype)
-
-        # Handle duplicate timestamps by keeping the first occurrence
-        if df.index.has_duplicates:
-            logger.debug(f"Removing {df.index.duplicated().sum()} duplicate timestamps")
-            df = df[~df.index.duplicated(keep="first")]
-
-        # Sort by index if it's not monotonically increasing
-        if not df.index.is_monotonic_increasing:
-            logger.debug("Sorting DataFrame by index to ensure monotonic order")
-            df = df.sort_index()
-
-        # If there was a separate open_time column, restore it and ensure it's sorted
-        if has_separate_open_time:
-            # Restore original open_time as a column (now sorted)
-            df["open_time"] = df.index.copy()
-            logger.debug("Restored open_time as a column (now sorted)")
-
-        logger.debug(f"Final DataFrame shape: {df.shape}")
-        logger.debug(f"Final columns: {list(df.columns)}")
-        logger.debug(f"Index monotonic: {df.index.is_monotonic_increasing}")
-        if "open_time" in df.columns:
-            logger.debug(
-                f"open_time column monotonic: {df['open_time'].is_monotonic_increasing}"
-            )
-
-        return df
+        # Use the centralized formatter
+        return DataFrameValidator.format_dataframe(df, self.OUTPUT_DTYPES)
 
     async def _fetch_from_source(
         self,

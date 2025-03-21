@@ -13,6 +13,7 @@ from utils.config import (
     MAX_CACHE_AGE,
     OUTPUT_DTYPES,
 )
+import logging
 
 
 class ValidationError(Exception):
@@ -338,31 +339,118 @@ class DataFrameValidator:
         # Check for duplicate indices
         if df.index.has_duplicates:
             duplicates = df.index[df.index.duplicated()].tolist()
-            logger.warning(f"DataFrame has {len(duplicates)} duplicate timestamps")
+            if len(duplicates) > 5:
+                duplicate_sample = duplicates[:5]
+                raise ValueError(
+                    f"DataFrame has {len(duplicates)} duplicate indices. "
+                    f"First 5: {duplicate_sample}"
+                )
+            else:
+                raise ValueError(f"DataFrame has duplicate indices: {duplicates}")
 
-        # Check index order
+        # Check for sorted index
         if not df.index.is_monotonic_increasing:
-            raise ValueError("DataFrame index must be monotonically increasing")
+            raise ValueError("DataFrame index is not monotonically increasing")
 
-        # Check required columns based on OUTPUT_DTYPES
-        required_columns = set(OUTPUT_DTYPES.keys())
-        missing_columns = required_columns - set(df.columns)
+    @staticmethod
+    def format_dataframe(
+        df: pd.DataFrame, output_dtypes: Dict[str, str]
+    ) -> pd.DataFrame:
+        """Format DataFrame to ensure consistent structure.
 
-        if missing_columns:
-            raise ValueError(f"DataFrame missing required columns: {missing_columns}")
+        Args:
+            df: Input DataFrame
+            output_dtypes: Dictionary mapping column names to expected data types
 
-        # Additional validations for data quality
-        # These could be made optional or configurable
+        Returns:
+            Formatted DataFrame with consistent structure
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug(
+            f"Formatting DataFrame with shape: {df.shape if not df.empty else 'empty'}"
+        )
 
-        # Check for valid price data
-        if (df["high"] < df["low"]).any():
-            raise ValueError("Invalid price data: high < low")
+        if df.empty:
+            # Create empty DataFrame with correct structure
+            empty_df = pd.DataFrame(
+                columns=list(output_dtypes.keys()),
+                index=pd.DatetimeIndex(
+                    [], name=CANONICAL_INDEX_NAME, tz=DEFAULT_TIMEZONE
+                ),
+            )
 
-        if (df["open"] < 0).any() or (df["close"] < 0).any():
-            raise ValueError("Invalid price data: negative prices")
+            # Apply proper data types
+            for col, dtype in output_dtypes.items():
+                empty_df[col] = empty_df[col].astype(dtype)
 
-        if (df["volume"] < 0).any():
-            raise ValueError("Invalid volume data: negative volume")
+            return empty_df
+
+        # Check if we have an open_time column that will remain after indexing
+        has_separate_open_time = False
+        if "open_time" in df.columns and df.index.name != "open_time":
+            has_separate_open_time = True
+            # If open_time is not already the index, save a copy before indexing
+            original_open_time = df["open_time"].copy()
+
+        # Ensure open_time is the index and in UTC
+        if "open_time" in df.columns:
+            df.set_index("open_time", inplace=True)
+
+        if df.index.tz is None:
+            df.index = df.index.tz_localize(DEFAULT_TIMEZONE)
+        elif df.index.tz != DEFAULT_TIMEZONE:
+            df.index = df.index.tz_convert(DEFAULT_TIMEZONE)
+
+        # Set correct index name
+        df.index.name = CANONICAL_INDEX_NAME
+
+        # Normalize column names for consistency
+        column_mapping = {
+            "taker_buy_base": "taker_buy_volume",
+            "taker_buy_quote": "taker_buy_quote_volume",
+        }
+        df = df.rename(columns=column_mapping)
+
+        # Ensure correct columns and types
+        required_columns = list(output_dtypes.keys())
+
+        # Filter to required columns if they exist
+        existing_columns = [col for col in required_columns if col in df.columns]
+        df = df[existing_columns]
+
+        # Add any missing columns with default values
+        for col in set(required_columns) - set(existing_columns):
+            if output_dtypes[col].startswith("float"):
+                df[col] = 0.0
+            elif output_dtypes[col].startswith("int"):
+                df[col] = 0
+            else:
+                df[col] = None
+
+        # Ensure correct column order
+        df = df[required_columns]
+
+        # Set correct dtypes
+        for col, dtype in output_dtypes.items():
+            df[col] = df[col].astype(dtype)
+
+        # Handle duplicate timestamps by keeping the first occurrence
+        if df.index.has_duplicates:
+            logger.debug(f"Removing {df.index.duplicated().sum()} duplicate timestamps")
+            df = df[~df.index.duplicated(keep="first")]
+
+        # Sort by index if it's not monotonically increasing
+        if not df.index.is_monotonic_increasing:
+            logger.debug("Sorting DataFrame by index to ensure monotonic order")
+            df = df.sort_index()
+
+        # If there was a separate open_time column, restore it and ensure it's sorted
+        if has_separate_open_time:
+            # Restore original open_time as a column (now sorted)
+            df["open_time"] = df.index.copy()
+            logger.debug("Restored open_time as a column (now sorted)")
+
+        return df
 
     @staticmethod
     def validate_cache_integrity(
