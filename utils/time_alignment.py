@@ -4,30 +4,36 @@
 Key behaviors:
 1. All units smaller than the interval are removed (e.g., for 1m, all seconds and microseconds are removed)
 2. The current incomplete interval is removed for safety
-3. Start times are rounded UP to next interval boundary if they have sub-interval units
-   (e.g., 08:37:25.528448 gets rounded UP to 08:37:26.000000 for 1-second intervals)
-4. End times are rounded DOWN to current interval boundary
-   (e.g., 08:37:30.056345 gets rounded DOWN to 08:37:30.000000 for 1-second intervals)
-5. Both start and end timestamps are INCLUSIVE on exact interval boundaries
-6. Each bar has a duration of (interval - 1 microsecond)
+3. Start times are ALWAYS rounded DOWN to include the full interval
+   (e.g., 08:37:25.528448 gets rounded DOWN to 08:37:25.000000 for 1-second intervals)
+4. End times are rounded DOWN to current interval boundary and are treated as EXCLUSIVE
+   (e.g., 08:37:30.056345 gets rounded DOWN to 08:37:30.000000 for 1-second intervals,
+   and data is returned up to but NOT including 08:37:30.000000)
+5. Start timestamp is inclusive, end timestamp is exclusive
+6. This ensures consistent behavior regardless of microsecond precision
 
 Example:
 For a time window from 2025-03-17 08:37:25.528448 to 2025-03-17 08:37:30.056345 with 1-second intervals:
-- Adjusted start: 2025-03-17 08:37:26.000000 (rounded UP from 25.528448)
+- Adjusted start: 2025-03-17 08:37:25.000000 (rounded DOWN from 25.528448)
 - Adjusted end: 2025-03-17 08:37:30.000000 (rounded DOWN from 30.056345)
-- Expected records: 5 (seconds 26, 27, 28, 29, 30 inclusive)
+- Expected records: Records for exactly 5 seconds (25, 26, 27, 28, 29), NOT including 30
+
+Important implementation detail:
+- When filtering data after fetching, the comparison `df.index < end_time` is used
+  to enforce the exclusive end time boundary
 
 IMPORTANT: When counting expected records for a time range:
-1. Both boundaries are inclusive
-2. Start times with microseconds are rounded UP to the next full second
-3. End times with microseconds are rounded DOWN to the current second
-4. For 1-second intervals with microseconds in timestamps, expected records may be fewer than naively calculated
+1. Start times are INCLUSIVE, end times are EXCLUSIVE after alignment
+2. Start times with microseconds are rounded DOWN to include the full interval
+3. End times with microseconds are rounded DOWN to the current second and treated as exclusive
+4. The number of records is the integer difference in seconds between adjusted start and end
 """
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict, Any
 import re
+import pandas as pd
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval
@@ -241,6 +247,34 @@ def adjust_time_window(
     # So we use the floor time exactly (not the close time of the interval)
     adjusted_end = end_floor
 
+    # Calculate expected number of records
+    expected_records = (
+        int((adjusted_end - adjusted_start).total_seconds()) // interval.to_seconds()
+    )
+
+    # Create detailed debug information
+    logger.debug("\n=== Time Window Adjustment Details ===")
+    logger.debug(
+        f"Original Start: {start_time.isoformat()} (microseconds: {start_time.microsecond})"
+    )
+    logger.debug(
+        f"Original End: {end_time.isoformat()} (microseconds: {end_time.microsecond})"
+    )
+    logger.debug(f"Floored Start: {start_floor.isoformat()}")
+    logger.debug(f"Floored End: {end_floor.isoformat()}")
+    logger.debug(f"Interval: {interval.value} ({interval.to_seconds()} seconds)")
+    logger.debug(f"Current Time: {current_time.isoformat()}")
+    logger.debug(f"Is end interval incomplete? {time_since_floor < interval_td}")
+    logger.debug(f"Adjusted Start: {adjusted_start.isoformat()} (INCLUSIVE)")
+    logger.debug(f"Adjusted End: {adjusted_end.isoformat()} (EXCLUSIVE)")
+    logger.debug(f"Expected Records: {expected_records}")
+    logger.debug(
+        f"Time Span (seconds): {int((adjusted_end - adjusted_start).total_seconds())}"
+    )
+    logger.debug(
+        f"Boundary Behavior: Start timestamp is INCLUSIVE, end timestamp is EXCLUSIVE"
+    )
+
     # Log adjustments if they were made
     if adjusted_start != start_time or adjusted_end != end_time:
         logger.debug(
@@ -265,6 +299,114 @@ def adjust_time_window(
     return adjusted_start, adjusted_end
 
 
+def get_time_boundaries(
+    start_time: datetime, end_time: datetime, interval: Interval
+) -> Dict[str, Any]:
+    """Get detailed time boundary information for consistent handling across the codebase.
+
+    Args:
+        start_time: Original start time
+        end_time: Original end time
+        interval: Time interval
+
+    Returns:
+        Dictionary with time boundary details for use in multiple contexts:
+        - adjusted_start: Adjusted start time (inclusive)
+        - adjusted_end: Adjusted end time (exclusive)
+        - start_ms: Start time in milliseconds for API calls
+        - end_ms: End time in milliseconds for API calls
+        - expected_records: Expected number of records
+        - interval_ms: Interval in milliseconds
+        - interval_micros: Interval in microseconds
+    """
+    # Apply time window adjustment
+    adjusted_start, adjusted_end = adjust_time_window(start_time, end_time, interval)
+
+    # Calculate timestamps in milliseconds (for API calls)
+    start_ms = int(adjusted_start.timestamp() * 1000)
+    end_ms = int(adjusted_end.timestamp() * 1000)
+
+    # Calculate interval in various units
+    interval_seconds = interval.to_seconds()
+    interval_ms = interval_seconds * 1000
+    interval_micros = interval_seconds * 1_000_000
+
+    # Calculate expected records
+    expected_records = (
+        int((adjusted_end - adjusted_start).total_seconds()) // interval_seconds
+    )
+
+    return {
+        "adjusted_start": adjusted_start,
+        "adjusted_end": adjusted_end,
+        "start_ms": start_ms,
+        "end_ms": end_ms,
+        "expected_records": expected_records,
+        "interval_ms": interval_ms,
+        "interval_micros": interval_micros,
+        "boundary_type": "inclusive_start_exclusive_end",
+    }
+
+
+def filter_time_range(
+    df: pd.DataFrame, start_time: datetime, end_time: datetime
+) -> pd.DataFrame:
+    """
+    Filter a DataFrame to a specific time range.
+    Implements inclusive start time (>=) and exclusive end time (<) behavior.
+
+    This function will handle DataFrames with either:
+    1. A DatetimeIndex (preferred)
+    2. An 'open_time' column containing datetime values
+
+    Args:
+        df: DataFrame to filter
+        start_time: Inclusive start time
+        end_time: Exclusive end time
+
+    Returns:
+        Filtered DataFrame
+    """
+    if df.empty:
+        return df
+
+    # Ensure both timestamps are in UTC
+    start_time = start_time.astimezone(timezone.utc)
+    end_time = end_time.astimezone(timezone.utc)
+
+    # Debug information about DataFrame
+    logger.debug(f"DataFrame index type: {type(df.index)}")
+    logger.debug(f"DataFrame index dtype: {df.index.dtype}")
+    logger.debug(f"DataFrame shape: {df.shape}")
+
+    # Check if index is datetime type
+    if pd.api.types.is_datetime64_any_dtype(df.index):
+        # Case 1: DataFrame has a datetime index
+        logger.debug("Filtering with datetime index")
+        mask = (df.index >= start_time) & (df.index < end_time)
+        return df[mask]
+
+    # Case 2: Try to use open_time column if it exists
+    elif "open_time" in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df["open_time"]):
+            logger.debug("Filtering with open_time column")
+            mask = (df["open_time"] >= start_time) & (df["open_time"] < end_time)
+            return df[mask]
+        else:
+            logger.warning(
+                f"open_time column exists but is not datetime type: {df['open_time'].dtype}"
+            )
+
+    # Case 3: No valid datetime index or column found
+    logger.warning(
+        f"Cannot filter DataFrame: no valid datetime index or open_time column found. "
+        f"Index type: {type(df.index)}, columns: {df.columns}"
+    )
+
+    # In case of failure, we should return an empty DataFrame of the same structure
+    return df.iloc[0:0]
+
+
 def is_bar_complete(
     bar_time: datetime, current_time: datetime, interval: Interval = Interval.SECOND_1
 ) -> bool:
@@ -286,7 +428,7 @@ def is_bar_complete(
     bar_time = bar_time.astimezone(timezone.utc)
     current_time = current_time.astimezone(timezone.utc)
 
-    # Get the bar's close time
+    # Get close time
     close_time = get_bar_close_time(bar_time, interval)
 
     # Bar is complete if we're past its close time
