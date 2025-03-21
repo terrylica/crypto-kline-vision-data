@@ -298,10 +298,10 @@ class VisionDataClient(Generic[T]):
         exc_tb: Optional[object],
     ) -> None:
         """Async context manager exit."""
-        if self._current_mmap is not None:  # type: ignore
-            self._current_mmap.close()  # type: ignore
-            self._current_mmap = None  # type: ignore
-            self._current_mmap_path = None  # type: ignore
+        if self._current_mmap is not None:
+            self._current_mmap.close()
+            self._current_mmap = None
+            self._current_mmap_path = None
         await self.client.aclose()
 
     def _get_cache_path(self, date: datetime) -> Path:
@@ -442,16 +442,18 @@ class VisionDataClient(Generic[T]):
 
             # Ensure we don't include the end date
             if not df.empty:
-                last_date = df.index[-1].replace(hour=0, minute=0, second=0, microsecond=0)  # type: ignore
-                df = df[df.index < last_date + timedelta(days=1)]  # type: ignore
+                last_date = df.index[-1].replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                df = df[df.index < last_date + timedelta(days=1)]
 
             # Reset index to include it in the Arrow table
             df_with_index = df.reset_index()
 
             try:
                 # Convert to Arrow table
-                table = pa.Table.from_pandas(df_with_index)  # type: ignore
-            except pa.ArrowInvalid as e:  # type: ignore
+                table = pa.Table.from_pandas(df_with_index)
+            except pa.ArrowInvalid as e:
                 logger.error(f"Failed to convert DataFrame to Arrow format: {e}")
                 raise
 
@@ -460,10 +462,10 @@ class VisionDataClient(Generic[T]):
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Save to Arrow file with proper resource cleanup
-                with pa.OSFile(str(cache_path), "wb") as sink:  # type: ignore
-                    with pa.ipc.new_file(sink, table.schema) as writer:  # type: ignore
-                        writer.write_table(table)  # type: ignore
-            except pa.ArrowIOError as e:  # type: ignore
+                with pa.OSFile(str(cache_path), "wb") as sink:
+                    with pa.ipc.new_file(sink, table.schema) as writer:
+                        writer.write_table(table)
+            except pa.ArrowIOError as e:
                 logger.error(f"Failed to write Arrow file: {e}")
                 raise
 
@@ -491,47 +493,58 @@ class VisionDataClient(Generic[T]):
         try:
             # Use memory mapping with zero-copy reads
             t0 = time.perf_counter()
-            if self._current_mmap is None or self._current_mmap_path != cache_path:  # type: ignore
-                if self._current_mmap is not None:  # type: ignore
-                    self._current_mmap.close()  # type: ignore
-                self._current_mmap = pa.memory_map(str(cache_path), "r")  # type: ignore
-                self._current_mmap_path = cache_path  # type: ignore
+            if self._current_mmap is None or self._current_mmap_path != cache_path:
+                if self._current_mmap is not None:
+                    self._current_mmap.close()
+                self._current_mmap = pa.memory_map(str(cache_path), "r")
+                self._current_mmap_path = cache_path
             logger.info(f"Memory map setup took: {time.perf_counter() - t0:.6f}s")
 
             # Read only required columns
             t0 = time.perf_counter()
-            with pa.ipc.open_file(self._current_mmap) as reader:  # type: ignore
+            with pa.ipc.open_file(self._current_mmap) as reader:
                 if columns:
-                    cols_to_read = [CANONICAL_INDEX_NAME] + list(columns)  # type: ignore
-                    table = reader.read_all().select(cols_to_read)  # type: ignore
+                    cols_to_read = [CANONICAL_INDEX_NAME] + list(columns)
+                    table = reader.read_all().select(cols_to_read)
                 else:
-                    table = reader.read_all()  # type: ignore
+                    table = reader.read_all()
             logger.info(f"Arrow table read took: {time.perf_counter() - t0:.6f}s")
 
             # Convert to pandas with zero-copy if possible
             t0 = time.perf_counter()
-            df = table.to_pandas(zero_copy_only=True, date_as_object=False, use_threads=True, split_blocks=True, self_destruct=True)  # type: ignore
+            df = table.to_pandas(
+                zero_copy_only=True,
+                date_as_object=False,
+                use_threads=True,
+                split_blocks=True,
+                self_destruct=True,
+            )
             logger.info(
                 f"Arrow to pandas conversion took: {time.perf_counter() - t0:.6f}s"
             )
 
             # Set index and validate
-            if CANONICAL_INDEX_NAME not in df.columns:  # type: ignore
+            if CANONICAL_INDEX_NAME not in df.columns:
                 raise ValueError(
                     f"Required index column {CANONICAL_INDEX_NAME} not found in data"
                 )
 
-            df.set_index(CANONICAL_INDEX_NAME, inplace=True)  # type: ignore
-            df.index = pd.to_datetime(df.index, utc=True)  # type: ignore
+            df.set_index(CANONICAL_INDEX_NAME, inplace=True)
+            df.index = pd.to_datetime(df.index, utc=True)
 
             # Remove duplicates efficiently
             t0 = time.perf_counter()
-            df = df[~df.index.duplicated(keep="first")]  # type: ignore
+            # Use drop_duplicates method instead of boolean indexing
+            df = (
+                df.reset_index()
+                .drop_duplicates(subset=[CANONICAL_INDEX_NAME], keep="first")
+                .set_index(CANONICAL_INDEX_NAME)
+            )
             logger.info(f"Duplicate removal took: {time.perf_counter() - t0:.6f}s")
 
             total_time = time.perf_counter() - start_time_perf
             logger.info(f"Total cache loading time: {total_time:.6f}s")
-            return TimestampedDataFrame(df)  # type: ignore
+            return TimestampedDataFrame(df)
 
         except Exception as e:
             logger.error(f"Failed to load from cache: {e}")
@@ -563,8 +576,10 @@ class VisionDataClient(Generic[T]):
             )
 
             # Check if we have metadata
-            cache_info = self.metadata.get_cache_info(self.symbol, self.interval, start_time)  # type: ignore
-            if not validate_cache_metadata(cache_info):  # type: ignore
+            cache_info = self.metadata.get_cache_info(
+                self.symbol, self.interval, start_time
+            )
+            if not validate_cache_metadata(cache_info):
                 logger.warning("Invalid cache metadata")
                 return False
             # Validate cache integrity
@@ -631,12 +646,12 @@ class VisionDataClient(Generic[T]):
 
         # Validate day boundaries
         if start_time.time() == datetime.min.time():  # Day start (00:00:00)
-            if df.index[0].time() != datetime.min.time():  # type: ignore
+            if df.index[0].time() != datetime.min.time():
                 raise ValueError(f"Data missing at day boundary: {start_time}")
 
         # Validate hour boundaries
-        hour_start = df[df.index.hour == start_time.hour].index  # type: ignore
-        if not hour_start.empty and hour_start[0].minute != start_time.minute:  # type: ignore
+        hour_start = df[df.index.hour == start_time.hour].index
+        if not hour_start.empty and hour_start[0].minute != start_time.minute:
             raise ValueError(f"Data missing at hour boundary: {start_time}")
 
         # Validate minimal intervals
@@ -696,7 +711,7 @@ class VisionDataClient(Generic[T]):
         validate_time_range(start_time, end_time)
         validate_data_availability(start_time, end_time)
         if columns:
-            validate_column_names(columns)  # type: ignore
+            validate_column_names(columns)
 
         # Check if data exists in cache
         if self.cache_dir and self.use_cache:
@@ -713,13 +728,13 @@ class VisionDataClient(Generic[T]):
                     df = await self._load_from_cache(cache_path, columns)
 
                     # Filter to requested time range
-                    mask = (df.index >= start_time) & (df.index < end_time)  # type: ignore
-                    df = df[mask]  # type: ignore
+                    mask = (df.index >= start_time) & (df.index < end_time)
+                    df = df[mask]
 
                     # Validate the filtered data
-                    self._validate_data(df)  # type: ignore
-                    validate_time_boundaries(df, start_time, end_time)  # type: ignore
-                    return df  # type: ignore
+                    self._validate_data(df)
+                    validate_time_boundaries(df, start_time, end_time)
+                    return df
             except Exception as e:
                 logger.warning(f"Cache read failed, falling back to download: {e}")
 
@@ -749,23 +764,23 @@ class VisionDataClient(Generic[T]):
             "taker_buy_volume",
             "taker_buy_quote_volume",
         ]
-        df = pd.DataFrame([], columns=columns)  # type: ignore[arg-type]
+        df = pd.DataFrame([], columns=columns)
 
         # Set correct data types
-        df["open"] = df["open"].astype("float64")  # type: ignore
-        df["high"] = df["high"].astype("float64")  # type: ignore
-        df["low"] = df["low"].astype("float64")  # type: ignore
-        df["close"] = df["close"].astype("float64")  # type: ignore
-        df["volume"] = df["volume"].astype("float64")  # type: ignore
-        df["close_time"] = df["close_time"].astype("int64")  # type: ignore
-        df["quote_volume"] = df["quote_volume"].astype("float64")  # type: ignore
-        df["trades"] = df["trades"].astype("int64")  # type: ignore
-        df["taker_buy_volume"] = df["taker_buy_volume"].astype("float64")  # type: ignore
-        df["taker_buy_quote_volume"] = df["taker_buy_quote_volume"].astype("float64")  # type: ignore
+        df["open"] = df["open"].astype("float64")
+        df["high"] = df["high"].astype("float64")
+        df["low"] = df["low"].astype("float64")
+        df["close"] = df["close"].astype("float64")
+        df["volume"] = df["volume"].astype("float64")
+        df["close_time"] = df["close_time"].astype("int64")
+        df["quote_volume"] = df["quote_volume"].astype("float64")
+        df["trades"] = df["trades"].astype("int64")
+        df["taker_buy_volume"] = df["taker_buy_volume"].astype("float64")
+        df["taker_buy_quote_volume"] = df["taker_buy_quote_volume"].astype("float64")
 
         # Set index
-        df["open_time"] = pd.to_datetime(df["open_time"], utc=True)  # type: ignore
-        df.set_index("open_time", inplace=True)  # type: ignore
+        df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
+        df.set_index("open_time", inplace=True)
 
         return df
 
@@ -791,22 +806,24 @@ class VisionDataClient(Generic[T]):
         # Get list of dates to download
         current_date = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
         dates = []
-        while current_date < end_time:  # type: ignore
-            dates.append(current_date)  # type: ignore
-            current_date += timedelta(days=1)  # type: ignore
+        while current_date < end_time:
+            dates.append(current_date)
+            current_date += timedelta(days=1)
 
-        logger.info(f"Downloading data for dates: {[d.strftime('%Y-%m-%d') for d in dates]}")  # type: ignore
+        logger.info(
+            f"Downloading data for dates: {[d.strftime('%Y-%m-%d') for d in dates]}"
+        )
 
         # Download data for each date
         dfs = []
-        for date in dates:  # type: ignore
-            df = await self._download_date(date)  # type: ignore
-            if df is not None:  # type: ignore
+        for date in dates:
+            df = await self._download_date(date)
+            if df is not None:
                 # Filter to requested time range
-                mask = (df.index >= start_time) & (df.index < end_time)  # type: ignore
-                filtered_df = df[mask]  # type: ignore
-                if not filtered_df.empty:  # type: ignore
-                    dfs.append(filtered_df)  # type: ignore
+                mask = (df.index >= start_time) & (df.index < end_time)
+                filtered_df = df[mask]
+                if not filtered_df.empty:
+                    dfs.append(filtered_df)
 
                     # Save to cache if enabled
                     if self.cache_dir and self.use_cache:
@@ -842,19 +859,19 @@ class VisionDataClient(Generic[T]):
 
         if not dfs:
             logger.error(f"No data available for {start_time} to {end_time}")
-            return TimestampedDataFrame(self._create_empty_dataframe())  # type: ignore
+            return TimestampedDataFrame(self._create_empty_dataframe())
 
         # Combine all data
-        combined_df = pd.concat(dfs, axis=0)  # type: ignore
+        combined_df = pd.concat(dfs, axis=0)
 
         # Sort by index to ensure chronological order
-        combined_df = combined_df.sort_index()  # type: ignore
+        combined_df = combined_df.sort_index()
 
         # Filter columns if specified
         if columns is not None:
-            combined_df = combined_df[columns]  # type: ignore
+            combined_df = combined_df[columns]
 
-        return TimestampedDataFrame(combined_df)  # type: ignore
+        return TimestampedDataFrame(combined_df)
 
     async def _download_date(self, date: datetime) -> Optional[pd.DataFrame]:
         """Download data for a specific date.
@@ -902,7 +919,7 @@ class VisionDataClient(Generic[T]):
             # Read CSV data with detailed error handling
             try:
                 logger.info(f"Reading CSV data from {data_file}")
-                df = pd.read_csv(  # type: ignore
+                df = pd.read_csv(
                     data_file,
                     compression="zip",
                     names=[
@@ -928,25 +945,31 @@ class VisionDataClient(Generic[T]):
 
                 # Log raw data for debugging
                 logger.info("Raw data sample (first 5 rows):")
-                logger.info(df.head().to_string())  # type: ignore
+                logger.info(df.head().to_string())
                 logger.info("Column dtypes:")
-                logger.info(df.dtypes.to_string())  # type: ignore
+                logger.info(df.dtypes.to_string())
 
                 # Detect timestamp format with detailed logging
-                sample_ts = df["open_time"].iloc[0]  # type: ignore
-                logger.info(f"Sample timestamp value: {sample_ts} (type: {type(sample_ts)})")  # type: ignore
-                ts_unit = detect_timestamp_unit(sample_ts)  # type: ignore
+                sample_ts = df["open_time"].iloc[0]
+                logger.info(
+                    f"Sample timestamp value: {sample_ts} (type: {type(sample_ts)})"
+                )
+                ts_unit = detect_timestamp_unit(sample_ts)
                 logger.info(f"Detected timestamp unit: {ts_unit}")
 
                 # Convert timestamps with error checking
                 try:
-                    df["open_time"] = pd.to_datetime(df["open_time"], unit=ts_unit)  # type: ignore
+                    df["open_time"] = pd.to_datetime(df["open_time"], unit=ts_unit)
                     # Add microseconds to match REST API precision
-                    df["open_time"] = df["open_time"].dt.floor("s") + pd.Timedelta(microseconds=0)  # type: ignore
-                    logger.info(f"Converted open_time to datetime. First timestamp: {df['open_time'].min()}")  # type: ignore
+                    df["open_time"] = df["open_time"].dt.floor("s") + pd.Timedelta(
+                        microseconds=0
+                    )
+                    logger.info(
+                        f"Converted open_time to datetime. First timestamp: {df['open_time'].min()}"
+                    )
                 except Exception as e:
                     logger.error(f"Error converting open_time to datetime: {e}")
-                    logger.error(f"Sample open_time values: {df['open_time'].head()}")  # type: ignore
+                    logger.error(f"Sample open_time values: {df['open_time'].head()}")
                     raise
 
                 # Ensure close_time has microsecond precision
@@ -959,12 +982,10 @@ class VisionDataClient(Generic[T]):
                     )
 
                     # Convert close_time to match REST API format exactly
-                    df["close_time"] = df["close_time"].astype(np.int64)  # type: ignore
+                    df["close_time"] = df["close_time"].astype(np.int64)
                     logger.debug(f"After int64 conversion: {df['close_time'].iloc[0]}")
 
-                    if (
-                        len(str(df["close_time"].iloc[0])) == 19
-                    ):  # nanoseconds  # type: ignore
+                    if len(str(df["close_time"].iloc[0])) == 19:  # nanoseconds
                         logger.debug(
                             "Detected nanosecond precision, converting to microseconds"
                         )
@@ -978,7 +999,7 @@ class VisionDataClient(Generic[T]):
                     # Add 999999 microseconds to match REST API behavior
                     before_final = df["close_time"].iloc[0]
                     # First add the microseconds, then multiply to preserve precision
-                    df["close_time"] = (df["close_time"].astype(np.int64) + 999) * 1000  # type: ignore
+                    df["close_time"] = (df["close_time"].astype(np.int64) + 999) * 1000
                     logger.debug(f"Before final conversion: {before_final}")
                     logger.debug(f"After final conversion: {df['close_time'].iloc[0]}")
                     logger.debug(f"Final close_time dtype: {df['close_time'].dtype}")
@@ -990,14 +1011,16 @@ class VisionDataClient(Generic[T]):
                         f"Sample close time microseconds: {sample_close.microsecond}"
                     )
 
-                    logger.info(f"Converted close_time. Sample value: {df['close_time'].iloc[0]}")  # type: ignore
+                    logger.info(
+                        f"Converted close_time. Sample value: {df['close_time'].iloc[0]}"
+                    )
                 except Exception as e:
-                    logger.error(f"Error converting close_time: {e}")  # type: ignore
-                    logger.error(f"Sample close_time values: {df['close_time'].head()}")  # type: ignore
+                    logger.error(f"Error converting close_time: {e}")
+                    logger.error(f"Sample close_time values: {df['close_time'].head()}")
                     raise
 
                 # Set index with validation
-                df.set_index("open_time", inplace=True)  # type: ignore
+                df.set_index("open_time", inplace=True)
                 if not isinstance(df.index, pd.DatetimeIndex):
                     raise ValueError(
                         f"Index is not DatetimeIndex after setting: {type(df.index)}"
@@ -1007,21 +1030,21 @@ class VisionDataClient(Generic[T]):
                 df = df.drop(columns=["ignored"])
 
                 # Convert index to UTC and ensure microsecond precision
-                if df.index.tz is None:  # type: ignore
-                    df.index = df.index.tz_localize("UTC")  # type: ignore
+                if df.index.tz is None:
+                    df.index = df.index.tz_localize("UTC")
                 # Ensure index has consistent microsecond precision
-                df.index = df.index.map(lambda x: x.replace(microsecond=0))  # type: ignore
+                df.index = df.index.map(lambda x: x.replace(microsecond=0))
                 logger.info(
                     "Localized index to UTC with consistent microsecond precision"
                 )
 
                 # Verify data continuity
-                time_diffs = df.index.to_series().diff()  # type: ignore
-                gaps = time_diffs[time_diffs > timedelta(seconds=1)]  # type: ignore
-                if not gaps.empty:  # type: ignore
-                    logger.warning(f"Found {len(gaps)} gaps in data:")  # type: ignore
-                    for idx, gap in gaps.head().items():  # type: ignore
-                        logger.warning(f"Gap at {idx}: {gap}")  # type: ignore
+                time_diffs = df.index.to_series().diff()
+                gaps = time_diffs[time_diffs > timedelta(seconds=1)]
+                if not gaps.empty:
+                    logger.warning(f"Found {len(gaps)} gaps in data:")
+                    for idx, gap in gaps.head().items():
+                        logger.warning(f"Gap at {idx}: {gap}")
 
                 return df
 
@@ -1083,7 +1106,7 @@ class VisionDataClient(Generic[T]):
             if not self._validate_cache(
                 current, current + timedelta(days=1)
             ) and is_data_likely_available(current):
-                dates.append(current)  # type: ignore
+                dates.append(current)
             current += timedelta(days=1)
             days_checked += 1
 
@@ -1092,14 +1115,16 @@ class VisionDataClient(Generic[T]):
 
         # Create and track prefetch tasks
         tasks = []
-        for date in dates:  # type: ignore
-            task = asyncio.create_task(self._download_and_cache(date, date + timedelta(days=1), None))  # type: ignore
-            tasks.append(task)  # type: ignore
-            logger.info(f"Started prefetch for {date.date()}")  # type: ignore
+        for date in dates:
+            task = asyncio.create_task(
+                self._download_and_cache(date, date + timedelta(days=1), None)
+            )
+            tasks.append(task)
+            logger.info(f"Started prefetch for {date.date()}")
 
         # Wait for tasks to complete, handling exceptions
         try:
-            await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore
+            await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
             logger.error(f"Error during prefetch: {e}")
             # Let individual task exceptions be handled by error recovery
