@@ -26,6 +26,71 @@ class CacheValidationError(NamedTuple):
     is_recoverable: bool
 
 
+class SafeMemoryMap:
+    """Safe memory mapping context manager for Arrow files."""
+
+    def __init__(self, path: Path):
+        """Initialize with file path."""
+        self.path = path
+        self.mmap = None
+
+    def __enter__(self) -> pa.MemoryMappedFile:
+        """Open memory map."""
+        try:
+            self.mmap = pa.memory_map(str(self.path))
+            return self.mmap
+        except Exception as e:
+            logger.error(f"Failed to memory map {self.path}: {e}")
+            raise
+
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[Exception],
+        exc_tb: Optional[object],
+    ) -> None:
+        """Close memory map."""
+        if self.mmap:
+            self.mmap.close()
+
+    @staticmethod
+    def safely_read_arrow_file(
+        file_path: Path, columns: Optional[list] = None
+    ) -> Optional[pd.DataFrame]:
+        """Safely read an Arrow file with error handling.
+
+        Args:
+            file_path: Path to Arrow file
+            columns: Optional columns to read
+
+        Returns:
+            DataFrame if successful, None if failed
+        """
+        from utils.config import CANONICAL_INDEX_NAME
+
+        try:
+            with SafeMemoryMap(file_path) as mmap:
+                reader = pa.ipc.RecordBatchFileReader(mmap)
+                if columns:
+                    # Read specific columns if provided
+                    table = reader.read_all().select(columns)
+                else:
+                    # Read all columns
+                    table = reader.read_all()
+
+                df = table.to_pandas()
+
+                # Set open_time as index if present
+                if CANONICAL_INDEX_NAME in df.columns:
+                    df.set_index(CANONICAL_INDEX_NAME, inplace=True)
+
+                return df
+
+        except Exception as e:
+            logger.error(f"Error reading Arrow file {file_path}: {e}")
+            return None
+
+
 class CacheValidator:
     """Centralized cache validation utilities.
 
@@ -107,7 +172,7 @@ class CacheValidator:
             True if checksum matches, False otherwise
         """
         try:
-            current_checksum = hashlib.sha256(cache_path.read_bytes()).hexdigest()
+            current_checksum = CacheValidator.calculate_checksum(cache_path)
             return current_checksum == stored_checksum
         except Exception as e:
             logger.error(f"Error validating cache checksum: {e}")
@@ -171,64 +236,36 @@ class CacheValidator:
                 True,
             )
 
-    @classmethod
-    def calculate_checksum(cls, file_path: Path) -> str:
-        """Calculate SHA-256 checksum for a file.
+    @staticmethod
+    def calculate_checksum(file_path: Path) -> str:
+        """Calculate SHA-256 checksum of a file.
 
         Args:
             file_path: Path to file
 
         Returns:
             Hexadecimal checksum string
-
-        Raises:
-            FileNotFoundError: If file does not exist
-        """
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        return hashlib.sha256(file_path.read_bytes()).hexdigest()
-
-    @classmethod
-    def safely_read_arrow_file(
-        cls, cache_path: Path, columns: Optional[list] = None
-    ) -> Optional[pd.DataFrame]:
-        """Safely read Arrow file with error handling.
-
-        Args:
-            cache_path: Path to Arrow file
-            columns: Optional list of columns to read
-
-        Returns:
-            DataFrame if successful, None if error
         """
         try:
-            # Validate file exists and has minimum size
-            error = cls.validate_cache_integrity(cache_path)
-            if error:
-                logger.warning(f"Cache validation failed: {error.message}")
-                return None
-
-            # Read file using pyarrow
-            with pa.memory_map(str(cache_path), "r") as source:
-                with pa.ipc.open_file(source) as reader:
-                    if columns:
-                        # Read only specified columns
-                        table = reader.read_all(columns=columns)
-                    else:
-                        # Read all columns
-                        table = reader.read_all()
-
-            # Convert to DataFrame
-            df = table.to_pandas()
-
-            # Set index if open_time column exists
-            if "open_time" in df.columns:
-                df.set_index("open_time", inplace=True)
-                df.index = pd.to_datetime(df.index, utc=True)
-
-            return df
-
+            return hashlib.sha256(file_path.read_bytes()).hexdigest()
         except Exception as e:
-            logger.error(f"Failed to read cache file: {e}")
-            return None
+            logger.error(f"Error calculating checksum for {file_path}: {e}")
+            raise
+
+    @staticmethod
+    def safely_read_arrow_file(
+        file_path: Path, columns: Optional[list] = None
+    ) -> Optional[pd.DataFrame]:
+        """Safely read an Arrow file with error handling.
+
+        This is a wrapper around SafeMemoryMap.safely_read_arrow_file for compatibility.
+
+        Args:
+            file_path: Path to Arrow file
+            columns: Optional columns to read
+
+        Returns:
+            DataFrame if successful, None if failed
+        """
+        # Delegate to the unified implementation in SafeMemoryMap
+        return SafeMemoryMap.safely_read_arrow_file(file_path, columns)

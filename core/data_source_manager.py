@@ -14,7 +14,7 @@ from utils.time_alignment import (
     filter_time_range,
 )
 from utils.validation import DataFrameValidator, DataValidation
-from utils.cache_validator import CacheValidator
+from utils.cache_validator import SafeMemoryMap
 from utils.config import (
     OUTPUT_DTYPES,
     VISION_DATA_DELAY_HOURS,
@@ -260,8 +260,11 @@ class DataSourceManager:
         )
         return True
 
-    def _validate_dates(self, start_time: datetime, end_time: datetime) -> None:
-        """Validate date ranges for data retrieval.
+    def _validate_dates(self, start_time: datetime, end_time: datetime):
+        """Validate date inputs before processing.
+
+        This ensures start and end times are valid datetime objects,
+        and performs any necessary conversions.
 
         Args:
             start_time: Start time
@@ -270,6 +273,59 @@ class DataSourceManager:
         Raises:
             ValueError: If dates are invalid
         """
+        logger.debug(
+            f"Validating dates - start_time type: {type(start_time)}, end_time type: {type(end_time)}"
+        )
+        logger.debug(f"start_time value: {start_time}, end_time value: {end_time}")
+
+        # Handle Arrow objects - check for two common methods in Arrow objects
+        if hasattr(start_time, "datetime") and callable(
+            getattr(start_time, "datetime")
+        ):
+            logger.debug("Converting start_time from Arrow to datetime")
+            start_time = start_time.datetime()
+        elif hasattr(start_time, "to_pydatetime") and callable(
+            getattr(start_time, "to_pydatetime")
+        ):
+            logger.debug("Converting start_time using to_pydatetime method")
+            start_time = start_time.to_pydatetime()
+        elif str(type(start_time)).find("arrow") != -1:
+            # Fallback for Arrow objects that might not have the expected methods
+            logger.debug(
+                "Detected potential Arrow object without standard methods, attempting conversion"
+            )
+            import arrow
+
+            if isinstance(start_time, arrow.Arrow):
+                start_time = start_time.datetime
+
+        if hasattr(end_time, "datetime") and callable(getattr(end_time, "datetime")):
+            logger.debug("Converting end_time from Arrow to datetime")
+            end_time = end_time.datetime()
+        elif hasattr(end_time, "to_pydatetime") and callable(
+            getattr(end_time, "to_pydatetime")
+        ):
+            logger.debug("Converting end_time using to_pydatetime method")
+            end_time = end_time.to_pydatetime()
+        elif str(type(end_time)).find("arrow") != -1:
+            # Fallback for Arrow objects that might not have the expected methods
+            logger.debug(
+                "Detected potential Arrow object without standard methods, attempting conversion"
+            )
+            import arrow
+
+            if isinstance(end_time, arrow.Arrow):
+                end_time = end_time.datetime
+
+        # Handle pandas Timestamp objects
+        if isinstance(start_time, pd.Timestamp):
+            logger.debug("Converting start_time from Pandas Timestamp to datetime")
+            start_time = start_time.to_pydatetime()
+
+        if isinstance(end_time, pd.Timestamp):
+            logger.debug("Converting end_time from Pandas Timestamp to datetime")
+            end_time = end_time.to_pydatetime()
+
         # Use the standard validation utility from utils.validation
         DataValidation.validate_time_window(start_time, end_time)
 
@@ -415,7 +471,7 @@ class DataSourceManager:
                         self.vision_client = VisionDataClient(
                             symbol=symbol,
                             interval=interval.value,
-                            use_cache=False,  # We use our own cache
+                            use_cache=False,  # We use our own unified cache manager
                         )
                     df = await self.vision_client.fetch(start_time, end_time)
                     if df.empty:
@@ -436,8 +492,8 @@ class DataSourceManager:
             # Format DataFrame and slice to exact time range
             df = self._format_dataframe(df)
             if not df.empty:
-                mask = (df.index >= start_time) & (df.index < end_time)
-                df = df.loc[mask].copy()
+                # Use centralized time filtering function
+                df = filter_time_range(df, start_time, end_time)
 
             return df
 
@@ -467,7 +523,7 @@ class DataSourceManager:
         Returns:
             DataFrame containing market data
         """
-        # Validate dates
+        # Validate dates using centralized utility
         self._validate_dates(start_time, end_time)
 
         # Get time boundaries using the centralized utility

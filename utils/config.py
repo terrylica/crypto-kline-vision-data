@@ -5,23 +5,21 @@ This module centralizes constants and configuration parameters that were previou
 scattered across multiple files, creating a single source of truth for system-wide settings.
 """
 
+import os
 from datetime import timedelta, timezone
 from typing import Dict, Final, Any
 
 # Time-related constants
 DEFAULT_TIMEZONE: Final = timezone.utc
+CANONICAL_TIMEZONE: Final = timezone.utc
 CANONICAL_INDEX_NAME: Final = "open_time"
 TIMESTAMP_PRECISION: Final = "us"  # Microsecond precision
 
 # API-specific constraints
-VISION_DATA_DELAY_HOURS: Final = (
-    36  # Data newer than this isn't available in Vision API
-)
+VISION_DATA_DELAY_HOURS: Final = 48
 
 # Time constraints
-CONSOLIDATION_DELAY: Final = timedelta(
-    hours=48
-)  # Time Binance needs to consolidate daily data
+CONSOLIDATION_DELAY: Final = timedelta(hours=48)
 MAX_TIME_RANGE: Final = timedelta(days=30)  # Maximum time range for single request
 MAX_HISTORICAL_DAYS: Final = 1000  # Maximum days back for historical data
 INCOMPLETE_BAR_THRESHOLD: Final = timedelta(
@@ -29,9 +27,9 @@ INCOMPLETE_BAR_THRESHOLD: Final = timedelta(
 )  # Time after which bars are considered complete
 
 # Cache settings
-CACHE_MAX_AGE: Final = timedelta(days=30)
+MAX_CACHE_AGE: Final = timedelta(days=30)
 CACHE_UPDATE_INTERVAL: Final = timedelta(minutes=5)
-MIN_CACHE_FILE_SIZE: Final = 1024  # 1KB minimum
+MIN_VALID_FILE_SIZE: Final = 1024  # 1KB minimum
 
 # API constraints
 API_TIMEOUT: Final = 30  # Seconds
@@ -53,8 +51,8 @@ OUTPUT_DTYPES: Final[Dict[str, str]] = {
 }
 
 # Chunk size constraints
-REST_CHUNK_SIZE: Final = 1000  # Maximum records per REST API request
-REST_MAX_CHUNKS: Final = 10  # Maximum number of chunks to request via REST
+REST_CHUNK_SIZE: Final = 1000
+REST_MAX_CHUNKS: Final = 30
 MAXIMUM_CONCURRENT_DOWNLOADS: Final = 13
 
 # File formats
@@ -74,6 +72,14 @@ ERROR_TYPES: Final[Dict[str, str]] = {
     "VALIDATION": "validation_error",
     "AVAILABILITY": "availability_error",
 }
+
+# Environment configuration
+ENV: Final = os.getenv("APP_ENV", "development")
+DEBUG: Final = os.getenv("DEBUG", "false").lower() == "true"
+
+# Base directories
+DEFAULT_CACHE_DIR = os.path.expanduser("~/.binance_data_cache")
+DEFAULT_LOG_DIR = os.path.expanduser("~/.binance_data_logs")
 
 
 # Feature flags

@@ -3,12 +3,12 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, Sequence
 import pandas as pd
 import pyarrow as pa
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheValidator
+from utils.cache_validator import CacheValidator, SafeMemoryMap
 from utils.validation import DataFrameValidator
 from utils.config import OUTPUT_DTYPES, CANONICAL_INDEX_NAME, DEFAULT_TIMEZONE
 
@@ -225,7 +225,11 @@ class UnifiedCacheManager:
         return checksum, record_count
 
     async def load_from_cache(
-        self, symbol: str, interval: str, date: datetime
+        self,
+        symbol: str,
+        interval: str,
+        date: datetime,
+        columns: Optional[Sequence[str]] = None,
     ) -> Optional[pd.DataFrame]:
         """Load data from cache if available.
 
@@ -233,6 +237,7 @@ class UnifiedCacheManager:
             symbol: Trading pair symbol
             interval: Time interval
             date: Target date
+            columns: Optional list of columns to load
 
         Returns:
             DataFrame if cache hit, None if cache miss or invalid
@@ -256,8 +261,8 @@ class UnifiedCacheManager:
             logger.warning(f"Cache checksum mismatch: {cache_path}")
             return None
 
-        # Use the centralized safe reader
-        df = CacheValidator.safely_read_arrow_file(cache_path)
+        # Use the unified safe reader for Arrow files
+        df = SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
         if df is None:
             return None
 
