@@ -54,6 +54,8 @@ import numpy as np
 import warnings
 
 from utils.logger_setup import get_logger
+from utils.cache_validator import CacheKeyManager
+from utils.validation import DataValidation
 from .vision_constraints import (
     TimestampedDataFrame,
     validate_cache_path,
@@ -72,7 +74,6 @@ from .vision_constraints import (
     FILES_PER_DAY,
     CANONICAL_INDEX_NAME,
     validate_time_boundaries,
-    validate_symbol_format,
     validate_dataframe_integrity,
     detect_timestamp_unit,
 )
@@ -82,7 +83,6 @@ from utils.time_alignment import (
     get_time_boundaries,
     filter_time_range,
 )
-from utils.validation import DataValidation
 
 # Type variables for generic type hints
 T = TypeVar("T", bound=TimestampedDataFrame)
@@ -132,7 +132,7 @@ class CacheMetadata:
         Returns:
             Cache key string
         """
-        return f"{symbol}_{interval}_{date.strftime('%Y%m')}"
+        return CacheKeyManager.get_cache_key(symbol, interval, date)
 
     def register_cache(
         self,
@@ -326,7 +326,9 @@ class VisionDataClient(Generic[T]):
             Path to cache file
         """
         return (
-            get_cache_path(self.cache_dir, self.symbol, self.interval, date)
+            CacheKeyManager.get_cache_path(
+                self.cache_dir, self.symbol, self.interval, date
+            )
             if self.cache_dir
             else Path()
         )
@@ -614,7 +616,7 @@ class VisionDataClient(Generic[T]):
 
     def _validate_symbol(self) -> None:
         """Validate trading pair symbol."""
-        validate_symbol_format(self.symbol)
+        DataValidation.validate_symbol_format(self.symbol)
 
     def _validate_data(self, df: pd.DataFrame) -> None:
         """Validate DataFrame meets all data integrity requirements.
@@ -646,15 +648,13 @@ class VisionDataClient(Generic[T]):
 
         Raises:
             ValueError: If data is missing at critical boundaries
-
-        Note:
-            - Checks day boundary completeness (00:00:00)
-            - Validates hour boundary data
-            - Ensures minimal interval coverage
-            - Handles empty DataFrame cases
         """
+        # Use centralized validation first
+        DataValidation.validate_time_boundaries(df, start_time, end_time)
+
+        # Additional Vision-specific validations
         if df.empty:
-            raise ValueError("No data available for the specified time range")
+            return
 
         # Validate day boundaries
         if start_time.time() == datetime.min.time():  # Day start (00:00:00)

@@ -8,8 +8,8 @@ import pandas as pd
 import pyarrow as pa
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheValidator, SafeMemoryMap
-from utils.validation import DataFrameValidator
+from utils.cache_validator import CacheValidator, SafeMemoryMap, CacheKeyManager
+from utils.validation import DataFrameValidator, DataValidation
 from utils.config import OUTPUT_DTYPES, CANONICAL_INDEX_NAME, DEFAULT_TIMEZONE
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
@@ -93,8 +93,7 @@ class UnifiedCacheManager:
         Returns:
             Path to cache file
         """
-        year_month = date.strftime("%Y%m")
-        return self.data_dir / symbol / interval / f"{year_month}.arrow"
+        return CacheKeyManager.get_cache_path(self.data_dir, symbol, interval, date)
 
     def get_cache_key(self, symbol: str, interval: str, date: datetime) -> str:
         """Generate cache key.
@@ -107,7 +106,7 @@ class UnifiedCacheManager:
         Returns:
             Cache key string
         """
-        return f"{symbol}_{interval}_{date.strftime('%Y%m')}"
+        return CacheKeyManager.get_cache_key(symbol, interval, date)
 
     async def save_to_cache(
         self, df: pd.DataFrame, symbol: str, interval: str, date: datetime

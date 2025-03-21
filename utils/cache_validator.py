@@ -8,7 +8,7 @@ and metadata across different components to reduce duplication and ensure consis
 import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any, NamedTuple
+from typing import Dict, Optional, Any, NamedTuple, Sequence
 import pandas as pd
 import pyarrow as pa
 
@@ -27,21 +27,25 @@ class CacheValidationError(NamedTuple):
 
 
 class SafeMemoryMap:
-    """Safe memory mapping context manager for Arrow files."""
+    """Context manager for safe memory map handling."""
 
     def __init__(self, path: Path):
-        """Initialize with file path."""
+        """Initialize memory map.
+
+        Args:
+            path: Path to Arrow file
+        """
         self.path = path
-        self.mmap = None
+        self._mmap = None
 
     def __enter__(self) -> pa.MemoryMappedFile:
-        """Open memory map."""
-        try:
-            self.mmap = pa.memory_map(str(self.path))
-            return self.mmap
-        except Exception as e:
-            logger.error(f"Failed to memory map {self.path}: {e}")
-            raise
+        """Enter context manager.
+
+        Returns:
+            Memory mapped file
+        """
+        self._mmap = pa.memory_map(str(self.path), "r")
+        return self._mmap
 
     def __exit__(
         self,
@@ -49,45 +53,56 @@ class SafeMemoryMap:
         exc_val: Optional[Exception],
         exc_tb: Optional[object],
     ) -> None:
-        """Close memory map."""
-        if self.mmap:
-            self.mmap.close()
+        """Exit context manager and clean up resources."""
+        if self._mmap is not None:
+            self._mmap.close()
 
     @staticmethod
     def safely_read_arrow_file(
-        file_path: Path, columns: Optional[list] = None
+        path: Path, columns: Optional[Sequence[str]] = None
     ) -> Optional[pd.DataFrame]:
-        """Safely read an Arrow file with error handling.
+        """Safely read Arrow file with error handling.
 
         Args:
-            file_path: Path to Arrow file
-            columns: Optional columns to read
+            path: Path to Arrow file
+            columns: Optional list of columns to read
 
         Returns:
-            DataFrame if successful, None if failed
+            DataFrame or None if read fails
         """
-        from utils.config import CANONICAL_INDEX_NAME
-
         try:
-            with SafeMemoryMap(file_path) as mmap:
-                reader = pa.ipc.RecordBatchFileReader(mmap)
-                if columns:
-                    # Read specific columns if provided
-                    table = reader.read_all().select(columns)
-                else:
-                    # Read all columns
-                    table = reader.read_all()
+            with SafeMemoryMap(path) as source:
+                with pa.ipc.open_file(source) as reader:
+                    if columns:
+                        # Ensure index column is included
+                        all_cols = reader.schema.names
+                        if "open_time" in all_cols and "open_time" not in columns:
+                            cols_to_read = ["open_time"] + list(columns)
+                        else:
+                            cols_to_read = list(columns)
+                        table = reader.read_all().select(cols_to_read)
+                    else:
+                        table = reader.read_all()
 
-                df = table.to_pandas()
+                    df = table.to_pandas(
+                        zero_copy_only=False,  # More robust but might copy data
+                        date_as_object=False,
+                        use_threads=True,
+                    )
 
-                # Set open_time as index if present
-                if CANONICAL_INDEX_NAME in df.columns:
-                    df.set_index(CANONICAL_INDEX_NAME, inplace=True)
+                    # Set index if needed
+                    if "open_time" in df.columns and df.index.name != "open_time":
+                        df.set_index("open_time", inplace=True)
 
-                return df
+                    # Ensure index is datetime with timezone
+                    if not isinstance(df.index, pd.DatetimeIndex):
+                        df.index = pd.to_datetime(df.index, utc=True)
+                    elif df.index.tz is None:
+                        df.index = df.index.tz_localize("UTC")
 
+                    return df
         except Exception as e:
-            logger.error(f"Error reading Arrow file {file_path}: {e}")
+            logger.error(f"Error reading Arrow file {path}: {e}")
             return None
 
 
@@ -269,3 +284,39 @@ class CacheValidator:
         """
         # Delegate to the unified implementation in SafeMemoryMap
         return SafeMemoryMap.safely_read_arrow_file(file_path, columns)
+
+
+class CacheKeyManager:
+    """Centralized manager for cache keys and paths."""
+
+    @staticmethod
+    def get_cache_key(symbol: str, interval: str, date: datetime) -> str:
+        """Generate a standardized cache key string.
+
+        Args:
+            symbol: Trading pair symbol
+            interval: Time interval
+            date: Target date
+
+        Returns:
+            Standardized cache key string
+        """
+        return f"{symbol}_{interval}_{date.strftime('%Y%m')}"
+
+    @staticmethod
+    def get_cache_path(
+        cache_dir: Path, symbol: str, interval: str, date: datetime
+    ) -> Path:
+        """Generate standardized cache file path.
+
+        Args:
+            cache_dir: Base cache directory
+            symbol: Trading pair symbol
+            interval: Time interval
+            date: Target date
+
+        Returns:
+            Path to cache file
+        """
+        year_month = date.strftime("%Y%m")
+        return cache_dir / symbol / interval / f"{year_month}.arrow"

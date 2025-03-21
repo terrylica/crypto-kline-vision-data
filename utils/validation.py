@@ -6,14 +6,6 @@ logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 from typing import Optional, Dict, Any
-from .market_constraints import (
-    MarketType,
-    Interval,
-    get_market_capabilities,
-    is_interval_supported,
-    get_endpoint_url,
-    get_minimum_interval,
-)
 from utils.config import (
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
@@ -30,18 +22,18 @@ class ValidationError(Exception):
 
 
 class DataValidation:
-    """Static methods for data validation."""
+    """Data validation utilities."""
 
     @staticmethod
     def validate_dates(start_time: datetime, end_time: datetime) -> None:
-        """Validate date parameters.
+        """Validate date time window.
 
         Args:
             start_time: Start time
             end_time: End time
 
         Raises:
-            ValueError: If dates are invalid
+            ValueError: If date inputs are invalid
         """
         if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
             raise ValueError("Start and end times must be datetime objects")
@@ -63,7 +55,7 @@ class DataValidation:
 
     @staticmethod
     def validate_time_window(start_time: datetime, end_time: datetime) -> None:
-        """Unified method for validating time windows.
+        """Validate time window for market data requests.
 
         Args:
             start_time: Start time
@@ -82,6 +74,49 @@ class DataValidation:
                 f"Large time window requested: {time_diff.days} days. "
                 "This may cause performance issues."
             )
+
+    @staticmethod
+    def enforce_utc_timestamp(dt: datetime) -> datetime:
+        """Ensure timestamp is UTC.
+
+        Args:
+            dt: Input datetime
+
+        Returns:
+            UTC-aware datetime
+
+        Raises:
+            TypeError: If input is not a datetime object
+        """
+        if not isinstance(dt, datetime):
+            raise TypeError(f"Expected datetime object, got {type(dt)}")
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    @staticmethod
+    def validate_time_range(
+        start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
+    ) -> tuple[Optional[datetime], Optional[datetime]]:
+        """Validate and normalize time range parameters.
+
+        Args:
+            start_time: Start time of data request
+            end_time: End time of data request
+
+        Returns:
+            Tuple of (normalized start_time, normalized end_time)
+
+        Raises:
+            ValueError: If end time is not after start time
+        """
+        if start_time is not None:
+            start_time = DataValidation.enforce_utc_timestamp(start_time)
+        if end_time is not None:
+            end_time = DataValidation.enforce_utc_timestamp(end_time)
+        if start_time and end_time and start_time >= end_time:
+            raise ValueError("End time must be after start time")
+        return start_time, end_time
 
     @staticmethod
     def validate_interval(interval: str, market_type: str = "SPOT") -> None:
@@ -130,8 +165,8 @@ class DataValidation:
         """Validate trading pair symbol format.
 
         Args:
-            symbol: Trading pair symbol
-            market_type: Market type
+            symbol: Trading pair symbol to validate
+            market_type: Type of market (default: SPOT)
 
         Raises:
             ValueError: If symbol format is invalid
@@ -148,6 +183,117 @@ class DataValidation:
             symbol.endswith("USDT") or symbol.endswith("BUSD")
         ):
             logger.warning(f"Unusual futures symbol format: {symbol}")
+
+    @staticmethod
+    def validate_data_availability(
+        start_time: datetime,
+        end_time: datetime,
+        consolidation_delay: timedelta = timedelta(hours=48),
+    ) -> None:
+        """Validate if data should be available for the given time range.
+
+        Args:
+            start_time: Start of time range
+            end_time: End of time range
+            consolidation_delay: Required delay after day completion for data availability
+
+        Raises:
+            ValueError: If data is definitely not available for the time range
+        """
+        if not DataValidation.is_data_likely_available(start_time, consolidation_delay):
+            raise ValueError(
+                f"Data for {start_time.date()} is not yet available. "
+                f"Binance Vision requires {consolidation_delay} after day completion."
+            )
+        if end_time.date() > datetime.now(timezone.utc).date():
+            raise ValueError(f"Cannot request future data: {end_time.date()}")
+
+    @staticmethod
+    def is_data_likely_available(
+        target_date: datetime, consolidation_delay: timedelta = timedelta(hours=48)
+    ) -> bool:
+        """Check if data is likely to be available from Binance Vision.
+
+        Args:
+            target_date: Date to check for data availability
+            consolidation_delay: Required delay after day completion for data availability
+
+        Returns:
+            True if data is likely available based on Binance Vision's constraints
+        """
+        now = datetime.now(timezone.utc)
+
+        # Convert target_date to start of day in UTC for consistent comparison
+        target_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if target_day.date() < now.date():
+            # Past dates are always available
+            return True
+        elif target_day.date() == now.date():
+            # Today's data is only available after consolidation delay
+            return now - target_day > consolidation_delay
+        else:
+            # Future dates are never available
+            return False
+
+    @staticmethod
+    def validate_time_boundaries(
+        df: pd.DataFrame, start_time: datetime, end_time: datetime
+    ) -> None:
+        """Validate that DataFrame covers the requested time range.
+
+        Args:
+            df: DataFrame to validate
+            start_time: Start time (inclusive)
+            end_time: End time (exclusive)
+
+        Raises:
+            ValueError: If data doesn't cover requested time range
+        """
+        # For empty DataFrame, just validate the time range itself
+        if df.empty:
+            if start_time > end_time:
+                raise ValueError(
+                    f"Start time {start_time} is after end time {end_time}"
+                )
+            if end_time > datetime.now(timezone.utc):
+                raise ValueError(f"End time {end_time} is in the future")
+            return
+
+        # Ensure index is timezone-aware
+        if df.index.tz is None:
+            raise ValueError("DataFrame index must be timezone-aware")
+
+        # Convert times to UTC for comparison
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
+
+        # Get actual data boundaries
+        data_start = df.index.min()
+        data_end = df.index.max()
+
+        # Check if data covers requested range, ignoring microsecond precision
+        data_start_floor = data_start.replace(microsecond=0)
+        data_end_floor = data_end.replace(microsecond=0)
+        start_time_floor = start_time.replace(microsecond=0)
+        end_time_floor = end_time.replace(microsecond=0)
+
+        # Adjust end_time_floor for exclusive comparison
+        # We need data up to but not including the end time
+        adjusted_end_time_floor = end_time_floor - timedelta(seconds=1)
+
+        if data_start_floor > start_time_floor:
+            raise ValueError(
+                f"Data starts later than requested: {data_start} > {start_time}"
+            )
+        if data_end_floor < adjusted_end_time_floor:
+            raise ValueError(
+                f"Data ends earlier than requested: {data_end} < {adjusted_end_time_floor}"
+            )
+
+        # Verify data is sorted
+        if not df.index.is_monotonic_increasing:
+            raise ValueError("Data is not sorted by time")
 
 
 class DataFrameValidator:
