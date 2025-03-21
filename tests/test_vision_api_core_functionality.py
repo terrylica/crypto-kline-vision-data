@@ -104,11 +104,11 @@ async def test_basic_data_retrieval():
         assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"
         assert df.index.tz == timezone.utc, "Data timezone is not UTC"
 
-        # Verify data completeness
+        # Verify data completeness (exclusive end time)
         expected_rows = int((end_time - start_time).total_seconds())
         assert (
-            len(df) == expected_rows + 1
-        ), f"Expected {expected_rows + 1} rows, got {len(df)}"  # +1 because end time is inclusive
+            len(df) == expected_rows
+        ), f"Expected {expected_rows} rows, got {len(df)}"  # End time is now exclusive
 
         # Log data sample
         logger.info(f"\nFirst few rows:\n{df.head()}")
@@ -168,10 +168,8 @@ async def test_data_consistency():
         assert df["volume"].dtype == float, "volume column is not float"
         assert df["trades"].dtype == int, "trades column is not int"
 
-        # Verify data completeness
-        expected_rows = (
-            int((end_time - start_time).total_seconds()) + 1
-        )  # +1 for inclusive end
+        # Verify data completeness (exclusive end time)
+        expected_rows = int((end_time - start_time).total_seconds())
         assert len(df) == expected_rows, f"Expected {expected_rows} rows, got {len(df)}"
 
         logger.info("Data consistency verified successfully")

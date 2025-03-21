@@ -14,7 +14,7 @@ This file concentrates on specific edge case behaviors at time boundaries:
 4. Alignment rules application in practice
 
 IMPORTANT: Time boundary behavior:
-1. All boundaries are INCLUSIVE after alignment
+1. Start times are INCLUSIVE, end times are EXCLUSIVE after alignment
 2. Start times with microseconds are rounded UP to the next second
 3. End times with microseconds are rounded DOWN to the current second
 
@@ -85,21 +85,21 @@ async def test_boundary_conditions(manager: DataSourceManager):
             "description": "Full second alignment",
             "start": current_time.shift(seconds=-10, microseconds=-500_000),
             "end": current_time.shift(seconds=-5, microseconds=-250_000),
-            "expected_records": 5,  # 5 records: [26,27,28,29,30] (start_time 25.5 is rounded UP to 26)
+            "expected_records": 5,  # 5 records: With exclusive end time the records are [x+1,x+2,x+3,x+4,x+5]
         },
         {
             "case_number": 2,
             "description": "Microsecond-aligned start",
             "start": current_time.shift(seconds=-5, microseconds=-500_000),
             "end": current_time.shift(seconds=-2, microseconds=-250_000),
-            "expected_records": 3,  # 3 records: When start_time x.5s rounds UP to (x+1)s, we get [(x+1), (x+2), (x+3)]
+            "expected_records": 3,  # 3 records: When start_time x.5s rounds UP to (x+1)s, with exclusive end we get [(x+1), (x+2), (x+3)]
         },
         {
             "case_number": 3,
             "description": "Cross-minute boundary",
             "start": current_time.shift(seconds=-15, microseconds=-500_000),
             "end": current_time.shift(seconds=-5, microseconds=+750_000),
-            "expected_records": 11,  # 11 records: start_time rounds UP because of microseconds, end_time rounds DOWN
+            "expected_records": 11,  # 11 records: With start_time rounded UP and end_time rounded DOWN for exclusive end
         },
         {
             "case_number": 4,
@@ -122,12 +122,14 @@ async def test_boundary_conditions(manager: DataSourceManager):
         logger.info(f"\nExpected Behavior:")
         logger.info(f"  - Time range: {end_time - start_time} duration")
         logger.info(f"  - Expected records: {case['expected_records']}")
-        logger.info(f"  - Both start and end times are INCLUSIVE after rounding")
+        logger.info(
+            f"  - Start time is INCLUSIVE, end time is EXCLUSIVE after rounding"
+        )
         logger.info(
             f"  - First record should be >= {start_time.replace(microsecond=0).isoformat()}"
         )
         logger.info(
-            f"  - Last record should be <= {end_time.replace(microsecond=0).isoformat()}"
+            f"  - Last record should be < {end_time.replace(microsecond=0).isoformat()}"
         )
 
         try:
@@ -196,9 +198,9 @@ async def test_boundary_conditions(manager: DataSourceManager):
                 assert df.index[0] >= start_time.replace(
                     microsecond=0
                 ), "First timestamp too early"
-                assert df.index[-1] <= end_time.replace(
+                assert df.index[-1] < end_time.replace(
                     microsecond=0
-                ), "Last timestamp too late"  # Updated to <= instead of <
+                ), "Last timestamp too late"  # Updated to < instead of <=
                 assert df.index[-1] < datetime.now(timezone.utc), "Contains future data"
 
         except Exception as e:

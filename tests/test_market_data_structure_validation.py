@@ -126,11 +126,15 @@ def validate_time_integrity(
 
     # Time boundaries if provided
     if start_time:
-        assert (
-            df["open_time"].min() >= start_time
-        ), "Data starts before requested window"
+        # Strip microseconds for comparison to handle different precision
+        df_min_time = df["open_time"].min().replace(microsecond=0)
+        start_time_no_micro = start_time.replace(microsecond=0)
+        assert df_min_time >= start_time_no_micro, "Data starts before requested window"
     if end_time:
-        assert df["open_time"].max() <= end_time, "Data ends after requested window"
+        # Strip microseconds for comparison to handle different precision
+        df_max_time = df["open_time"].max().replace(microsecond=0)
+        end_time_no_micro = end_time.replace(microsecond=0)
+        assert df_max_time <= end_time_no_micro, "Data ends after requested window"
 
 
 @pytest.mark.real
