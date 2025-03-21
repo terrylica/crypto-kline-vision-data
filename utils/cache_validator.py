@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, Optional, Any, NamedTuple, Sequence
 import pandas as pd
 import pyarrow as pa
+import time
 
 from utils.logger_setup import get_logger
 from utils.validation import DataFrameValidator
@@ -320,3 +321,119 @@ class CacheKeyManager:
         """
         year_month = date.strftime("%Y%m")
         return cache_dir / symbol / interval / f"{year_month}.arrow"
+
+
+class VisionCacheManager:
+    """Manages cache operations for Vision data.
+
+    This class centralizes caching operations that were previously part of VisionDataClient.
+    """
+
+    @staticmethod
+    async def save_to_cache(
+        df: pd.DataFrame,
+        cache_path: Path,
+        start_time: datetime,
+    ) -> tuple[str, int]:
+        """Save DataFrame to cache in Arrow format.
+
+        Args:
+            df: DataFrame to save
+            cache_path: Target cache path
+            start_time: Start time for the data
+
+        Returns:
+            Tuple of (checksum, record_count)
+
+        Raises:
+            pa.ArrowInvalid: If DataFrame cannot be converted to Arrow format
+            pa.ArrowIOError: If there are I/O errors during file operations
+            ValueError: If input validation fails
+            OSError: If file system operations fail
+        """
+        try:
+            # Validate inputs
+            if not isinstance(cache_path, Path):
+                cache_path = Path(cache_path)
+
+            # Ensure parent directory exists
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Ensure we don't include the end date
+            if not df.empty:
+                last_date = df.index[-1].replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                df = df[df.index < last_date + timedelta(days=1)]
+
+            # Reset index to include it in the Arrow table
+            df_with_index = df.reset_index()
+
+            try:
+                # Convert to Arrow table
+                table = pa.Table.from_pandas(df_with_index)
+            except pa.ArrowInvalid as e:
+                logger.error(f"Failed to convert DataFrame to Arrow format: {e}")
+                raise
+
+            try:
+                # Save to Arrow file with proper resource cleanup
+                with pa.OSFile(str(cache_path), "wb") as sink:
+                    with pa.ipc.new_file(sink, table.schema) as writer:
+                        writer.write_table(table)
+            except pa.ArrowIOError as e:
+                logger.error(f"Failed to write Arrow file: {e}")
+                raise
+
+            # Calculate checksum using the centralized utility
+            checksum = CacheValidator.calculate_checksum(cache_path)
+            record_count = len(df)
+
+            logger.info(f"Saved {record_count} records to {cache_path}")
+            return checksum, record_count
+
+        except Exception as e:
+            logger.error(f"Unexpected error saving to cache: {e}")
+            raise
+
+    @staticmethod
+    async def load_from_cache(
+        cache_path: Path, columns: Optional[Sequence[str]] = None
+    ) -> Optional[pd.DataFrame]:
+        """Load data from cache with optimized memory usage.
+
+        Args:
+            cache_path: Path to cache file
+            columns: Optional list of columns to include
+
+        Returns:
+            DataFrame or None if load fails
+        """
+        start_time_perf = time.perf_counter()
+
+        try:
+            # Use the centralized SafeMemoryMap utility to read Arrow file
+            logger.debug(f"Loading cached data from {cache_path}")
+            df = SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
+
+            if df is None:
+                raise ValueError(f"Failed to read data from {cache_path}")
+
+            # Remove duplicates efficiently if needed
+            if df.index.has_duplicates:
+                t0 = time.perf_counter()
+                # Use drop_duplicates method instead of boolean indexing
+                df = (
+                    df.reset_index()
+                    .drop_duplicates(subset=["open_time"], keep="first")
+                    .set_index("open_time")
+                )
+                logger.info(f"Duplicate removal took: {time.perf_counter() - t0:.6f}s")
+
+            total_time = time.perf_counter() - start_time_perf
+            logger.info(f"Total cache loading time: {total_time:.6f}s")
+            return df
+
+        except Exception as e:
+            logger.error(f"Failed to load from cache: {e}")
+            raise

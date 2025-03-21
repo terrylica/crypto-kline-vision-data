@@ -39,45 +39,28 @@ Benefits of using DataSourceManager:
 - Optimized memory usage with MMAP
 """
 
-import hashlib
 import httpx
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import tempfile
-from typing import Dict, Optional, Tuple, TypeVar, Generic, Sequence
+from typing import Dict, Optional, Sequence, TypeVar
 import pandas as pd
-import pyarrow as pa
-import json
-import asyncio
-import time
-import numpy as np
 import warnings
+from typing import Generic
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheKeyManager, SafeMemoryMap, CacheValidator
-from utils.validation import DataValidation, DataFrameValidator
+from utils.cache_validator import CacheKeyManager, CacheValidator, VisionCacheManager
+from utils.validation import DataFrameValidator
 from utils.market_constraints import Interval
 from utils.time_alignment import TimeRangeManager
+from utils.download_handler import VisionDownloadManager
 from .vision_constraints import (
     TimestampedDataFrame,
-    validate_cache_path,
-    enforce_utc_timestamp,
-    validate_data_availability,
-    is_data_likely_available,
-    get_vision_url,
-    FileType,
-    classify_error,
     MAX_CONCURRENT_DOWNLOADS,
     FILES_PER_DAY,
-    CANONICAL_INDEX_NAME,
-    detect_timestamp_unit,
 )
-from utils.download_handler import DownloadHandler
 
-# Type variables for generic type hints
-T = TypeVar("T", bound=TimestampedDataFrame)
-PathLike = TypeVar("PathLike", str, Path)
-MetadataDict = Dict[str, Dict[str, str | int | float]]
+# Define the type variable for VisionDataClient
+T = TypeVar("T")
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -93,13 +76,15 @@ class CacheMetadata:
         """
         self.cache_dir: Path = cache_dir
         self.metadata_file: Path = cache_dir / "metadata.json"
-        self.metadata: MetadataDict = self._load_metadata()
+        self.metadata: Dict[str, Dict[str, str | int | float]] = self._load_metadata()
 
-    def _load_metadata(self) -> MetadataDict:
+    def _load_metadata(self) -> Dict[str, Dict[str, str | int | float]]:
         """Load metadata from disk."""
         if self.metadata_file.exists():
             try:
                 with open(self.metadata_file, "r") as f:
+                    import json
+
                     return json.load(f)
             except json.JSONDecodeError:
                 logger.error("Corrupted metadata file, creating new")
@@ -109,19 +94,12 @@ class CacheMetadata:
     def _save_metadata(self) -> None:
         """Save metadata to disk."""
         with open(self.metadata_file, "w") as f:
+            import json
+
             json.dump(self.metadata, f, indent=2)
 
     def get_cache_key(self, symbol: str, interval: str, date: datetime) -> str:
-        """Generate cache key for a specific data point.
-
-        Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            date: Date for the data
-
-        Returns:
-            Cache key string
-        """
+        """Generate cache key for a specific data point."""
         return CacheKeyManager.get_cache_key(symbol, interval, date)
 
     def register_cache(
@@ -133,16 +111,7 @@ class CacheMetadata:
         checksum: str,
         record_count: int,
     ) -> None:
-        """Register a new cache entry.
-
-        Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            date: Date for the data
-            file_path: Path to cached file
-            checksum: Data checksum
-            record_count: Number of records in cache
-        """
+        """Register a new cache entry."""
         cache_key = self.get_cache_key(symbol, interval, date)
         self.metadata[cache_key] = {
             "symbol": symbol,
@@ -158,16 +127,7 @@ class CacheMetadata:
     def get_cache_info(
         self, symbol: str, interval: str, date: datetime
     ) -> Optional[Dict[str, str | int | float]]:
-        """Get cache information for a specific data point.
-
-        Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            date: Date for the data
-
-        Returns:
-            Cache information dictionary or None if not found
-        """
+        """Get cache information for a specific data point."""
         cache_key = self.get_cache_key(symbol, interval, date)
         return self.metadata.get(cache_key)
 
@@ -200,16 +160,14 @@ class VisionDataClient(Generic[T]):
             self.interval_obj = Interval(interval)
         except ValueError:
             logger.warning(
-                f"Could not parse interval {interval} to Interval enum, using SECOND_1 as default"
+                f"Could not parse interval {interval}, using SECOND_1 as default"
             )
             self.interval_obj = Interval.SECOND_1
 
         self.cache_dir = cache_dir
         self.use_cache = use_cache
         self.max_concurrent_downloads = (
-            max_concurrent_downloads
-            if max_concurrent_downloads
-            else MAX_CONCURRENT_DOWNLOADS
+            max_concurrent_downloads or MAX_CONCURRENT_DOWNLOADS
         )
         self._current_mmap = None
         self._current_mmap_path = None
@@ -223,22 +181,17 @@ class VisionDataClient(Generic[T]):
                 stacklevel=2,
             )
             try:
-                # Get symbol-specific cache directory using CacheKeyManager
+                # Setup cache directory
                 sample_date = datetime.now(timezone.utc)
                 self.symbol_cache_dir = CacheKeyManager.get_cache_path(
                     cache_dir, self.symbol, self.interval, sample_date
                 ).parent
                 self.symbol_cache_dir.mkdir(parents=True, exist_ok=True)
-                logger.info(
-                    f"Created cache directory structure at: {self.symbol_cache_dir}"
-                )
 
                 # Initialize metadata manager
                 self.metadata = CacheMetadata(cache_dir)
-                logger.info(f"Initialized cache metadata manager for: {cache_dir}")
             except Exception as e:
                 logger.error(f"Failed to initialize cache components: {e}")
-                # Reset cache-related attributes on failure
                 self.cache_dir = None
                 self.use_cache = False
                 self.metadata = None
@@ -246,15 +199,7 @@ class VisionDataClient(Generic[T]):
         else:
             self.metadata = None
 
-        # Initialize temporary file paths for downloads
-        self._data_path = (
-            Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_data.zip"
-        )
-        self._checksum_path = (
-            Path(tempfile.gettempdir()) / f"{self.symbol}_{self.interval}_checksum"
-        )
-
-        # Initialize HTTP client with optimal settings for download constraints
+        # Initialize HTTP client
         max_connections = MAX_CONCURRENT_DOWNLOADS * FILES_PER_DAY
         self.client = httpx.AsyncClient(
             limits=httpx.Limits(
@@ -264,12 +209,12 @@ class VisionDataClient(Generic[T]):
             timeout=httpx.Timeout(10.0),
         )
 
-        # Initialize download handler
-        self.download_handler = DownloadHandler(
-            self.client, max_retries=5, min_wait=4, max_wait=60
+        # Initialize utility managers
+        self.download_manager = VisionDownloadManager(
+            self.client, self.symbol, self.interval
         )
 
-    async def __aenter__(self) -> "VisionDataClient[T]":
+    async def __aenter__(self) -> "VisionDataClient":
         """Async context manager entry."""
         return self
 
@@ -297,14 +242,7 @@ class VisionDataClient(Generic[T]):
             logger.warning(f"Error closing HTTP client: {e}")
 
     def _get_cache_path(self, date: datetime) -> Path:
-        """Get cache file path for a specific date.
-
-        Args:
-            date: Target date
-
-        Returns:
-            Path to cache file
-        """
+        """Get cache file path for a specific date."""
         return (
             CacheKeyManager.get_cache_path(
                 self.cache_dir, self.symbol, self.interval, date
@@ -313,207 +251,8 @@ class VisionDataClient(Generic[T]):
             else Path()
         )
 
-    def _get_checksum_url(self, date: datetime) -> str:
-        """Get checksum URL for a specific date.
-
-        Args:
-            date: Target date
-
-        Returns:
-            URL for the checksum file
-        """
-        return get_vision_url(self.symbol, self.interval, date, FileType.CHECKSUM)
-
-    def _get_data_url(self, date: datetime) -> str:
-        """Get data URL for a specific date.
-
-        Args:
-            date: Target date
-
-        Returns:
-            URL for the data file
-        """
-        return get_vision_url(self.symbol, self.interval, date, FileType.DATA)
-
-    async def _download_file(self, url: str, local_path: Path) -> bool:
-        """Download a file from URL to local path.
-
-        Args:
-            url: URL to download from
-            local_path: Path to save to
-
-        Returns:
-            True if download successful, False otherwise
-        """
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url)
-                response.raise_for_status()
-
-                # Log response details
-                logger.info(
-                    f'HTTP Request: GET {url} "{response.status_code} {response.reason_phrase}"'
-                )
-
-                if response.status_code == 200:
-                    # Check content length
-                    content_length = int(response.headers.get("content-length", 0))
-                    if content_length == 0:
-                        logger.error(f"Empty response from {url}")
-                        return False
-
-                    # Write response content
-                    with open(local_path, "wb") as f:
-                        f.write(response.content)
-
-                    # Verify file was written
-                    if not local_path.exists() or local_path.stat().st_size == 0:
-                        logger.error(f"Failed to write file: {local_path}")
-                        return False
-
-                    return True
-                else:
-                    logger.error(
-                        f"Unexpected status code {response.status_code} from {url}"
-                    )
-                    return False
-
-        except httpx.RequestError as e:
-            logger.error(f"Network error downloading {url}: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"Error downloading {url}: {str(e)}")
-            return False
-
-    def _verify_checksum(self, file_path: Path, checksum_path: Path) -> bool:
-        """Verify file checksum.
-
-        Args:
-            file_path: Path to data file
-            checksum_path: Path to checksum file
-
-        Returns:
-            Verification status
-        """
-        try:
-            with open(checksum_path, "r") as f:
-                expected = f.read().strip().split()[0]
-
-            return CacheValidator.validate_cache_checksum(file_path, expected)
-        except Exception as e:
-            logger.error(f"Error verifying checksum: {e}")
-            return False
-
-    async def _save_to_cache(
-        self,
-        df: pd.DataFrame,
-        cache_path: Path,
-        start_time: datetime,
-    ) -> Tuple[str, int]:
-        """Save DataFrame to cache in Arrow format.
-
-        Args:
-            df: DataFrame to save
-            cache_path: Target cache path
-            start_time: Start time for the data
-
-        Returns:
-            Tuple of (checksum, record_count)
-
-        Raises:
-            pa.ArrowInvalid: If DataFrame cannot be converted to Arrow format
-            pa.ArrowIOError: If there are I/O errors during file operations
-            ValueError: If input validation fails
-            OSError: If file system operations fail
-        """
-        try:
-            # Validate inputs
-            cache_path = validate_cache_path(cache_path)
-            df = TimestampedDataFrame(df)  # Enforce constraints
-
-            # Ensure we don't include the end date
-            if not df.empty:
-                last_date = df.index[-1].replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                df = df[df.index < last_date + timedelta(days=1)]
-
-            # Reset index to include it in the Arrow table
-            df_with_index = df.reset_index()
-
-            try:
-                # Convert to Arrow table
-                table = pa.Table.from_pandas(df_with_index)
-            except pa.ArrowInvalid as e:
-                logger.error(f"Failed to convert DataFrame to Arrow format: {e}")
-                raise
-
-            try:
-                # Create parent directory if it doesn't exist
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Save to Arrow file with proper resource cleanup
-                with pa.OSFile(str(cache_path), "wb") as sink:
-                    with pa.ipc.new_file(sink, table.schema) as writer:
-                        writer.write_table(table)
-            except pa.ArrowIOError as e:
-                logger.error(f"Failed to write Arrow file: {e}")
-                raise
-
-            # Calculate checksum using the centralized utility
-            checksum = CacheValidator.calculate_checksum(cache_path)
-            record_count = len(df)
-
-            logger.info(f"Saved {record_count} records to {cache_path}")
-            return checksum, record_count
-
-        except Exception as e:
-            logger.error(f"Unexpected error saving to cache: {e}")
-            raise
-
-    async def _load_from_cache(
-        self, cache_path: Path, columns: Optional[Sequence[str]] = None
-    ) -> TimestampedDataFrame:
-        """Load data from cache with optimized memory usage."""
-        start_time_perf = time.perf_counter()
-
-        try:
-            # Use the centralized SafeMemoryMap utility to read Arrow file
-            logger.debug(f"Loading cached data from {cache_path}")
-            df = SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
-
-            if df is None:
-                raise ValueError(f"Failed to read data from {cache_path}")
-
-            # Remove duplicates efficiently if needed
-            if df.index.has_duplicates:
-                t0 = time.perf_counter()
-                # Use drop_duplicates method instead of boolean indexing
-                df = (
-                    df.reset_index()
-                    .drop_duplicates(subset=[CANONICAL_INDEX_NAME], keep="first")
-                    .set_index(CANONICAL_INDEX_NAME)
-                )
-                logger.info(f"Duplicate removal took: {time.perf_counter() - t0:.6f}s")
-
-            total_time = time.perf_counter() - start_time_perf
-            logger.info(f"Total cache loading time: {total_time:.6f}s")
-            return TimestampedDataFrame(df)
-
-        except Exception as e:
-            logger.error(f"Failed to load from cache: {e}")
-            raise
-
     def _validate_cache(self, start_time: datetime, end_time: datetime) -> bool:
-        """Validate cache existence, integrity, and data completeness.
-
-        Args:
-            start_time: Start of time range to validate
-            end_time: End of time range to validate
-
-        Returns:
-            True if cache is valid and complete, False otherwise
-        """
+        """Validate cache existence, integrity, and data completeness."""
         if not self.cache_dir or not self.use_cache or not self.metadata:
             return False
 
@@ -529,31 +268,19 @@ class VisionDataClient(Generic[T]):
                 )
                 cache_path = self._get_cache_path(current_day)
 
-                # Check if cache exists and has metadata
+                # Perform validation checks
                 if not CacheValidator.validate_cache_metadata(cache_info):
-                    logger.debug(f"Cache metadata missing for {current_day}")
                     return False
-
-                # Validate record count
                 if not CacheValidator.validate_cache_records(
                     cache_info["record_count"]
                 ):
-                    logger.debug(f"Cache empty for {current_day}")
                     return False
-
-                # Validate file integrity
                 error = CacheValidator.validate_cache_integrity(cache_path)
                 if error:
-                    logger.debug(
-                        f"Cache file corrupted for {current_day}: {error.message}"
-                    )
                     return False
-
-                # Validate checksum
                 if not CacheValidator.validate_cache_checksum(
                     cache_path, cache_info["checksum"]
                 ):
-                    logger.debug(f"Cache checksum mismatch for {current_day}")
                     return False
 
                 current_day += timedelta(days=1)
@@ -564,134 +291,8 @@ class VisionDataClient(Generic[T]):
             logger.error(f"Error validating cache: {e}")
             return False
 
-    def _validate_symbol(self) -> None:
-        """Validate trading pair symbol."""
-        DataValidation.validate_symbol_format(self.symbol)
-
-    def _validate_data(self, df: pd.DataFrame) -> None:
-        """Validate DataFrame structure and content.
-
-        Args:
-            df: DataFrame to validate
-
-        Raises:
-            ValueError: If validation fails
-        """
-        # Use centralized DataFrameValidator
-        DataFrameValidator.validate_dataframe(df)
-
-    def _validate_time_boundaries(
-        self, df: pd.DataFrame, start_time: datetime, end_time: datetime
-    ) -> None:
-        """Validate that DataFrame covers the requested time range.
-
-        Args:
-            df: DataFrame to validate
-            start_time: Expected start time (inclusive)
-            end_time: Expected end time (exclusive)
-
-        Raises:
-            ValueError: If data doesn't cover requested time range
-        """
-        # Use centralized time boundary validation via TimeRangeManager
-        TimeRangeManager.validate_boundaries(df, start_time, end_time)
-
-    def _validate_timestamp_ordering(self, df: pd.DataFrame) -> None:
-        """Validate timestamp ordering and uniqueness.
-
-        Args:
-            df: DataFrame to validate
-
-        Raises:
-            ValueError: If timestamps are not ordered or have duplicates
-        """
-        if not df.index.is_monotonic_increasing:
-            raise ValueError("Timestamps must be strictly increasing")
-        if df.index.has_duplicates:
-            logger.warning("Duplicate timestamps found - will keep first occurrence")
-
-    async def fetch(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-        columns: Optional[Sequence[str]] = None,
-    ) -> TimestampedDataFrame:
-        """Fetch data from Binance Vision API.
-
-        Args:
-            start_time: Start time for data request
-            end_time: End time for data request
-            columns: Optional list of columns to include
-
-        Returns:
-            DataFrame containing market data
-        """
-        # Validate and normalize time range using TimeRangeManager
-        TimeRangeManager.validate_time_window(start_time, end_time)
-
-        # Get time boundaries with consistent handling via TimeRangeManager
-        time_boundaries = TimeRangeManager.get_time_boundaries(
-            start_time, end_time, self.interval_obj
-        )
-        start_time = time_boundaries["adjusted_start"]
-        end_time = time_boundaries["adjusted_end"]
-
-        logger.info(
-            f"Fetching {self.symbol} {self.interval} data: "
-            f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
-        )
-
-        # Attempt to use cache if enabled
-        if self.use_cache and self._validate_cache(start_time, end_time):
-            try:
-                df = await self._download_and_cache(
-                    start_time, end_time, columns=columns
-                )
-                if not df.empty:
-                    # Apply consistent time filtering using TimeRangeManager
-                    df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
-
-                    # Validate data integrity
-                    if not df.empty:
-                        self._validate_data(df)
-                        TimeRangeManager.validate_boundaries(df, start_time, end_time)
-
-                    return df
-            except Exception as e:
-                logger.warning(
-                    f"Error loading from cache: {e}, falling back to direct fetch"
-                )
-
-        # Direct fetch without caching
-        try:
-            df = await self._download_and_cache(start_time, end_time, columns=columns)
-            if not df.empty:
-                # Apply consistent time filtering using TimeRangeManager
-                filtered_df = TimeRangeManager.filter_dataframe(
-                    df, start_time, end_time
-                )
-
-                if not filtered_df.empty:
-                    # Validate data integrity
-                    self._validate_data(filtered_df)
-                    TimeRangeManager.validate_boundaries(
-                        filtered_df, start_time, end_time
-                    )
-
-                return filtered_df
-
-            return self._create_empty_dataframe()
-
-        except Exception as e:
-            logger.error(f"Failed to fetch data: {e}")
-            return self._create_empty_dataframe()
-
     def _create_empty_dataframe(self) -> pd.DataFrame:
-        """Create an empty DataFrame with correct structure.
-
-        Returns:
-            Empty DataFrame with correct columns and types
-        """
+        """Create an empty DataFrame with correct structure."""
         columns = [
             "open_time",
             "open",
@@ -731,19 +332,7 @@ class VisionDataClient(Generic[T]):
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
     ) -> TimestampedDataFrame:
-        """Download and cache data for the specified time range.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-            columns: Optional list of columns to include
-
-        Returns:
-            DataFrame with requested data
-
-        Raises:
-            ValueError: If no data is available
-        """
+        """Download and cache data for the specified time range."""
         # Get list of dates to download
         current_date = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
         dates = []
@@ -758,9 +347,11 @@ class VisionDataClient(Generic[T]):
         # Download data for each date
         dfs = []
         for date in dates:
-            df = await self._download_date(date)
+            # Use download manager to get data
+            df = await self.download_manager.download_date(date)
+
             if df is not None:
-                # Filter to requested time range using centralized function
+                # Filter to requested time range
                 filtered_df = TimeRangeManager.filter_dataframe(
                     df, start_time, end_time
                 )
@@ -775,10 +366,12 @@ class VisionDataClient(Generic[T]):
                             cache_path = self._get_cache_path(date)
                             cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-                            # Save the full day's data to cache
+                            # Save using cache manager
                             logger.info(f"Saving data to cache: {cache_path}")
-                            checksum, record_count = await self._save_to_cache(
-                                df, cache_path, date
+                            checksum, record_count = (
+                                await VisionCacheManager.save_to_cache(
+                                    df, cache_path, date
+                                )
                             )
 
                             # Update metadata if available
@@ -791,13 +384,9 @@ class VisionDataClient(Generic[T]):
                                     checksum,
                                     record_count,
                                 )
-                                self.metadata._save_metadata()
-                                logger.info(
-                                    f"Updated cache metadata for {date.strftime('%Y-%m-%d')}"
-                                )
+
                         except Exception as e:
                             logger.error(f"Failed to save to cache: {e}")
-                            # Continue with the next date even if caching fails
                             continue
 
         if not dfs:
@@ -807,256 +396,83 @@ class VisionDataClient(Generic[T]):
         # Combine all data
         combined_df = pd.concat(dfs, axis=0)
 
-        # Sort by index to ensure chronological order
+        # Sort by index and filter columns
         combined_df = combined_df.sort_index()
-
-        # Filter columns if specified
         if columns is not None:
             combined_df = combined_df[columns]
 
         return TimestampedDataFrame(combined_df)
 
-    async def _download_date(self, date: datetime) -> Optional[pd.DataFrame]:
-        """Download data for a specific date.
+    async def fetch(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        columns: Optional[Sequence[str]] = None,
+    ) -> TimestampedDataFrame:
+        """Fetch data from Binance Vision API."""
+        # Validate and normalize time range
+        TimeRangeManager.validate_time_window(start_time, end_time)
 
-        Args:
-            date: Target date
-
-        Returns:
-            DataFrame with data or None if download failed
-        """
-        # Create temporary directory for downloads
-        temp_dir = Path(tempfile.mkdtemp())
-        data_file = (
-            temp_dir
-            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_data.zip"
+        # Get time boundaries
+        time_boundaries = TimeRangeManager.get_time_boundaries(
+            start_time, end_time, self.interval_obj
         )
-        checksum_file = (
-            temp_dir
-            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_checksum"
+        start_time = time_boundaries["adjusted_start"]
+        end_time = time_boundaries["adjusted_end"]
+
+        logger.info(
+            f"Fetching {self.symbol} {self.interval} data: "
+            f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
         )
 
-        try:
-            # Download data and checksum files
-            data_url = self._get_data_url(date)
-            checksum_url = self._get_checksum_url(date)
-
-            logger.info(f"Downloading data for {date.strftime('%Y-%m-%d')} from:")
-            logger.info(f"Data: {data_url}")
-            logger.info(f"Checksum: {checksum_url}")
-
-            success = await asyncio.gather(
-                self._download_file(data_url, data_file),
-                self._download_file(checksum_url, checksum_file),
-            )
-
-            if not all(success):
-                logger.error(f"Failed to download files for {date}")
-                return None
-
-            # Verify checksum
-            if not self._verify_checksum(data_file, checksum_file):
-                logger.error(f"Checksum verification failed for {date}")
-                return None
-
-            # Read CSV data with detailed error handling
+        # Attempt to use cache if enabled
+        if self.use_cache and self._validate_cache(start_time, end_time):
             try:
-                logger.info(f"Reading CSV data from {data_file}")
-                df = pd.read_csv(
-                    data_file,
-                    compression="zip",
-                    names=[
-                        "open_time",
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                        "volume",
-                        "close_time",
-                        "quote_volume",
-                        "trades",
-                        "taker_buy_volume",
-                        "taker_buy_quote_volume",
-                        "ignored",
-                    ],
+                df = await self._download_and_cache(
+                    start_time, end_time, columns=columns
                 )
-                logger.info(f"Successfully read CSV with shape: {df.shape}")
+                if not df.empty:
+                    # Apply consistent time filtering
+                    df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
 
-                if df.empty:
-                    logger.error(f"Empty DataFrame after reading CSV for {date}")
-                    return None
+                    # Validate data integrity
+                    if not df.empty:
+                        DataFrameValidator.validate_dataframe(df)
+                        TimeRangeManager.validate_boundaries(df, start_time, end_time)
 
-                # Log raw data for debugging
-                logger.info("Raw data sample (first 5 rows):")
-                logger.info(df.head().to_string())
-                logger.info("Column dtypes:")
-                logger.info(df.dtypes.to_string())
-
-                # Detect timestamp format with detailed logging
-                sample_ts = df["open_time"].iloc[0]
-                logger.info(
-                    f"Sample timestamp value: {sample_ts} (type: {type(sample_ts)})"
-                )
-                ts_unit = detect_timestamp_unit(sample_ts)
-                logger.info(f"Detected timestamp unit: {ts_unit}")
-
-                # Convert timestamps with error checking
-                try:
-                    df["open_time"] = pd.to_datetime(df["open_time"], unit=ts_unit)
-                    # Add microseconds to match REST API precision
-                    df["open_time"] = df["open_time"].dt.floor("s") + pd.Timedelta(
-                        microseconds=0
-                    )
-                    logger.info(
-                        f"Converted open_time to datetime. First timestamp: {df['open_time'].min()}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error converting open_time to datetime: {e}")
-                    logger.error(f"Sample open_time values: {df['open_time'].head()}")
-                    raise
-
-                # Ensure close_time has microsecond precision
-                try:
-                    # Add DEBUG logging for close_time conversion steps
-                    logger.debug("\n=== Close Time Conversion Debug ===")
-                    logger.debug(f"Original close_time dtype: {df['close_time'].dtype}")
-                    logger.debug(
-                        f"Original close_time sample: {df['close_time'].iloc[0]}"
-                    )
-
-                    # Convert close_time to match REST API format exactly
-                    df["close_time"] = df["close_time"].astype(np.int64)
-                    logger.debug(f"After int64 conversion: {df['close_time'].iloc[0]}")
-
-                    if len(str(df["close_time"].iloc[0])) == 19:  # nanoseconds
-                        logger.debug(
-                            "Detected nanosecond precision, converting to microseconds"
-                        )
-                        df["close_time"] = (
-                            df["close_time"] // 1000
-                        )  # Convert to microseconds
-                        logger.debug(
-                            f"After nanosecond conversion: {df['close_time'].iloc[0]}"
-                        )
-
-                    # Add 999999 microseconds to match REST API behavior
-                    before_final = df["close_time"].iloc[0]
-                    # First add the microseconds, then multiply to preserve precision
-                    df["close_time"] = (df["close_time"].astype(np.int64) + 999) * 1000
-                    logger.debug(f"Before final conversion: {before_final}")
-                    logger.debug(f"After final conversion: {df['close_time'].iloc[0]}")
-                    logger.debug(f"Final close_time dtype: {df['close_time'].dtype}")
-
-                    # Verify microsecond precision
-                    sample_close = pd.Timestamp(df["close_time"].iloc[0])
-                    logger.debug(f"Sample close time as timestamp: {sample_close}")
-                    logger.debug(
-                        f"Sample close time microseconds: {sample_close.microsecond}"
-                    )
-
-                    logger.info(
-                        f"Converted close_time. Sample value: {df['close_time'].iloc[0]}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error converting close_time: {e}")
-                    logger.error(f"Sample close_time values: {df['close_time'].head()}")
-                    raise
-
-                # Set index with validation
-                df.set_index("open_time", inplace=True)
-                if not isinstance(df.index, pd.DatetimeIndex):
-                    raise ValueError(
-                        f"Index is not DatetimeIndex after setting: {type(df.index)}"
-                    )
-
-                # Drop ignored column
-                df = df.drop(columns=["ignored"])
-
-                # Convert index to UTC and ensure microsecond precision
-                if df.index.tz is None:
-                    df.index = df.index.tz_localize("UTC")
-                # Ensure index has consistent microsecond precision
-                df.index = df.index.map(lambda x: x.replace(microsecond=0))
-                logger.info(
-                    "Localized index to UTC with consistent microsecond precision"
-                )
-
-                # Verify data continuity
-                time_diffs = df.index.to_series().diff()
-                gaps = time_diffs[time_diffs > timedelta(seconds=1)]
-                if not gaps.empty:
-                    logger.warning(f"Found {len(gaps)} gaps in data:")
-                    for idx, gap in gaps.head().items():
-                        logger.warning(f"Gap at {idx}: {gap}")
-
-                return df
-
-            except pd.errors.EmptyDataError:
-                logger.error(f"Empty data file for {date}")
-                return None
+                    return df
             except Exception as e:
-                logger.error(f"Error processing data for {date}: {str(e)}")
-                logger.error("Error details:", exc_info=True)
-                return None
+                logger.warning(
+                    f"Error loading from cache: {e}, falling back to direct fetch"
+                )
+
+        # Direct fetch without caching
+        try:
+            df = await self._download_and_cache(start_time, end_time, columns=columns)
+            if not df.empty:
+                # Apply consistent time filtering
+                filtered_df = TimeRangeManager.filter_dataframe(
+                    df, start_time, end_time
+                )
+
+                if not filtered_df.empty:
+                    # Validate data integrity
+                    DataFrameValidator.validate_dataframe(filtered_df)
+                    TimeRangeManager.validate_boundaries(
+                        filtered_df, start_time, end_time
+                    )
+
+                return filtered_df
+
+            return self._create_empty_dataframe()
 
         except Exception as e:
-            logger.error(f"Error downloading data for {date}: {str(e)}")
-            logger.error("Error details:", exc_info=True)
-            return None
-
-        finally:
-            # Cleanup temporary files
-            try:
-                data_file.unlink(missing_ok=True)
-                checksum_file.unlink(missing_ok=True)
-                temp_dir.rmdir()
-            except Exception as e:
-                logger.error(f"Error cleaning up temporary files: {str(e)}")
-
-    def _slice_dataframe_to_exact_range(
-        self, df: pd.DataFrame, start_time: datetime, end_time: datetime
-    ) -> pd.DataFrame:
-        """Slice DataFrame to exact time range.
-
-        Args:
-            df: DataFrame to slice
-            start_time: Start time (inclusive)
-            end_time: End time (exclusive)
-
-        Returns:
-            Sliced DataFrame
-        """
-        # Use TimeRangeManager for consistent filtering
-        return TimeRangeManager.filter_dataframe(df, start_time, end_time)
+            logger.error(f"Failed to fetch data: {e}")
+            return self._create_empty_dataframe()
 
     async def prefetch(
         self, start_time: datetime, end_time: datetime, max_days: int = 5
     ) -> None:
-        """Prefetch data in background for future use.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-            max_days: Maximum number of days to prefetch
-        """
-        # Validate and standardize time range first
+        """Prefetch data in background for future use."""
+        # Validate time range
         TimeRangeManager.validate_time_window(start_time, end_time)
-
-        # Rest of the prefetch implementation...
-
-    def _create_temp_file(self, prefix: str) -> Path:
-        """Create a safe temporary file with unique name.
-
-        Args:
-            prefix: Prefix for the temporary file name
-
-        Returns:
-            Path to the temporary file
-        """
-        temp_file = tempfile.NamedTemporaryFile(
-            prefix=f"{self.symbol}_{self.interval}_{prefix}_",
-            suffix=".tmp",
-            delete=False,
-            dir=tempfile.gettempdir(),
-        )
-        return Path(temp_file.name)

@@ -4,10 +4,14 @@
 import asyncio
 import logging
 import time
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
 
 import httpx
+import pandas as pd
+import numpy as np
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -193,3 +197,209 @@ class DownloadHandler:
         finally:
             # Cleanup temp file if it exists
             temp_path.unlink(missing_ok=True)
+
+
+class VisionDownloadManager:
+    """Handles downloading Vision data files with validation and processing."""
+
+    def __init__(self, client: httpx.AsyncClient, symbol: str, interval: str):
+        """Initialize the download manager.
+
+        Args:
+            client: HTTP client for downloads
+            symbol: Trading pair symbol
+            interval: Time interval
+        """
+        self.client = client
+        self.symbol = symbol
+        self.interval = interval
+        self.download_handler = DownloadHandler(
+            client, max_retries=5, min_wait=4, max_wait=60
+        )
+
+    def _get_checksum_url(self, date: datetime) -> str:
+        """Get checksum URL for a specific date.
+
+        Args:
+            date: Target date
+
+        Returns:
+            URL for the checksum file
+        """
+        # Note: This assumes the vision_constraints module has this function
+        from core.vision_constraints import get_vision_url, FileType
+
+        return get_vision_url(self.symbol, self.interval, date, FileType.CHECKSUM)
+
+    def _get_data_url(self, date: datetime) -> str:
+        """Get data URL for a specific date.
+
+        Args:
+            date: Target date
+
+        Returns:
+            URL for the data file
+        """
+        # Note: This assumes the vision_constraints module has this function
+        from core.vision_constraints import get_vision_url, FileType
+
+        return get_vision_url(self.symbol, self.interval, date, FileType.DATA)
+
+    def _verify_checksum(self, file_path: Path, checksum_path: Path) -> bool:
+        """Verify file checksum.
+
+        Args:
+            file_path: Path to data file
+            checksum_path: Path to checksum file
+
+        Returns:
+            Verification status
+        """
+        try:
+            with open(checksum_path, "r") as f:
+                expected = f.read().strip().split()[0]
+
+            from utils.cache_validator import CacheValidator
+
+            return CacheValidator.validate_cache_checksum(file_path, expected)
+        except Exception as e:
+            logger.error(f"Error verifying checksum: {e}")
+            return False
+
+    async def download_file(self, url: str, local_path: Path) -> bool:
+        """Download a file from URL to local path.
+
+        Args:
+            url: URL to download from
+            local_path: Path to save to
+
+        Returns:
+            True if download successful, False otherwise
+        """
+        try:
+            return await self.download_handler.download_file(url, local_path)
+        except Exception as e:
+            logger.error(f"Error downloading {url}: {str(e)}")
+            return False
+
+    async def download_date(self, date: datetime) -> Optional[pd.DataFrame]:
+        """Download data for a specific date.
+
+        Args:
+            date: Target date
+
+        Returns:
+            DataFrame with data or None if download failed
+        """
+        # Create temporary directory for downloads
+        temp_dir = Path(tempfile.mkdtemp())
+        data_file = (
+            temp_dir
+            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_data.zip"
+        )
+        checksum_file = (
+            temp_dir
+            / f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_checksum"
+        )
+
+        try:
+            # Download data and checksum files
+            data_url = self._get_data_url(date)
+            checksum_url = self._get_checksum_url(date)
+
+            logger.info(f"Downloading data for {date.strftime('%Y-%m-%d')} from:")
+            logger.info(f"Data: {data_url}")
+            logger.info(f"Checksum: {checksum_url}")
+
+            success = await asyncio.gather(
+                self.download_file(data_url, data_file),
+                self.download_file(checksum_url, checksum_file),
+            )
+
+            if not all(success):
+                logger.error(f"Failed to download files for {date}")
+                return None
+
+            # Verify checksum
+            if not self._verify_checksum(data_file, checksum_file):
+                logger.error(f"Checksum verification failed for {date}")
+                return None
+
+            # Read CSV data with detailed error handling
+            try:
+                logger.info(f"Reading CSV data from {data_file}")
+                df = pd.read_csv(
+                    data_file,
+                    compression="zip",
+                    names=[
+                        "open_time",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "volume",
+                        "close_time",
+                        "quote_volume",
+                        "trades",
+                        "taker_buy_volume",
+                        "taker_buy_quote_volume",
+                        "ignored",
+                    ],
+                )
+
+                if df.empty:
+                    logger.error(f"Empty DataFrame after reading CSV for {date}")
+                    return None
+
+                # Detect timestamp format and convert
+                from core.vision_constraints import detect_timestamp_unit
+
+                sample_ts = df["open_time"].iloc[0]
+                ts_unit = detect_timestamp_unit(sample_ts)
+
+                # Convert timestamps
+                df["open_time"] = pd.to_datetime(df["open_time"], unit=ts_unit)
+                df["open_time"] = df["open_time"].dt.floor("s") + pd.Timedelta(
+                    microseconds=0
+                )
+
+                # Handle close_time
+                df["close_time"] = df["close_time"].astype(np.int64)
+                if len(str(df["close_time"].iloc[0])) == 19:  # nanoseconds
+                    df["close_time"] = (
+                        df["close_time"] // 1000
+                    )  # Convert to microseconds
+                df["close_time"] = (df["close_time"].astype(np.int64) + 999) * 1000
+
+                # Set index
+                df.set_index("open_time", inplace=True)
+                df = df.drop(columns=["ignored"])
+
+                # Ensure UTC timezone
+                if df.index.tz is None:
+                    df.index = df.index.tz_localize("UTC")
+                df.index = df.index.map(lambda x: x.replace(microsecond=0))
+
+                return df
+
+            except pd.errors.EmptyDataError:
+                logger.error(f"Empty data file for {date}")
+                return None
+            except Exception as e:
+                logger.error(f"Error processing data for {date}: {str(e)}")
+                logger.error("Error details:", exc_info=True)
+                return None
+
+        except Exception as e:
+            logger.error(f"Error downloading data for {date}: {str(e)}")
+            logger.error("Error details:", exc_info=True)
+            return None
+
+        finally:
+            # Cleanup temporary files
+            try:
+                data_file.unlink(missing_ok=True)
+                checksum_file.unlink(missing_ok=True)
+                temp_dir.rmdir()
+            except Exception as e:
+                logger.error(f"Error cleaning up temporary files: {str(e)}")

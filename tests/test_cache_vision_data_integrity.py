@@ -30,10 +30,11 @@ from typing import cast
 
 from core.vision_data_client import VisionDataClient, CacheMetadata
 from core.vision_constraints import CANONICAL_INDEX_NAME
+from utils.cache_validator import VisionCacheManager
 from tests.utils.cache_test_utils import verify_arrow_format
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG for more insights
 logger = logging.getLogger(__name__)
 
 # Mark deprecation warnings as expected - these warnings indicate proper migration path
@@ -55,6 +56,7 @@ def sample_data(sample_ohlcv_data):
 async def test_cache_write_read_cycle(temp_cache_dir, sample_data):
     """Test complete cache write and read cycle."""
     logger.info("Starting cache write/read cycle test")
+    logger.debug("Initializing VisionDataClient with caching enabled")
 
     # Initialize client with cache metadata
     client = VisionDataClient(
@@ -68,12 +70,14 @@ async def test_cache_write_read_cycle(temp_cache_dir, sample_data):
         date = datetime(2022, 1, 13, tzinfo=timezone.utc)
 
         logger.info(f"Writing sample data to cache: {cache_path}")
-        logger.info(f"Sample data shape: {sample_data.shape}")
-        logger.info(f"Sample data columns: {sample_data.columns.tolist()}")
-        logger.info(f"Sample data index: {sample_data.index.name}")
-        logger.info(f"First few rows:\n{sample_data.head()}")
+        logger.debug(f"Sample data shape: {sample_data.shape}")
+        logger.debug(f"Sample data columns: {sample_data.columns.tolist()}")
+        logger.debug(f"Sample data index: {sample_data.index.name}")
+        logger.debug(f"First few rows:\n{sample_data.head()}")
 
-        checksum, record_count = await client._save_to_cache(
+        # Use VisionCacheManager instead of direct client method
+        logger.debug("Using VisionCacheManager to save to cache")
+        checksum, record_count = await VisionCacheManager.save_to_cache(
             sample_data, cache_path, date
         )
         logger.info(
@@ -83,23 +87,23 @@ async def test_cache_write_read_cycle(temp_cache_dir, sample_data):
         # Verify cache file
         assert cache_path.exists(), "Cache file not created"
         file_size = cache_path.stat().st_size
-        logger.info(f"Cache file size: {file_size} bytes")
+        logger.debug(f"Cache file size: {file_size} bytes")
 
         # Verify Arrow format using common utility
         verify_arrow_format(cache_path, index_name=CANONICAL_INDEX_NAME)
 
-        # Read data back from cache
+        # Read data back from cache using VisionCacheManager
         logger.info("Reading data from cache")
-        loaded_df = await client._load_from_cache(cache_path)
-        logger.info(f"Loaded data shape: {loaded_df.shape}")
-        logger.info(f"Loaded data columns: {loaded_df.columns.tolist()}")
-        logger.info(f"Loaded data index name: {loaded_df.index.name}")
-        logger.info(f"First few rows:\n{loaded_df.head()}")
+        loaded_df = await VisionCacheManager.load_from_cache(cache_path)
+        logger.debug(f"Loaded data shape: {loaded_df.shape}")
+        logger.debug(f"Loaded data columns: {loaded_df.columns.tolist()}")
+        logger.debug(f"Loaded data index name: {loaded_df.index.name}")
+        logger.debug(f"First few rows:\n{loaded_df.head()}")
 
         # Compare data frames
         logger.info("Comparing DataFrames")
-        logger.info(f"Original dtypes:\n{sample_data.dtypes}")
-        logger.info(f"Loaded dtypes:\n{loaded_df.dtypes}")
+        logger.debug(f"Original dtypes:\n{sample_data.dtypes}")
+        logger.debug(f"Loaded dtypes:\n{loaded_df.dtypes}")
 
         # Ensure index types match
         assert sample_data.index.dtype == loaded_df.index.dtype, "Index dtype mismatch"
@@ -120,6 +124,7 @@ async def test_cache_write_read_cycle(temp_cache_dir, sample_data):
 async def test_fetch_data_with_cache(temp_cache_dir):
     """Test fetching data with caching enabled."""
     logger.info("Starting fetch data with cache test")
+    logger.debug("Initializing VisionDataClient with caching enabled")
 
     # Initialize client with cache metadata
     client = VisionDataClient(
@@ -135,10 +140,10 @@ async def test_fetch_data_with_cache(temp_cache_dir):
         logger.info(f"Fetching data from {start_time} to {end_time}")
         df = await client.fetch(start_time, end_time)
 
-        logger.info(f"Fetched data shape: {df.shape}")
-        logger.info(f"Fetched data columns: {df.columns.tolist()}")
-        logger.info(f"Data range: {df.index.min()} to {df.index.max()}")
-        logger.info(f"First few rows:\n{df.head()}")
+        logger.debug(f"Fetched data shape: {df.shape}")
+        logger.debug(f"Fetched data columns: {df.columns.tolist()}")
+        logger.debug(f"Data range: {df.index.min()} to {df.index.max()}")
+        logger.debug(f"First few rows:\n{df.head()}")
 
         # Verify data properties
         assert not df.empty, "Fetched data is empty"
@@ -150,7 +155,7 @@ async def test_fetch_data_with_cache(temp_cache_dir):
 
         # Verify cache was created
         cache_files = list(temp_cache_dir.rglob("*.arrow"))
-        logger.info(f"Created cache files: {[f.name for f in cache_files]}")
+        logger.debug(f"Created cache files: {[f.name for f in cache_files]}")
         assert len(cache_files) > 0, "No cache files created"
 
         # Verify cache format
