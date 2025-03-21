@@ -143,7 +143,7 @@ def classify_error(error: Exception) -> VisionErrorType:
         return VisionErrorType.FILE_SYSTEM
     elif isinstance(error, (ValueError, TypeError)):
         return VisionErrorType.VALIDATION
-    elif isinstance(error, pa.ArrowInvalid):  # type: ignore
+    elif isinstance(error, pa.ArrowInvalid):
         return VisionErrorType.DATA_INTEGRITY
     else:
         return VisionErrorType.VALIDATION
@@ -287,58 +287,58 @@ class TimestampedDataFrame(pd.DataFrame):
     5. No duplicate indices allowed
     """
 
-    def __init__(self, *args, **kwargs):  # type: ignore
+    def __init__(self, *args, **kwargs):
         """Initialize with DataFrame validation."""
-        super().__init__(*args, **kwargs)  # type: ignore
+        super().__init__(*args, **kwargs)
         self._validate_and_normalize_index()
 
     def _validate_and_normalize_index(self):
         """Validate and normalize the index to meet requirements."""
         # Convert index to DatetimeIndex if it's not already
-        if not isinstance(self.index, pd.DatetimeIndex):  # type: ignore
+        if not isinstance(self.index, pd.DatetimeIndex):
             try:
                 # Try to convert the index to datetime
-                self.index = pd.to_datetime(self.index, utc=True)  # type: ignore
+                self.index = pd.to_datetime(self.index, utc=True)
             except Exception as e:
                 raise ValueError(f"Failed to convert index to DatetimeIndex: {e}")
 
         # Ensure index is timezone-aware and in UTC
-        if self.index.tz is None:  # type: ignore
-            self.index = self.index.tz_localize(CANONICAL_TIMEZONE)  # type: ignore
-        elif self.index.tz != CANONICAL_TIMEZONE:  # type: ignore
-            self.index = self.index.tz_convert(CANONICAL_TIMEZONE)  # type: ignore
+        if self.index.tz is None:
+            self.index = self.index.tz_localize(CANONICAL_TIMEZONE)
+        elif self.index.tz != CANONICAL_TIMEZONE:
+            self.index = self.index.tz_convert(CANONICAL_TIMEZONE)
 
         # Ensure index is named correctly
-        if self.index.name != CANONICAL_INDEX_NAME:  # type: ignore
-            self.index.name = CANONICAL_INDEX_NAME  # type: ignore
+        if self.index.name != CANONICAL_INDEX_NAME:
+            self.index.name = CANONICAL_INDEX_NAME
 
         # Validate index properties
-        if not self.index.is_monotonic_increasing:  # type: ignore
+        if not self.index.is_monotonic_increasing:
             raise ValueError("Index must be monotonically increasing")
-        if self.index.has_duplicates:  # type: ignore
+        if self.index.has_duplicates:
             raise ValueError("Index must not contain duplicates")
 
-    def __setitem__(self, key, value):  # type: ignore
+    def __setitem__(self, key, value):
         """Override to prevent modification of index."""
-        if key == CANONICAL_INDEX_NAME:  # type: ignore
+        if key == CANONICAL_INDEX_NAME:
             raise ValueError(
                 f"Cannot modify {CANONICAL_INDEX_NAME} directly - it is reserved for index"
             )
-        super().__setitem__(key, value)  # type: ignore
+        super().__setitem__(key, value)
 
 
 def validate_cache_path(path: Path) -> CachePath:
     """Validate and convert a Path to a CachePath."""
-    if not isinstance(path, Path):  # type: ignore
+    if not isinstance(path, Path):
         raise TypeError(f"Expected Path object, got {type(path)}")
-    if not path.suffix == ".arrow":  # type: ignore
+    if not path.suffix == ".arrow":
         raise ValueError("Cache path must have .arrow extension")
     return CachePath(path)
 
 
 def enforce_utc_timestamp(dt: datetime) -> datetime:
     """Ensure timestamp is UTC."""
-    if not isinstance(dt, datetime):  # type: ignore
+    if not isinstance(dt, datetime):
         raise TypeError(f"Expected datetime object, got {type(dt)}")
     if dt.tzinfo is None:
         return dt.replace(tzinfo=CANONICAL_TIMEZONE)
@@ -347,9 +347,9 @@ def enforce_utc_timestamp(dt: datetime) -> datetime:
 
 def validate_column_names(columns: list[str]) -> list[str]:
     """Validate column names don't conflict with index."""
-    if not isinstance(columns, list):  # type: ignore
+    if not isinstance(columns, list):
         raise TypeError(f"Expected list of strings, got {type(columns)}")
-    if not all(isinstance(col, str) for col in columns):  # type: ignore
+    if not all(isinstance(col, str) for col in columns):
         raise TypeError("All column names must be strings")
     if CANONICAL_INDEX_NAME in columns:
         raise ValueError(f"{CANONICAL_INDEX_NAME} is reserved for index")
@@ -391,7 +391,7 @@ def validate_time_boundaries(
         return
 
     # Ensure index is timezone-aware
-    if df.index.tz is None:  # type: ignore
+    if df.index.tz is None:
         raise ValueError("DataFrame index must be timezone-aware")
 
     # Convert times to UTC for comparison
@@ -399,18 +399,18 @@ def validate_time_boundaries(
     end_time = enforce_utc_timestamp(end_time)
 
     # Get actual data boundaries
-    data_start = df.index.min()  # type: ignore
-    data_end = df.index.max()  # type: ignore
+    data_start = df.index.min()
+    data_end = df.index.max()
 
     # Log time range details
     logger.info(f"Requested time range: {start_time} to {end_time}")
     logger.info(f"Available data range: {data_start} to {data_end}")
 
     # Check if data covers requested range, ignoring microsecond precision
-    data_start_floor = data_start.replace(microsecond=0)  # type: ignore
-    data_end_floor = data_end.replace(microsecond=0)  # type: ignore
-    start_time_floor = start_time.replace(microsecond=0)  # type: ignore
-    end_time_floor = end_time.replace(microsecond=0)  # type: ignore
+    data_start_floor = data_start.replace(microsecond=0)
+    data_end_floor = data_end.replace(microsecond=0)
+    start_time_floor = start_time.replace(microsecond=0)
+    end_time_floor = end_time.replace(microsecond=0)
 
     # Adjust end_time_floor for exclusive comparison
     # We need data up to but not including the end time
@@ -430,17 +430,17 @@ def validate_time_boundaries(
         )
 
     # Check for gaps in data
-    timestamps = df.index.to_series()  # type: ignore
-    time_diffs = timestamps.diff()  # type: ignore
-    gaps = time_diffs[time_diffs > timedelta(seconds=1)]  # type: ignore
+    timestamps = df.index.to_series()
+    time_diffs = timestamps.diff()
+    gaps = time_diffs[time_diffs > timedelta(seconds=1)]
 
-    if not gaps.empty:  # type: ignore
-        logger.warning(f"Found {len(gaps)} gaps in data:")  # type: ignore
-        for idx, gap in gaps.head().items():  # type: ignore
+    if not gaps.empty:
+        logger.warning(f"Found {len(gaps)} gaps in data:")
+        for idx, gap in gaps.head().items():
             logger.warning(f"Gap at {idx}: {gap}")
 
     # Check for duplicates
-    duplicates = df.index.duplicated()  # type: ignore
+    duplicates = df.index.duplicated()
     if duplicates.any():
         logger.warning(f"Found {duplicates.sum()} duplicate timestamps")
 
@@ -471,7 +471,7 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
     Raises:
         ValueError: If DataFrame fails validation
     """
-    if df is None:  # type: ignore
+    if df is None:
         raise ValueError("DataFrame is None")
 
     # Empty DataFrame is allowed but should be properly structured
@@ -534,17 +534,19 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
     }
 
     for col, expected in expected_types.items():
-        if str(df[col].dtype) not in expected:  # type: ignore
-            raise ValueError(f"Column {col} has wrong type: {df[col].dtype}, expected one of {expected}")  # type: ignore
+        if str(df[col].dtype) not in expected:
+            raise ValueError(
+                f"Column {col} has wrong type: {df[col].dtype}, expected one of {expected}"
+            )
 
     # Validate value ranges
-    if (df["high"] < df["low"]).any():  # type: ignore
+    if (df["high"] < df["low"]).any():
         raise ValueError("Found high price less than low price")
 
-    if (df["volume"] < 0).any():  # type: ignore
+    if (df["volume"] < 0).any():
         raise ValueError("Found negative volume")
 
-    if (df["trades"] < 0).any():  # type: ignore
+    if (df["trades"] < 0).any():
         raise ValueError("Found negative trade count")
 
     # Validate timestamp ordering
@@ -552,7 +554,7 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
         raise ValueError("Index is not monotonically increasing")
 
     # Validate close_time format (should be microseconds or nanoseconds)
-    close_time_digits = len(str(df["close_time"].iloc[0]))  # type: ignore
+    close_time_digits = len(str(df["close_time"].iloc[0]))
     if close_time_digits not in [
         16,
         19,
@@ -568,7 +570,7 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
         )  # Convert nanoseconds to microseconds
         df["close_time"] = (
             df["close_time"].astype(np.int64) * 1000 + 999999
-        )  # Match REST API format  # type: ignore
+        )  # Match REST API format
 
 
 def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
@@ -589,7 +591,10 @@ def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
         return False
 
 
-def validate_cache_metadata(cache_info: Optional[dict], required_fields: list[str] = ["checksum", "record_count"]) -> bool:  # type: ignore
+def validate_cache_metadata(
+    cache_info: Optional[dict],
+    required_fields: list[str] = ["checksum", "record_count"],
+) -> bool:
     """Validate cache metadata contains required information.
 
     Args:

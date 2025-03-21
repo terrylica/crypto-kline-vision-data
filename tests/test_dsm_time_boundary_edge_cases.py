@@ -159,8 +159,8 @@ async def test_boundary_conditions(manager: DataSourceManager):
             )
             if not df.empty:
                 # Convert index values to datetime using pandas datetime accessor
-                first_time = df.index[0].to_pydatetime()  # type: ignore
-                last_time = df.index[-1].to_pydatetime()  # type: ignore
+                first_time = df.index[0].to_pydatetime()
+                last_time = df.index[-1].to_pydatetime()
                 logger.info(
                     f"Actual:    {first_time.isoformat()} -> {last_time.isoformat()}"
                 )

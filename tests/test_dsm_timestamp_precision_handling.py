@@ -76,7 +76,7 @@ def to_arrow(dt: Any) -> arrow.Arrow:
     if isinstance(dt, datetime):
         return arrow.get(type_cast(datetime, dt))
     if isinstance(dt, pd.Timestamp):
-        if dt is pd.NaT:  # type: ignore
+        if dt is pd.NaT:
             raise ValueError("Cannot convert NaT (Not a Time) to Arrow")
         pdt = dt.to_pydatetime()
         return arrow.get(type_cast(datetime, pdt))
@@ -84,7 +84,7 @@ def to_arrow(dt: Any) -> arrow.Arrow:
     # Convert other types through Timestamp
     try:
         ts = pd.Timestamp(dt)
-        if ts is pd.NaT:  # type: ignore
+        if ts is pd.NaT:
             raise ValueError("Cannot convert NaT (Not a Time) to Arrow")
         pdt = ts.to_pydatetime()
         return arrow.get(type_cast(datetime, pdt))
@@ -185,7 +185,7 @@ async def manager():
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Arrow):  # type: ignore
+async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Arrow):
     """Test how DataSourceManager aligns time boundaries for different inputs."""
     log_test_motivation(
         "Time Boundary Alignment",
@@ -251,7 +251,7 @@ async def test_time_boundary_alignment(manager: DataSourceManager, now: arrow.Ar
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arrow):  # type: ignore
+async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arrow):
     """Test how DataSourceManager handles different input time formats."""
     log_test_motivation(
         "Input Format Handling",
@@ -314,7 +314,7 @@ async def test_input_format_handling(manager: DataSourceManager, now: arrow.Arro
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_output_format_guarantees(manager: DataSourceManager, now: arrow.Arrow):  # type: ignore
+async def test_output_format_guarantees(manager: DataSourceManager, now: arrow.Arrow):
     """Test output format consistency and guarantees."""
     log_test_motivation(
         "Output Format Guarantees",
@@ -379,7 +379,9 @@ async def test_output_format_guarantees(manager: DataSourceManager, now: arrow.A
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_timestamp_precision_handling(manager: DataSourceManager, now: arrow.Arrow):  # type: ignore
+async def test_timestamp_precision_handling(
+    manager: DataSourceManager, now: arrow.Arrow
+):
     """Test timestamp precision handling and microsecond behavior."""
     log_test_motivation(
         "Timestamp Precision Handling",
@@ -444,7 +446,7 @@ async def test_timestamp_precision_handling(manager: DataSourceManager, now: arr
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_data_point_relationships(manager: DataSourceManager, now: arrow.Arrow):  # type: ignore
+async def test_data_point_relationships(manager: DataSourceManager, now: arrow.Arrow):
     """Test relationships between data points and their properties."""
     log_test_motivation(
         "Data Point Relationships",

@@ -289,19 +289,19 @@ class DataSourceManager:
                 dtype=object,
             )
             for col, dtype in self.OUTPUT_DTYPES.items():
-                df[col] = df[col].astype(dtype)  # type: ignore
-            df["open_time"] = pd.to_datetime(df["open_time"], utc=True)  # type: ignore
-            df.set_index("open_time", inplace=True)  # type: ignore
+                df[col] = df[col].astype(dtype)
+            df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
+            df.set_index("open_time", inplace=True)
             return df
 
         # Ensure open_time is the index and in UTC
         if "open_time" in df.columns:
-            df.set_index("open_time", inplace=True)  # type: ignore
+            df.set_index("open_time", inplace=True)
 
-        if df.index.tz is None:  # type: ignore
-            df.index = df.index.tz_localize("UTC")  # type: ignore
-        elif df.index.tz != timezone.utc:  # type: ignore
-            df.index = df.index.tz_convert("UTC")  # type: ignore
+        if df.index.tz is None:
+            df.index = df.index.tz_localize("UTC")
+        elif df.index.tz != timezone.utc:
+            df.index = df.index.tz_convert("UTC")
 
         # Normalize column names
         column_mapping = {
@@ -311,9 +311,9 @@ class DataSourceManager:
         df = df.rename(columns=column_mapping)
 
         # Ensure correct columns and types
-        df = df[list(self.OUTPUT_DTYPES.keys())]  # type: ignore
+        df = df[list(self.OUTPUT_DTYPES.keys())]
         for col, dtype in self.OUTPUT_DTYPES.items():
-            df[col] = df[col].astype(dtype)  # type: ignore
+            df[col] = df[col].astype(dtype)
 
         return df
 

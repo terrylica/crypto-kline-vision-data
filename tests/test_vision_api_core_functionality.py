@@ -96,13 +96,13 @@ async def test_basic_data_retrieval():
     )  # Yellow color for validation description
     # --- Enhanced Banner End ---
 
-    async with VisionDataClient[str]("BTCUSDT") as client:  # type: ignore[valid-type]
+    async with VisionDataClient[str]("BTCUSDT") as client:
         df = await client.fetch(start_time, end_time)
 
         # Basic validation
         assert not df.empty, "Retrieved data is empty"
-        assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"  # type: ignore
-        assert df.index.tz == timezone.utc, "Data timezone is not UTC"  # type: ignore
+        assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"
+        assert df.index.tz == timezone.utc, "Data timezone is not UTC"
 
         # Verify data completeness
         expected_rows = int((end_time - start_time).total_seconds())
@@ -113,7 +113,7 @@ async def test_basic_data_retrieval():
         # Log data sample
         logger.info(f"\nFirst few rows:\n{df.head()}")
         logger.info(f"Data shape: {df.shape}")
-        logger.info(f"Index range: {df.index.min()} to {df.index.max()}")  # type: ignore
+        logger.info(f"Index range: {df.index.min()} to {df.index.max()}")
 
 
 @pytest.mark.asyncio
@@ -147,24 +147,26 @@ async def test_data_consistency():
     )  # Yellow color for validation description
     # --- Enhanced Banner End ---
 
-    async with VisionDataClient[str]("BTCUSDT") as client:  # type: ignore[valid-type]
+    async with VisionDataClient[str]("BTCUSDT") as client:
         df = await client.fetch(start_time, end_time)
 
         # Verify basic properties
         assert not df.empty, "Retrieved data is empty"
-        assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"  # type: ignore
-        assert df.index.tz == timezone.utc, "Data timezone is not UTC"  # type: ignore
-        assert not df.index.has_duplicates, "Data contains duplicate timestamps"  # type: ignore
+        assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"
+        assert df.index.tz == timezone.utc, "Data timezone is not UTC"
+        assert not df.index.has_duplicates, "Data contains duplicate timestamps"
 
         # Verify 1-second intervals
-        intervals = df.index.to_series().diff().dropna()  # type: ignore
-        assert all(intervals == pd.Timedelta(seconds=1)), "Not all intervals are 1 second"  # type: ignore
+        intervals = df.index.to_series().diff().dropna()
+        assert all(
+            intervals == pd.Timedelta(seconds=1)
+        ), "Not all intervals are 1 second"
 
         # Verify column types
-        assert df["open"].dtype == float, "open column is not float"  # type: ignore
-        assert df["close"].dtype == float, "close column is not float"  # type: ignore
-        assert df["volume"].dtype == float, "volume column is not float"  # type: ignore
-        assert df["trades"].dtype == int, "trades column is not int"  # type: ignore
+        assert df["open"].dtype == float, "open column is not float"
+        assert df["close"].dtype == float, "close column is not float"
+        assert df["volume"].dtype == float, "volume column is not float"
+        assert df["trades"].dtype == int, "trades column is not int"
 
         # Verify data completeness
         expected_rows = (
@@ -192,21 +194,23 @@ async def test_timezone_handling():
     start_naive = start_time.replace(tzinfo=None)  # Naive datetime
     start_est = start_time.astimezone(timezone.utc)  # EST timezone
 
-    async with VisionDataClient[str]("BTCUSDT") as client:  # type: ignore[valid-type]
+    async with VisionDataClient[str]("BTCUSDT") as client:
         # Test with naive datetime
         df_naive = await client.fetch(start_naive, start_naive + duration)
-        assert df_naive.index.tz == timezone.utc, "Naive datetime not converted to UTC"  # type: ignore
+        assert df_naive.index.tz == timezone.utc, "Naive datetime not converted to UTC"
 
         # Test with EST datetime
         df_est = await client.fetch(start_est, start_est + duration)
-        assert df_est.index.tz == timezone.utc, "EST datetime not converted to UTC"  # type: ignore
+        assert df_est.index.tz == timezone.utc, "EST datetime not converted to UTC"
 
         # Verify both datasets match
         assert df_naive.equals(df_est), "Data differs between timezone representations"
 
         # Verify 1-second intervals
-        time_diffs = df_naive.index.to_series().diff().dropna()  # type: ignore
-        assert all(diff == timedelta(seconds=1) for diff in time_diffs), "Data has irregular intervals"  # type: ignore
+        time_diffs = df_naive.index.to_series().diff().dropna()
+        assert all(
+            diff == timedelta(seconds=1) for diff in time_diffs
+        ), "Data has irregular intervals"
 
         # --- Enhanced Banner Start ---
         logger.info(
@@ -227,7 +231,7 @@ async def test_timezone_handling():
         # --- Enhanced Banner End ---
 
         df_naive = await client.fetch(start_naive, start_naive + duration)
-        assert df_naive.index.tz == timezone.utc, "Naive datetime not converted to UTC"  # type: ignore
+        assert df_naive.index.tz == timezone.utc, "Naive datetime not converted to UTC"
 
         logger.info("Timezone handling verified successfully")
 
@@ -243,7 +247,7 @@ async def test_timestamp_format_evolution():
     - 1-second intervals
     - Proper datetime index
     """
-    async with VisionDataClient[str]("BTCUSDT") as client:  # type: ignore[valid-type]
+    async with VisionDataClient[str]("BTCUSDT") as client:
         # Test 2024 data (millisecond format)
         start_2024 = datetime(2024, 12, 1, tzinfo=timezone.utc)
         end_2024 = start_2024 + timedelta(hours=1)
@@ -262,23 +266,25 @@ async def test_timestamp_format_evolution():
         for period, df in [("2024", df_2024), ("2025", df_2025)]:
             logger.info(f"\nValidating {period} data:")
             logger.info(f"Shape: {df.shape}")
-            logger.info(f"Index range: {df.index.min()} to {df.index.max()}")  # type: ignore
+            logger.info(f"Index range: {df.index.min()} to {df.index.max()}")
             logger.info(f"Sample data:\n{df.head()}")
 
             # Verify data properties
             assert not df.empty, f"{period} data is empty"
-            assert df.index.is_monotonic_increasing, f"{period} data is not monotonic"  # type: ignore
-            assert df.index.tz == timezone.utc, f"{period} data timezone is not UTC"  # type: ignore
+            assert df.index.is_monotonic_increasing, f"{period} data is not monotonic"
+            assert df.index.tz == timezone.utc, f"{period} data timezone is not UTC"
 
             # Verify 1-second intervals
-            time_diffs = df.index.to_series().diff().dropna()  # type: ignore
-            assert all(diff == timedelta(seconds=1) for diff in time_diffs), f"{period} data has irregular intervals"  # type: ignore
+            time_diffs = df.index.to_series().diff().dropna()
+            assert all(
+                diff == timedelta(seconds=1) for diff in time_diffs
+            ), f"{period} data has irregular intervals"
 
             # Verify column types are consistent
-            assert df["open"].dtype == float, f"{period} open column is not float"  # type: ignore
-            assert df["close"].dtype == float, f"{period} close column is not float"  # type: ignore
-            assert df["volume"].dtype == float, f"{period} volume column is not float"  # type: ignore
-            assert df["trades"].dtype == int, f"{period} trades column is not int"  # type: ignore
+            assert df["open"].dtype == float, f"{period} open column is not float"
+            assert df["close"].dtype == float, f"{period} close column is not float"
+            assert df["volume"].dtype == float, f"{period} volume column is not float"
+            assert df["trades"].dtype == int, f"{period} trades column is not int"
 
         # --- Enhanced Banner Start ---
         logger.info(
@@ -318,20 +324,22 @@ async def test_timestamp_format_evolution():
         for period, df in [("2024", df_2024), ("2025", df_2025)]:
             logger.info(f"\nValidating {period} data:")
             logger.info(f"Shape: {df.shape}")
-            logger.info(f"Index range: {df.index.min()} to {df.index.max()}")  # type: ignore
+            logger.info(f"Index range: {df.index.min()} to {df.index.max()}")
             logger.info(f"Sample data:\n{df.head()}")
 
             # Verify data properties
             assert not df.empty, f"{period} data is empty"
-            assert df.index.is_monotonic_increasing, f"{period} data is not monotonic"  # type: ignore
-            assert df.index.tz == timezone.utc, f"{period} data timezone is not UTC"  # type: ignore
+            assert df.index.is_monotonic_increasing, f"{period} data is not monotonic"
+            assert df.index.tz == timezone.utc, f"{period} data timezone is not UTC"
 
             # Verify 1-second intervals
-            time_diffs = df.index.to_series().diff().dropna()  # type: ignore
-            assert all(diff == timedelta(seconds=1) for diff in time_diffs), f"{period} data has irregular intervals"  # type: ignore
+            time_diffs = df.index.to_series().diff().dropna()
+            assert all(
+                diff == timedelta(seconds=1) for diff in time_diffs
+            ), f"{period} data has irregular intervals"
 
             # Verify column types are consistent
-            assert df["open"].dtype == float, f"{period} open column is not float"  # type: ignore
-            assert df["close"].dtype == float, f"{period} close column is not float"  # type: ignore
-            assert df["volume"].dtype == float, f"{period} volume column is not float"  # type: ignore
-            assert df["trades"].dtype == int, f"{period} trades column is not int"  # type: ignore
+            assert df["open"].dtype == float, f"{period} open column is not float"
+            assert df["close"].dtype == float, f"{period} close column is not float"
+            assert df["volume"].dtype == float, f"{period} volume column is not float"
+            assert df["trades"].dtype == int, f"{period} trades column is not int"

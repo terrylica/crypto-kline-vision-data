@@ -82,7 +82,7 @@ def to_arrow(dt: Any) -> arrow.Arrow:
     if isinstance(dt, datetime):
         return arrow.get(type_cast(datetime, dt))
     if isinstance(dt, pd.Timestamp):
-        if dt is pd.NaT:  # type: ignore
+        if dt is pd.NaT:
             raise ValueError("Cannot convert NaT (Not a Time) to Arrow")
         pdt = dt.to_pydatetime()
         return arrow.get(type_cast(datetime, pdt))
@@ -90,7 +90,7 @@ def to_arrow(dt: Any) -> arrow.Arrow:
     # Convert other types through Timestamp
     try:
         ts = pd.Timestamp(dt)
-        if ts is pd.NaT:  # type: ignore
+        if ts is pd.NaT:
             raise ValueError("Cannot convert NaT (Not a Time) to Arrow")
         pdt = ts.to_pydatetime()
         return arrow.get(type_cast(datetime, pdt))

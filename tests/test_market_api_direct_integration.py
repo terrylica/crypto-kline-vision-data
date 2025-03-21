@@ -125,10 +125,16 @@ def validate_market_data_structure(df: pd.DataFrame) -> None:
     # Numeric columns validation
     numeric_cols = ["open", "high", "low", "close", "volume", "quote_volume"]
     for col in numeric_cols:
-        assert df[col].dtype == "float64", f"{col} has incorrect data type: {df[col].dtype}"  # type: ignore
+        assert (
+            df[col].dtype == "float64"
+        ), f"{col} has incorrect data type: {df[col].dtype}"
 
     # Integer columns validation - accept int32 or int64
-    assert df["trades"].dtype in ["int32", "int64", "float64"], f"trades column has incorrect type: {df['trades'].dtype}"  # type: ignore
+    assert df["trades"].dtype in [
+        "int32",
+        "int64",
+        "float64",
+    ], f"trades column has incorrect type: {df['trades'].dtype}"
 
 
 def validate_time_integrity(
@@ -147,21 +153,23 @@ def validate_time_integrity(
         AssertionError: If time integrity is invalid
     """
     # Chronological order
-    assert df["open_time"].is_monotonic_increasing, "Data is not in chronological order"  # type: ignore
+    assert df["open_time"].is_monotonic_increasing, "Data is not in chronological order"
 
     # Time gaps (for 1s data)
-    time_gaps = df["open_time"].diff()[1:] != pd.Timedelta(seconds=1)  # type: ignore
-    if time_gaps.any():  # type: ignore
-        gap_indices = df.index[time_gaps]  # type: ignore
-        gap_times = df["open_time"][gap_indices]  # type: ignore
-        logger.warning(f"Found time gaps at: {gap_times.tolist()}")  # type: ignore
-        assert False, "Found time gaps in data"  # type: ignore
+    time_gaps = df["open_time"].diff()[1:] != pd.Timedelta(seconds=1)
+    if time_gaps.any():
+        gap_indices = df.index[time_gaps]
+        gap_times = df["open_time"][gap_indices]
+        logger.warning(f"Found time gaps at: {gap_times.tolist()}")
+        assert False, "Found time gaps in data"
 
     # Time boundaries if provided
     if start_time:
-        assert df["open_time"].min() >= start_time, "Data starts before requested window"  # type: ignore
+        assert (
+            df["open_time"].min() >= start_time
+        ), "Data starts before requested window"
     if end_time:
-        assert df["open_time"].max() <= end_time, "Data ends after requested window"  # type: ignore
+        assert df["open_time"].max() <= end_time, "Data ends after requested window"
 
 
 async def fetch_klines(
@@ -237,15 +245,15 @@ async def test_market_data_integrity(
     df = pd.DataFrame(data, columns=columns)
 
     # Convert timestamps
-    df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)  # type: ignore
-    df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)  # type: ignore
+    df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
+    df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)
 
     # Convert numeric columns
     numeric_cols = ["open", "high", "low", "close", "volume", "quote_volume"]
     for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="raise")  # type: ignore[assignment]
+        df[col] = pd.to_numeric(df[col], errors="raise")
 
-    df["trades"] = pd.to_numeric(df["trades"], errors="raise").astype("int64")  # type: ignore[assignment]
+    df["trades"] = pd.to_numeric(df["trades"], errors="raise").astype("int64")
 
     # Run validations
     validate_market_data_structure(df)

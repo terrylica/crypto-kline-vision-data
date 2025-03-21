@@ -93,8 +93,8 @@ class HardwareMonitor:
         memory_available_gb = memory.available / (1024 * 1024 * 1024)  # Convert to GB
 
         # Get CPU IOWait percentage
-        cpu_times = psutil.cpu_times_percent()  # type: ignore
-        iowait = getattr(cpu_times, "iowait", 0.0)  # type: ignore
+        cpu_times = psutil.cpu_times_percent()
+        iowait = getattr(cpu_times, "iowait", 0.0)
 
         return HardwareMetrics(
             cpu_count=cpu_count,

@@ -35,7 +35,9 @@ def create_http_client(
     Returns:
         Configured aiohttp ClientSession
     """
-    timeout = aiohttp.ClientTimeout(total=timeout, connect=3, sock_connect=3, sock_read=5)  # type: ignore
+    timeout = aiohttp.ClientTimeout(
+        total=timeout, connect=3, sock_connect=3, sock_read=5
+    )
 
     connector = aiohttp.TCPConnector(limit=max_connections, force_close=False)
 
@@ -46,7 +48,7 @@ def create_http_client(
     )
 
 
-def process_kline_data(raw_data: List[List]) -> pd.DataFrame:  # type: ignore
+def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
     """Process raw kline data into a DataFrame.
 
     Args:
@@ -85,12 +87,12 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:  # type: ignore
     # Convert timestamps with microsecond precision
     for col in ["open_time", "close_time"]:
         # Convert milliseconds to microseconds by multiplying by 1000
-        df[col] = df[col].astype(np.int64) * 1000  # type: ignore
-        df[col] = pd.to_datetime(df[col], unit="us", utc=True)  # type: ignore
+        df[col] = df[col].astype(np.int64) * 1000
+        df[col] = pd.to_datetime(df[col], unit="us", utc=True)
 
         # For close_time, add 999 microseconds to match REST API behavior
         if col == "close_time":
-            df[col] = df[col] + pd.Timedelta(microseconds=999)  # type: ignore
+            df[col] = df[col] + pd.Timedelta(microseconds=999)
 
         if len(raw_data) > 0:
             logger.debug(f"Converted {col}: {df[col].iloc[0]}")
@@ -107,8 +109,8 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:  # type: ignore
         "taker_buy_base",
         "taker_buy_quote",
     ]
-    df[numeric_cols] = df[numeric_cols].astype(np.float64)  # type: ignore
-    df["trades"] = df["trades"].astype(np.int32)  # type: ignore
+    df[numeric_cols] = df[numeric_cols].astype(np.float64)
+    df["trades"] = df["trades"].astype(np.int32)
 
     return df
 
@@ -154,7 +156,7 @@ class EnhancedRetriever:
             self.client = self._create_optimized_client()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):  # type: ignore
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
         if self.client:
             await self.client.close()
@@ -180,7 +182,7 @@ class EnhancedRetriever:
             # Use the correct endpoint format
             return f"{endpoint}/api/v3/klines"
 
-    async def _fetch_chunk_with_retry(  # type: ignore
+    async def _fetch_chunk_with_retry(
         self,
         symbol: str,
         interval: Interval,
@@ -230,7 +232,7 @@ class EnhancedRetriever:
                     logger.debug(
                         f"Fetching chunk: {start_ms} -> {end_ms} from {endpoint_url}"
                     )
-                    async with self.client.get(endpoint_url, params=params) as response:  # type: ignore
+                    async with self.client.get(endpoint_url, params=params) as response:
                         response.raise_for_status()
                         data: List[List[Any]] = await response.json()
 
@@ -257,11 +259,11 @@ class EnhancedRetriever:
                                 f"First timestamp: {first_ts}\nLast timestamp: {last_ts}\nTime span: {last_ts - first_ts}"
                             )
 
-                        return data, endpoint_url  # type: ignore
+                        return data, endpoint_url
 
             except (aiohttp.ClientError, ValueError) as e:
                 last_error = e
-                logger.warning(f"Failed to fetch chunk from {endpoint_url}: {str(e)}")  # type: ignore
+                logger.warning(f"Failed to fetch chunk from {endpoint_url}: {str(e)}")
                 retries += 1
                 if retries < self.MAX_RETRIES:
                     await asyncio.sleep(self.RETRY_DELAY)
@@ -290,9 +292,9 @@ class EnhancedRetriever:
 
     def _create_optimized_client(self) -> aiohttp.ClientSession:
         """Create an optimized client based on hardware capabilities."""
-        concurrency_info = self._hw_monitor.calculate_optimal_concurrency()  # type: ignore
+        concurrency_info = self._hw_monitor.calculate_optimal_concurrency()
         return create_http_client(
-            max_connections=concurrency_info["optimal_concurrency"],  # type: ignore
+            max_connections=concurrency_info["optimal_concurrency"],
             timeout=30,  # Increased for large datasets
         )
 
@@ -348,7 +350,7 @@ class EnhancedRetriever:
             chunk_end = min(current_ms + chunk_size_ms, end_ms)
             if chunk_end > current_ms:
                 # Subtract 1ms from end time to avoid overlap with next chunk's start time
-                chunks.append((current_ms, chunk_end - 1))  # type: ignore
+                chunks.append((current_ms, chunk_end - 1))
             current_ms = chunk_end
 
         # Log chunk boundaries for verification
@@ -362,7 +364,7 @@ class EnhancedRetriever:
                 f"({(chunk_end - chunk_start + 1)/interval_ms:.0f} intervals)"
             )
 
-        return chunks  # type: ignore
+        return chunks
 
     def _validate_bar_duration(self, open_time: datetime, interval: Interval) -> float:
         """Validate a single bar's duration.
@@ -399,9 +401,9 @@ class EnhancedRetriever:
         """
         cutoff_time = current_time - timedelta(minutes=5)
         incomplete_count = 0
-        for ts in df["open_time"]:  # type: ignore
-            if ts < cutoff_time and not is_bar_complete(ts, current_time):  # type: ignore
-                logger.warning(f"Found incomplete historical bar at {ts}")  # type: ignore
+        for ts in df["open_time"]:
+            if ts < cutoff_time and not is_bar_complete(ts, current_time):
+                logger.warning(f"Found incomplete historical bar at {ts}")
                 incomplete_count += 1
         return incomplete_count
 
@@ -416,10 +418,10 @@ class EnhancedRetriever:
             return
 
         # Check bar durations
-        for idx, row in df.iterrows():  # type: ignore
-            open_time = row["open_time"]  # type: ignore
-            close_time = row["close_time"]  # type: ignore
-            expected_close = get_bar_close_time(open_time, interval)  # type: ignore
+        for idx, row in df.iterrows():
+            open_time = row["open_time"]
+            close_time = row["close_time"]
+            expected_close = get_bar_close_time(open_time, interval)
 
             if close_time != expected_close:
                 logger.warning(
@@ -428,10 +430,12 @@ class EnhancedRetriever:
                 )
 
         # Verify time alignment
-        for ts in df["open_time"]:  # type: ignore
-            floor_time = get_interval_floor(ts, interval)  # type: ignore
-            if ts != floor_time:  # type: ignore
-                logger.warning(f"Bar at {ts} is not properly aligned (should be {floor_time})")  # type: ignore
+        for ts in df["open_time"]:
+            floor_time = get_interval_floor(ts, interval)
+            if ts != floor_time:
+                logger.warning(
+                    f"Bar at {ts} is not properly aligned (should be {floor_time})"
+                )
 
     async def fetch(
         self,
@@ -478,14 +482,21 @@ class EnhancedRetriever:
 
         # Use hardware-optimized concurrency if not specified
         if concurrency is None:
-            concurrency = self._hw_monitor.calculate_optimal_concurrency()["optimal_concurrency"]  # type: ignore
+            concurrency = self._hw_monitor.calculate_optimal_concurrency()[
+                "optimal_concurrency"
+            ]
 
         # Create semaphore for concurrency control
-        sem = asyncio.Semaphore(concurrency)  # type: ignore
+        sem = asyncio.Semaphore(concurrency)
 
         # Fetch all chunks concurrently with retries and endpoint failover
-        tasks = [self._fetch_chunk_with_retry(symbol, interval, start, end, sem) for start, end in chunks]  # type: ignore
-        chunk_results: List[Union[Tuple[List[List[Any]], str], Exception]] = await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore
+        tasks = [
+            self._fetch_chunk_with_retry(symbol, interval, start, end, sem)
+            for start, end in chunks
+        ]
+        chunk_results: List[Union[Tuple[List[List[Any]], str], Exception]] = (
+            await asyncio.gather(*tasks, return_exceptions=True)
+        )
 
         # Process results and track endpoints used
         all_data: List[List[Any]] = []
@@ -514,8 +525,8 @@ class EnhancedRetriever:
 
             # Check for duplicates and log details
             duplicates = df.duplicated(subset=["open_time"], keep=False)
-            if duplicates.any():  # type: ignore
-                duplicate_df = df[duplicates].sort_values("open_time")  # type: ignore
+            if duplicates.any():
+                duplicate_df = df[duplicates].sort_values("open_time")
                 logger.error(  # Keep as error - this is important
                     f"Found {len(duplicate_df) // 2} duplicate pairs at following timestamps:"
                     f"\n{duplicate_df['open_time'].unique().tolist()}"
@@ -532,7 +543,7 @@ class EnhancedRetriever:
 
             # Remove duplicates and sort
             df = df.drop_duplicates(subset=["open_time"], keep="first")
-            df = df.sort_values("open_time").reset_index(drop=True)  # type: ignore
+            df = df.sort_values("open_time").reset_index(drop=True)
 
             logger.debug(
                 f"Final DataFrame shape after deduplication: {df.shape}"
@@ -543,7 +554,9 @@ class EnhancedRetriever:
 
             # Verify data completeness
             current_time = datetime.now(timezone.utc)
-            incomplete_bars = [ts for ts in df["open_time"] if not is_bar_complete(ts, current_time)]  # type: ignore
+            incomplete_bars = [
+                ts for ts in df["open_time"] if not is_bar_complete(ts, current_time)
+            ]
             if incomplete_bars:
                 logger.error(
                     f"Found {len(incomplete_bars)} incomplete bars"
@@ -552,17 +565,19 @@ class EnhancedRetriever:
             df = pd.DataFrame()
 
         # Return results with enhanced metadata
-        metadata = {  # type: ignore
+        metadata = {
             "chunks_processed": len(chunks),
             "chunks_failed": failed_chunks,
             "total_records": len(df),
             "time_span_seconds": total_span // 1000,
             "interval": interval.value,
-            "endpoints_used": list(endpoints_used),  # type: ignore
-            "endpoint_count": len(endpoints_used),  # type: ignore
+            "endpoints_used": list(endpoints_used),
+            "endpoint_count": len(endpoints_used),
             "start_time": adjusted_start.isoformat(),
             "end_time": adjusted_end.isoformat(),
-            "incomplete_bars": len(incomplete_bars) if "incomplete_bars" in locals() else 0,  # type: ignore
+            "incomplete_bars": (
+                len(incomplete_bars) if "incomplete_bars" in locals() else 0
+            ),
         }
 
-        return df, metadata  # type: ignore
+        return df, metadata
