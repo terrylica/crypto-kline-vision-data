@@ -11,10 +11,11 @@ import numpy as np
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType, get_market_capabilities
 from utils.time_alignment import (
-    adjust_time_window,
     get_bar_close_time,
     get_interval_floor,
     is_bar_complete,
+    get_time_boundaries,
+    filter_time_range,
 )
 from utils.hardware_monitor import HardwareMonitor
 from utils.validation import DataValidation
@@ -111,6 +112,26 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
     ]
     df[numeric_cols] = df[numeric_cols].astype(np.float64)
     df["trades"] = df["trades"].astype(np.int32)
+
+    # Check for duplicate timestamps and sort by open_time
+    if "open_time" in df.columns:
+        logger.debug(f"Shape before dropping duplicates: {df.shape}")
+
+        # First, sort by open_time to ensure chronological order
+        df = df.sort_values("open_time")
+
+        # Then check for duplicates and drop them if necessary
+        if df.duplicated(subset=["open_time"]).any():
+            duplicates_count = df.duplicated(subset=["open_time"]).sum()
+            logger.debug(
+                f"Found {duplicates_count} duplicate timestamps, keeping first occurrence"
+            )
+            df = df.drop_duplicates(subset=["open_time"], keep="first")
+
+        logger.debug(f"Shape after sorting and dropping duplicates: {df.shape}")
+        logger.debug(
+            f"open_time is monotonic: {df['open_time'].is_monotonic_increasing}"
+        )
 
     return df
 
@@ -343,25 +364,25 @@ class EnhancedRetriever:
             f"(using {endpoint_count} endpoints, chunk_size={chunk_size_ms}ms, interval={interval_ms}ms)"
         )
 
-        # Create chunks with non-overlapping boundaries
+        # Create chunks with consistent boundary handling
         chunks = []
         current_ms = start_ms
         while current_ms < end_ms:
             chunk_end = min(current_ms + chunk_size_ms, end_ms)
             if chunk_end > current_ms:
-                # Subtract 1ms from end time to avoid overlap with next chunk's start time
-                chunks.append((current_ms, chunk_end - 1))
+                # Use exact boundary (no -1ms subtraction) for consistent exclusive end
+                chunks.append((current_ms, chunk_end))
             current_ms = chunk_end
 
         # Log chunk boundaries for verification
         for i, (chunk_start, chunk_end) in enumerate(chunks):
             start_time = datetime.fromtimestamp(chunk_start / 1000, tz=timezone.utc)
             end_time = datetime.fromtimestamp(
-                (chunk_end + 1) / 1000, tz=timezone.utc
-            )  # Add 1ms back for logging
+                chunk_end / 1000, tz=timezone.utc
+            )  # No adjustment needed for logging
             logger.debug(
                 f"Chunk {i + 1}/{len(chunks)}: {start_time} -> {end_time} "
-                f"({(chunk_end - chunk_start + 1)/interval_ms:.0f} intervals)"
+                f"({(chunk_end - chunk_start)/interval_ms:.0f} intervals, end exclusive)"
             )
 
         return chunks
@@ -448,136 +469,118 @@ class EnhancedRetriever:
         """Fetch historical kline data with automatic optimization.
 
         Args:
-            symbol: Trading pair symbol
-            interval: Time interval for data
+            symbol: Trading symbol
+            interval: Time interval
             start_time: Start time
             end_time: End time
-            concurrency: Optional override for concurrent requests
+            concurrency: Optional override for concurrency limit
 
         Returns:
-            Tuple of (DataFrame with data, metrics dictionary)
+            Tuple of (DataFrame, stats dictionary)
         """
-        # Validate parameters
-        self._validate_request_params(symbol, interval, start_time, end_time)
+        stats = {"start_time": datetime.now(timezone.utc)}
+        df = pd.DataFrame()
 
-        # Ensure times are in UTC and properly aligned
-        start_time = start_time.astimezone(timezone.utc)
-        end_time = end_time.astimezone(timezone.utc)
-        adjusted_start, adjusted_end = adjust_time_window(
-            start_time, end_time, interval
-        )
+        try:
+            # Get time boundaries with standard handling
+            time_boundaries = get_time_boundaries(start_time, end_time, interval)
+            start_time = time_boundaries["adjusted_start"]
+            end_time = time_boundaries["adjusted_end"]
+            start_ms = time_boundaries["start_ms"]
+            end_ms = time_boundaries["end_ms"]
 
-        if adjusted_start != start_time or adjusted_end != end_time:
-            logger.info(
-                f"Adjusted time window for proper alignment:"
-                f"\nOriginal:  {start_time} -> {end_time}"
-                f"\nAdjusted:  {adjusted_start} -> {adjusted_end}"
+            logger.debug(
+                f"Fetching {symbol} {interval.value} data: "
+                f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
             )
 
-        # Calculate chunks
-        start_ts = int(adjusted_start.timestamp() * 1000)  # Convert to milliseconds
-        end_ts = int(adjusted_end.timestamp() * 1000)  # Convert to milliseconds
-        chunks = self._calculate_chunks(start_ts, end_ts, interval)
-        total_span = end_ts - start_ts
+            # Calculate optimal chunks
+            chunks = self._calculate_chunks(start_ms, end_ms, interval)
 
-        # Use hardware-optimized concurrency if not specified
-        if concurrency is None:
-            concurrency = self._hw_monitor.calculate_optimal_concurrency()[
-                "optimal_concurrency"
-            ]
-
-        # Create semaphore for concurrency control
-        sem = asyncio.Semaphore(concurrency)
-
-        # Fetch all chunks concurrently with retries and endpoint failover
-        tasks = [
-            self._fetch_chunk_with_retry(symbol, interval, start, end, sem)
-            for start, end in chunks
-        ]
-        chunk_results: List[Union[Tuple[List[List[Any]], str], Exception]] = (
-            await asyncio.gather(*tasks, return_exceptions=True)
-        )
-
-        # Process results and track endpoints used
-        all_data: List[List[Any]] = []
-        endpoints_used: Set[str] = set()
-        failed_chunks = 0
-
-        for result in chunk_results:
-            if isinstance(result, Exception):
-                failed_chunks += 1
-                logger.warning(f"Failed to fetch chunk: {result}")
-                continue
-
-            chunk_data, endpoint = result
-            if chunk_data:
-                all_data.extend(chunk_data)
-                endpoints_used.add(endpoint)
-
-        # Convert to DataFrame
-        if all_data:
-            df = process_kline_data(all_data)
-
-            # Log initial state before deduplication
-            logger.debug(
-                f"Initial DataFrame shape before deduplication: {df.shape}"
-            )  # Changed from info to debug
-
-            # Check for duplicates and log details
-            duplicates = df.duplicated(subset=["open_time"], keep=False)
-            if duplicates.any():
-                duplicate_df = df[duplicates].sort_values("open_time")
-                logger.error(  # Keep as error - this is important
-                    f"Found {len(duplicate_df) // 2} duplicate pairs at following timestamps:"
-                    f"\n{duplicate_df['open_time'].unique().tolist()}"
+            # Set concurrency
+            if concurrency is None:
+                concurrency = min(
+                    len(chunks),
+                    self._hw_monitor.calculate_optimal_concurrency()[
+                        "optimal_concurrency"
+                    ],
+                    (len(self._capabilities.backup_endpoints) + 2),
                 )
 
-                # Log a sample of duplicate records for analysis
-                for ts in duplicate_df["open_time"].unique()[
-                    :2
-                ]:  # Show first 2 duplicate pairs
-                    dup_rows = duplicate_df[duplicate_df["open_time"] == ts]
-                    logger.error(f"\nDuplicate records at {ts}:")  # Keep as error
-                    for _, row in dup_rows.iterrows():
-                        logger.error(f"Row data: {row.to_dict()}")  # Keep as error
+            # Fetch in parallel
+            tasks = []
+            semaphore = asyncio.Semaphore(concurrency)
+            for chunk_start, chunk_end in chunks:
+                tasks.append(
+                    self._fetch_chunk_with_retry(
+                        symbol=symbol,
+                        interval=interval,
+                        start_ms=chunk_start,
+                        end_ms=chunk_end,
+                        sem=semaphore,
+                    )
+                )
 
-            # Remove duplicates and sort
-            df = df.drop_duplicates(subset=["open_time"], keep="first")
-            df = df.sort_values("open_time").reset_index(drop=True)
+            # Execute all tasks
+            chunk_results = await asyncio.gather(*tasks)
 
-            logger.debug(
-                f"Final DataFrame shape after deduplication: {df.shape}"
-            )  # Changed from info to debug
+            # Process results
+            dfs = []
+            records_fetched = 0
+            for chunk_data, endpoint in chunk_results:
+                if chunk_data:
+                    df = process_kline_data(chunk_data)
+                    dfs.append(df)
+                    records_fetched += len(df)
 
-            # Validate time alignment
+            # Combine and sort all data
+            if dfs:
+                df = pd.concat(dfs)
+                df = df.sort_index()
+
+                # Apply consistent time filtering to ensure exact bounds
+                df = filter_time_range(df, start_time, end_time)
+
+                # Add open_time as a column (for tests that expect it)
+                if df.index.name == "open_time" and "open_time" not in df.columns:
+                    logger.debug("Adding open_time as a column for compatibility")
+                    df["open_time"] = df.index.copy()
+
+                    # Ensure the open_time column is sorted
+                    if not df["open_time"].is_monotonic_increasing:
+                        logger.debug(
+                            "Sorting open_time column to ensure monotonic order"
+                        )
+                        df = df.sort_values("open_time")
+
+            # Update stats
+            stats.update(
+                {
+                    "end_time": datetime.now(timezone.utc),
+                    "records_fetched": records_fetched,
+                    "records_returned": len(df),
+                    "total_records": len(df),  # Add for test compatibility
+                    "chunks": len(chunks),
+                    "chunks_processed": len(chunks),  # Add for test compatibility
+                    "chunks_failed": 0,  # Add for test compatibility
+                    "concurrency": concurrency,
+                    "endpoint_used": endpoint,
+                }
+            )
+
+            logger.info(
+                f"Fetched {len(df)} records for {symbol} {interval.value} "
+                f"({stats['end_time'] - stats['start_time']})"
+            )
+
+            # Validate data
             self._validate_bar_alignment(df, interval)
+            self._validate_historical_bars(df, datetime.now(timezone.utc))
 
-            # Verify data completeness
-            current_time = datetime.now(timezone.utc)
-            incomplete_bars = [
-                ts for ts in df["open_time"] if not is_bar_complete(ts, current_time)
-            ]
-            if incomplete_bars:
-                logger.error(
-                    f"Found {len(incomplete_bars)} incomplete bars"
-                )  # Keep as error
-        else:
-            df = pd.DataFrame()
+            return df, stats
 
-        # Return results with enhanced metadata
-        metadata = {
-            "chunks_processed": len(chunks),
-            "chunks_failed": failed_chunks,
-            "total_records": len(df),
-            "time_span_seconds": total_span // 1000,
-            "interval": interval.value,
-            "endpoints_used": list(endpoints_used),
-            "endpoint_count": len(endpoints_used),
-            "start_time": adjusted_start.isoformat(),
-            "end_time": adjusted_end.isoformat(),
-            "incomplete_bars": (
-                len(incomplete_bars) if "incomplete_bars" in locals() else 0
-            ),
-        }
-
-        return df, metadata
+        except Exception as e:
+            stats["error"] = str(e)
+            stats["end_time"] = datetime.now(timezone.utc)
+            logger.error(f"Error fetching data: {e}")
+            raise

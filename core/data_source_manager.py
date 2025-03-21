@@ -9,7 +9,20 @@ from pathlib import Path
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType
-from utils.time_alignment import adjust_time_window
+from utils.time_alignment import (
+    get_time_boundaries,
+    filter_time_range,
+)
+from utils.validation import DataFrameValidator, DataValidation
+from utils.cache_validator import CacheValidator
+from utils.config import (
+    OUTPUT_DTYPES,
+    VISION_DATA_DELAY_HOURS,
+    REST_CHUNK_SIZE,
+    REST_MAX_CHUNKS,
+    DEFAULT_TIMEZONE,
+    CANONICAL_INDEX_NAME,
+)
 from core.market_data_client import EnhancedRetriever
 from core.vision_data_client import VisionDataClient
 from core.cache_manager import UnifiedCacheManager
@@ -35,26 +48,15 @@ class DataSourceManager:
     4. Data format standardization
     """
 
-    # Vision API constraints
-    VISION_DATA_DELAY_HOURS = 36  # Data newer than this isn't available in Vision API
+    # Vision API constraints - using imported constant
+    VISION_DATA_DELAY_HOURS = VISION_DATA_DELAY_HOURS
 
-    # REST API constraints
-    REST_CHUNK_SIZE = 1000  # Maximum records per REST API request
-    REST_MAX_CHUNKS = 10  # Maximum number of chunks to request via REST
+    # REST API constraints - using imported constants
+    REST_CHUNK_SIZE = REST_CHUNK_SIZE
+    REST_MAX_CHUNKS = REST_MAX_CHUNKS
 
-    # Output format specification
-    OUTPUT_DTYPES = {
-        "open": "float64",
-        "high": "float64",
-        "low": "float64",
-        "close": "float64",
-        "volume": "float64",
-        "close_time": "int64",
-        "quote_volume": "float64",
-        "trades": "int64",
-        "taker_buy_volume": "float64",
-        "taker_buy_quote_volume": "float64",
-    }
+    # Output format specification from centralized config
+    OUTPUT_DTYPES = OUTPUT_DTYPES.copy()
 
     @classmethod
     def get_output_format(cls) -> Dict[str, str]:
@@ -146,25 +148,12 @@ class DataSourceManager:
             if df is None:
                 return False, "Failed to load cache data"
 
-            # Verify data structure
-            if not all(col in df.columns for col in self.OUTPUT_DTYPES.keys()):
-                return False, "Missing required columns"
-
-            # Verify data types
-            for col, dtype in self.OUTPUT_DTYPES.items():
-                if str(df[col].dtype) != dtype:
-                    return (
-                        False,
-                        f"Invalid dtype for {col}: expected {dtype}, got {df[col].dtype}",
-                    )
-
-            # Verify index
-            if not isinstance(df.index, pd.DatetimeIndex):
-                return False, "Index is not DatetimeIndex"
-            if df.index.tz != timezone.utc:
-                return False, "Index timezone is not UTC"
-
-            return True, None
+            # Validate data structure using our centralized validator
+            try:
+                DataFrameValidator.validate_dataframe(df)
+                return True, None
+            except ValueError as e:
+                return False, str(e)
 
         except Exception as e:
             return False, f"Validation error: {str(e)}"
@@ -194,7 +183,23 @@ class DataSourceManager:
             if df.empty:
                 return False
 
+            # Validate data before caching
+            try:
+                DataFrameValidator.validate_dataframe(df)
+            except ValueError as e:
+                logger.error(f"Cannot repair cache with invalid data: {e}")
+                return False
+
             await self.cache_manager.save_to_cache(df, symbol, interval, date)
+
+            # Verify the repair was successful
+            is_valid, error = await self.validate_cache_integrity(
+                symbol, interval, date
+            )
+            if not is_valid:
+                logger.error(f"Cache repair verification failed: {error}")
+                return False
+
             return True
 
         except Exception as e:
@@ -265,11 +270,8 @@ class DataSourceManager:
         Raises:
             ValueError: If dates are invalid
         """
-        now = datetime.now(timezone.utc)
-        if end_time > now:
-            raise ValueError(f"End time {end_time} is in the future")
-        if start_time > end_time:
-            raise ValueError(f"Start time {start_time} is after end time {end_time}")
+        # Use the standard validation utility from utils.validation
+        DataValidation.validate_time_window(start_time, end_time)
 
     def _format_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Format DataFrame to ensure consistent structure.
@@ -280,30 +282,55 @@ class DataSourceManager:
         Returns:
             Formatted DataFrame
         """
+        logger.debug(
+            f"Formatting DataFrame with shape: {df.shape if not df.empty else 'empty'}"
+        )
+        logger.debug(
+            f"Columns before formatting: {list(df.columns) if not df.empty else 'none'}"
+        )
+        logger.debug(
+            f"Index type before formatting: {type(df.index) if not df.empty else 'none'}"
+        )
+
         if df.empty:
-            # Create empty DataFrame with correct structure
-            df = pd.DataFrame(
-                columns=pd.Index(
-                    ["open_time"] + list(self.OUTPUT_DTYPES.keys())
-                ),  # Convert list to Index
-                dtype=object,
+            # Create empty DataFrame with correct structure using centralized format
+            empty_df = pd.DataFrame(
+                columns=list(self.OUTPUT_DTYPES.keys()),
+                index=pd.DatetimeIndex(
+                    [], name=CANONICAL_INDEX_NAME, tz=DEFAULT_TIMEZONE
+                ),
             )
+
+            # Apply proper data types
             for col, dtype in self.OUTPUT_DTYPES.items():
-                df[col] = df[col].astype(dtype)
-            df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
-            df.set_index("open_time", inplace=True)
-            return df
+                empty_df[col] = empty_df[col].astype(dtype)
+
+            return empty_df
+
+        # Check if we have an open_time column that will remain after indexing
+        has_separate_open_time = False
+        if "open_time" in df.columns and df.index.name != "open_time":
+            has_separate_open_time = True
+            # If open_time is not already the index, save a copy before indexing
+            if df.index.name != "open_time":
+                logger.debug(
+                    "Detected separate open_time column that will remain after indexing"
+                )
+                original_open_time = df["open_time"].copy()
 
         # Ensure open_time is the index and in UTC
         if "open_time" in df.columns:
             df.set_index("open_time", inplace=True)
 
         if df.index.tz is None:
-            df.index = df.index.tz_localize("UTC")
-        elif df.index.tz != timezone.utc:
-            df.index = df.index.tz_convert("UTC")
+            df.index = df.index.tz_localize(DEFAULT_TIMEZONE)
+        elif df.index.tz != DEFAULT_TIMEZONE:
+            df.index = df.index.tz_convert(DEFAULT_TIMEZONE)
 
-        # Normalize column names
+        # Set correct index name
+        df.index.name = CANONICAL_INDEX_NAME
+
+        # Normalize column names for consistency
         column_mapping = {
             "taker_buy_base": "taker_buy_volume",
             "taker_buy_quote": "taker_buy_quote_volume",
@@ -311,9 +338,51 @@ class DataSourceManager:
         df = df.rename(columns=column_mapping)
 
         # Ensure correct columns and types
-        df = df[list(self.OUTPUT_DTYPES.keys())]
+        required_columns = list(self.OUTPUT_DTYPES.keys())
+
+        # Filter to required columns if they exist
+        existing_columns = [col for col in required_columns if col in df.columns]
+        df = df[existing_columns]
+
+        # Add any missing columns with default values
+        for col in set(required_columns) - set(existing_columns):
+            if self.OUTPUT_DTYPES[col].startswith("float"):
+                df[col] = 0.0
+            elif self.OUTPUT_DTYPES[col].startswith("int"):
+                df[col] = 0
+            else:
+                df[col] = None
+
+        # Ensure correct column order
+        df = df[required_columns]
+
+        # Set correct dtypes
         for col, dtype in self.OUTPUT_DTYPES.items():
             df[col] = df[col].astype(dtype)
+
+        # Handle duplicate timestamps by keeping the first occurrence
+        if df.index.has_duplicates:
+            logger.debug(f"Removing {df.index.duplicated().sum()} duplicate timestamps")
+            df = df[~df.index.duplicated(keep="first")]
+
+        # Sort by index if it's not monotonically increasing
+        if not df.index.is_monotonic_increasing:
+            logger.debug("Sorting DataFrame by index to ensure monotonic order")
+            df = df.sort_index()
+
+        # If there was a separate open_time column, restore it and ensure it's sorted
+        if has_separate_open_time:
+            # Restore original open_time as a column (now sorted)
+            df["open_time"] = df.index.copy()
+            logger.debug("Restored open_time as a column (now sorted)")
+
+        logger.debug(f"Final DataFrame shape: {df.shape}")
+        logger.debug(f"Final columns: {list(df.columns)}")
+        logger.debug(f"Index monotonic: {df.index.is_monotonic_increasing}")
+        if "open_time" in df.columns:
+            logger.debug(
+                f"open_time column monotonic: {df['open_time'].is_monotonic_increasing}"
+            )
 
         return df
 
@@ -367,7 +436,7 @@ class DataSourceManager:
             # Format DataFrame and slice to exact time range
             df = self._format_dataframe(df)
             if not df.empty:
-                mask = (df.index >= start_time) & (df.index <= end_time)
+                mask = (df.index >= start_time) & (df.index < end_time)
                 df = df.loc[mask].copy()
 
             return df
@@ -401,9 +470,15 @@ class DataSourceManager:
         # Validate dates
         self._validate_dates(start_time, end_time)
 
-        # Adjust time window
-        start_time, end_time = adjust_time_window(start_time, end_time, interval)
-        logger.info(f"Adjusted time window: {start_time} -> {end_time}")
+        # Get time boundaries using the centralized utility
+        time_boundaries = get_time_boundaries(start_time, end_time, interval)
+        start_time = time_boundaries["adjusted_start"]
+        end_time = time_boundaries["adjusted_end"]
+
+        logger.info(
+            f"Using time boundaries: {start_time} -> {end_time} (exclusive end)"
+        )
+        logger.debug(f"Expected records: {time_boundaries['expected_records']}")
 
         # Check cache if enabled
         if use_cache and self.cache_manager:
@@ -418,11 +493,11 @@ class DataSourceManager:
                         symbol=symbol, interval=interval.value, date=start_time
                     )
                     if cached_data is not None:
-                        # Slice cached data to exact time range
-                        mask = (cached_data.index >= start_time) & (
-                            cached_data.index <= end_time
+                        # Use centralized time filtering function for consistent boundary handling
+                        cached_data = filter_time_range(
+                            cached_data, start_time, end_time
                         )
-                        cached_data = cached_data.loc[mask].copy()
+
                         if not cached_data.empty:
                             self._cache_stats["hits"] += 1
                             logger.info(f"Cache hit for {symbol} from {start_time}")
@@ -439,11 +514,11 @@ class DataSourceManager:
                                 symbol=symbol, interval=interval.value, date=start_time
                             )
                             if cached_data is not None:
-                                # Slice repaired data to exact time range
-                                mask = (cached_data.index >= start_time) & (
-                                    cached_data.index <= end_time
+                                # Use centralized time filtering function
+                                cached_data = filter_time_range(
+                                    cached_data, start_time, end_time
                                 )
-                                cached_data = cached_data.loc[mask].copy()
+
                                 if not cached_data.empty:
                                     return cached_data
                     else:

@@ -1,7 +1,6 @@
 """Unified cache manager for market data."""
 
 import json
-import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Any
@@ -9,7 +8,9 @@ import pandas as pd
 import pyarrow as pa
 
 from utils.logger_setup import get_logger
-from .vision_constraints import validate_cache_checksum
+from utils.cache_validator import CacheValidator
+from utils.validation import DataFrameValidator
+from utils.config import OUTPUT_DTYPES, CANONICAL_INDEX_NAME, DEFAULT_TIMEZONE
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
@@ -59,8 +60,27 @@ class UnifiedCacheManager:
     def _save_metadata(self) -> None:
         """Save cache metadata to disk."""
         metadata_file = self.metadata_dir / "cache_index.json"
-        with open(metadata_file, "w") as f:
-            json.dump(self.metadata, f, indent=2)
+        logger.debug(f"Saving metadata to {metadata_file}")
+        try:
+            with open(metadata_file, "w") as f:
+                json.dump(self.metadata, f, indent=2)
+            logger.debug(f"Metadata saved successfully to {metadata_file}")
+        except Exception as e:
+            logger.error(f"Error writing metadata to {metadata_file}: {e}")
+            # Check if directory exists
+            if not self.metadata_dir.exists():
+                logger.error(f"Metadata directory does not exist: {self.metadata_dir}")
+            # Check permissions
+            try:
+                if self.metadata_dir.exists():
+                    logger.debug(
+                        f"Metadata directory permissions: {self.metadata_dir.stat().st_mode & 0o777:o}"
+                    )
+            except Exception as perm_err:
+                logger.error(
+                    f"Error checking metadata directory permissions: {perm_err}"
+                )
+            raise
 
     def get_cache_path(self, symbol: str, interval: str, date: datetime) -> Path:
         """Get cache file path following the simplified structure.
@@ -103,19 +123,79 @@ class UnifiedCacheManager:
         Returns:
             Tuple of (checksum, record_count)
         """
+        # Log input data for debugging
+        logger.debug(
+            f"Attempting to cache data for {symbol} {interval} {date.strftime('%Y-%m-%d')}"
+        )
+        logger.debug(f"DataFrame shape before caching: {df.shape}")
+        logger.debug(f"DataFrame index name: {df.index.name}")
+        logger.debug(f"DataFrame has duplicates: {df.index.has_duplicates}")
+        logger.debug(f"DataFrame is monotonic: {df.index.is_monotonic_increasing}")
+
+        # Handle duplicate timestamps by keeping the first occurrence
+        if not df.empty and df.index.has_duplicates:
+            logger.debug(
+                f"Removing {df.index.duplicated().sum()} duplicate timestamps before caching"
+            )
+            df = df[~df.index.duplicated(keep="first")]
+
+        # Sort the DataFrame by index if it's not monotonically increasing
+        if not df.empty and not df.index.is_monotonic_increasing:
+            logger.debug("Sorting DataFrame by index before caching")
+            df = df.sort_index()
+
+        # Validate DataFrame before caching
+        try:
+            DataFrameValidator.validate_dataframe(df)
+        except ValueError as e:
+            logger.warning(f"Invalid DataFrame, not caching: {e}")
+            # Log more details about the DataFrame for debugging
+            if not df.empty:
+                logger.debug(f"DataFrame dtypes: {df.dtypes}")
+                logger.debug(f"DataFrame columns: {df.columns.tolist()}")
+                logger.debug(
+                    f"DataFrame index range: {df.index.min()} to {df.index.max()}"
+                )
+            raise
+
         cache_path = self.get_cache_path(symbol, interval, date)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Cache path: {cache_path}")
 
-        # Convert to Arrow table
-        table = pa.Table.from_pandas(df.reset_index())
+        # Convert to Arrow table - Handling reset_index carefully
+        try:
+            logger.debug("Converting DataFrame to Arrow table")
 
-        # Save to Arrow file
-        with pa.OSFile(str(cache_path), "wb") as sink:
-            with pa.ipc.new_file(sink, table.schema) as writer:
-                writer.write_table(table)
+            # Check if the index name conflicts with a column name
+            if df.index.name is not None and df.index.name in df.columns:
+                logger.debug(
+                    f"Index name '{df.index.name}' conflicts with column, renaming index before reset"
+                )
+                df.index.name = f"{df.index.name}_idx"
+
+            # Reset index with a temporary name if it has no name
+            if df.index.name is None:
+                logger.debug("Index has no name, using temporary name for reset")
+                df.index.name = "temp_index"
+
+            # Reset index and check for column conflicts
+            reset_df = df.reset_index()
+            logger.debug(f"After reset_index, columns are: {reset_df.columns.tolist()}")
+
+            table = pa.Table.from_pandas(reset_df)
+
+            # Save to Arrow file
+            with pa.OSFile(str(cache_path), "wb") as sink:
+                with pa.ipc.new_file(sink, table.schema) as writer:
+                    writer.write_table(table)
+
+            logger.debug(f"Successfully wrote data to {cache_path}")
+        except Exception as e:
+            logger.error(f"Error saving cache file: {e}")
+            raise
 
         # Calculate checksum and record count
-        checksum = hashlib.sha256(cache_path.read_bytes()).hexdigest()
+        checksum = CacheValidator.calculate_checksum(cache_path)
         record_count = len(df)
 
         # Update metadata
@@ -129,7 +209,17 @@ class UnifiedCacheManager:
             "record_count": record_count,
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
-        self._save_metadata()
+
+        # Log metadata before saving
+        logger.debug(f"Updating metadata for key: {cache_key}")
+        logger.debug(f"Metadata content: {self.metadata[cache_key]}")
+
+        try:
+            self._save_metadata()
+            logger.debug("Successfully saved metadata")
+        except Exception as e:
+            logger.error(f"Error saving metadata: {e}")
+            raise
 
         logger.info(f"Cached {record_count} records to {cache_path}")
         return checksum, record_count
@@ -160,27 +250,26 @@ class UnifiedCacheManager:
             logger.warning(f"Cache file missing: {cache_path}")
             return None
 
-        if not validate_cache_checksum(cache_path, cache_info["checksum"]):
+        if not CacheValidator.validate_cache_checksum(
+            cache_path, cache_info["checksum"]
+        ):
             logger.warning(f"Cache checksum mismatch: {cache_path}")
             return None
 
-        try:
-            # Read Arrow file
-            with pa.memory_map(str(cache_path), "r") as source:
-                with pa.ipc.open_file(source) as reader:
-                    table = reader.read_all()
-
-            # Convert to DataFrame
-            df = table.to_pandas()
-            df.set_index("open_time", inplace=True)
-            df.index = pd.to_datetime(df.index, utc=True)
-
-            logger.info(f"Loaded {len(df)} records from cache: {cache_path}")
-            return df
-
-        except Exception as e:
-            logger.error(f"Failed to load cache: {e}")
+        # Use the centralized safe reader
+        df = CacheValidator.safely_read_arrow_file(cache_path)
+        if df is None:
             return None
+
+        # Perform validation on loaded data
+        try:
+            DataFrameValidator.validate_dataframe(df)
+        except ValueError as e:
+            logger.warning(f"Invalid cached data: {e}")
+            return None
+
+        logger.info(f"Loaded {len(df)} records from cache: {cache_path}")
+        return df
 
     def invalidate_cache(self, symbol: str, interval: str, date: datetime) -> None:
         """Invalidate cache entry.

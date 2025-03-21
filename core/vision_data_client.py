@@ -58,7 +58,6 @@ from .vision_constraints import (
     TimestampedDataFrame,
     validate_cache_path,
     enforce_utc_timestamp,
-    validate_column_names,
     validate_time_range,
     validate_data_availability,
     is_data_likely_available,
@@ -78,6 +77,12 @@ from .vision_constraints import (
     detect_timestamp_unit,
 )
 from utils.download_handler import DownloadHandler
+from utils.market_constraints import Interval, MarketType
+from utils.time_alignment import (
+    get_time_boundaries,
+    filter_time_range,
+)
+from utils.validation import DataValidation
 
 # Type variables for generic type hints
 T = TypeVar("T", bound=TimestampedDataFrame)
@@ -212,23 +217,24 @@ class VisionDataClient(Generic[T]):
         """Initialize Vision Data Client.
 
         Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            cache_dir: Cache directory (deprecated, use through DataSourceManager instead)
-            use_cache: Whether to use caching (deprecated, use through DataSourceManager instead)
+            symbol: Trading symbol e.g. 'BTCUSDT'
+            interval: Kline interval e.g. '1s', '1m'
+            cache_dir: Optional directory for caching data
+            use_cache: Whether to use cache
             max_concurrent_downloads: Maximum concurrent downloads
         """
-        if use_cache:
-            warnings.warn(
-                "Direct caching through VisionDataClient is deprecated. "
-                "Please use DataSourceManager with UnifiedCacheManager for caching. "
-                "This will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        self.symbol = symbol
+        self.symbol = symbol.upper()
         self.interval = interval
+
+        # Parse interval string to Interval object
+        try:
+            self.interval_obj = Interval(interval)
+        except ValueError:
+            logger.warning(
+                f"Could not parse interval {interval} to Interval enum, using SECOND_1 as default"
+            )
+            self.interval_obj = Interval.SECOND_1
+
         self.cache_dir = cache_dir
         self.use_cache = use_cache
         self.max_concurrent_downloads = (
@@ -241,6 +247,12 @@ class VisionDataClient(Generic[T]):
 
         # Initialize cache-related components if caching is enabled
         if cache_dir and use_cache:
+            warnings.warn(
+                "Direct caching through VisionDataClient is deprecated. "
+                "Use DataSourceManager with caching enabled instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             try:
                 # Create symbol-specific cache directory
                 self.symbol_cache_dir = get_cache_path(
@@ -681,40 +693,46 @@ class VisionDataClient(Generic[T]):
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
     ) -> TimestampedDataFrame:
-        """Fetch data with cache-first strategy and comprehensive validation.
+        """Fetch data with a cache-first strategy and comprehensive validation.
+
+        This method follows a cache-first approach and includes validation of:
+        - Time boundaries
+        - Symbol validity
+        - Data completeness
 
         Args:
-            start_time: Start time (inclusive)
-            end_time: End time (exclusive)
-            columns: Optional subset of columns to load
+            start_time: Start time
+            end_time: End time
+            columns: Optional list of columns to include
 
         Returns:
-            TimestampedDataFrame with validated data for requested range
-
-        Raises:
-            ValueError: For invalid symbol, time range, or data validation failures
-
-        Note:
-            - Validates all inputs before processing
-            - Attempts cache read first
-            - Falls back to download on cache miss/failure
-            - Enforces UTC timezone
-            - Validates data integrity and boundaries
-            - Handles column subsetting
+            DataFrame with requested data
         """
-        # Validate symbol first
+        # Validate inputs first
         self._validate_symbol()
 
-        # Validate inputs
-        start_time = enforce_utc_timestamp(start_time)
-        end_time = enforce_utc_timestamp(end_time)
-        validate_time_range(start_time, end_time)
-        validate_data_availability(start_time, end_time)
-        if columns:
-            validate_column_names(columns)
+        # Ensure we have a valid interval object
+        if not hasattr(self, "interval_obj"):
+            try:
+                self.interval_obj = Interval(self.interval)
+            except ValueError:
+                logger.warning(
+                    f"Could not parse interval {self.interval} to Interval enum, using SECOND_1 as default"
+                )
+                self.interval_obj = Interval.SECOND_1
 
-        # Check if data exists in cache
-        if self.cache_dir and self.use_cache:
+        # Adjust time window using the centralized utility
+        time_boundaries = get_time_boundaries(start_time, end_time, self.interval_obj)
+        start_time = time_boundaries["adjusted_start"]
+        end_time = time_boundaries["adjusted_end"]
+
+        logger.info(
+            f"Fetching {self.symbol} {self.interval} data: "
+            f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
+        )
+
+        # Check if we should use cache
+        if self.use_cache and self.cache_dir:
             try:
                 # Get cache path for the date
                 cache_path = self._get_cache_path(start_time)
@@ -727,9 +745,8 @@ class VisionDataClient(Generic[T]):
                     )
                     df = await self._load_from_cache(cache_path, columns)
 
-                    # Filter to requested time range
-                    mask = (df.index >= start_time) & (df.index < end_time)
-                    df = df[mask]
+                    # Filter to requested time range using centralized function
+                    df = filter_time_range(df, start_time, end_time)
 
                     # Validate the filtered data
                     self._validate_data(df)
@@ -819,9 +836,9 @@ class VisionDataClient(Generic[T]):
         for date in dates:
             df = await self._download_date(date)
             if df is not None:
-                # Filter to requested time range
-                mask = (df.index >= start_time) & (df.index < end_time)
-                filtered_df = df[mask]
+                # Filter to requested time range using centralized function
+                filtered_df = filter_time_range(df, start_time, end_time)
+
                 if not filtered_df.empty:
                     dfs.append(filtered_df)
 
@@ -1069,6 +1086,34 @@ class VisionDataClient(Generic[T]):
                 temp_dir.rmdir()
             except Exception as e:
                 logger.error(f"Error cleaning up temporary files: {str(e)}")
+
+    def _slice_dataframe_to_exact_range(
+        self, df: pd.DataFrame, start_time: datetime, end_time: datetime
+    ) -> pd.DataFrame:
+        """Slice the dataframe to exactly match the requested time range.
+
+        Args:
+            df: The dataframe to slice
+            start_time: Start time
+            end_time: End time
+
+        Returns:
+            Sliced dataframe
+        """
+        if df.empty:
+            return df
+
+        try:
+            # Ensure UTC timezone
+            start_time = start_time.astimezone(timezone.utc)
+            end_time = end_time.astimezone(timezone.utc)
+
+            # Use the centralized time filtering function
+            return filter_time_range(df, start_time, end_time)
+
+        except Exception as e:
+            self.logger.error(f"Error slicing dataframe: {e}")
+            return df
 
     async def prefetch(
         self, start_time: datetime, end_time: datetime, max_days: int = 5
