@@ -164,7 +164,7 @@ if [ $# -eq 0 ]; then
   
   # Only add parallel option if available
   if $HAS_XDIST; then
-    TEST_MODES+=("Parallel (4 workers)")
+    TEST_MODES+=("Parallel (8 workers)")
   else
     debug_log "pytest-xdist not installed, hiding Parallel option"
   fi
@@ -231,7 +231,7 @@ if [ $# -eq 0 ]; then
     7) # Parallel (if available) - Assuming this is now the 7th option
       if $HAS_XDIST; then
         LOG_LEVEL="INFO"
-        ADDITIONAL_ARGS="-n4"
+        ADDITIONAL_ARGS="-n8"
         CAPTURE_FLAG="--capture=tee-sys"
         echo -e "${CYAN}Selected mode: Parallel${RESET}"
       else
