@@ -18,7 +18,7 @@ from utils.time_alignment import (
 )
 from utils.hardware_monitor import HardwareMonitor
 from utils.validation import DataValidation
-from utils.http_client_factory import create_aiohttp_client
+from utils.http_client_factory import create_client
 from utils.config import (
     KLINE_COLUMNS,
     standardize_column_names,
@@ -310,7 +310,8 @@ class EnhancedRetriever:
     def _create_optimized_client(self) -> aiohttp.ClientSession:
         """Create an optimized client based on hardware capabilities."""
         concurrency_info = self._hw_monitor.calculate_optimal_concurrency()
-        return create_aiohttp_client(
+        return create_client(
+            client_type="aiohttp",
             max_connections=concurrency_info["optimal_concurrency"],
             timeout=30,  # Increased for large datasets
         )

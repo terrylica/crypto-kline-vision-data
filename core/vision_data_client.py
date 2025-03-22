@@ -53,7 +53,7 @@ from utils.market_constraints import Interval
 from utils.time_alignment import TimeRangeManager
 from utils.download_handler import VisionDownloadManager
 from utils.config import create_empty_dataframe
-from utils.http_client_factory import create_httpx_client
+from utils.http_client_factory import create_client
 from core.vision_constraints import (
     TimestampedDataFrame,
     MAX_CONCURRENT_DOWNLOADS,
@@ -138,7 +138,7 @@ class VisionDataClient(Generic[T]):
             max_concurrent_downloads or MAX_CONCURRENT_DOWNLOADS
         )
         # Prepare HTTP client for API access
-        self._client = create_httpx_client(timeout=30)
+        self._client = create_client(client_type="httpx", timeout=30)
         # Initialize download manager
         self._download_manager = VisionDownloadManager(
             client=self._client, symbol=self.symbol, interval=self.interval
