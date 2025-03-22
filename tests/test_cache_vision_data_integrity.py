@@ -28,9 +28,10 @@ from pathlib import Path
 import logging
 from typing import cast
 
-from core.vision_data_client import VisionDataClient, CacheMetadata
+from core.vision_data_client import VisionDataClient
 from core.vision_constraints import CANONICAL_INDEX_NAME
 from utils.cache_validator import VisionCacheManager
+from core.cache_manager import UnifiedCacheManager
 from tests.utils.cache_test_utils import verify_arrow_format
 
 # Configure logging
@@ -58,11 +59,13 @@ async def test_cache_write_read_cycle(temp_cache_dir, sample_data):
     logger.info("Starting cache write/read cycle test")
     logger.debug("Initializing VisionDataClient with caching enabled")
 
-    # Initialize client with cache metadata
+    # Initialize client with cache
     client = VisionDataClient(
         symbol="BTCUSDT", interval="1s", cache_dir=temp_cache_dir, use_cache=True
     )
-    client.metadata = CacheMetadata(temp_cache_dir)
+
+    # Initialize cache manager directly
+    cache_manager = UnifiedCacheManager(temp_cache_dir)
 
     try:
         # Write sample data to cache
@@ -126,11 +129,13 @@ async def test_fetch_data_with_cache(temp_cache_dir):
     logger.info("Starting fetch data with cache test")
     logger.debug("Initializing VisionDataClient with caching enabled")
 
-    # Initialize client with cache metadata
+    # Initialize client with cache
     client = VisionDataClient(
         symbol="BTCUSDT", interval="1s", cache_dir=temp_cache_dir, use_cache=True
     )
-    client.metadata = CacheMetadata(temp_cache_dir)
+
+    # Initialize cache manager directly if needed
+    cache_manager = UnifiedCacheManager(temp_cache_dir)
 
     try:
         # Fetch data for a time range

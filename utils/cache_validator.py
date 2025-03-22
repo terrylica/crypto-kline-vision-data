@@ -12,6 +12,7 @@ from typing import Dict, Optional, Any, NamedTuple, Sequence
 import pandas as pd
 import pyarrow as pa
 import time
+import asyncio
 
 from utils.logger_setup import get_logger
 from utils.validation import DataFrameValidator
@@ -58,9 +59,9 @@ class SafeMemoryMap:
         if self._mmap is not None:
             self._mmap.close()
 
-    @staticmethod
-    def safely_read_arrow_file(
-        path: Path, columns: Optional[Sequence[str]] = None
+    @classmethod
+    async def safely_read_arrow_file(
+        cls, path: Path, columns: Optional[Sequence[str]] = None
     ) -> Optional[pd.DataFrame]:
         """Safely read Arrow file with error handling.
 
@@ -72,39 +73,63 @@ class SafeMemoryMap:
             DataFrame or None if read fails
         """
         try:
-            with SafeMemoryMap(path) as source:
-                with pa.ipc.open_file(source) as reader:
-                    if columns:
-                        # Ensure index column is included
-                        all_cols = reader.schema.names
-                        if "open_time" in all_cols and "open_time" not in columns:
-                            cols_to_read = ["open_time"] + list(columns)
-                        else:
-                            cols_to_read = list(columns)
-                        table = reader.read_all().select(cols_to_read)
-                    else:
-                        table = reader.read_all()
-
-                    df = table.to_pandas(
-                        zero_copy_only=False,  # More robust but might copy data
-                        date_as_object=False,
-                        use_threads=True,
-                    )
-
-                    # Set index if needed
-                    if "open_time" in df.columns and df.index.name != "open_time":
-                        df.set_index("open_time", inplace=True)
-
-                    # Ensure index is datetime with timezone
-                    if not isinstance(df.index, pd.DatetimeIndex):
-                        df.index = pd.to_datetime(df.index, utc=True)
-                    elif df.index.tz is None:
-                        df.index = df.index.tz_localize("UTC")
-
-                    return df
+            # Use run_in_executor to make the file reading non-blocking
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, lambda: cls._read_arrow_file_impl(path, columns)
+            )
         except Exception as e:
             logger.error(f"Error reading Arrow file {path}: {e}")
             return None
+
+    @staticmethod
+    def _read_arrow_file_impl(
+        path: Path, columns: Optional[Sequence[str]] = None
+    ) -> pd.DataFrame:
+        """Internal implementation for reading Arrow files.
+
+        This is the single implementation that all other methods should use.
+
+        Args:
+            path: Path to Arrow file
+            columns: Optional list of columns to read
+
+        Returns:
+            DataFrame with data from Arrow file
+
+        Raises:
+            Various exceptions if reading fails
+        """
+        with SafeMemoryMap(path) as source:
+            with pa.ipc.open_file(source) as reader:
+                if columns:
+                    # Ensure index column is included
+                    all_cols = reader.schema.names
+                    if "open_time" in all_cols and "open_time" not in columns:
+                        cols_to_read = ["open_time"] + list(columns)
+                    else:
+                        cols_to_read = list(columns)
+                    table = reader.read_all().select(cols_to_read)
+                else:
+                    table = reader.read_all()
+
+                df = table.to_pandas(
+                    zero_copy_only=False,  # More robust but might copy data
+                    date_as_object=False,
+                    use_threads=True,
+                )
+
+                # Set index if needed
+                if "open_time" in df.columns and df.index.name != "open_time":
+                    df.set_index("open_time", inplace=True)
+
+                # Ensure index is datetime with timezone
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    df.index = pd.to_datetime(df.index, utc=True)
+                elif df.index.tz is None:
+                    df.index = df.index.tz_localize("UTC")
+
+                return df
 
 
 class CacheValidator:
@@ -274,7 +299,8 @@ class CacheValidator:
     ) -> Optional[pd.DataFrame]:
         """Safely read an Arrow file with error handling.
 
-        This is a wrapper around SafeMemoryMap.safely_read_arrow_file for compatibility.
+        This method forwards to the centralized implementation in SafeMemoryMap.
+        For async contexts, use the async version.
 
         Args:
             file_path: Path to Arrow file
@@ -283,8 +309,26 @@ class CacheValidator:
         Returns:
             DataFrame if successful, None if failed
         """
-        # Delegate to the unified implementation in SafeMemoryMap
-        return SafeMemoryMap.safely_read_arrow_file(file_path, columns)
+        try:
+            return SafeMemoryMap._read_arrow_file_impl(file_path, columns)
+        except Exception as e:
+            logger.error(f"Error reading Arrow file {file_path}: {e}")
+            return None
+
+    @staticmethod
+    async def safely_read_arrow_file_async(
+        file_path: Path, columns: Optional[list] = None
+    ) -> Optional[pd.DataFrame]:
+        """Async version of safely_read_arrow_file.
+
+        Args:
+            file_path: Path to Arrow file
+            columns: Optional columns to read
+
+        Returns:
+            DataFrame if successful, None if failed
+        """
+        return await SafeMemoryMap.safely_read_arrow_file(file_path, columns)
 
 
 class CacheKeyManager:
@@ -414,7 +458,7 @@ class VisionCacheManager:
         try:
             # Use the centralized SafeMemoryMap utility to read Arrow file
             logger.debug(f"Loading cached data from {cache_path}")
-            df = SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
+            df = await SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
 
             if df is None:
                 raise ValueError(f"Failed to read data from {cache_path}")

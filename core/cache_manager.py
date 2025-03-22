@@ -266,7 +266,7 @@ class UnifiedCacheManager:
             return None
 
         # Use the unified safe reader for Arrow files
-        df = SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
+        df = CacheValidator.safely_read_arrow_file(cache_path, columns)
         if df is None:
             return None
 

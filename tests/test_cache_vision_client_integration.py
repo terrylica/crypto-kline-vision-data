@@ -127,8 +127,8 @@ async def validate_client(client: VisionDataClient) -> None:
         for name, _ in inspect.getmembers(client, inspect.ismethod):
             logger.debug(f"  Method: {name}")
 
-        # Verify HTTP client
-        logger.debug(f"HTTP client initialized: {bool(client.client)}")
+        # Verify HTTP client (using _client instead of client)
+        logger.debug(f"HTTP client initialized: {bool(client._client)}")
 
         logger.debug("Client validation successful")
     except Exception as e:

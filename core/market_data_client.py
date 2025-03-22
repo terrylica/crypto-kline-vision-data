@@ -30,22 +30,6 @@ from utils.config import (
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
 
 
-def create_http_client(
-    timeout: int = 10,
-    max_connections: int = 20,
-) -> aiohttp.ClientSession:
-    """Create an optimized HTTP client for 1-second data retrieval.
-
-    Args:
-        timeout: Total timeout in seconds
-        max_connections: Maximum number of connections
-
-    Returns:
-        Configured aiohttp ClientSession
-    """
-    return create_aiohttp_client(timeout=timeout, max_connections=max_connections)
-
-
 def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
     """Process raw kline data into a DataFrame.
 
@@ -326,7 +310,7 @@ class EnhancedRetriever:
     def _create_optimized_client(self) -> aiohttp.ClientSession:
         """Create an optimized client based on hardware capabilities."""
         concurrency_info = self._hw_monitor.calculate_optimal_concurrency()
-        return create_http_client(
+        return create_aiohttp_client(
             max_connections=concurrency_info["optimal_concurrency"],
             timeout=30,  # Increased for large datasets
         )

@@ -59,78 +59,12 @@ from core.vision_constraints import (
     MAX_CONCURRENT_DOWNLOADS,
     FILES_PER_DAY,
 )
+from core.cache_manager import UnifiedCacheManager
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
 
 logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
-
-
-class CacheMetadata:
-    """Manages metadata for cached data."""
-
-    def __init__(self, cache_dir: Path) -> None:
-        """Initialize metadata manager.
-
-        Args:
-            cache_dir: Root cache directory
-        """
-        self.cache_dir: Path = cache_dir
-        self.metadata_file: Path = cache_dir / "metadata.json"
-        self.metadata: Dict[str, Dict[str, str | int | float]] = self._load_metadata()
-
-    def _load_metadata(self) -> Dict[str, Dict[str, str | int | float]]:
-        """Load metadata from disk."""
-        if self.metadata_file.exists():
-            try:
-                with open(self.metadata_file, "r") as f:
-                    import json
-
-                    return json.load(f)
-            except json.JSONDecodeError:
-                logger.error("Corrupted metadata file, creating new")
-                return {}
-        return {}
-
-    def _save_metadata(self) -> None:
-        """Save metadata to disk."""
-        with open(self.metadata_file, "w") as f:
-            import json
-
-            json.dump(self.metadata, f, indent=2)
-
-    def get_cache_key(self, symbol: str, interval: str, date: datetime) -> str:
-        """Generate cache key for a specific data point."""
-        return CacheKeyManager.get_cache_key(symbol, interval, date)
-
-    def register_cache(
-        self,
-        symbol: str,
-        interval: str,
-        date: datetime,
-        file_path: Path,
-        checksum: str,
-        record_count: int,
-    ) -> None:
-        """Register a new cache entry."""
-        cache_key = self.get_cache_key(symbol, interval, date)
-        self.metadata[cache_key] = {
-            "symbol": symbol,
-            "interval": interval,
-            "year_month": date.strftime("%Y%m"),
-            "file_path": str(file_path.relative_to(self.cache_dir)),
-            "checksum": checksum,
-            "record_count": record_count,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-        }
-        self._save_metadata()
-
-    def get_cache_info(
-        self, symbol: str, interval: str, date: datetime
-    ) -> Optional[Dict[str, str | int | float]]:
-        """Get cache information for a specific data point."""
-        cache_key = self.get_cache_key(symbol, interval, date)
-        return self.metadata.get(cache_key)
 
 
 class VisionDataClient(Generic[T]):
@@ -158,56 +92,60 @@ class VisionDataClient(Generic[T]):
 
         # Parse interval string to Interval object
         try:
-            self.interval_obj = Interval(interval)
-        except ValueError:
+            # Try to find the interval enum by value
+            self.interval_obj = next((i for i in Interval if i.value == interval), None)
+            if self.interval_obj is None:
+                # Try by enum name (upper case with _ instead of number)
+                try:
+                    self.interval_obj = Interval[interval.upper()]
+                except KeyError:
+                    raise ValueError(f"Invalid interval: {interval}")
+        except Exception as e:
             logger.warning(
-                f"Could not parse interval {interval}, using SECOND_1 as default"
+                f"Could not parse interval {interval}, using SECOND_1 as default: {e}"
             )
             self.interval_obj = Interval.SECOND_1
 
-        self.cache_dir = cache_dir
+        # Cache setup
         self.use_cache = use_cache
-        self.max_concurrent_downloads = (
-            max_concurrent_downloads or MAX_CONCURRENT_DOWNLOADS
-        )
+        self.cache_dir = cache_dir
         self._current_mmap = None
         self._current_mmap_path = None
 
-        # Initialize cache-related components if caching is enabled
-        if cache_dir and use_cache:
+        # Initialize cache manager if caching is enabled
+        if use_cache and cache_dir:
+            # Emit deprecation warning
             warnings.warn(
                 "Direct caching through VisionDataClient is deprecated. "
                 "Use DataSourceManager with caching enabled instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            try:
-                # Setup cache directory
-                sample_date = datetime.now(timezone.utc)
-                self.symbol_cache_dir = CacheKeyManager.get_cache_path(
-                    cache_dir, self.symbol, self.interval, sample_date
-                ).parent
-                self.symbol_cache_dir.mkdir(parents=True, exist_ok=True)
+            self.cache_manager = UnifiedCacheManager(cache_dir)
 
-                # Initialize metadata manager
-                self.metadata = CacheMetadata(cache_dir)
-            except Exception as e:
-                logger.error(f"Failed to initialize cache components: {e}")
-                self.cache_dir = None
-                self.use_cache = False
-                self.metadata = None
-                raise
+            # Setup cache directory for backward compatibility
+            sample_date = datetime.now(timezone.utc)
+            self.symbol_cache_dir = CacheKeyManager.get_cache_path(
+                cache_dir, self.symbol, self.interval, sample_date
+            ).parent
+            self.symbol_cache_dir.mkdir(parents=True, exist_ok=True)
         else:
-            self.metadata = None
+            self.cache_manager = None
+            self.symbol_cache_dir = None
 
-        # Initialize HTTP client
-        max_connections = MAX_CONCURRENT_DOWNLOADS * FILES_PER_DAY
-        self.client = create_httpx_client(max_connections=max_connections)
-
-        # Initialize utility managers
-        self.download_manager = VisionDownloadManager(
-            self.client, self.symbol, self.interval
+        # Configure download concurrency
+        self._max_concurrent_downloads = (
+            max_concurrent_downloads or MAX_CONCURRENT_DOWNLOADS
         )
+        # Prepare HTTP client for API access
+        self._client = create_httpx_client(timeout=30)
+        # Initialize download manager
+        self._download_manager = VisionDownloadManager(
+            client=self._client, symbol=self.symbol, interval=self.interval
+        )
+
+        # Validator for checking results
+        self._validator = DataFrameValidator()
 
     async def __aenter__(self) -> "VisionDataClient":
         """Async context manager entry."""
@@ -221,7 +159,7 @@ class VisionDataClient(Generic[T]):
     ) -> None:
         """Async context manager exit."""
         # Clean up memory map resources
-        if self._current_mmap is not None:
+        if hasattr(self, "_current_mmap") and self._current_mmap is not None:
             try:
                 self._current_mmap.close()
             except Exception as e:
@@ -232,7 +170,7 @@ class VisionDataClient(Generic[T]):
 
         # Close HTTP client
         try:
-            await self.client.aclose()
+            await self._client.aclose()
         except Exception as e:
             logger.warning(f"Error closing HTTP client: {e}")
 
@@ -248,7 +186,7 @@ class VisionDataClient(Generic[T]):
 
     def _validate_cache(self, start_time: datetime, end_time: datetime) -> bool:
         """Validate cache existence, integrity, and data completeness."""
-        if not self.cache_dir or not self.use_cache or not self.metadata:
+        if not self.cache_dir or not self.use_cache or not self.cache_manager:
             return False
 
         try:
@@ -258,7 +196,7 @@ class VisionDataClient(Generic[T]):
 
             while current_day <= last_day:
                 # Get cache information
-                cache_info = self.metadata.get_cache_info(
+                cache_info = self.cache_manager.get_cache_info(
                     symbol=self.symbol, interval=self.interval, date=current_day
                 )
                 cache_path = self._get_cache_path(current_day)
@@ -316,7 +254,7 @@ class VisionDataClient(Generic[T]):
         dfs = []
         for date in dates:
             # Use download manager to get data
-            df = await self.download_manager.download_date(date)
+            df = await self._download_manager.download_date(date)
 
             if df is not None:
                 # Filter to requested time range
@@ -343,8 +281,8 @@ class VisionDataClient(Generic[T]):
                             )
 
                             # Update metadata if available
-                            if self.metadata:
-                                self.metadata.register_cache(
+                            if self.cache_manager:
+                                self.cache_manager.register_cache(
                                     self.symbol,
                                     self.interval,
                                     date,
@@ -401,7 +339,7 @@ class VisionDataClient(Generic[T]):
                 )
                 if not df.empty:
                     # Validate data integrity
-                    DataFrameValidator.validate_dataframe(df)
+                    self._validator.validate_dataframe(df)
                     TimeRangeManager.validate_boundaries(df, start_time, end_time)
 
                 return df
@@ -415,7 +353,7 @@ class VisionDataClient(Generic[T]):
             df = await self._download_and_cache(start_time, end_time, columns=columns)
             if not df.empty:
                 # Validate data integrity
-                DataFrameValidator.validate_dataframe(df)
+                self._validator.validate_dataframe(df)
                 TimeRangeManager.validate_boundaries(df, start_time, end_time)
 
                 return df
@@ -429,6 +367,108 @@ class VisionDataClient(Generic[T]):
     async def prefetch(
         self, start_time: datetime, end_time: datetime, max_days: int = 5
     ) -> None:
-        """Prefetch data in background for future use."""
+        """Prefetch data in background for future use.
+
+        Args:
+            start_time: Start time for prefetch
+            end_time: End time for prefetch
+            max_days: Maximum number of days to prefetch
+        """
         # Validate time range
         TimeRangeManager.validate_time_window(start_time, end_time)
+
+        # Limit prefetch to max_days
+        limited_end = min(end_time, start_time + timedelta(days=max_days))
+        logger.info(f"Prefetching data from {start_time} to {limited_end}")
+
+        # Just call fetch which will handle downloading and caching
+        # We don't need to wait for the result, so we can ignore it
+        try:
+            await self._download_and_cache(start_time, limited_end)
+            logger.info(f"Prefetch completed for {start_time} to {limited_end}")
+        except Exception as e:
+            logger.error(f"Error during prefetch: {e}")
+
+    async def _check_cache(self, date_to_check: datetime) -> Optional[pd.DataFrame]:
+        """Check if data for a specific date is in cache.
+
+        Args:
+            date_to_check: Date to check in cache
+
+        Returns:
+            DataFrame if data is in cache, None otherwise
+        """
+        if not self.cache_dir or not self.use_cache or not self.cache_manager:
+            return None
+
+        try:
+            # Get cache information from the cache manager
+            cache_path = self.cache_manager.get_cache_path(
+                self.symbol, self.interval, date_to_check
+            )
+
+            # Check if cache file exists
+            if not cache_path.exists():
+                logger.debug(f"Cache file not found: {cache_path}")
+                return None
+
+            # Validate cache file integrity
+            is_valid = CacheValidator.validate_cache_file(cache_path)
+            if not is_valid:
+                logger.warning(f"Cache file is invalid: {cache_path}")
+                return None
+
+            # Load data from cache
+            logger.debug(f"Loading data from cache: {cache_path}")
+            df = await CacheValidator.safely_read_arrow_file_async(cache_path)
+
+            # Validate the loaded DataFrame
+            self._validator.validate_dataframe(df)
+            logger.info(
+                f"Successfully loaded data from cache for {date_to_check.date()}"
+            )
+            return df
+        except Exception as e:
+            logger.warning(f"Error reading from cache: {e}")
+            return None
+
+    async def _save_to_cache(self, df: pd.DataFrame, date: datetime) -> None:
+        """Save DataFrame to cache.
+
+        Args:
+            df: DataFrame to save
+            date: Date for which data is being saved
+        """
+        if not self.cache_dir or not self.use_cache or not self.cache_manager:
+            return
+
+        try:
+            logger.debug(f"Saving data to cache for {date.date()}")
+            cache_path = self.cache_manager.get_cache_path(
+                self.symbol, self.interval, date
+            )
+
+            checksum, record_count = await VisionCacheManager.save_to_cache(
+                df, cache_path, date
+            )
+
+            # Update cache metadata through the unified cache manager
+            cache_key = self.cache_manager.get_cache_key(
+                self.symbol, self.interval, date
+            )
+            self.cache_manager.metadata[cache_key] = {
+                "symbol": self.symbol,
+                "interval": self.interval,
+                "year_month": date.strftime("%Y%m"),
+                "file_path": str(cache_path.relative_to(self.cache_dir)),
+                "checksum": checksum,
+                "record_count": record_count,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+            self.cache_manager._save_metadata()
+
+            logger.info(f"Successfully cached {record_count} records for {date.date()}")
+        except Exception as e:
+            logger.error(f"Failed to save to cache: {e}")
+            # Don't raise the exception, just log it and continue
+            # This is a non-critical operation
