@@ -143,25 +143,6 @@ def classify_error(error: Exception) -> str:
         return ERROR_TYPES["VALIDATION"]
 
 
-def validate_cache_integrity(
-    cache_path: Path,
-    max_age: timedelta = MAX_CACHE_AGE,
-    min_size: int = MIN_VALID_FILE_SIZE,
-) -> Optional[CacheValidationError]:
-    """Validate cache file integrity.
-
-    Args:
-        cache_path: Path to cache file
-        max_age: Maximum allowed age of cache
-        min_size: Minimum valid file size
-
-    Returns:
-        Error details if validation fails, None if valid
-    """
-    # Use centralized CacheValidator
-    return CacheValidator.validate_cache_integrity(cache_path, max_age, min_size)
-
-
 def get_vision_url(
     symbol: str, interval: str, date: datetime, file_type: FileType
 ) -> str:
@@ -318,27 +299,6 @@ def validate_dataframe_integrity(df: pd.DataFrame) -> None:
     """Validate DataFrame structure and integrity."""
     # Use centralized DataFrameValidator
     DataFrameValidator.validate_dataframe(df)
-
-
-def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
-    """Validate cache file against stored checksum."""
-    # Use centralized CacheValidator
-    return CacheValidator.validate_cache_checksum(cache_path, stored_checksum)
-
-
-def validate_cache_metadata(
-    cache_info: Optional[dict],
-    required_fields: list[str] = ["checksum", "record_count"],
-) -> bool:
-    """Validate cache metadata contains required information."""
-    # Use centralized CacheValidator
-    return CacheValidator.validate_cache_metadata(cache_info, required_fields)
-
-
-def validate_cache_records(record_count: int) -> bool:
-    """Validate cache contains records."""
-    # Use centralized CacheValidator
-    return CacheValidator.validate_cache_records(record_count)
 
 
 def get_cache_path(cache_dir: Path, symbol: str, interval: str, date: datetime) -> Path:
