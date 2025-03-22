@@ -205,14 +205,14 @@ class VisionDataClient(Generic[T]):
                 if not CacheValidator.validate_cache_metadata(cache_info):
                     return False
                 if not CacheValidator.validate_cache_records(
-                    cache_info["record_count"]
+                    cache_info.get("record_count", 0)
                 ):
                     return False
                 error = CacheValidator.validate_cache_integrity(cache_path)
                 if error:
                     return False
                 if not CacheValidator.validate_cache_checksum(
-                    cache_path, cache_info["checksum"]
+                    cache_path, cache_info.get("checksum", "")
                 ):
                     return False
 

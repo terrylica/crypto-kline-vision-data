@@ -143,7 +143,12 @@ async def test_api_limits_and_chunking():
     capabilities = get_market_capabilities(MarketType.SPOT)
     endpoint_url = get_endpoint_url(MarketType.SPOT)
 
-    async with aiohttp.ClientSession() as session:
+    # Configure session with proper timeout settings
+    timeout = aiohttp.ClientTimeout(total=30, connect=5, sock_connect=5, sock_read=10)
+    connector = aiohttp.TCPConnector(limit=10, force_close=False)
+
+    logger.info("Creating aiohttp client session with increased timeout settings")
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         for chunk_size in chunk_sizes:
             logger.info(f"\nTesting chunk size: {chunk_size}")
 
@@ -157,38 +162,43 @@ async def test_api_limits_and_chunking():
                 "limit": chunk_size,
             }
 
-            async with session.get(endpoint_url, params=params) as response:
-                assert (
-                    response.status == 200
-                ), f"API request failed for chunk size {chunk_size}"
-                data = await response.json()
-                records = len(data)
-
-                # Log actual records received for debugging
-                logger.info(
-                    f"Requested {chunk_size} records, received {records} records"
-                )
-
-                # Verify record limit enforcement
-                if chunk_size <= 1000:
+            logger.info(f"Making API request to {endpoint_url} with params: {params}")
+            try:
+                async with session.get(endpoint_url, params=params) as response:
                     assert (
-                        records == chunk_size
-                    ), f"For chunk_size={chunk_size}, expected {chunk_size} records but got {records}"
-                else:
-                    assert (
-                        records == 1000
-                    ), f"For chunk_size={chunk_size}, expected 1000 records (API limit) but got {records}"
+                        response.status == 200
+                    ), f"API request failed for chunk size {chunk_size}"
+                    data = await response.json()
+                    records = len(data)
 
-                # Verify data continuity
-                if records > 1:
-                    timestamps = [int(x[0]) for x in data]
-                    diffs = [
-                        timestamps[i] - timestamps[i - 1]
-                        for i in range(1, len(timestamps))
-                    ]
-                    assert all(
-                        diff == 1000 for diff in diffs
-                    ), f"Found non-standard time gaps in chunk size {chunk_size}"
+                    # Log actual records received for debugging
+                    logger.info(
+                        f"Requested {chunk_size} records, received {records} records"
+                    )
+
+                    # Verify record limit enforcement
+                    if chunk_size <= 1000:
+                        assert (
+                            records == chunk_size
+                        ), f"For chunk_size={chunk_size}, expected {chunk_size} records but got {records}"
+                    else:
+                        assert (
+                            records == 1000
+                        ), f"For chunk_size={chunk_size}, expected 1000 records (API limit) but got {records}"
+
+                    # Verify data continuity
+                    if records > 1:
+                        timestamps = [int(x[0]) for x in data]
+                        diffs = [
+                            timestamps[i] - timestamps[i - 1]
+                            for i in range(1, len(timestamps))
+                        ]
+                        assert all(
+                            diff == 1000 for diff in diffs
+                        ), f"Found non-standard time gaps in chunk size {chunk_size}"
+            except aiohttp.ClientError as e:
+                logger.error(f"API request failed: {str(e)}")
+                raise
 
             # Rate limit compliance
             await asyncio.sleep(1)
