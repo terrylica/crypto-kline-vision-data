@@ -47,7 +47,7 @@ from tests.utils.cache_test_utils import (
 )
 
 # Set up more detailed logging
-logger = get_logger(__name__, "DEBUG", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 def get_safe_test_time_range(

@@ -14,7 +14,7 @@ from utils.market_constraints import Interval
 from utils.time_alignment import TimeRangeManager
 from core.vision_data_client_enhanced import VisionDataClient
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 @pytest.fixture

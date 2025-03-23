@@ -43,7 +43,7 @@ from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import Interval, MarketType
 from tests.utils.debug_helpers import debug_datetime_comparison
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 # Test configuration
 TEST_SYMBOL = "BTCUSDT"  # Use BTC for reliable data

@@ -36,7 +36,7 @@ from tests.interval_1s.test_market_data_structure_validation import (
     validate_time_integrity,
 )
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 # Test configuration
 TEST_SYMBOLS = ["BTCUSDT"]  # Focus on BTC for reliable data

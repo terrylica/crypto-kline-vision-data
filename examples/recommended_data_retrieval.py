@@ -10,7 +10,7 @@ from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType
 from core.data_source_manager import DataSourceManager, DataSource
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 async def example_fetch_recent_data():

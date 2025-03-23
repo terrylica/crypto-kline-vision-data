@@ -34,7 +34,7 @@ from utils.logger_setup import get_logger
 from core.data_source_manager import DataSourceManager
 from utils.market_constraints import Interval, MarketType
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 # Test configuration
 TEST_SYMBOL = "BTCUSDT"  # Use BTC for reliable data

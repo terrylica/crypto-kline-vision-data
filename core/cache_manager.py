@@ -18,7 +18,7 @@ from utils.config import (
 )
 from utils.time_alignment import TimeRangeManager
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class UnifiedCacheManager:

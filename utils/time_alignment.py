@@ -42,7 +42,7 @@ from utils.market_constraints import Interval
 from utils.deprecation_rules import TimeUnit as DeprecationTimeUnit
 
 # Ensure we use a consistent logger with INFO level
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 # DEPRECATION WARNING: This TimeUnit implementation is deprecated

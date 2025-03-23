@@ -22,7 +22,7 @@ from core.market_data_client import EnhancedRetriever
 from core.vision_data_client import VisionDataClient
 from core.cache_manager import UnifiedCacheManager
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class DataSource(Enum):

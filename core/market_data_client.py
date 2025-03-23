@@ -27,7 +27,7 @@ from utils.config import (
     CANONICAL_INDEX_NAME,
 )
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 def process_kline_data(raw_data: List[List]) -> pd.DataFrame:

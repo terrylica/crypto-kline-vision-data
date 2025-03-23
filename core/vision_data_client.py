@@ -62,7 +62,7 @@ from core.cache_manager import UnifiedCacheManager
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class VisionDataClient(Generic[T]):

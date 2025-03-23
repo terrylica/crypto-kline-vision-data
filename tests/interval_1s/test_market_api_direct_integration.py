@@ -37,7 +37,7 @@ from utils.market_constraints import (
 from utils.logger_setup import get_logger
 
 # Configure logging
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 # Test configuration
 TEST_SYMBOL = "BTCUSDT"

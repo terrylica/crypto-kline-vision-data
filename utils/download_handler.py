@@ -23,7 +23,7 @@ from tenacity import (
 from utils.logger_setup import get_logger
 from utils.time_alignment import TimeRangeManager
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class DownloadProgressTracker:

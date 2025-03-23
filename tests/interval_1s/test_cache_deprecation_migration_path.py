@@ -24,7 +24,7 @@ from core.vision_data_client import VisionDataClient
 from utils.market_constraints import Interval, MarketType
 from utils.logger_setup import get_logger
 
-logger = get_logger(__name__, "DEBUG", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 # Configure pytest-asyncio
 pytest_plugins = ("pytest_asyncio",)

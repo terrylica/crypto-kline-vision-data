@@ -39,7 +39,7 @@ from utils.market_constraints import (
     MarketType,
 )
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 # Test Constants
 SYMBOL = "BTCUSDT"

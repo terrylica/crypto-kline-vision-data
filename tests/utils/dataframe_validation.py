@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from utils.logger_setup import get_logger
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 def validate_dataframe_structure(

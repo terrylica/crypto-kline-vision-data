@@ -17,7 +17,7 @@ import asyncio
 from utils.logger_setup import get_logger
 from utils.validation import DataFrameValidator
 
-logger = get_logger(__name__, "INFO", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class CacheValidationError(NamedTuple):

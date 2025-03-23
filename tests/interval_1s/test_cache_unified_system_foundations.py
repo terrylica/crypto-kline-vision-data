@@ -29,7 +29,7 @@ from utils.market_constraints import Interval
 from core.data_source_manager import DataSourceManager
 from tests.utils.cache_test_utils import corrupt_cache_file
 
-logger = get_logger(__name__, "DEBUG", show_path=False, rich_tracebacks=True)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 # Using common temp_cache_dir fixture from conftest.py
 
