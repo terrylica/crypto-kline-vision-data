@@ -280,7 +280,7 @@ We've created a comprehensive migration guide to help you update your code from 
 - aiohttp
 - psutil (for hardware monitoring)
 - tenacity (for retry logic)
-- rich (for logging)
+- colorlog (for colored console logging)
 - typing_extensions
 
 ## Cache Directory Structure
