@@ -94,3 +94,4 @@ lib64
 
 # Cache
 cache/
+tests/binance_data_cache
