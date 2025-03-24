@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+1. NEVER pipe test output through `cat` or other commands that can potentially strip away the ANSI colors (i.e. don't use `cat` during any PyTest runs)
+
+2. ALWAYS include these base flags:
+
+   - `-vv` (double verbose for more detailed output)
+   - `--log-cli-level=INFO`
+   - `--asyncio-mode=auto` (for async tests)
+   - `--capture=no` (to show all logs in real-time)
+   - `PYTHONPATH=.` (for proper module imports)
+
+3. Command Template:
+
+   ```bash
+   cd /path/to/workspace && PYTHONPATH=. pytest <test_path> -vv --log-cli-level=INFO --asyncio-mode=auto --capture=no
+   ```
+
+4. For single test execution, append the specific test case:
+   ```bash
+   cd /path/to/workspace && PYTHONPATH=. pytest <test_file>::<test_name> -vv --log-cli-level=INFO --asyncio-mode=auto --capture=no
+   ```

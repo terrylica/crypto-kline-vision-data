@@ -1,0 +1,27 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+Only focus on most low-hanging real-world user cases assuming the users don't make careless and low-level mistakes when using the target scripts.
+
+- Remove non-essential test cases that are dealing with fringe issues. 
+- Never use any suppression or silencing techniques to avoid confronting errors or warnings.
+- Don't deal with anything related to Options market data. Remove all concerns and codes related to options market.
+- We trade spot and perpetual futures only but never futures with expiration date. Remove all concerns and codes related to futures with expiration dates.
+- Cannot contain any business logics on its own but the purpose is to test the business logics of the target scripts
+- Make good use of caplog.
+- Don't use any  pytest.skip(). Handle errors without skipping.
+- Follow the principle that resources should be properly initialized and cleaned up, especially for network connections.
+
+## Problem Solving Approach
+
+- Resolve WARNING with options make available for me to choose from before proceeding further.
+- When encoutering API related issues, use terminal-based Curl to find out more before making coding changes.
+
+
+## No Mocking
+
+- Never use any mock data for PyTest cases but real-world data only.
+- Always use actual integration tests against real components rather than mocked interactions.
+- If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.
