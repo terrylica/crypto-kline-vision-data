@@ -1,13 +1,11 @@
 ---
-description: 
+description: Invoke when user query contains keywords: "pytest", "test", "tests", and "@pytest-construction.mdc".
 globs: 
 alwaysApply: false
 ---
 # Principles
 
-Only focus on most low-hanging real-world user cases assuming the users don't make careless and low-level mistakes when using the target scripts.
-
-- Remove non-essential test cases that are dealing with fringe issues.
+Only focus on most low-hanging real-world user cases.
 
 ## Rules
 
@@ -28,9 +26,9 @@ On API related issues, always use CURL from terminal to find the root causes fir
 - When encoutering API related issues, use terminal-based Curl to find out more before making coding changes.
 
 
-## No Mocking
+## No Mocking and No Sample Data
 
-Never use any mock data for PyTest cases but real-world data only.
-
+- Never use any sample or mock data for PyTest cases but real-world data only.
 - Always use actual integration tests against real components rather than mocked interactions.
+- We can accept synthetic test scenarios (e.g. for stress testing purposes) that still rely on real-world interfaces and data.
 - If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.

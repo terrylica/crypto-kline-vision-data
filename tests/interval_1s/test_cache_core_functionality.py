@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""Test DataSourceManager caching functionality.
+"""Test core caching functionality of DataSourceManager.
 
 System Under Test (SUT):
 - core.data_source_manager.DataSourceManager
 - core.vision_data_client.VisionDataClient
 - core.cache_manager.UnifiedCacheManager
 
-This test suite verifies that the unified caching system in DataSourceManager works correctly:
+This test suite verifies the core caching system in DataSourceManager:
 
 1. The unified caching system works correctly with VisionDataClient
 2. Cache files are stored in the correct locations
@@ -83,10 +83,10 @@ async def test_caching_directory_structure(temp_cache_dir):
     unified_cache_dir = temp_cache_dir / "unified"
     unified_cache_dir.mkdir()
 
-    # Create VisionDataClient without caching
-    vision_client = VisionDataClient(symbol="BTCUSDT", interval="1s", use_cache=False)
-
-    try:
+    # Use async context manager to properly manage resources
+    async with VisionDataClient(
+        symbol="BTCUSDT", interval="1s", use_cache=False
+    ) as vision_client:
         # Use through DataSourceManager with unified caching
         async with DataSourceManager(
             market_type=MarketType.SPOT,
@@ -121,10 +121,7 @@ async def test_caching_directory_structure(temp_cache_dir):
             # Check for cache files in the interval directory
             interval_cache_files = list(interval_dir.glob("*.arrow"))
             assert len(interval_cache_files) > 0, "No cache files in interval directory"
-    finally:
-        # Ensure we properly close the client to avoid ResourceWarning
-        # Directly call the __aexit__ method to clean up resources
-        await vision_client.__aexit__(None, None, None)
+    # The async context manager will properly close all resources here
 
 
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+# Cursor Rules for AI in Current Workspace
+
+- Leverage popular libraries and frameworks to minimizing bespoke development.
+
+- Because the assumed users of the code is careful and professional so that no only the lowest-hanging-fruit (minimum viable high inpact) codes are needed. Always try to propose removal of non-essential codes that are dealing with fringe issues.
+
+- Use `scripts/run_tests_parallel.sh` exclusively to run PyTest:
+
+  Example:
+
+  ```bash
+  scripts/run_tests_parallel.sh tests/interval_1s
+  ```
+
+- Try not to resolve any Python type linting error using type ignore.
+
+- Use `--no-cli-pager` for all AWS CLI commands.
+
+- When coding, prefer flat code style (or guard clause style).
+
+- When issuing file related command, always include current project root relative full path in the workspace.
+
+- Always use `git mv` when renaming files or folders.
