@@ -33,6 +33,13 @@ debug_log() {
   fi
 }
 
+# Function to print command before executing
+print_command() {
+  echo -e "\n${BOLD}${BLUE}▶ EXECUTING COMMAND:${RESET}"
+  echo -e "${BOLD}${CYAN}$ $1${RESET}"
+  echo -e "${CYAN}----------------------------------------------------${RESET}\n"
+}
+
 debug_log "Starting test runner script"
 
 SCRIPT_DIR=$(dirname "$0")
@@ -90,7 +97,10 @@ check_pytest_plugin() {
     
     debug_log "Checking for pytest plugin: $plugin_name"
     
-    if python -c "import pytest; import $plugin_import_name" 2>/dev/null; then
+    local cmd="python -c \"import pytest; import $plugin_import_name\" 2>/dev/null"
+    print_command "$cmd"
+    
+    if eval "$cmd"; then
         debug_log "Plugin $plugin_name is installed"
         return 0
     else
@@ -106,7 +116,9 @@ if [ $# -eq 0 ]; then
   echo -e "${GREEN}=====================================================${RESET}\n"
   
   # Find all test files for selection
-  mapfile -t TEST_FILES < <(find tests -name "test_*.py" | sort)
+  find_cmd="find tests -name \"test_*.py\" | sort"
+  print_command "$find_cmd"
+  mapfile -t TEST_FILES < <(eval "$find_cmd")
   
   # Define test directories based on the new folder structure
   TEST_DIRS=(
@@ -181,6 +193,9 @@ if [ $# -eq 0 ]; then
     debug_log "pytest-xdist not installed, hiding Parallel option"
   fi
   
+  # Add warnings summary option
+  TEST_MODES+=("Warnings Summary (collect and display warnings/errors at end)")
+  
   # Add custom option at the end
   TEST_MODES+=("Custom (configure options manually)")
   
@@ -228,7 +243,7 @@ if [ $# -eq 0 ]; then
       CAPTURE_FLAG="--capture=tee-sys"
       echo -e "${YELLOW}Selected mode: Performance${RESET}"
       ;;
-    6) # Coverage (if available) - Assuming this is now the 6th option after reordering
+    6) # Coverage (if available)
       if $HAS_COVERAGE; then
         LOG_LEVEL="INFO"
         ADDITIONAL_ARGS="--cov=. --cov-report=term"
@@ -240,7 +255,7 @@ if [ $# -eq 0 ]; then
         exit 1
       fi
       ;;
-    7) # Parallel (if available) - Assuming this is now the 7th option
+    7) # Parallel (if available)
       if $HAS_XDIST; then
         LOG_LEVEL="INFO"
         ADDITIONAL_ARGS="-n8"
@@ -252,7 +267,14 @@ if [ $# -eq 0 ]; then
         exit 1
       fi
       ;;
-    8) # Custom - Now this should be the last option (8th)
+    8) # Warnings Summary
+      LOG_LEVEL="WARNING"
+      ADDITIONAL_ARGS="-v --showlocals -W error --tb=short -x --no-header"
+      CAPTURE_FLAG="--capture=fd"
+      USE_CUSTOM_FORMAT=true
+      echo -e "${YELLOW}Selected mode: Warnings Summary${RESET}"
+      ;;
+    9) # Custom
       # Select log level
       print_header "LOG LEVEL"
       LOG_LEVELS=("DEBUG" "INFO" "WARNING" "ERROR")
@@ -421,12 +443,16 @@ else
   # Check if we need to install plugins
   if [[ "$ADDITIONAL_ARGS" == *"--cov"* ]] && ! check_pytest_plugin "pytest_cov"; then
     echo -e "${YELLOW}Warning: Coverage plugin not installed. Installing pytest-cov...${RESET}"
-    pip install pytest-cov
+    install_cmd="pip install pytest-cov"
+    print_command "$install_cmd"
+    eval "$install_cmd"
   fi
   
   if [[ "$ADDITIONAL_ARGS" == *"-n"* ]] && ! check_pytest_plugin "xdist"; then
     echo -e "${YELLOW}Warning: Parallel testing plugin not installed. Installing pytest-xdist...${RESET}"
-    pip install pytest-xdist
+    install_cmd="pip install pytest-xdist"
+    print_command "$install_cmd"
+    eval "$install_cmd"
   fi
 fi
 
@@ -447,19 +473,53 @@ echo
 # Run pytest with the recommended flags
 echo -e "${YELLOW}Running tests...${RESET}\n"
 
-debug_log "Running pytest with the following command:"
-debug_log "PYTHONPATH=${PROJECT_ROOT} pytest \"${TEST_PATH}\" -vv --log-cli-level=${LOG_LEVEL} --asyncio-mode=auto ${CAPTURE_FLAG} ${ADDITIONAL_ARGS}"
+# Create a temporary pytest.ini for the warnings summary option
+if [ "$mode_selection" = "8" ] && [ "$USE_CUSTOM_FORMAT" = "true" ]; then
+  echo -e "${MAGENTA}[DEBUG] Setting up custom log format for Warnings Summary mode${RESET}"
+  
+  # Create a temporary pytest.ini with the desired log format
+  echo -e "${GREEN}Creating temporary pytest.ini with custom log format${RESET}"
+  cat_cmd="cat > pytest.ini << EOF
+[pytest]
+log_format = %(levelname)s %(message)s
+EOF"
+  print_command "$cat_cmd"
+  eval "$cat_cmd"
+  debug_log "Created temporary pytest.ini with custom log format"
+  
+  # Verify the file was created correctly
+  if [ -f pytest.ini ]; then
+    echo -e "${GREEN}Custom log format enabled - removed timestamps${RESET}"
+    if [ "$DEBUG_SCRIPT" = true ]; then
+      echo -e "${MAGENTA}[DEBUG] Contents of pytest.ini:${RESET}"
+      cat_cmd="cat pytest.ini"
+      print_command "$cat_cmd"
+      eval "$cat_cmd"
+    fi
+  else
+    echo -e "${RED}Failed to create pytest.ini - will use default log format${RESET}"
+  fi
+fi
 
-# shellcheck disable=SC2086
-PYTHONPATH=${PROJECT_ROOT} pytest "${TEST_PATH}" \
-  -vv \
-  --log-cli-level=${LOG_LEVEL} \
-  --asyncio-mode=auto \
-  ${CAPTURE_FLAG} \
-  ${ADDITIONAL_ARGS} # Removed quotes to allow proper argument expansion
+# Construct the full pytest command
+PYTEST_CMD="PYTHONPATH=${PROJECT_ROOT} pytest \"${TEST_PATH}\" -vv --log-cli-level=${LOG_LEVEL} --asyncio-mode=auto ${CAPTURE_FLAG} ${ADDITIONAL_ARGS}"
+
+# Print the command before running it
+print_command "$PYTEST_CMD"
+
+# Run the command
+eval "$PYTEST_CMD"
 
 PYTEST_EXIT_CODE=$?
 debug_log "pytest exited with code $PYTEST_EXIT_CODE"
+
+# Remove temporary pytest.ini if we created one
+if [ "$mode_selection" = "8" ] && [ "$USE_CUSTOM_FORMAT" = "true" ]; then
+  rm_cmd="rm -f pytest.ini"
+  print_command "$rm_cmd"
+  eval "$rm_cmd"
+  debug_log "Removed temporary pytest.ini"
+fi
 
 # Completely remove the coverage report opening code
 if [ $PYTEST_EXIT_CODE -eq 0 ]; then
