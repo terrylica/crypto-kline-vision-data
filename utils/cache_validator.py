@@ -356,7 +356,14 @@ class CacheKeyManager:
 
     @staticmethod
     def get_cache_path(
-        cache_dir: Path, symbol: str, interval: str, date: datetime
+        cache_dir: Path,
+        symbol: str,
+        interval: str,
+        date: datetime,
+        exchange: str = "binance",
+        market_type: str = "spot",
+        data_nature: str = "klines",
+        packaging_frequency: str = "daily",
     ) -> Path:
         """Generate standardized cache file path.
 
@@ -365,12 +372,25 @@ class CacheKeyManager:
             symbol: Trading pair symbol
             interval: Time interval
             date: Target date
+            exchange: Exchange name (default: "binance")
+            market_type: Market type (default: "spot")
+            data_nature: Data nature (default: "klines")
+            packaging_frequency: Packaging frequency (default: "daily")
 
         Returns:
             Path to cache file
         """
         year_month = date.strftime("%Y%m")
-        return cache_dir / symbol / interval / f"{year_month}.arrow"
+        return (
+            cache_dir
+            / exchange
+            / market_type
+            / data_nature
+            / packaging_frequency
+            / symbol
+            / interval
+            / f"{year_month}.arrow"
+        )
 
 
 class VisionCacheManager:
