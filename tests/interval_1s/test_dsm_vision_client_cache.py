@@ -34,7 +34,7 @@ from pandas.testing import assert_frame_equal
 
 # Configure pytest-asyncio
 pytest_plugins = ("pytest_asyncio",)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.asyncio(loop_scope="function")
 
 from core.data_source_manager import DataSourceManager, DataSource
 from core.vision_data_client import VisionDataClient

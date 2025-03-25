@@ -16,6 +16,8 @@ import asyncio
 
 from utils.logger_setup import get_logger
 from utils.validation import DataFrameValidator
+from utils.market_constraints import Interval
+from utils.api_boundary_validator import ApiBoundaryValidator
 
 logger = get_logger(__name__, "INFO", show_path=False)
 
@@ -26,6 +28,16 @@ class CacheValidationError(NamedTuple):
     error_type: str
     message: str
     is_recoverable: bool
+
+
+# Error type constants for consistent error reporting
+ERROR_TYPES = {
+    "FILE_SYSTEM": "file_system_error",
+    "DATA_INTEGRITY": "data_integrity_error",
+    "CACHE_INVALID": "cache_invalid",
+    "VALIDATION": "validation_error",
+    "API_BOUNDARY": "api_boundary_error",
+}
 
 
 class SafeMemoryMap:
@@ -145,6 +157,14 @@ class CacheValidator:
     MAX_CACHE_AGE = timedelta(days=30)  # Maximum age before revalidation
     METADATA_UPDATE_INTERVAL = timedelta(minutes=5)
 
+    def __init__(self, api_boundary_validator: Optional[ApiBoundaryValidator] = None):
+        """Initialize the CacheValidator with optional ApiBoundaryValidator.
+
+        Args:
+            api_boundary_validator: Optional ApiBoundaryValidator for API boundary validations
+        """
+        self.api_boundary_validator = api_boundary_validator
+
     @classmethod
     def validate_cache_integrity(
         cls,
@@ -168,7 +188,7 @@ class CacheValidator:
         try:
             if not cache_path.exists():
                 return CacheValidationError(
-                    "cache_invalid", "Cache file does not exist", True
+                    ERROR_TYPES["FILE_SYSTEM"], "Cache file does not exist", True
                 )
 
             stats = cache_path.stat()
@@ -176,7 +196,7 @@ class CacheValidator:
             # Check file size
             if stats.st_size < min_size:
                 return CacheValidationError(
-                    "cache_invalid",
+                    ERROR_TYPES["DATA_INTEGRITY"],
                     f"Cache file too small: {stats.st_size} bytes",
                     True,
                 )
@@ -187,7 +207,7 @@ class CacheValidator:
             )
             if age > max_age:
                 return CacheValidationError(
-                    "cache_invalid",
+                    ERROR_TYPES["CACHE_INVALID"],
                     f"Cache too old: {age.days} days",
                     True,
                 )
@@ -196,7 +216,7 @@ class CacheValidator:
 
         except Exception as e:
             return CacheValidationError(
-                "file_system_error",
+                ERROR_TYPES["FILE_SYSTEM"],
                 f"Error validating cache: {str(e)}",
                 False,
             )
@@ -254,28 +274,63 @@ class CacheValidator:
         """
         return record_count > 0
 
-    @classmethod
-    def validate_cache_data(
-        cls, df: pd.DataFrame, allow_empty: bool = False
+    async def validate_cache_data(
+        self,
+        df: pd.DataFrame,
+        allow_empty: bool = False,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        interval: Optional[Interval] = None,
+        symbol: str = "BTCUSDT",
     ) -> Optional[CacheValidationError]:
-        """Validate cached DataFrame structure and content.
+        """Validate cached data DataFrame and optionally its alignment with API boundaries.
 
         Args:
-            df: DataFrame from cache
-            allow_empty: Whether empty DataFrames are considered valid
+            df: DataFrame to validate
+            allow_empty: Whether to allow empty DataFrame
+            start_time: Original start time for API boundary validation
+            end_time: Original end time for API boundary validation
+            interval: Interval for API boundary validation
+            symbol: Symbol for API boundary validation
 
         Returns:
             Error details if validation fails, None if valid
         """
-        try:
-            DataFrameValidator.validate_dataframe(df, allow_empty=allow_empty)
-            return None
-        except ValueError as e:
+        if df.empty and not allow_empty:
             return CacheValidationError(
-                "data_integrity_error",
-                f"Invalid cache data: {str(e)}",
+                ERROR_TYPES["VALIDATION"],
+                "DataFrame is empty",
                 True,
             )
+
+        try:
+            DataFrameValidator.validate_dataframe(df)
+        except ValueError as e:
+            return CacheValidationError(
+                ERROR_TYPES["VALIDATION"],
+                f"DataFrame validation failed: {e}",
+                False,  # Data integrity issue, not recoverable
+            )
+
+        # If API boundary validation is requested and we have a validator
+        if start_time and end_time and interval and self.api_boundary_validator:
+            try:
+                is_api_aligned = await self.api_boundary_validator.does_data_range_match_api_response(
+                    df, start_time, end_time, interval, symbol=symbol
+                )
+
+                if not is_api_aligned:
+                    return CacheValidationError(
+                        ERROR_TYPES["API_BOUNDARY"],
+                        f"Cache data does not match expected API response for {symbol} {interval} from {start_time} to {end_time}",
+                        True,  # Recoverable by fetching from API
+                    )
+            except Exception as e:
+                logger.warning(f"API boundary validation failed: {e}")
+                # Don't fail the validation just because API boundary check failed
+                # This allows fallback to cached data even if we can't verify against API
+
+        return None
 
     @staticmethod
     def calculate_checksum(file_path: Path) -> str:
@@ -287,72 +342,116 @@ class CacheValidator:
         Returns:
             Hexadecimal checksum string
         """
-        try:
-            return hashlib.sha256(file_path.read_bytes()).hexdigest()
-        except Exception as e:
-            logger.error(f"Error calculating checksum for {file_path}: {e}")
-            raise
+        h = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            # Read in 64k chunks
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
 
     @staticmethod
     def safely_read_arrow_file(
         file_path: Path, columns: Optional[list] = None
     ) -> Optional[pd.DataFrame]:
-        """Safely read Arrow file using the async implementation with a sync wrapper.
+        """Safely read an Arrow file with proper error handling.
+
+        This is a blocking version of safely_read_arrow_file_async.
 
         Args:
             file_path: Path to Arrow file
-            columns: Optional list of columns to select
+            columns: Optional list of columns to read
 
         Returns:
             DataFrame or None if read fails
         """
         try:
-            # Use the existing async implementation to reduce duplication
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(
-                CacheValidator.safely_read_arrow_file_async(file_path, columns)
-            )
+            return SafeMemoryMap._read_arrow_file_impl(file_path, columns)
         except Exception as e:
-            logger.error(f"Error in safely_read_arrow_file: {e}")
+            logger.error(f"Error reading Arrow file {file_path}: {e}")
             return None
 
     @staticmethod
     async def safely_read_arrow_file_async(
         file_path: Path, columns: Optional[list] = None
     ) -> Optional[pd.DataFrame]:
-        """Safely read Arrow file with error handling (async version).
+        """Asynchronously and safely read an Arrow file with proper error handling.
 
         Args:
             file_path: Path to Arrow file
-            columns: Optional list of columns to select
+            columns: Optional list of columns to read
 
         Returns:
             DataFrame or None if read fails
         """
-        try:
-            # Use SafeMemoryMap for safe memory-mapped file reading
-            return await SafeMemoryMap.safely_read_arrow_file(file_path, columns)
-        except Exception as e:
-            logger.error(f"Error reading Arrow file: {e}")
-            return None
+        return await SafeMemoryMap.safely_read_arrow_file(file_path, columns)
+
+    async def align_cached_data_to_api_boundaries(
+        self,
+        df: pd.DataFrame,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Interval,
+        symbol: str = "BTCUSDT",
+    ) -> pd.DataFrame:
+        """Align cache data to match what would be returned by the Binance REST API.
+
+        Args:
+            df: DataFrame containing cached data
+            start_time: Original start time requested
+            end_time: Original end time requested
+            interval: Data interval
+            symbol: Trading pair symbol
+
+        Returns:
+            DataFrame aligned to REST API boundaries
+
+        Raises:
+            ValueError: If ApiBoundaryValidator is not provided
+        """
+        if df.empty:
+            return df
+
+        if not self.api_boundary_validator:
+            raise ValueError(
+                "ApiBoundaryValidator is required for cache data alignment"
+            )
+
+        # Get expected API boundaries for these parameters
+        api_boundaries = await self.api_boundary_validator.get_api_boundaries(
+            start_time, end_time, interval, symbol=symbol
+        )
+
+        if api_boundaries["record_count"] == 0:
+            # API would return no data, so return empty DataFrame
+            return pd.DataFrame(index=pd.DatetimeIndex([], name="open_time"))
+
+        # Filter DataFrame to match API boundaries
+        api_start_time = api_boundaries["api_start_time"]
+        api_end_time = api_boundaries["api_end_time"]
+
+        # Inclusive start, inclusive end for filtering (matches API behavior)
+        aligned_df = df[(df.index >= api_start_time) & (df.index <= api_end_time)]
+
+        return aligned_df
 
 
 class CacheKeyManager:
-    """Centralized manager for cache keys and paths."""
+    """Utilities for generating consistent cache keys and paths."""
 
     @staticmethod
     def get_cache_key(symbol: str, interval: str, date: datetime) -> str:
-        """Generate a standardized cache key string.
+        """Generate cache key in a standardized format.
 
         Args:
             symbol: Trading pair symbol
             interval: Time interval
-            date: Target date
+            date: Date for cache key
 
         Returns:
-            Standardized cache key string
+            Cache key string
         """
-        return f"{symbol}_{interval}_{date.strftime('%Y%m')}"
+        date_str = date.strftime("%Y-%m-%d")
+        return f"{symbol}_{interval}_{date_str}"
 
     @staticmethod
     def get_cache_path(
@@ -365,39 +464,49 @@ class CacheKeyManager:
         data_nature: str = "klines",
         packaging_frequency: str = "daily",
     ) -> Path:
-        """Generate standardized cache file path.
+        """Generate a standardized cache file path.
+
+        This creates a cache path in the following format:
+        {cache_dir}/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{symbol}/{interval}/
+        {YYYY-MM}.arrow
 
         Args:
             cache_dir: Base cache directory
             symbol: Trading pair symbol
-            interval: Time interval
-            date: Target date
-            exchange: Exchange name (default: "binance")
-            market_type: Market type (default: "spot")
-            data_nature: Data nature (default: "klines")
-            packaging_frequency: Packaging frequency (default: "daily")
+            interval: Time interval (e.g., '1m')
+            date: Date for the cache file
+            exchange: Exchange name
+            market_type: Market type (spot, futures, etc.)
+            data_nature: Data nature (klines, trades, etc.)
+            packaging_frequency: How data is packaged (daily, hourly, etc.)
 
         Returns:
-            Path to cache file
+            Path object for the cache file
         """
+        # Use year-month format (YYYYMM) for the filename to group by month
+        # This aligns with the Binance Vision monthly packaging approach
         year_month = date.strftime("%Y%m")
-        return (
+        filename = f"{year_month}.arrow"
+
+        # Create path with packaging_frequency BEFORE symbol and interval
+        # to align with Binance Vision API URL structure and documentation
+        path = (
             cache_dir
             / exchange
             / market_type
             / data_nature
-            / packaging_frequency
+            / packaging_frequency  # Moved before symbol and interval
             / symbol
             / interval
-            / f"{year_month}.arrow"
+            / filename
         )
+        return path
 
 
 class VisionCacheManager:
-    """Manages cache operations for Vision data.
+    """Vision-specific cache management utilities."""
 
-    This class centralizes caching operations that were previously part of VisionDataClient.
-    """
+    FILE_EXTENSION = ".arrow"
 
     @staticmethod
     async def save_to_cache(
@@ -405,105 +514,88 @@ class VisionCacheManager:
         cache_path: Path,
         start_time: datetime,
     ) -> tuple[str, int]:
-        """Save DataFrame to cache in Arrow format.
+        """Save data to cache in Arrow format.
 
         Args:
-            df: DataFrame to save
-            cache_path: Target cache path
-            start_time: Start time for the data
+            df: DataFrame to cache
+            cache_path: Path to cache file
+            start_time: Start time for data
 
         Returns:
-            Tuple of (checksum, record_count)
-
-        Raises:
-            pa.ArrowInvalid: If DataFrame cannot be converted to Arrow format
-            pa.ArrowIOError: If there are I/O errors during file operations
-            ValueError: If input validation fails
-            OSError: If file system operations fail
+            Tuple of (checksum, record count)
         """
+        if df.empty:
+            logger.warning("Empty dataframe, not saving to cache")
+            return "", 0
+
+        # Ensure directory exists
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Convert to pyarrow table
+        table = pa.Table.from_pandas(df)
+
+        # Write to file
         try:
-            # Validate inputs
-            if not isinstance(cache_path, Path):
-                cache_path = Path(cache_path)
+            with pa.OSFile(str(cache_path), "wb") as sink:
+                with pa.ipc.new_file(sink, table.schema) as writer:
+                    writer.write_table(table)
 
-            # Ensure parent directory exists
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Ensure we don't include the end date
-            if not df.empty:
-                last_date = df.index[-1].replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                df = df[df.index < last_date + timedelta(days=1)]
-
-            # Reset index to include it in the Arrow table
-            df_with_index = df.reset_index()
-
-            try:
-                # Convert to Arrow table
-                table = pa.Table.from_pandas(df_with_index)
-            except pa.ArrowInvalid as e:
-                logger.error(f"Failed to convert DataFrame to Arrow format: {e}")
-                raise
-
-            try:
-                # Save to Arrow file with proper resource cleanup
-                with pa.OSFile(str(cache_path), "wb") as sink:
-                    with pa.ipc.new_file(sink, table.schema) as writer:
-                        writer.write_table(table)
-            except pa.ArrowIOError as e:
-                logger.error(f"Failed to write Arrow file: {e}")
-                raise
-
-            # Calculate checksum using the centralized utility
+            # Calculate checksum
             checksum = CacheValidator.calculate_checksum(cache_path)
             record_count = len(df)
 
-            logger.info(f"Saved {record_count} records to {cache_path}")
-            return checksum, record_count
+            # Log cache save info
+            logger.info(
+                f"Saved {record_count} records to cache at {cache_path}. Size: {cache_path.stat().st_size} bytes"
+            )
 
+            return checksum, record_count
         except Exception as e:
-            logger.error(f"Unexpected error saving to cache: {e}")
-            raise
+            logger.error(f"Error saving to cache: {e}")
+            # If there was an error, attempt to clean up partial file
+            if cache_path.exists():
+                try:
+                    cache_path.unlink()
+                    logger.info(f"Removed partial cache file after error: {cache_path}")
+                except Exception as cleanup_error:
+                    logger.error(
+                        f"Failed to clean up partial cache file: {cleanup_error}"
+                    )
+            return "", 0
 
     @staticmethod
     async def load_from_cache(
         cache_path: Path, columns: Optional[Sequence[str]] = None
     ) -> Optional[pd.DataFrame]:
-        """Load data from cache with optimized memory usage.
+        """Load data from cache with proper error handling.
 
         Args:
             cache_path: Path to cache file
-            columns: Optional list of columns to include
+            columns: Optional list of columns to read
 
         Returns:
-            DataFrame or None if load fails
+            DataFrame or None if cache is invalid or missing
         """
-        start_time_perf = time.perf_counter()
-
         try:
-            # Use the centralized SafeMemoryMap utility to read Arrow file
-            logger.debug(f"Loading cached data from {cache_path}")
-            df = await SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
+            # Validate cache file exists and is not too old
+            error = CacheValidator.validate_cache_integrity(cache_path)
+            if error:
+                logger.warning(f"Cache validation failed: {error.message}")
+                return None
 
+            # Read the file
+            df = await CacheValidator.safely_read_arrow_file_async(cache_path, columns)
             if df is None:
-                raise ValueError(f"Failed to read data from {cache_path}")
+                return None
 
-            # Remove duplicates efficiently if needed
-            if df.index.has_duplicates:
-                t0 = time.perf_counter()
-                # Use drop_duplicates method instead of boolean indexing
-                df = (
-                    df.reset_index()
-                    .drop_duplicates(subset=["open_time"], keep="first")
-                    .set_index("open_time")
-                )
-                logger.info(f"Duplicate removal took: {time.perf_counter() - t0:.6f}s")
+            if df.empty:
+                logger.warning(f"Cache file is empty: {cache_path}")
+                return None
 
-            total_time = time.perf_counter() - start_time_perf
-            logger.info(f"Total cache loading time: {total_time:.6f}s")
+            logger.info(
+                f"Successfully loaded {len(df)} records from cache: {cache_path}"
+            )
             return df
-
         except Exception as e:
-            logger.error(f"Failed to load from cache: {e}")
-            raise
+            logger.error(f"Error loading from cache: {e}")
+            return None

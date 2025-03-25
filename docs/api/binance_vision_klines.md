@@ -76,15 +76,15 @@ The Data Source Manager includes utilities for cache management using the `Cache
 ### Cache Key Format
 
 ```python
-# Key format: {symbol}_{interval}_{YYYYMM}
-cache_key = f"{symbol}_{interval}_{date.strftime('%Y%m')}"
+# Key format: {exchange}_{market_type}_{data_nature}_{packaging_frequency}_{symbol}_{interval}_{YYYYMM}
+cache_key = f"{{exchange}}_{{market_type}}_{{data_nature}}_{{packaging_frequency}}_{{symbol}}_{{interval}}_{{date.strftime('%Y%m')}}"
 ```
 
 ### Cache Path Structure
 
 ```python
-# Path structure: {cache_dir}/{symbol}/{interval}/{YYYYMM}.arrow
-cache_path = cache_dir / symbol / interval / f"{year_month}.arrow"
+# Path structure: {cache_dir}/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{symbol}/{interval}/{YYYYMM}.arrow
+cache_path = cache_dir / exchange / market_type / data_nature / packaging_frequency / symbol / interval / f"{{year_month}}.arrow"
 ```
 
 ### File Format

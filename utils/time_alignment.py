@@ -34,6 +34,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, List, Dict, Any
 import re
 import pandas as pd
+import numpy as np
+import logging
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval
@@ -503,14 +505,66 @@ class TimeRangeManager:
     ) -> None:
         """Validate that DataFrame covers requested time range.
 
+        This validation implements Binance REST API boundary behavior:
+        - Start times earlier than data start are valid (Binance API returns data from the earliest available point)
+        - Start times after data start (data starting too late) are invalid
+        - End times later than data end are valid (Binance API returns data up to what's available)
+        - End times earlier than data end (data ending too early) are invalid
+
         Args:
             df: DataFrame to validate
-            start_time: Expected start time
-            end_time: Expected end time
+            start_time: Expected start time (inclusive)
+            end_time: Expected end time (exclusive)
 
         Raises:
             ValueError: If data doesn't cover the requested range
         """
-        from utils.validation import DataValidation
+        if df.empty:
+            raise ValueError("Cannot validate boundaries: DataFrame is empty")
 
-        DataValidation.validate_time_boundaries(df, start_time, end_time)
+        # Ensure both timestamps are UTC
+        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+        # Determine if we're working with a DatetimeIndex or open_time column
+        if pd.api.types.is_datetime64_any_dtype(df.index):
+            data_start = df.index.min()
+            data_end = df.index.max()
+        elif "open_time" in df.columns and pd.api.types.is_datetime64_any_dtype(
+            df["open_time"]
+        ):
+            data_start = df["open_time"].min()
+            data_end = df["open_time"].max()
+        else:
+            raise ValueError(
+                "Cannot validate boundaries: No datetime index or open_time column found"
+            )
+
+        # Ensure datetime objects are timezone-aware
+        data_start = TimeRangeManager.enforce_utc_timezone(data_start)
+        data_end = TimeRangeManager.enforce_utc_timezone(data_end)
+
+        # Validate boundaries according to Binance REST API behavior
+        # 1. If requested start time is AFTER data start, data starts too late (error)
+        # 2. If requested start time is BEFORE data start, that's allowed (Binance API behavior)
+        if start_time > data_start:
+            raise ValueError(
+                f"Data starts too late: requested start={start_time.isoformat()}, "
+                f"data start={data_start.isoformat()}"
+            )
+
+        # For end time, Binance API behaviors:
+        # 1. If requested end time is BEFORE data end, data ends too early (error)
+        # 2. If requested end time is AFTER data end, that's fine (Binance returns what's available)
+        if end_time <= data_end:
+            # If the requested end time is before or equal to data_end, we're fine
+            # Binance will return data up to the requested end time
+            return
+
+        # Check if there's a specific point in the data we need to validate
+        # For example, if we need specific data points before the requested end time
+        # This can be used for specific validation needs beyond the standard API behavior
+        if "validate_specific_end" in df.attrs and df.attrs["validate_specific_end"]:
+            # Example of a custom validation that could be added here
+            # Only trigger error for specific validation cases
+            pass

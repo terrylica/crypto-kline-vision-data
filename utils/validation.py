@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 
 from utils.logger_setup import get_logger
+from utils.market_constraints import MarketType, Interval
+from utils.api_boundary_validator import ApiBoundaryValidator
 
 # Column name constants
 OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
@@ -38,6 +40,7 @@ from utils.config import (
     MIN_VALID_FILE_SIZE,
     MAX_CACHE_AGE,
     OUTPUT_DTYPES,
+    MAX_TIME_RANGE,
 )
 
 
@@ -49,6 +52,14 @@ class ValidationError(Exception):
 
 class DataValidation:
     """Centralized data validation utilities."""
+
+    def __init__(self, api_boundary_validator: Optional[ApiBoundaryValidator] = None):
+        """Initialize the DataValidation class.
+
+        Args:
+            api_boundary_validator: Optional ApiBoundaryValidator instance for API boundary validations
+        """
+        self.api_boundary_validator = api_boundary_validator
 
     @staticmethod
     def validate_dates(start_time: datetime, end_time: datetime) -> None:
@@ -98,6 +109,11 @@ class DataValidation:
 
         # Add any additional time window validations here
         time_diff = end_time - start_time
+        if time_diff > MAX_TIME_RANGE:
+            raise ValidationError(
+                f"Time range exceeds maximum allowed: {MAX_TIME_RANGE}"
+            )
+
         if time_diff > timedelta(days=365):
             logger.warning(
                 f"Large time window requested: {time_diff.days} days. "
@@ -153,6 +169,74 @@ class DataValidation:
         if start_time and end_time and start_time >= end_time:
             raise ValueError("End time must be after start time")
         return start_time, end_time
+
+    async def validate_api_time_range(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Union[str, Interval],
+        symbol: str = "BTCUSDT",
+    ) -> bool:
+        """Validates time range against Binance API boundaries using ApiBoundaryValidator.
+
+        Args:
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
+            interval: The data interval as string or Interval enum
+            symbol: The trading pair symbol to check
+
+        Returns:
+            True if the time range is valid for the API, False otherwise
+
+        Raises:
+            ValueError: If ApiBoundaryValidator is not provided
+        """
+        if not self.api_boundary_validator:
+            raise ValueError(
+                "ApiBoundaryValidator is required for API time range validation"
+            )
+
+        # Convert interval to Interval enum if needed
+        if isinstance(interval, str):
+            interval = Interval(interval)
+
+        return await self.api_boundary_validator.is_valid_time_range(
+            start_time, end_time, interval, symbol=symbol
+        )
+
+    async def get_api_aligned_boundaries(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Union[str, Interval],
+        symbol: str = "BTCUSDT",
+    ) -> Dict[str, Any]:
+        """Get API-aligned boundaries for the given time range and interval.
+
+        Args:
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
+            interval: The data interval as string or Interval enum
+            symbol: The trading pair symbol to check
+
+        Returns:
+            Dictionary with API-aligned boundaries
+
+        Raises:
+            ValueError: If ApiBoundaryValidator is not provided
+        """
+        if not self.api_boundary_validator:
+            raise ValueError(
+                "ApiBoundaryValidator is required for API boundary alignment"
+            )
+
+        # Convert interval to Interval enum if needed
+        if isinstance(interval, str):
+            interval = Interval(interval)
+
+        return await self.api_boundary_validator.get_api_boundaries(
+            start_time, end_time, interval, symbol=symbol
+        )
 
     @staticmethod
     def validate_interval(interval: str, market_type: str = "SPOT") -> None:
@@ -249,102 +333,35 @@ class DataValidation:
             consolidation_delay: Delay after which data is considered available
 
         Raises:
-            ValueError: If data is definitely not available for the time range
+            ValidationError: If data may not be available for the entire time range
         """
-        cutoff_date = datetime.now(timezone.utc) - consolidation_delay
-        if end_time > cutoff_date:
-            raise ValueError(
-                "Requested end time is too recent. "
-                f"Data is only reliably available up to {cutoff_date.isoformat()} "
-                f"due to consolidation delays (delay={consolidation_delay})."
+        # Check if any portion of the time range is too recent
+        now = datetime.now(timezone.utc)
+        consolidation_threshold = now - consolidation_delay
+
+        if end_time > consolidation_threshold:
+            # Time range includes data that may not be fully consolidated
+            logger.warning(
+                f"Time range includes recent data that may not be fully consolidated. "
+                f"Data after {consolidation_threshold.isoformat()} may be incomplete."
             )
-        if start_time > end_time:
-            raise ValueError("Start time cannot be after end time.")
 
     @staticmethod
     def is_data_likely_available(
         target_date: datetime, consolidation_delay: timedelta = timedelta(hours=48)
     ) -> bool:
-        """Check if data is likely to be available based on consolidation delay.
+        """Check if data is likely available for the specified date.
 
         Args:
-            target_date: Date to check for data availability
+            target_date: Date to check
             consolidation_delay: Delay after which data is considered available
 
         Returns:
-            True if data is likely available
+            True if data is likely available, False otherwise
         """
-        cutoff_date = datetime.now(timezone.utc) - consolidation_delay
-        return target_date <= cutoff_date
-
-    @staticmethod
-    def validate_time_boundaries(
-        df: pd.DataFrame, start_time: datetime, end_time: datetime
-    ) -> None:
-        """Validate that DataFrame covers the requested time range.
-
-        Args:
-            df: DataFrame to validate
-            start_time: Start time (inclusive)
-            end_time: End time (exclusive)
-
-        Raises:
-            ValueError: If data doesn't cover requested time range
-        """
-        # For empty DataFrame, just validate the time range itself
-        if df.empty:
-            if start_time > end_time:
-                raise ValueError(
-                    f"Start time {start_time} is after end time {end_time}"
-                )
-            if end_time > datetime.now(timezone.utc):
-                raise ValueError(f"End time {end_time} is in the future")
-            return
-
-        # Ensure index is timezone-aware
-        if df.index.tz is None:
-            raise ValueError("DataFrame index must be timezone-aware")
-
-        # Convert times to UTC for comparison
-        start_time = DataValidation.enforce_utc_timestamp(start_time)
-        end_time = DataValidation.enforce_utc_timestamp(end_time)
-
-        # Get actual data boundaries
-        data_start = df.index.min()
-        data_end = df.index.max()
-
-        # Check if data covers requested range, ignoring microsecond precision
-        data_start_floor = data_start.replace(microsecond=0)
-        data_end_floor = data_end.replace(microsecond=0)
-        start_time_floor = start_time.replace(microsecond=0)
-        end_time_floor = end_time.replace(microsecond=0)
-
-        # Adjust end_time_floor for exclusive comparison
-        # We need data up to but not including the end time
-        adjusted_end_time_floor = end_time_floor - timedelta(seconds=1)
-
-        if data_start_floor > start_time_floor:
-            raise ValueError(
-                f"Data starts later than requested: {data_start} > {start_time}"
-            )
-
-        # Data end checks - don't fail if we have at least some data
-        if data_end_floor < adjusted_end_time_floor:
-            # Instead of raising an error, just log a warning if we at least have data at the start
-            if data_start_floor == start_time_floor:
-                logger.warning(
-                    f"Data doesn't cover entire requested range: ends at {data_end} < {adjusted_end_time_floor}. "
-                    f"This may be due to market-specific limitations or data availability."
-                )
-            else:
-                # Still raise error if data doesn't even start at the requested time
-                raise ValueError(
-                    f"Data ends earlier than requested: {data_end} < {adjusted_end_time_floor}"
-                )
-
-        # Verify data is sorted
-        if not df.index.is_monotonic_increasing:
-            raise ValueError("Data is not sorted by time")
+        now = datetime.now(timezone.utc)
+        consolidation_threshold = now - consolidation_delay
+        return target_date <= consolidation_threshold
 
 
 class DataFrameValidator:

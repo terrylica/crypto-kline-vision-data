@@ -28,7 +28,7 @@ logger = get_logger(__name__, "DEBUG", show_path=False)
 
 # Configure pytest-asyncio
 pytest_plugins = ("pytest_asyncio",)
-pytestmark = pytest.mark.asyncio
+pytestmark = pytest.mark.asyncio(loop_scope="function")
 
 
 @pytest.fixture(scope="function")
