@@ -6,7 +6,6 @@ Binance API responses, ensuring that our validation logic correctly reflects the
 real API behavior. All tests use real API calls rather than mocks.
 """
 
-import asyncio
 import pytest
 import pandas as pd
 from datetime import datetime, timedelta, timezone
@@ -239,8 +238,19 @@ async def test_does_data_range_match_api_response(
         logger.warning(
             "No API data available for test_does_data_range_match_api_response"
         )
-        # Skip test if no data available
-        pytest.skip("No API data available for the specified time range")
+        # Instead of skipping, we test with an empty DataFrame which should return False
+        empty_df = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        empty_df.index = pd.DatetimeIndex([], name="open_time")
+
+        result = await api_validator.does_data_range_match_api_response(
+            empty_df, start_time, end_time, interval
+        )
+        assert (
+            result is False
+        ), "Empty DataFrame should not match when no data is available"
+        logger.info(
+            "Empty DataFrame test passed - correctly returned False for empty data"
+        )
 
 
 async def test_empty_dataframe_validation(api_validator, caplog):
