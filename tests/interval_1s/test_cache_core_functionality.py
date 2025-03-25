@@ -39,7 +39,7 @@ def temp_cache_dir():
 
 
 @pytest.mark.asyncio
-async def test_unified_caching_through_manager(temp_cache_dir):
+async def test_unified_caching_through_manager(temp_cache_dir, caplog):
     """Test that caching works through DataSourceManager with UnifiedCacheManager."""
     start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=1)
@@ -56,6 +56,19 @@ async def test_unified_caching_through_manager(temp_cache_dir):
             enforce_source=DataSource.VISION,
         )
 
+        # Check for cache miss in the first fetch
+        assert any(
+            "Cache miss" in record.message for record in caplog.records
+        ), "No cache miss log on first fetch"
+
+        # Check that we successfully cached data
+        assert any(
+            record.message.startswith("Cached") for record in caplog.records
+        ), "No cache creation log messages found"
+
+        # Clear log records before second fetch
+        caplog.clear()
+
         # Second fetch - should use cache
         df2 = await manager.get_data(
             symbol="BTCUSDT",
@@ -64,6 +77,11 @@ async def test_unified_caching_through_manager(temp_cache_dir):
             interval=Interval.SECOND_1,
             enforce_source=DataSource.VISION,
         )
+
+        # Check for cache hit in the second fetch
+        assert not any(
+            "Cache miss" in record.message for record in caplog.records
+        ), "Unexpected cache miss on second fetch"
 
         # Verify both results are identical
         pd.testing.assert_frame_equal(df1, df2)
@@ -74,7 +92,7 @@ async def test_unified_caching_through_manager(temp_cache_dir):
 
 
 @pytest.mark.asyncio
-async def test_caching_directory_structure(temp_cache_dir):
+async def test_caching_directory_structure(temp_cache_dir, caplog):
     """Test that cache files are stored in the correct directory structure."""
     start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=1)
@@ -108,11 +126,25 @@ async def test_caching_directory_structure(temp_cache_dir):
                 len(unified_cache_files) > 0
             ), "Data was not cached in unified location"
 
-            # Check for expected directory structure (data/BTCUSDT/1s/...)
+            # Check for expected directory structure
+            # (data/binance/spot/klines/daily/BTCUSDT/1s/...)
             data_dir = unified_cache_dir / "data"
             assert data_dir.exists(), "Data directory not created"
 
-            btc_dir = data_dir / "BTCUSDT"
+            # Check for the new directory structure components
+            exchange_dir = data_dir / "binance"
+            assert exchange_dir.exists(), "Exchange directory not created"
+
+            market_type_dir = exchange_dir / "spot"
+            assert market_type_dir.exists(), "Market type directory not created"
+
+            data_nature_dir = market_type_dir / "klines"
+            assert data_nature_dir.exists(), "Data nature directory not created"
+
+            packaging_dir = data_nature_dir / "daily"
+            assert packaging_dir.exists(), "Packaging frequency directory not created"
+
+            btc_dir = packaging_dir / "BTCUSDT"
             assert btc_dir.exists(), "Symbol directory not created"
 
             interval_dir = btc_dir / "1s"
@@ -121,6 +153,19 @@ async def test_caching_directory_structure(temp_cache_dir):
             # Check for cache files in the interval directory
             interval_cache_files = list(interval_dir.glob("*.arrow"))
             assert len(interval_cache_files) > 0, "No cache files in interval directory"
+
+            # Check for cache-related log messages
+            assert any(
+                record.message.startswith("Cached") for record in caplog.records
+            ), "No cache logging messages found"
+
+            # Verify we got successful cache creation logs
+            arrow_file_path = str(interval_cache_files[0])
+            assert any(
+                arrow_file_path.endswith(record.message.split("to ")[-1].strip())
+                for record in caplog.records
+                if record.message.startswith("Cached") and "to " in record.message
+            ), "No log message for cache file creation"
     # The async context manager will properly close all resources here
 
 
