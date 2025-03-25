@@ -15,7 +15,7 @@ try:
         test_symbol,
         test_interval,
         temp_cache_dir,
-        sample_ohlcv_data,
+        # sample_ohlcv_data,  # Removed to avoid import error
     )
 except ImportError:
     # Fallback approach for import
@@ -27,7 +27,7 @@ except ImportError:
             test_symbol,
             test_interval,
             temp_cache_dir,
-            sample_ohlcv_data,
+            # sample_ohlcv_data,  # Removed to avoid import error
         )
     except ImportError as e:
         print(f"Warning: Could not import fixtures from interval_1s: {e}")

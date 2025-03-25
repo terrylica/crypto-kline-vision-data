@@ -1,20 +1,20 @@
 # Roadmap: Revamping Time Alignment Strategy (Prioritized Validation)
 
-**Goal**: To remove manual time alignment logic from the codebase and rely on the Binance API's inherent boundary handling, as documented in `binance_rest_api_boundary_behaviour.md`. We will prioritize building and testing a new validation class that is directly aligned with Binance REST API behavior before proceeding with broader code refactoring. This will ensure a solid foundation for time handling, adhering to the principles of real-world testing and avoiding mocks as per `pytest-construction.mdc`.
+**Goal**: To remove manual time alignment logic from the codebase and rely on the Binance API's inherent boundary handling, as documented in `docs/api/binance_rest_api_boundary_behaviour.md`. We will prioritize building and testing a new validation class that is directly aligned with Binance REST API behavior before proceeding with broader code refactoring. This will ensure a solid foundation for time handling, adhering to the principles of real-world testing and avoiding mocks as per `docs/utilities_and_standards/pytest-construction.md`.
 
 **Overall Strategy (Prioritized Validation)**:
 
-1. **Create and Test `ApiBoundaryValidator`**: Develop a new class, `ApiBoundaryValidator` in `utils/api_boundary_validator.py`, specifically designed to validate time boundaries and data ranges against the Binance REST API. Thoroughly test this class by directly comparing its validation outcomes with actual Binance REST API responses for various scenarios. **This aligns with the `pytest-construction.mdc` rule of using real-world data and integration tests, avoiding mocks and sample data.**
+1. **Create and Test `ApiBoundaryValidator`**: Develop a new class, `ApiBoundaryValidator` in `utils/api_boundary_validator.py`, specifically designed to validate time boundaries and data ranges against the Binance REST API. Thoroughly test this class by directly comparing its validation outcomes with actual Binance REST API responses for various scenarios. **This aligns with the `docs/utilities_and_standards/pytest-construction.md` rule of using real-world data and integration tests, avoiding mocks and sample data.**
 
-2. **Refactor Validation Modules**: Once `ApiBoundaryValidator` is robust and fully tested, refactor `validation.py` and `cache_validator.py` to utilize this new class for all time-related validations. Replace the old manual alignment-based validation logic with methods from `ApiBoundaryValidator`.
+2. **Refactor Validation Modules**: Once `ApiBoundaryValidator` is robust and fully tested, refactor `utils/validation.py` and `utils/cache_validator.py` to utilize this new class for all time-related validations. Replace the old manual alignment-based validation logic with methods from `ApiBoundaryValidator`.
 
-3. **Identify and Analyze Time Alignment Logic**: After establishing the new validation foundation, proceed to thoroughly review the codebase to pinpoint all instances where time alignment or manipulation is currently performed, especially in `time_alignment.py`, `data_source_manager.py`, `market_data_client.py`, `vision_data_client.py`, and `cache_manager.py`.
+3. **Identify and Analyze Time Alignment Logic**: After establishing the new validation foundation, proceed to thoroughly review the codebase to pinpoint all instances where time alignment or manipulation is currently performed, especially in `utils/time_alignment.py`, `core/data_source_manager.py`, `core/market_data_client.py`, `core/vision_data_client.py`, and `core/cache_manager.py`.
 
 4. **Remove Manual Alignment**: Systematically remove the identified time alignment logic. Ensure that timestamps are passed to API clients and cache manager as they are initially provided.
 
-5. **Refactor Cache Management**: Adapt the cache management logic in `cache_manager.py` and `vision_data_client.py` to work seamlessly with the API's time boundaries, now validated by `ApiBoundaryValidator`.
+5. **Refactor Cache Management**: Adapt the cache management logic in `core/cache_manager.py` and `core/vision_data_client.py` to work seamlessly with the API's time boundaries, now validated by `ApiBoundaryValidator`.
 
-6. **Testing and Verification (Full System)**: Implement comprehensive system-level tests to verify that the revamped codebase, with the new validation and removed manual alignment, correctly handles time boundaries, data retrieval, and caching in full alignment with the Binance API's documented behavior. **All tests will be integration tests against the real Binance API, as per `pytest-construction.mdc`.**
+6. **Testing and Verification (Full System)**: Implement comprehensive system-level tests to verify that the revamped codebase, with the new validation and removed manual alignment, correctly handles time boundaries, data retrieval, and caching in full alignment with the Binance API's documented behavior. **All tests will be integration tests against the real Binance API, as per `docs/utilities_and_standards/pytest-construction.md`.**
 
 **Step-by-Step Plan (File by File - Prioritized Validation):**
 
@@ -30,16 +30,16 @@
    - **Outcome**: A new `ApiBoundaryValidator` class ready for testing.
 
 2. **`tests/test_api_boundary_validator.py` (NEW FILE)**:
-   - **Action**: Create a new test file `tests/test_api_boundary_validator.py`. Write comprehensive unit tests for `ApiBoundaryValidator` methods. **Crucially, and in adherence to `pytest-construction.mdc`, each test should:**
+   - **Action**: Create a new test file `tests/test_api_boundary_validator.py`. Write comprehensive unit tests for `ApiBoundaryValidator` methods. **Crucially, and in adherence to `docs/utilities_and_standards/pytest-construction.md`, each test should:**
      - Instantiate `ApiBoundaryValidator`.
      - Define test start time, end time, and interval.
      - **Make a direct call to Binance REST API (e.g., `/api/v3/klines`) using `httpx` or `aiohttp` within the test to get real-world API responses. This is crucial for integration testing and avoiding mocks.**
      - Call the `ApiBoundaryValidator` method being tested (e.g., `is_valid_time_range`, `get_api_boundaries`).
      - **Assert that the result from `ApiBoundaryValidator` _exactly matches_ the behavior observed from the Binance REST API response. This ensures the validator is truly aligned with the API.** Test various scenarios:
-       - Exact boundaries, millisecond precision, cross-day/month/year, different intervals, time ranges relative to "now", and edge cases as documented in `binance_rest_api_boundary_behaviour.md`.
-     - **Utilize `caplog` and `utils/logger_setup.py` for logging and debugging within tests, as recommended by `pytest-construction.mdc`.**
-     - **Ensure proper resource initialization and cleanup, especially for HTTP client sessions used in tests, aligning with `pytest-construction.mdc`.**
-     - **If using `pytest-asyncio`, verify that `asyncio_default_fixture_loop_scope = function` is configured to prevent deprecation warnings and ensure consistent event loop behavior, as per `pytest-construction.mdc`.**
+       - Exact boundaries, millisecond precision, cross-day/month/year, different intervals, time ranges relative to "now", and edge cases as documented in `docs/api/binance_rest_api_boundary_behaviour.md`.
+     - **Utilize `caplog` and `utils/logger_setup.py` for logging and debugging within tests, as recommended by `docs/utilities_and_standards/pytest-construction.md`.**
+     - **Ensure proper resource initialization and cleanup, especially for HTTP client sessions used in tests, aligning with `docs/utilities_and_standards/pytest-construction.md`.**
+     - **If using `pytest-asyncio`, verify that `asyncio_default_fixture_loop_scope = function` is configured to prevent deprecation warnings and ensure consistent event loop behavior, as per `docs/utilities_and_standards/pytest-construction.md`.**
    - **Outcome**: Fully tested and validated `ApiBoundaryValidator` class that accurately reflects Binance API time boundary behavior through real integration tests.
 
 ## Phase 2: Refactor Validation Modules to Use `ApiBoundaryValidator`
@@ -501,7 +501,7 @@
      - Different intervals (1s, 1m, 1h, 1d, etc.)
      - Cache save and load operations across time boundaries
      - REST and Vision API data consistency in time handling
-     - **Test for correct data retrieval at interval boundaries as described in `binance_rest_api_boundary_behaviour.md`.**
+     - **Test for correct data retrieval at interval boundaries as described in `docs/api/binance_rest_api_boundary_behaviour.md`.**
    - **Tools**: Utilize `pytest` and potentially create new test modules specifically for time boundary testing. **Create tests that assert the _absence_ of manual time alignment in requests and data handling.**
 
 2. **Run Tests and Debug**:
@@ -516,7 +516,7 @@
 
 1. **Update Documentation**:
 
-   - **Action**: Update any relevant documentation (including `binance_rest_api_boundary_behaviour.md` and code comments) to reflect the changes in time alignment strategy. **Document the removal of manual time alignment and emphasize reliance on Binance API's inherent boundary handling. Update code comments to reflect the changes.**
+   - **Action**: Update any relevant documentation (including `docs/api/binance_rest_api_boundary_behaviour.md` and code comments) to reflect the changes in time alignment strategy. **Document the removal of manual time alignment and emphasize reliance on Binance API's inherent boundary handling. Update code comments to reflect the changes.**
 
 2. **Code Cleanup**:
    - **Action**: Remove any commented-out code, deprecated functions, and ensure the codebase is clean and well-organized after the revamp. **Perform a final code review to remove any dead code, simplify logic, and improve readability after the refactoring.**
