@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 # Principles
 
-Only focus on most low-hanging real-world user cases.
+- Only focus on most low-hanging real-world user cases.
 
 ## Rules
 
@@ -34,3 +34,13 @@ On API related issues, always use CURL from terminal to find the root causes fir
 - Always use actual integration tests against real components rather than mocked interactions.
 - We can accept synthetic test scenarios (e.g. for stress testing purposes) that still rely on real-world interfaces and data.
 - If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.
+
+## Testing Principles (PyTest Execution)
+
+- Use `scripts/run_tests_parallel.sh` as the only entry point for running tests.  
+- Do not invoke `pytest` directly.  
+- Avoid all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.  
+- Pass all flags explicitly via the script — never rely on hidden config.  
+- Centralize execution. Standardize behavior. Ensure reproducibility.  
+- No implicit state. No config sprawl. No surprises.  
+- Flags over files. CLI over config. Script over scatter.
