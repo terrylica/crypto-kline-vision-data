@@ -11,36 +11,35 @@ alwaysApply: false
 
 Make good use of `caplog` and `utils/logger_setup.py` for PyTest.
 
-- Never use any suppression or silencing techniques to avoid confronting errors or warnings.
+- ***Never*** use any suppression or silencing techniques to avoid confronting errors or warnings.
 - Don't deal with anything related to Options market data. Remove all concerns and codes related to options market.
 - We trade spot and perpetual futures only but never futures with expiration date. Remove all concerns and codes related to futures with expiration dates.
 - Cannot contain any business logics on its own but the purpose is to test the business logics of the target scripts
-- Don't use any pytest.skip(). Handle errors without skipping.
+- Don't use any `pytest.skip()`. Handle errors without skipping.
 - Follow the principle that resources should be properly initialized and cleaned up, especially for network connections.
-- **For pytest-asyncio, ensure consistent event loop behavior and prevent deprecation warnings by explicitly configuring `asyncio_default_fixture_loop_scope = function`. This configuration should be managed either in `pytest.ini` or directly within the test execution script (e.g., `run_tests_parallel.sh`) for self-contained test runs.**
+- ***Explicitly configure `asyncio_default_fixture_loop_scope = function` for `pytest-asyncio`***. This ensures consistent event loop behavior and prevents deprecation warnings.  This configuration should be managed either in `pytest.ini` or, preferably, directly within the test execution script (e.g., `run_tests_parallel.sh`) for self-contained test runs.
 
 ## Problem Solving Approach
 
-On API related issues, always use CURL from terminal to find the root causes first.
+On API related issues, always use `CURL` from terminal to find the root causes first.
 
-- Resolve WARNING with options make available for me to choose from before proceeding further.
-- When encountering API related issues, use terminal-based Curl to find out more before making coding changes.
-- Address deprecation warnings by properly configuring the library settings in configuration files or test execution scripts, rather than suppressing them with warning filters. **Prioritize explicit configuration to ensure consistent and future-proof test behavior.**
-
+- Resolve `WARNING` with options made available for me to choose from *before* proceeding further.
+- When encountering API related issues, use terminal-based `Curl` to find out more *before* making coding changes.
+- Address deprecation warnings by properly configuring the library settings in configuration files or test execution scripts, rather than suppressing them with warning filters. ***Prioritize explicit configuration to ensure consistent and future-proof test behavior.***
 
 ## No Mocking and No Sample Data
 
-- Never use any sample or mock data for PyTest cases but real-world data only.
+- ***Never*** use any sample or mock data for PyTest cases but real-world data only.
 - Always use actual integration tests against real components rather than mocked interactions.
 - We can accept synthetic test scenarios (e.g. for stress testing purposes) that still rely on real-world interfaces and data.
 - If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.
 
 ## Testing Principles (PyTest Execution)
 
-- Use `scripts/run_tests_parallel.sh` as the only entry point for running tests.  
-- Do not invoke `pytest` directly.  
-- Avoid all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.  
-- Pass all flags explicitly via the script — never rely on hidden config.  
-- Centralize execution. Standardize behavior. Ensure reproducibility.  
-- No implicit state. No config sprawl. No surprises.  
+- Use `scripts/run_tests_parallel.sh` as the *only* entry point for running tests.
+- Do not invoke `pytest` directly.
+- *Avoid* all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
+- Pass all flags *explicitly* via the script — never rely on hidden config.
+- Centralize execution. Standardize behavior. Ensure reproducibility.
+- No implicit state. No config sprawl. No surprises.
 - Flags over files. CLI over config. Script over scatter.
