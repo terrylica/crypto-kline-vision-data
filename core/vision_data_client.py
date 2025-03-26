@@ -39,6 +39,7 @@ from utils.download_handler import VisionDownloadManager
 from core.vision_constraints import FileExtensions
 from utils.config import create_empty_dataframe
 from utils.http_client_factory import create_client
+from utils.api_boundary_validator import ApiBoundaryValidator
 from core.vision_constraints import (
     TimestampedDataFrame,
     MAX_CONCURRENT_DOWNLOADS,
@@ -316,12 +317,13 @@ class VisionDataClient(Generic[T]):
         start_time = TimeRangeManager.enforce_utc_timezone(start_time)
         end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
-        # Apply manual alignment to match REST API behavior
-        aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+        # Get time boundaries using ApiBoundaryValidator
+        api_validator = ApiBoundaryValidator()
+        aligned_start, aligned_end = api_validator.align_time_boundaries(
             start_time, end_time, self.interval_obj
         )
-        aligned_start = aligned_boundaries["adjusted_start"]
-        aligned_end = aligned_boundaries["adjusted_end"]
+        start_time = aligned_start
+        end_time = aligned_end
 
         logger.info(
             f"Vision API request with aligned boundaries: {aligned_start} -> {aligned_end} "
@@ -385,12 +387,13 @@ class VisionDataClient(Generic[T]):
 
         TimeRangeManager.validate_time_window(start_time, end_time)
 
-        # Get time boundaries using the helper function
-        time_boundaries = ApiBoundaryValidator.get_time_boundaries(
+        # Get time boundaries using ApiBoundaryValidator
+        api_validator = ApiBoundaryValidator()
+        aligned_start, aligned_end = api_validator.align_time_boundaries(
             start_time, end_time, self.interval_obj
         )
-        start_time = time_boundaries["adjusted_start"]
-        end_time = time_boundaries["adjusted_end"]
+        start_time = aligned_start
+        end_time = aligned_end
 
         logger.info(
             f"Fetching {self.symbol} {self.interval} data: "
@@ -417,7 +420,8 @@ class VisionDataClient(Generic[T]):
             if not df.empty:
                 # Validate data integrity
                 self._validator.validate_dataframe(df)
-                TimeRangeManager.validate_boundaries(df, start_time, end_time)
+                # Filter DataFrame to ensure it's within the requested time boundaries
+                df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
                 logger.info(f"Successfully fetched {len(df)} records")
                 return df
 
