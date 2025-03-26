@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """Tests for integration of ApiBoundaryValidator with CacheValidator class."""
 
+# pylint: disable=redefined-outer-name
+# This disable is needed because pytest fixtures are used as function parameters
+
 import pytest
 import pandas as pd
 import numpy as np

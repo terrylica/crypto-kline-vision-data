@@ -157,9 +157,19 @@ async def data_source_manager(
 
 @pytest.mark.asyncio
 async def test_unified_caching_through_manager(
-    data_source_manager: DataSourceManager, temp_cache_dir: Path, caplog
+    data_source_manager: DataSourceManager,
+    temp_cache_dir: Path,
+    caplog,
+    get_safe_test_time_range,
 ):
-    """Test that caching works through DataSourceManager with UnifiedCacheManager."""
+    """Test that caching works through DataSourceManager with UnifiedCacheManager.
+
+    Following pytest-construction.mdc guidelines:
+    - Uses real-world data only from reliable historical dates
+    - Tests actual caching behavior with strict assertions
+    - No skipping tests or handling edge cases that shouldn't occur with proper setup
+    """
+    # Set up test parameters with guaranteed historical date
     start_time, end_time = get_safe_test_time_range(timedelta(minutes=10))
     symbol = "BTCUSDT"
     interval = Interval.SECOND_1
@@ -173,15 +183,22 @@ async def test_unified_caching_through_manager(
         enforce_source=DataSource.VISION,
     )
 
+    # Verify we received data - this should always succeed with our safe time range
+    assert (
+        not df1.empty
+    ), "Historical data fetch should return data for the known good date range"
+
     # Check for cache miss in the first fetch
     assert any(
         "Cache miss" in record.message for record in caplog.records
     ), "No cache miss log on first fetch"
 
     # Check that we successfully cached data
-    assert any(
+    cache_created = any(
         record.message.startswith("Cached") for record in caplog.records
-    ), "No cache creation log messages found"
+    )
+    cache_files = list(temp_cache_dir.rglob("*.arrow"))
+    assert len(cache_files) > 0, "Cache files should be created"
 
     # Clear log records before second fetch
     caplog.clear()
@@ -195,17 +212,23 @@ async def test_unified_caching_through_manager(
         enforce_source=DataSource.VISION,
     )
 
+    # Verify we received data again
+    assert not df2.empty, "Second fetch should return data from cache"
+
     # Check for cache hit in the second fetch
+    assert any(
+        "Cache hit" in record.message for record in caplog.records
+    ), "Should have cache hit log messages on second fetch"
     assert not any(
         "Cache miss" in record.message for record in caplog.records
-    ), "Unexpected cache miss on second fetch"
+    ), "Should not have cache miss on second fetch"
 
     # Verify both results are identical
     pd.testing.assert_frame_equal(df1, df2)
 
-    # Verify cache files exist
-    cache_files = list(temp_cache_dir.rglob("*.arrow"))
-    assert len(cache_files) > 0, "No cache files were created"
+    # Verify cache statistics show at least one hit
+    stats = data_source_manager.get_cache_stats()
+    assert stats["hits"] > 0, "Cache hit not recorded in stats"
 
 
 @pytest.mark.asyncio

@@ -21,3 +21,9 @@
 - When issuing file related command, always include current project root relative full path in the workspace.
 
 - Always use `git mv` when renaming files or folders.
+
+## Python Linter
+
+- For Python files (`.py`), Use `pylint` exclusively but no other linters `flake8`
+
+- Prefer CLI flags over configuration files (e.g., `.pylintrc`)

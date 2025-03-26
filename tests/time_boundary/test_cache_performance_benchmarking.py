@@ -33,7 +33,6 @@ import pytest_asyncio
 from utils.logger_setup import get_logger
 from core.data_source_manager import DataSourceManager
 from utils.market_constraints import Interval, MarketType
-from utils.test_utils import get_safe_test_time_range
 
 logger = get_logger(__name__, "INFO", show_path=False)
 
@@ -136,7 +135,9 @@ async def manager() -> AsyncGenerator[DataSourceManager, None]:
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_basic_cache_performance(manager: DataSourceManager) -> None:
+async def test_basic_cache_performance(
+    manager: DataSourceManager, get_safe_test_time_range
+) -> None:
     """Test basic cache performance with cold and warm cache scenarios."""
     logger.info("")
     logger.info(
@@ -223,7 +224,9 @@ async def test_basic_cache_performance(manager: DataSourceManager) -> None:
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_cache_vs_no_cache_comparison(manager: DataSourceManager) -> None:
+async def test_cache_vs_no_cache_comparison(
+    manager: DataSourceManager, get_safe_test_time_range
+) -> None:
     """Compare performance between cached and non-cached data retrieval."""
     logger.info("")
     logger.info(
@@ -311,7 +314,9 @@ async def test_cache_vs_no_cache_comparison(manager: DataSourceManager) -> None:
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_geometric_range_performance(manager: DataSourceManager) -> None:
+async def test_geometric_range_performance(
+    manager: DataSourceManager, get_safe_test_time_range
+) -> None:
     """Test cache performance with geometrically increasing data ranges."""
     logger.info("")
     logger.info(

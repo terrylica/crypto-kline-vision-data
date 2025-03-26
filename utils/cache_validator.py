@@ -5,14 +5,15 @@ This module provides standardized tools for validating cache integrity, checksum
 and metadata across different components to reduce duplication and ensure consistency.
 """
 
+import asyncio
 import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Optional, Any, NamedTuple, Sequence
+from typing import Dict, Optional, Any, NamedTuple, Sequence, Union
+from dataclasses import dataclass
+
 import pandas as pd
 import pyarrow as pa
-import time
-import asyncio
 
 from utils.logger_setup import get_logger
 from utils.validation import DataFrameValidator
@@ -20,6 +21,9 @@ from utils.market_constraints import Interval
 from utils.api_boundary_validator import ApiBoundaryValidator
 
 logger = get_logger(__name__, "INFO", show_path=False)
+
+# Default symbol for tests
+TEST_SYMBOL = "BTCUSDT"
 
 
 class CacheValidationError(NamedTuple):
@@ -75,7 +79,7 @@ class SafeMemoryMap:
     async def safely_read_arrow_file(
         cls, path: Path, columns: Optional[Sequence[str]] = None
     ) -> Optional[pd.DataFrame]:
-        """Safely read Arrow file with error handling.
+        """Safely read an Arrow file without blocking the event loop.
 
         Args:
             path: Path to Arrow file
@@ -90,7 +94,7 @@ class SafeMemoryMap:
             return await loop.run_in_executor(
                 None, lambda: cls._read_arrow_file_impl(path, columns)
             )
-        except Exception as e:
+        except (IOError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
             logger.error(f"Error reading Arrow file {path}: {e}")
             return None
 
@@ -142,6 +146,27 @@ class SafeMemoryMap:
                     df.index = df.index.tz_localize("UTC")
 
                 return df
+
+
+@dataclass
+class ValidationOptions:
+    """Options for cache data validation."""
+
+    allow_empty: bool = False
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    interval: Optional[Interval] = None
+    symbol: str = "BTCUSDT"
+
+
+@dataclass
+class AlignmentOptions:
+    """Options for aligning cache data to API boundaries."""
+
+    start_time: datetime
+    end_time: datetime
+    interval: Interval
+    symbol: str = "BTCUSDT"
 
 
 class CacheValidator:
@@ -214,7 +239,7 @@ class CacheValidator:
 
             return None
 
-        except Exception as e:
+        except (OSError, IOError, PermissionError, ValueError) as e:
             return CacheValidationError(
                 ERROR_TYPES["FILE_SYSTEM"],
                 f"Error validating cache: {str(e)}",
@@ -235,7 +260,7 @@ class CacheValidator:
         try:
             current_checksum = CacheValidator.calculate_checksum(cache_path)
             return current_checksum == stored_checksum
-        except Exception as e:
+        except (IOError, OSError, ValueError) as e:
             logger.error(f"Error validating cache checksum: {e}")
             return False
 
@@ -277,27 +302,45 @@ class CacheValidator:
     async def validate_cache_data(
         self,
         df: pd.DataFrame,
-        allow_empty: bool = False,
+        options: ValidationOptions = None,
+        allow_empty: bool = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         interval: Optional[Interval] = None,
-        symbol: str = "BTCUSDT",
+        symbol: str = None,
     ) -> Optional[CacheValidationError]:
         """Validate cached data DataFrame.
 
         Args:
             df: DataFrame to validate
-            allow_empty: Whether to allow empty DataFrame
-            start_time: Optional start time for boundary validation
-            end_time: Optional end time for boundary validation
-            interval: Optional interval for boundary validation
-            symbol: Symbol for API validation
+            options: Validation options including time boundaries and symbol
+            allow_empty: Optional flag to allow empty DataFrames
+            start_time: Optional start time for validation
+            end_time: Optional end time for validation
+            interval: Optional interval for validation
+            symbol: Optional symbol for validation
 
         Returns:
             ValidationError if invalid, None if valid
         """
+        # Use default options if none provided
+        if options is None:
+            options = ValidationOptions()
+
+        # Override options with individual parameters if provided
+        if allow_empty is not None:
+            options.allow_empty = allow_empty
+        if start_time is not None:
+            options.start_time = start_time
+        if end_time is not None:
+            options.end_time = end_time
+        if interval is not None:
+            options.interval = interval
+        if symbol is not None:
+            options.symbol = symbol
+
         # Check if DataFrame is empty
-        if df.empty and not allow_empty:
+        if df.empty and not options.allow_empty:
             return CacheValidationError(
                 ERROR_TYPES["VALIDATION"],
                 "DataFrame is empty",
@@ -317,15 +360,19 @@ class CacheValidator:
         # Validate API boundaries if validator is available and we have all required parameters
         if (
             self.api_boundary_validator
-            and start_time
-            and end_time
-            and interval
+            and options.start_time
+            and options.end_time
+            and options.interval
             and not df.empty
         ):
             try:
                 # Use ApiBoundaryValidator to validate cache data matches REST API behavior
                 is_api_aligned = await self.api_boundary_validator.does_data_range_match_api_response(
-                    df, start_time, end_time, interval, symbol
+                    df,
+                    options.start_time,
+                    options.end_time,
+                    options.interval,
+                    options.symbol,
                 )
 
                 if not is_api_aligned:
@@ -336,8 +383,8 @@ class CacheValidator:
                     )
 
                 logger.debug("Cache data boundaries match REST API behavior")
-            except Exception as e:
-                logger.warning(f"API boundary validation failed: {e}")
+            except (ValueError, RuntimeError, IOError, ConnectionError) as e:
+                logger.warning("API boundary validation failed: %s", e)
                 # Don't fail cache validation just because API validation failed
                 # This keeps the system robust even if we can't reach the API
 
@@ -376,9 +423,39 @@ class CacheValidator:
             DataFrame or None if read fails
         """
         try:
-            return SafeMemoryMap._read_arrow_file_impl(file_path, columns)
-        except Exception as e:
-            logger.error(f"Error reading Arrow file {file_path}: {e}")
+            # Use a local copy of the implementation to avoid protected member access
+            with SafeMemoryMap(file_path) as source:
+                with pa.ipc.open_file(source) as reader:
+                    if columns:
+                        # Ensure index column is included
+                        all_cols = reader.schema.names
+                        if "open_time" in all_cols and "open_time" not in columns:
+                            cols_to_read = ["open_time"] + list(columns)
+                        else:
+                            cols_to_read = list(columns)
+                        table = reader.read_all().select(cols_to_read)
+                    else:
+                        table = reader.read_all()
+
+                    df = table.to_pandas(
+                        zero_copy_only=False,  # More robust but might copy data
+                        date_as_object=False,
+                        use_threads=True,
+                    )
+
+                    # Set index if needed
+                    if "open_time" in df.columns and df.index.name != "open_time":
+                        df.set_index("open_time", inplace=True)
+
+                    # Ensure index is datetime with timezone
+                    if not isinstance(df.index, pd.DatetimeIndex):
+                        df.index = pd.to_datetime(df.index, utc=True)
+                    elif df.index.tz is None:
+                        df.index = df.index.tz_localize("UTC")
+
+                    return df
+        except (IOError, OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
+            logger.error("Error reading Arrow file %s: %s", file_path, e)
             return None
 
     @staticmethod
@@ -399,25 +476,25 @@ class CacheValidator:
     async def align_cached_data_to_api_boundaries(
         self,
         df: pd.DataFrame,
-        start_time: datetime,
-        end_time: datetime,
-        interval: Interval,
-        symbol: str = "BTCUSDT",
+        options_or_start_time: Union[AlignmentOptions, datetime] = None,
+        end_time_or_interval: Optional[Union[datetime, Interval]] = None,
+        interval_or_symbol: Optional[Union[Interval, str]] = None,
+        symbol: str = None,
     ) -> pd.DataFrame:
         """Align cache data to match what would be returned by the Binance REST API.
 
         Args:
             df: DataFrame containing cached data
-            start_time: Original start time requested
-            end_time: Original end time requested
-            interval: Data interval
-            symbol: Trading pair symbol
+            options_or_start_time: Either AlignmentOptions object or start_time
+            end_time_or_interval: Either end_time (if options_or_start_time is start_time) or interval
+            interval_or_symbol: Either interval (if options_or_start_time is start_time) or symbol
+            symbol: Symbol for alignment
 
         Returns:
             DataFrame aligned to REST API boundaries
 
         Raises:
-            ValueError: If ApiBoundaryValidator is not provided
+            ValueError: If ApiBoundaryValidator is not provided or if required parameters are missing
         """
         if df.empty:
             return df
@@ -427,9 +504,55 @@ class CacheValidator:
                 "ApiBoundaryValidator is required for cache data alignment"
             )
 
+        # Check if we're using the old or new parameter pattern
+        if isinstance(options_or_start_time, datetime):
+            # Old pattern: start_time, end_time, interval, symbol
+            start_time = options_or_start_time
+            end_time = end_time_or_interval
+            interval = interval_or_symbol
+            symbol_param = symbol or "BTCUSDT"
+
+            if start_time is None or end_time is None or interval is None:
+                raise ValueError(
+                    "start_time, end_time, and interval parameters must be provided"
+                )
+
+            options = AlignmentOptions(
+                start_time=start_time,
+                end_time=end_time,
+                interval=interval,
+                symbol=symbol_param,
+            )
+        else:
+            # New pattern: options, start_time, end_time, interval, symbol
+            options = options_or_start_time or AlignmentOptions(
+                start_time=datetime.now(timezone.utc),
+                end_time=datetime.now(timezone.utc) + timedelta(hours=1),
+                interval=Interval.MINUTE_1,
+            )
+
+            # Handle potential overrides
+            if isinstance(end_time_or_interval, datetime):
+                options.start_time = options_or_start_time
+                options.end_time = end_time_or_interval
+                options.interval = interval_or_symbol
+                if symbol:
+                    options.symbol = symbol
+            else:
+                # These might be individual parameter overrides
+                if end_time_or_interval is not None:
+                    options.end_time = end_time_or_interval
+                if interval_or_symbol is not None:
+                    options.interval = interval_or_symbol
+                if symbol is not None:
+                    options.symbol = symbol
+
         # Get expected API boundaries for these parameters
         api_boundaries = await self.api_boundary_validator.get_api_boundaries(
-            start_time, end_time, interval, symbol=symbol
+            options.start_time,
+            options.end_time,
+            options.interval,
+            symbol=options.symbol,
         )
 
         if api_boundaries["record_count"] == 0:
@@ -439,11 +562,19 @@ class CacheValidator:
         # Filter DataFrame to match API boundaries
         api_start_time = api_boundaries["api_start_time"]
         api_end_time = api_boundaries["api_end_time"]
-
-        # Inclusive start, inclusive end for filtering (matches API behavior)
         aligned_df = df[(df.index >= api_start_time) & (df.index <= api_end_time)]
 
         return aligned_df
+
+
+@dataclass
+class CachePathOptions:
+    """Options for cache path generation."""
+
+    exchange: str = "binance"
+    market_type: str = "spot"
+    data_nature: str = "klines"
+    packaging_frequency: str = "daily"
 
 
 class CacheKeyManager:
@@ -471,10 +602,11 @@ class CacheKeyManager:
         symbol: str,
         interval: str,
         date: datetime,
-        exchange: str = "binance",
-        market_type: str = "spot",
-        data_nature: str = "klines",
-        packaging_frequency: str = "daily",
+        options: CachePathOptions = None,
+        exchange: str = None,
+        market_type: str = None,
+        data_nature: str = None,
+        packaging_frequency: str = None,
     ) -> Path:
         """Generate standardized cache path.
 
@@ -486,14 +618,28 @@ class CacheKeyManager:
             symbol: Trading pair symbol
             interval: Time interval
             date: Target date
-            exchange: Exchange name
-            market_type: Type of market
-            data_nature: Type of data
-            packaging_frequency: Packaging frequency
+            options: Cache path options with exchange, market type, data nature, etc.
+            exchange: Optional custom exchange (overrides options if provided)
+            market_type: Optional custom market type (overrides options if provided)
+            data_nature: Optional custom data nature (overrides options if provided)
+            packaging_frequency: Optional custom packaging frequency (overrides options if provided)
 
         Returns:
             Path object for cache file
         """
+        if options is None:
+            options = CachePathOptions()
+
+        # Override options with individual parameters if provided
+        if exchange is not None:
+            options.exchange = exchange
+        if market_type is not None:
+            options.market_type = market_type
+        if data_nature is not None:
+            options.data_nature = data_nature
+        if packaging_frequency is not None:
+            options.packaging_frequency = packaging_frequency
+
         # Format date for filename
         year_month_day = date.strftime("%Y%m%d")
 
@@ -504,10 +650,10 @@ class CacheKeyManager:
         # Generate path with standardized structure
         path = (
             cache_dir
-            / exchange
-            / market_type
-            / data_nature
-            / packaging_frequency
+            / options.exchange
+            / options.market_type
+            / options.data_nature
+            / options.packaging_frequency
             / symbol
             / interval
         )
@@ -528,14 +674,14 @@ class VisionCacheManager:
     async def save_to_cache(
         df: pd.DataFrame,
         cache_path: Path,
-        start_time: datetime,
+        date_or_unused: Any = None,
     ) -> tuple[str, int]:
         """Save data to cache in Arrow format.
 
         Args:
             df: DataFrame to cache
             cache_path: Path to cache file
-            start_time: Start time for data
+            date_or_unused: Optional date parameter (kept for backward compatibility)
 
         Returns:
             Tuple of (checksum, record count)
@@ -562,20 +708,31 @@ class VisionCacheManager:
 
             # Log cache save info
             logger.info(
-                f"Saved {record_count} records to cache at {cache_path}. Size: {cache_path.stat().st_size} bytes"
+                "Saved %d records to cache at %s. Size: %d bytes",
+                record_count,
+                cache_path,
+                cache_path.stat().st_size,
             )
 
             return checksum, record_count
-        except Exception as e:
-            logger.error(f"Error saving to cache: {e}")
+        except (
+            IOError,
+            OSError,
+            pa.ArrowException,
+            pa.ArrowInvalid,
+            pa.ArrowIOError,
+        ) as e:
+            logger.error("Error saving to cache: %s", e)
             # If there was an error, attempt to clean up partial file
             if cache_path.exists():
                 try:
                     cache_path.unlink()
-                    logger.info(f"Removed partial cache file after error: {cache_path}")
-                except Exception as cleanup_error:
+                    logger.info(
+                        "Removed partial cache file after error: %s", cache_path
+                    )
+                except (IOError, OSError, PermissionError) as cleanup_error:
                     logger.error(
-                        f"Failed to clean up partial cache file: {cleanup_error}"
+                        "Failed to clean up partial cache file: %s", cleanup_error
                     )
             return "", 0
 
@@ -596,7 +753,7 @@ class VisionCacheManager:
             # Validate cache file exists and is not too old
             error = CacheValidator.validate_cache_integrity(cache_path)
             if error:
-                logger.warning(f"Cache validation failed: {error.message}")
+                logger.warning("Cache validation failed: %s", error.message)
                 return None
 
             # Read the file
@@ -605,13 +762,13 @@ class VisionCacheManager:
                 return None
 
             if df.empty:
-                logger.warning(f"Cache file is empty: {cache_path}")
+                logger.warning("Cache file is empty: %s", cache_path)
                 return None
 
             logger.info(
-                f"Successfully loaded {len(df)} records from cache: {cache_path}"
+                "Successfully loaded %d records from cache: %s", len(df), cache_path
             )
             return df
-        except Exception as e:
-            logger.error(f"Error loading from cache: {e}")
+        except (IOError, OSError, ValueError, pa.ArrowInvalid, pa.ArrowIOError) as e:
+            logger.error("Error loading from cache: %s", e)
             return None

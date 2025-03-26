@@ -13,7 +13,7 @@ RUN pip3 install pandas==2.2.1 numpy==1.24.4 numba==0.60.0 \
     psutil arrow pyarrow>=19.0.1 httpx
 
 # Install Python dependencies for development
-RUN pip3 install twine pytest pytest-asyncio pytest-cov pytest-xdist mypy pylint flake8 black isort
+RUN pip3 install twine pytest pytest-asyncio pytest-cov pytest-xdist pylint
 
 # Add .local/bin to PATH for the vscode user to remove WARNINGs
 RUN echo "export PATH=\$PATH:/home/vscode/.local/bin" >> /home/vscode/.bashrc

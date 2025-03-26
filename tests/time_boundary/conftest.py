@@ -61,6 +61,48 @@ def temp_cache_dir():
 
 
 @pytest.fixture
+def get_safe_test_time_range():
+    """Generate a time range that's safely beyond the Vision API consolidation delay.
+
+    This function returns a known historical date range that is guaranteed to have
+    data available in the Binance Vision API. It uses fixed dates from 2022 that
+    are stable and well-established in the historical data archives.
+
+    Following pytest-construction.mdc guidelines:
+    - Uses real-world data only (no mocking)
+    - Focuses on reliable historical dates to prevent test skipping
+    - Ensures consistent tests by using known good data periods
+
+    Args:
+        duration: Duration of the time range (default: 1 hour)
+
+    Returns:
+        Tuple of (start_time, end_time) in UTC, rounded to nearest second
+    """
+
+    def _get_safe_test_time_range(duration: timedelta = timedelta(hours=1)):
+        # Use a guaranteed date that will always have data in the Vision API
+        # June 15, 2022 is a stable historical date with confirmed data availability
+        # This is well beyond any consolidation delays and historical
+        # data purge policies
+        start_time = datetime(2022, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        end_time = start_time + duration
+
+        # Constrain end time to be within same day if the duration is small
+        # This helps avoid day boundary issues with the Vision API
+        if duration < timedelta(days=1):
+            end_of_day = datetime(2022, 6, 15, 23, 59, 59, tzinfo=timezone.utc)
+            end_time = min(end_time, end_of_day)
+
+        logger.info(
+            f"Using Vision API safe historical time range: {start_time} to {end_time}"
+        )
+        return start_time, end_time
+
+    return _get_safe_test_time_range
+
+
+@pytest.fixture
 async def sample_ohlcv_data():
     """Retrieve real OHLCV data from Binance API for 1-second interval tests.
 

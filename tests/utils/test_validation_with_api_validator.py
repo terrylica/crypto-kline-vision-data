@@ -1,20 +1,21 @@
 #!/usr/bin/env python
-"""Tests for integration of ApiBoundaryValidator with DataValidation class."""
+"""Tests for DataValidation with ApiBoundaryValidator."""
+
+# pylint: disable=redefined-outer-name
+# This disable is needed because pytest fixtures are used as function parameters
+
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pandas as pd
-from datetime import datetime, timezone, timedelta
-import httpx
-
-from utils.validation import DataValidation
 from utils.api_boundary_validator import ApiBoundaryValidator
 from utils.market_constraints import Interval, MarketType
+from utils.validation import DataValidation
 from utils.logger_setup import get_logger
 
 # Configure logger
 logger = get_logger(__name__, "INFO")
 
-# Test symbol - using a common symbol with liquidity
+# Test constants
 TEST_SYMBOL = "BTCUSDT"
 
 # Configure pytest-asyncio default event loop scope
@@ -139,7 +140,7 @@ async def test_error_handling(data_validator):
             assert (
                 boundaries["api_start_time"] is None or boundaries["record_count"] == 0
             ), "Should have no valid data"
-    except Exception as e:
+    except (ValueError, RuntimeError, KeyError) as e:
         # Also okay if it throws an exception
         assert str(e), "Exception should have a message"
 

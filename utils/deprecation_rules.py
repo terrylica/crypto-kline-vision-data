@@ -47,8 +47,6 @@ logger = get_logger(__name__, "INFO", show_path=False)
 class IntervalParseError(ValueError):
     """Custom exception for interval parsing errors."""
 
-    pass
-
 
 class TimeUnit(str, enum.Enum):
     """Enumeration of valid time units with their pandas-compliant formats."""
@@ -60,6 +58,44 @@ class TimeUnit(str, enum.Enum):
     WEEK = "W"
     MONTH = "M"
     YEAR = "Y"
+
+    @property
+    def symbol(self) -> str:
+        """Get the symbol representation of the time unit.
+
+        Returns:
+            String symbol for this time unit
+        """
+        # For most units, the symbol is the same as the value
+        # For units that might have different representations, we could add special cases
+        return self.value
+
+    @property
+    def micros(self) -> int:
+        """Get the microseconds equivalent for this time unit.
+
+        Returns:
+            Number of microseconds in this time unit
+        """
+        _micros_map = {
+            self.SECOND: 1_000_000,  # 1 second
+            self.MINUTE: 60_000_000,  # 1 minute
+            self.HOUR: 3_600_000_000,  # 1 hour
+            self.DAY: 86_400_000_000,  # 1 day
+            self.WEEK: 604_800_000_000,  # 1 week
+            self.MONTH: 2_592_000_000_000,  # 30 days (approximate month)
+            self.YEAR: 31_536_000_000_000,  # 365 days (approximate year)
+        }
+        return _micros_map[self]
+
+    @classmethod
+    def get_all_units(cls) -> list[TimeUnit]:
+        """Return all available time units.
+
+        Returns:
+            List of all TimeUnit enum values.
+        """
+        return list(cls)
 
     @classmethod
     def from_shorthand(cls, shorthand: str) -> TimeUnit:
@@ -75,11 +111,11 @@ class TimeUnit(str, enum.Enum):
         }
         try:
             return _shorthand_map[shorthand.lower()]
-        except KeyError:
+        except KeyError as exc:
             valid_units = ", ".join(_shorthand_map.keys())
             raise IntervalParseError(
                 f"Invalid time unit '{shorthand}'. Valid units are: {valid_units}"
-            )
+            ) from exc
 
     @classmethod
     def from_market_interval(cls, interval: MarketInterval) -> TimeUnit:
@@ -146,13 +182,17 @@ class Interval:
 
         try:
             value = int(numeric)
-        except ValueError:
-            raise IntervalParseError(f"Invalid numeric value in interval: {numeric}")
+        except ValueError as exc:
+            raise IntervalParseError(
+                f"Invalid numeric value in interval: {numeric}"
+            ) from exc
 
         try:
             time_unit = TimeUnit.from_shorthand(unit)
         except IntervalParseError as e:
-            raise IntervalParseError(f"Invalid interval format: {interval}. {str(e)}")
+            raise IntervalParseError(
+                f"Invalid interval format: {interval}. {str(e)}"
+            ) from e
 
         return cls(value=value, unit=time_unit)
 
@@ -190,7 +230,7 @@ class Interval:
                 return result
             raise ValueError("Conversion resulted in NaT")
         except ValueError as e:
-            logger.error(f"Failed to create Timedelta from {timedelta_str}")
+            logger.error("Failed to create Timedelta from %s", timedelta_str)
             raise IntervalParseError(f"Invalid interval: {self}") from e
 
     def __str__(self) -> str:
@@ -205,8 +245,8 @@ def convert_interval_to_timedelta(interval: str) -> pd.Timedelta:
         interval_obj = Interval.from_string(interval)
         return interval_obj.to_pandas_timedelta()
     except IntervalParseError as e:
-        logger.error(f"Failed to parse interval: {interval}")
-        raise IntervalParseError(str(e))
+        logger.error("Failed to parse interval: %s", interval)
+        raise IntervalParseError(str(e)) from e
 
 
 def validate_interval_format(interval: str) -> bool:

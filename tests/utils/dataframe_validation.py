@@ -5,9 +5,10 @@ This module contains common validation functions used across multiple test files
 to ensure consistent validation behavior and reduce code duplication.
 """
 
-import pandas as pd
 from datetime import timezone
 from typing import Any, Optional
+
+import pandas as pd
 
 from utils.logger_setup import get_logger
 
@@ -30,7 +31,7 @@ def validate_dataframe_structure(
     logger.info(
         "╔═══════════════════════════════════════════════════════════════════════════"
     )
-    logger.info(f"║ Structure Validation: {name}")
+    logger.info("║ Structure Validation: %s", name)
     logger.info(
         "╠═══════════════════════════════════════════════════════════════════════════"
     )
@@ -39,7 +40,8 @@ def validate_dataframe_structure(
     if df.empty and not allow_empty:
         logger.error("║ ❌ DataFrame is empty when it should contain data")
         raise AssertionError(f"{name} should not be empty")
-    elif df.empty:
+
+    if df.empty:
         logger.info("║ ℹ️  DataFrame is empty (allowed)")
         logger.info(
             "╚═══════════════════════════════════════════════════════════════════════════"
@@ -51,13 +53,15 @@ def validate_dataframe_structure(
     if isinstance(df.index, pd.DatetimeIndex):
         logger.info("║ ✓ Index is DatetimeIndex")
     else:
-        logger.error(f"║ ❌ Index is {type(df.index).__name__}, expected DatetimeIndex")
+        logger.error(
+            "║ ❌ Index is %s, expected DatetimeIndex", type(df.index).__name__
+        )
         raise AssertionError(f"{name} index should be DatetimeIndex")
 
     if df.index.tz == timezone.utc:
         logger.info("║ ✓ Timezone is UTC")
     else:
-        logger.error(f"║ ❌ Timezone is {df.index.tz}, expected UTC")
+        logger.error("║ ❌ Timezone is %s, expected UTC", df.index.tz)
         raise AssertionError(f"{name} index should be UTC")
 
     if df.index.is_monotonic_increasing:

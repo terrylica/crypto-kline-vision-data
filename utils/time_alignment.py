@@ -12,16 +12,13 @@ and data processing. It includes functions for:
 These utilities ensure consistent data handling across different data sources.
 """
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List, Dict, Any, Union
-import re
-import pandas as pd
-import numpy as np
+from typing import Optional, Tuple, List, Dict, Any
 import logging
-from enum import Enum, auto
+import re
 
-from utils.logger_setup import get_logger
+import pandas as pd
+
 from utils.market_constraints import Interval
 from utils.deprecation_rules import TimeUnit
 
@@ -218,7 +215,8 @@ def is_bar_complete(
     Args:
         timestamp: The bar's timestamp
         interval: The interval specification
-        current_time: Optional current time for testing
+        current_time: Optional current time for testing or comparison.
+                     If None, uses the current UTC time.
 
     Returns:
         bool: True if the bar is complete
@@ -281,38 +279,36 @@ class TimeRangeManager:
     def filter_dataframe(
         df: pd.DataFrame, start_time: datetime, end_time: datetime
     ) -> pd.DataFrame:
-        """Filter dataframe to include only data within the specified time range.
+        """Filter a dataframe based on time boundaries.
 
         Args:
-            df: DataFrame with datetime index
-            start_time: Start time (inclusive)
-            end_time: End time (exclusive)
+            df: Dataframe to filter
+            start_time: Start time boundary (inclusive)
+            end_time: End time boundary (exclusive)
 
         Returns:
-            Filtered DataFrame
+            Filtered dataframe
         """
         if df.empty:
-            return df.copy()
+            return df
 
-        # First, normalize the start_time and end_time
+        # Assert UTC timezone
         start_time = TimeRangeManager.enforce_utc_timezone(start_time)
         end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
-        # Next, check if index is timezone aware and normalize if needed
-        if df.index.tzinfo is None:
-            logger.warning("DataFrame index has no timezone - assuming UTC")
-            df = df.copy()
-            df.index = df.index.tz_localize("UTC")
+        # First check if 'timestamp' or 'open_time' is in columns
+        if "timestamp" in df.columns:
+            time_col = "timestamp"
+            filtered_df = df[(df[time_col] >= start_time) & (df[time_col] < end_time)]
+        elif "open_time" in df.columns:
+            time_col = "open_time"
+            filtered_df = df[(df[time_col] >= start_time) & (df[time_col] < end_time)]
+        else:
+            # If neither in columns, assume the index is the time
+            # This handles cases where 'open_time' is already set as the index
+            filtered_df = df[(df.index >= start_time) & (df.index < end_time)]
 
-        # Filter data using time range
-        mask = (df.index >= start_time) & (df.index < end_time)
-        result = df.loc[mask].copy()
-
-        logger.debug(
-            f"Filtered DataFrame: {len(df)} -> {len(result)} rows, "
-            f"Time range: {start_time.isoformat()} to {end_time.isoformat()}"
-        )
-        return result
+        return filtered_df
 
     @staticmethod
     def align_vision_api_to_rest(
@@ -371,61 +367,3 @@ class TimeRangeManager:
         }
 
         return result
-
-
-def get_interval_floor(dt: datetime, interval: Interval) -> datetime:
-    """Get the floor timestamp for a given datetime and interval.
-
-    This function rounds down a datetime to the nearest interval boundary.
-    For example, with a 5m interval:
-    - 2021-01-01 12:07:30 -> 2021-01-01 12:05:00
-
-    Args:
-        dt: The datetime to floor
-        interval: The interval to floor to
-
-    Returns:
-        Floored datetime
-    """
-    # Ensure datetime is timezone aware
-    dt = TimeRangeManager.enforce_utc_timezone(dt)
-
-    # Get interval in microseconds
-    interval_micros = get_interval_micros(interval)
-
-    # Round down to nearest interval
-    dt_micros = int(dt.timestamp() * 1_000_000)
-    floored_micros = (dt_micros // interval_micros) * interval_micros
-    return datetime.fromtimestamp(floored_micros / 1_000_000, tz=timezone.utc)
-
-
-def get_interval_micros(interval: Interval) -> int:
-    """Convert an interval to microseconds.
-
-    Args:
-        interval: The interval to convert
-
-    Returns:
-        Interval in microseconds
-    """
-    # Mapping of intervals to microseconds
-    interval_to_micros = {
-        Interval.SECOND_1: 1_000_000,  # 1 second
-        Interval.MINUTE_1: 60_000_000,  # 1 minute
-        Interval.MINUTE_3: 180_000_000,  # 3 minutes
-        Interval.MINUTE_5: 300_000_000,  # 5 minutes
-        Interval.MINUTE_15: 900_000_000,  # 15 minutes
-        Interval.MINUTE_30: 1_800_000_000,  # 30 minutes
-        Interval.HOUR_1: 3_600_000_000,  # 1 hour
-        Interval.HOUR_2: 7_200_000_000,  # 2 hours
-        Interval.HOUR_4: 14_400_000_000,  # 4 hours
-        Interval.HOUR_6: 21_600_000_000,  # 6 hours
-        Interval.HOUR_8: 28_800_000_000,  # 8 hours
-        Interval.HOUR_12: 43_200_000_000,  # 12 hours
-        Interval.DAY_1: 86_400_000_000,  # 1 day
-        Interval.DAY_3: 259_200_000_000,  # 3 days
-        Interval.WEEK_1: 604_800_000_000,  # 1 week
-        Interval.MONTH_1: 2_592_000_000_000,  # 30 days (approximate month)
-    }
-
-    return interval_to_micros.get(interval, 1_000_000)  # Default to 1 second
