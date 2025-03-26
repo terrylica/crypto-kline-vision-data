@@ -37,7 +37,7 @@
 #
 # ARGUMENTS:
 #   test_path: (Optional) Path to specific test file or directory to run.
-#              Default: tests/time_boundary (runs tests in the time_boundary directory).
+#              Default: tests/ (runs tests in the tests directory).
 #              Examples: tests/, tests/time_boundary/, tests/test_specific.py
 #              If -i or --interactive is used, this argument is ignored, and the
 #              test path is selected interactively.
@@ -59,7 +59,7 @@
 #                           with specific markers).
 #
 # EXAMPLES:
-#   # 1. Run all tests in the tests/time_boundary directory with standard logging:
+#   # 1. Run all tests in the tests/ directory with standard logging:
 #   #    (Default behavior if no arguments are provided)
 #   ./scripts/run_tests_parallel.sh
 #
@@ -110,10 +110,57 @@
 
 set -e
 
+# Define colors for better formatting
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
 # Simple script configuration
 SCRIPT_DIR=$(dirname "$0")
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
+
+# Function to display help based on verbosity level
+show_help() {
+  local verbosity=$1
+
+  # Always show the header
+  echo -e "${BOLD}${BLUE}======================================================${NC}"
+  echo -e "${BOLD}${GREEN}            PYTEST PARALLEL TEST RUNNER              ${NC}"
+  echo -e "${BOLD}${BLUE}======================================================${NC}"
+  
+  if [[ "$verbosity" == "minimal" ]]; then
+    # Minimal help - just the basics for normal operation
+    echo -e "${YELLOW}Run:${NC} ${CYAN}./scripts/run_tests_parallel.sh -h${NC} ${YELLOW}for full help${NC}"
+    echo -e ""
+  else
+    # Full help information
+    echo -e "${YELLOW}Usage:${NC} ./scripts/run_tests_parallel.sh [options] [test_path] [log_level] [additional_pytest_args]"
+    echo -e ""
+    echo -e "${YELLOW}Options:${NC}"
+    echo -e "  ${GREEN}-i, --interactive${NC} : Select tests interactively"
+    echo -e "  ${GREEN}-h, --help${NC}        : Show this detailed help"
+    echo -e ""
+    echo -e "${YELLOW}Arguments:${NC}"
+    echo -e "  ${GREEN}test_path${NC}            : Path to test file/directory (default: ${CYAN}tests/${NC})"
+    echo -e "  ${GREEN}log_level${NC}            : Verbosity level (${CYAN}DEBUG${NC}|${CYAN}INFO${NC}|${CYAN}WARNING${NC}|${CYAN}ERROR${NC}) (default: ${CYAN}INFO${NC})"
+    echo -e "  ${GREEN}additional_pytest_args${NC}: Extra arguments passed to pytest"
+    echo -e ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh${NC}                  : Run all tests"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -i${NC}               : Interactive mode"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/cache${NC}      : Run specific tests"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/ DEBUG${NC}     : With debug logging"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/ INFO -k test${NC}: Filter by test name"
+  fi
+  
+  echo -e "${BOLD}${BLUE}======================================================${NC}"
+  echo -e ""
+}
 
 # Function to get all test paths (tracked and untracked)
 get_test_paths() {
@@ -152,6 +199,15 @@ get_test_paths() {
   # Return all paths as an array
   printf '%s\n' "${all_dirs[@]}" "${all_files[@]}"
 }
+
+# Check if help is requested
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help "full"
+  exit 0
+else
+  # Show minimal help at the beginning
+  show_help "minimal"
+fi
 
 # Check for interactive mode
 INTERACTIVE=false
@@ -200,7 +256,7 @@ if $INTERACTIVE; then
   LOG_LEVEL=${1:-INFO}
   shift 1 2>/dev/null || shift $# 2>/dev/null || true
 else
-  TEST_PATH=${1:-tests/time_boundary}  # Default to time_boundary tests if not specified
+  TEST_PATH=${1:-tests/}  # Default to tests/ directory if not specified
   LOG_LEVEL=${2:-INFO}               # Default to INFO log level
   shift 2 2>/dev/null || shift $# 2>/dev/null || true
 fi
