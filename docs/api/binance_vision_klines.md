@@ -76,15 +76,15 @@ The Data Source Manager includes utilities for cache management using the `Cache
 ### Cache Key Format
 
 ```python
-# Key format: {exchange}_{market_type}_{data_nature}_{packaging_frequency}_{symbol}_{interval}_{YYYYMM}
-cache_key = f"{{exchange}}_{{market_type}}_{{data_nature}}_{{packaging_frequency}}_{{symbol}}_{{interval}}_{{date.strftime('%Y%m')}}"
+# Key format: {exchange}_{market_type}_{data_nature}_{packaging_frequency}_{symbol}_{interval}_{YYYY-MM-DD}
+cache_key = f"{exchange}_{market_type}_{data_nature}_{packaging_frequency}_{symbol}_{interval}_{date.strftime('%Y-%m-%d')}"
 ```
 
 ### Cache Path Structure
 
 ```python
-# Path structure: {cache_dir}/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{symbol}/{interval}/{YYYYMM}.arrow
-cache_path = cache_dir / exchange / market_type / data_nature / packaging_frequency / symbol / interval / f"{{year_month}}.arrow"
+# Path structure: {cache_dir}/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{symbol}/{interval}/{YYYY-MM-DD}.arrow
+cache_path = cache_dir / exchange / market_type / data_nature / packaging_frequency / symbol / interval / f"{date.strftime('%Y-%m-%d')}.arrow"
 ```
 
 ### File Format
@@ -95,6 +95,45 @@ Data is cached in Apache Arrow format (`.arrow` files) for efficient storage and
 2. Lower memory usage for large datasets
 3. Column-oriented storage for optimized query performance
 4. Preserved data types and schema
+
+#### Arrow File Structure
+
+The Arrow cache files maintain a standardized schema:
+
+| Column Name            | Data Type     | Description                                        | Index |
+| ---------------------- | ------------- | -------------------------------------------------- | ----- |
+| open_time              | Timestamp[ns] | Candle open time (used as index with UTC timezone) | Yes   |
+| open                   | Float64       | Opening price of the candle                        | No    |
+| high                   | Float64       | Highest price during the candle period             | No    |
+| low                    | Float64       | Lowest price during the candle period              | No    |
+| close                  | Float64       | Closing price of the candle                        | No    |
+| volume                 | Float64       | Trading volume during the candle period            | No    |
+| close_time             | Timestamp[ns] | Candle close time (with UTC timezone)              | No    |
+| quote_asset_volume     | Float64       | Volume in the quote currency                       | No    |
+| number_of_trades       | Int64         | Number of trades executed during the period        | No    |
+| taker_buy_base_volume  | Float64       | Base asset volume from taker buy orders            | No    |
+| taker_buy_quote_volume | Float64       | Quote asset volume from taker buy orders           | No    |
+
+#### Data Processing and Storage
+
+When data is cached:
+
+1. The DataFrame is indexed by `open_time` with UTC timezone
+2. Duplicate records are removed to ensure data integrity
+3. A SHA-256 checksum is generated and stored for data verification
+4. Records are sorted by the `open_time` index to maintain temporal order
+5. Each Arrow file corresponds to a single day's data for a specific symbol and interval
+
+#### Reading Cached Data
+
+The `VisionCacheManager` provides utilities for reading cached data with features such as:
+
+- Memory mapping for efficient loading of large files
+- Optional column filtering to reduce memory usage
+- Automatic timezone handling (ensuring UTC timezone)
+- Index validation and sorting
+
+The `SafeMemoryMap` context manager ensures proper resource cleanup when accessing cached Arrow files.
 
 The `VisionCacheManager` handles saving and loading data with features like:
 

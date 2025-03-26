@@ -47,6 +47,50 @@ The primary goals of this cache structure upgrade are:
 - **Estimated Effort:** Low
 - **Timeline:** 1 day
 
+#### Sample Implementation
+
+```python
+@staticmethod
+def get_cache_path(
+    cache_dir: Path,
+    symbol: str,
+    interval: str,
+    date: datetime,
+    exchange: str = "binance",
+    market_type: str = "spot",
+    data_nature: str = "klines",
+    packaging_frequency: str = "daily",
+) -> Path:
+    """Get cache file path for a specific date.
+
+    Args:
+        cache_dir: Base cache directory
+        symbol: Trading pair symbol (e.g., BTCUSDT)
+        interval: Time interval (e.g., 1m, 1h)
+        date: Date for the cache file
+        exchange: Exchange name (default: binance)
+        market_type: Market type (default: spot)
+        data_nature: Data nature (default: klines)
+        packaging_frequency: Packaging frequency (default: daily)
+
+    Returns:
+        Path to the cache file
+    """
+    # Format date as YYYY-MM-DD for the filename
+    year_month_day = date.strftime("%Y-%m-%d")
+
+    # Create path with new structure
+    cache_path = (
+        cache_dir / exchange / market_type / data_nature /
+        packaging_frequency / symbol / interval / f"{year_month_day}.arrow"
+    )
+
+    # Ensure parent directories exist
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    return cache_path
+```
+
 ### Step 2: Update Usages of `get_cache_path`
 
 - **Description:** Identify all locations in the codebase where `CacheKeyManager.get_cache_path` is called and update them to include the new parameters. For initial integration with `VisionDataClient` and `DataSourceManager` for Binance spot klines, the default parameter values can be used. **This step has a high risk of breaking dependencies if usages are missed or incorrectly updated. Use code search tools and manual code review to ensure all instances are found and updated correctly. Pay close attention to passing the correct parameters in each context, and verify default parameters are used appropriately for backward compatibility.**
@@ -56,6 +100,36 @@ The primary goals of this cache structure upgrade are:
   - `core/cache_manager.py`
 - **Estimated Effort:** Medium
 - **Timeline:** 2 days
+
+#### Backward Compatibility Considerations
+
+For backward compatibility, the implementation will:
+
+1. Use default parameter values that match the current configuration (binance/spot/klines/daily)
+2. Support both old and new cache path formats during a transition period
+3. Add a utility method for resolving paths that can check both formats:
+
+```python
+def resolve_cache_path(symbol: str, interval: str, date: datetime) -> Path:
+    """Try to find cache file in either the old or new structure.
+
+    First tries the new structure, then falls back to old structure if not found.
+    """
+    # Try new structure first
+    new_path = CacheKeyManager.get_cache_path(
+        self.data_dir, symbol, interval, date,
+        exchange="binance", market_type="spot",
+        data_nature="klines", packaging_frequency="daily"
+    )
+
+    if new_path.exists():
+        return new_path
+
+    # Fall back to old structure
+    old_path = self.data_dir / symbol / interval / f"{date.strftime('%Y-%m-%d')}.arrow"
+
+    return old_path
+```
 
 ### Step 3: Update `UnifiedCacheManager` and `VisionCacheManager`
 
@@ -102,6 +176,160 @@ The primary goals of this cache structure upgrade are:
 - **Estimated Effort:** Low
 - **Timeline:** 1 day
 
+### Step 7: Cache Migration Script (Optional)
+
+- **Description:** Develop a script to migrate existing cache files from the old structure to the new structure. This script will:
+  1. Scan the cache directory for files in the old structure
+  2. For each file, read the data and metadata
+  3. Create the corresponding path in the new structure
+  4. Save the data to the new location
+  5. Optionally, remove the old files after successful migration
+  6. Generate a report of successfully migrated files and any errors
+- **Code Location:** `scripts/migrate_cache.py`
+- **Estimated Effort:** Medium
+- **Timeline:** 2 days
+
+#### Migration Script Outline
+
+```python
+import asyncio
+from pathlib import Path
+import pandas as pd
+from typing import List, Dict, Any
+import logging
+
+from utils.cache_validator import CacheKeyManager, VisionCacheManager
+from utils.logger_setup import get_logger
+
+logger = get_logger(__name__, "INFO", show_path=False)
+
+async def migrate_cache_file(
+    old_path: Path,
+    cache_dir: Path,
+    symbol: str,
+    interval: str,
+    date: str,
+    remove_old: bool = False
+) -> bool:
+    """Migrate a single cache file to the new structure.
+
+    Args:
+        old_path: Path to the existing cache file
+        cache_dir: Base cache directory for the new structure
+        symbol: Trading pair symbol
+        interval: Time interval
+        date: Date string in YYYY-MM-DD format
+        remove_old: Whether to remove the old file after migration
+
+    Returns:
+        True if migration successful, False otherwise
+    """
+    try:
+        # Load data from old cache file
+        df = await VisionCacheManager.load_from_cache(old_path)
+        if df is None or df.empty:
+            logger.warning(f"Empty or invalid cache file: {old_path}")
+            return False
+
+        # Determine new path
+        date_obj = pd.to_datetime(date).to_pydatetime()
+        new_path = CacheKeyManager.get_cache_path(
+            cache_dir, symbol, interval, date_obj,
+            exchange="binance", market_type="spot",
+            data_nature="klines", packaging_frequency="daily"
+        )
+
+        # Save to new location
+        await VisionCacheManager.save_to_cache(df, new_path, date_obj)
+
+        # Remove old file if requested
+        if remove_old and new_path.exists():
+            old_path.unlink()
+
+        logger.info(f"Migrated: {old_path} -> {new_path}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error migrating {old_path}: {e}")
+        return False
+
+async def scan_and_migrate(
+    base_dir: Path,
+    target_dir: Path,
+    remove_old: bool = False
+) -> Dict[str, int]:
+    """Scan and migrate all cache files in the old structure.
+
+    Args:
+        base_dir: Base directory of the old cache structure
+        target_dir: Base directory for the new cache structure
+        remove_old: Whether to remove old files after migration
+
+    Returns:
+        Statistics about the migration
+    """
+    stats = {"success": 0, "failed": 0, "skipped": 0}
+
+    # Find all .arrow files in the old structure
+    for symbol_dir in base_dir.iterdir():
+        if not symbol_dir.is_dir():
+            continue
+
+        symbol = symbol_dir.name
+
+        for interval_dir in symbol_dir.iterdir():
+            if not interval_dir.is_dir():
+                continue
+
+            interval = interval_dir.name
+
+            for arrow_file in interval_dir.glob("*.arrow"):
+                date = arrow_file.stem  # YYYY-MM-DD
+
+                # Skip if already migrated
+                date_obj = pd.to_datetime(date).to_pydatetime()
+                new_path = CacheKeyManager.get_cache_path(
+                    target_dir, symbol, interval, date_obj,
+                    exchange="binance", market_type="spot",
+                    data_nature="klines", packaging_frequency="daily"
+                )
+
+                if new_path.exists():
+                    stats["skipped"] += 1
+                    continue
+
+                # Migrate the file
+                success = await migrate_cache_file(
+                    arrow_file, target_dir, symbol, interval, date, remove_old
+                )
+
+                if success:
+                    stats["success"] += 1
+                else:
+                    stats["failed"] += 1
+
+    return stats
+
+async def main():
+    # Configuration
+    base_dir = Path("./data/cache")  # Old cache structure base
+    target_dir = Path("./data/cache_new")  # New cache structure base
+    remove_old = False  # Set to True to remove old files after migration
+
+    # Run migration
+    logger.info("Starting cache migration...")
+    stats = await scan_and_migrate(base_dir, target_dir, remove_old)
+
+    # Report results
+    logger.info(f"Migration complete! Results:")
+    logger.info(f"  Successfully migrated: {stats['success']}")
+    logger.info(f"  Failed migrations: {stats['failed']}")
+    logger.info(f"  Skipped (already exist): {stats['skipped']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ## 4. Timeline Summary
 
 | Step                                       | Estimated Effort | Timeline (Days) |
@@ -112,7 +340,8 @@ The primary goals of this cache structure upgrade are:
 | 4. Testing and Validation                  | Medium           | 3               |
 | 5. Documentation Update                    | Low              | 1               |
 | 6. Update Example Scripts/Notebooks        | Low              | 1               |
-| **Total Estimated Timeline**               |                  | **9 days**      |
+| 7. Cache Migration Script (Optional)       | Medium           | 2               |
+| **Total Estimated Timeline**               |                  | **11 days**     |
 
 ## 5. Benefits of Upgraded Cache Structure
 
@@ -129,7 +358,7 @@ If any issues arise during or after the cache structure upgrade, we can easily r
 2. Reverting the updates in all files where `get_cache_path` was used.
 3. Deploying the previous version of the code.
 
-No data loss is expected during rollback, as the old cache structure will remain intact unless the migration script (Step 4) is executed.
+No data loss is expected during rollback, as the old cache structure will remain intact unless the migration script (Step 7) is executed.
 
 ## 7. Testing Strategy
 
@@ -147,5 +376,7 @@ The testing strategy will heavily emphasize thorough testing to catch potential 
 - **Testing Thoroughness:** Comprehensive testing is crucial to ensure the stability and reliability of the upgraded cache system. Allocate sufficient time and resources for thorough testing and bug fixing. Emphasize testing for both new and old cache paths to ensure backward compatibility.
 - **Documentation Update:** Ensure documentation is updated as a dedicated step (Step 6) to accurately reflect the new cache structure, configuration, and usage patterns for users.
 - **Dependency Risks:** The upgrade process involves updating multiple components and workflows, which can introduce new dependency risks. Carefully review and test each component to ensure that the upgrade does not break existing functionality or introduce new bugs.
+- **Migration Strategy:** Consider whether to migrate existing cache files or simply start using the new structure for new requests. Migration can be resource-intensive but provides a cleaner transition, while allowing both structures to coexist may be more flexible but adds complexity.
+- **Monitoring:** After implementation, monitor cache hit/miss rates to ensure the new structure is performing as expected and that there are no regressions in cache efficiency.
 
 This roadmap provides a structured plan for upgrading the cache structure to align with the Binance Vision API and prepare for future expansions. By following these steps and considerations, we can ensure a smooth and successful upgrade process.

@@ -39,18 +39,27 @@ Benefits of using DataSourceManager:
 - Optimized memory usage with MMAP
 """
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional, Sequence, TypeVar, Generic
+from typing import Optional, Sequence, TypeVar, Generic, Dict, Any, Union
+
 import pandas as pd
 import warnings
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheKeyManager, CacheValidator, VisionCacheManager
+from utils.cache_validator import (
+    CacheKeyManager,
+    CacheValidator,
+    VisionCacheManager,
+    SafeMemoryMap,
+    CacheValidationError,
+)
 from utils.validation import DataFrameValidator
 from utils.market_constraints import Interval
 from utils.time_alignment import TimeRangeManager
 from utils.download_handler import VisionDownloadManager
+from core.vision_constraints import FileExtensions
 from utils.config import create_empty_dataframe
 from utils.http_client_factory import create_client
 from core.vision_constraints import (
@@ -173,24 +182,101 @@ class VisionDataClient(Generic[T]):
             logger.warning(f"Error closing HTTP client: {e}")
 
     def _get_cache_path(self, date: datetime) -> Path:
-        """Get cache file path for a specific date."""
-        return (
-            CacheKeyManager.get_cache_path(
-                self.cache_dir, self.symbol, self.interval, date
-            )
-            if self.cache_dir
-            else Path()
+        """Get cache file path for a specific date.
+
+        This method ensures the date is aligned to match REST API behavior for consistent caching.
+
+        Args:
+            date: Date for cache lookup (will be aligned to REST API boundaries)
+
+        Returns:
+            Path to cache file
+        """
+        # Ensure date is aligned to REST API boundaries
+        aligned_date = self._align_date_to_rest_api_boundary(date)
+        date_str = aligned_date.strftime("%Y-%m-%d")
+        filename = (
+            f"{self.symbol}-{self.interval}-{date_str}{FileExtensions.CACHE.value}"
         )
+        return self.cache_dir / filename if self.cache_dir else Path()
+
+    def _align_date_to_rest_api_boundary(self, date: datetime) -> datetime:
+        """Align date to match REST API boundary behavior.
+
+        This method applies the same boundary alignment that the REST API
+        would naturally apply, ensuring consistent behavior between
+        the REST API and Vision API/cache.
+
+        Args:
+            date: Date to align
+
+        Returns:
+            Date aligned to match REST API boundary behavior
+        """
+        # Ensure datetime uses consistent timezone
+        date = TimeRangeManager.enforce_utc_timezone(date)
+
+        # Use interval object for alignment
+        try:
+            interval = self.interval_obj
+        except AttributeError:
+            # If interval_obj isn't available, try to get it from the interval string
+            from utils.market_constraints import Interval
+
+            interval = next(
+                (i for i in Interval if i.value == self.interval), Interval.SECOND_1
+            )
+
+        # Apply REST API-like alignment by flooring to interval boundary
+        from utils.time_alignment import get_interval_floor
+
+        aligned_date = get_interval_floor(date, interval)
+
+        return aligned_date
 
     def _validate_cache(self, start_time: datetime, end_time: datetime) -> bool:
-        """Validate cache existence, integrity, and data completeness."""
+        """Validate cache existence, integrity, and data completeness.
+
+        This method checks if the cache is valid for the given time range
+        with alignment to match REST API behavior.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+
+        Returns:
+            True if cache is valid, False otherwise
+        """
         if not self.cache_dir or not self.use_cache or not self.cache_manager:
             return False
 
         try:
+            # Align dates to match REST API behavior for cache validation
+            start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+            end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+            # Use interval object for alignment
+            try:
+                interval = self.interval_obj
+            except AttributeError:
+                from utils.market_constraints import Interval
+
+                interval = next(
+                    (i for i in Interval if i.value == self.interval), Interval.SECOND_1
+                )
+
+            # Get aligned boundaries to match REST API behavior
+            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                start_time, end_time, interval
+            )
+            aligned_start = aligned_boundaries["adjusted_start"]
+            aligned_end = aligned_boundaries["adjusted_end"]
+
             # Validate cache for each day in range
-            current_day = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
-            last_day = end_time.replace(hour=0, minute=0, second=0, microsecond=0)
+            current_day = aligned_start.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            last_day = aligned_end.replace(hour=0, minute=0, second=0, microsecond=0)
 
             while current_day <= last_day:
                 # Get cache information
@@ -236,135 +322,126 @@ class VisionDataClient(Generic[T]):
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
     ) -> TimestampedDataFrame:
-        """Download and cache data for the specified time range."""
-        # Use TimeRangeManager to validate and normalize time range
+        """Download and cache data for the specified time range.
+
+        This method applies manual alignment to Vision API requests to match
+        REST API's natural boundary behavior.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+            columns: Optional list of columns to return
+
+        Returns:
+            DataFrame with market data
+        """
+        # Use TimeRangeManager to enforce timezone
         start_time = TimeRangeManager.enforce_utc_timezone(start_time)
         end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
+        # Apply manual alignment to match REST API behavior
+        aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+            start_time, end_time, self.interval_obj
+        )
+        aligned_start = aligned_boundaries["adjusted_start"]
+        aligned_end = aligned_boundaries["adjusted_end"]
+
+        logger.info(
+            f"Vision API request with aligned boundaries: {aligned_start} -> {aligned_end} "
+            f"(to match REST API behavior)"
+        )
+
         # Get list of dates to download
-        current_date = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        current_date = aligned_start.replace(hour=0, minute=0, second=0, microsecond=0)
         dates = []
-        while current_date < end_time:
+        while current_date <= aligned_end.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ):
             dates.append(current_date)
             current_date += timedelta(days=1)
 
-        logger.info(
-            f"Downloading data for dates: {[d.strftime('%Y-%m-%d') for d in dates]}"
-        )
-
         # Download data for each date
-        dfs = []
+        all_dfs = []
+        semaphore = asyncio.Semaphore(self._max_concurrent_downloads)
+        download_tasks = []
+
         for date in dates:
-            # Use download manager to get data
-            df = await self._download_manager.download_date(date)
+            download_tasks.append(self._download_date(date, semaphore, columns))
 
-            if df is not None:
-                # Filter to requested time range using TimeRangeManager
-                filtered_df = TimeRangeManager.filter_dataframe(
-                    df, start_time, end_time
-                )
+        try:
+            results = await asyncio.gather(*download_tasks)
+            for df in results:
+                if df is not None and not df.empty:
+                    all_dfs.append(df)
+        except Exception as e:
+            logger.error(f"Error downloading data: {e}")
 
-                if not filtered_df.empty:
-                    dfs.append(filtered_df)
-
-                    # Save to cache if enabled
-                    if self.cache_dir and self.use_cache:
-                        try:
-                            # Get cache path and ensure directory exists
-                            cache_path = self._get_cache_path(date)
-                            cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-                            # Save using cache manager
-                            logger.info(f"Saving data to cache: {cache_path}")
-                            checksum, record_count = (
-                                await VisionCacheManager.save_to_cache(
-                                    df, cache_path, date
-                                )
-                            )
-
-                            # Update metadata if available
-                            if self.cache_manager:
-                                self.cache_manager.register_cache(
-                                    self.symbol,
-                                    self.interval,
-                                    date,
-                                    cache_path,
-                                    checksum,
-                                    record_count,
-                                )
-
-                        except Exception as e:
-                            logger.error(f"Failed to save to cache: {e}")
-                            continue
-
-        if not dfs:
-            logger.error(f"No data available for {start_time} to {end_time}")
+        if not all_dfs:
             return TimestampedDataFrame(self._create_empty_dataframe())
 
         # Combine all data
-        combined_df = pd.concat(dfs, axis=0)
+        combined_df = pd.concat(all_dfs).sort_index()
 
-        # Sort by index and filter columns
-        combined_df = combined_df.sort_index()
-        if columns is not None:
-            combined_df = combined_df[columns]
+        # Apply final filtering to match original requested time range
+        result_df = TimeRangeManager.filter_dataframe(combined_df, start_time, end_time)
 
-        return TimestampedDataFrame(combined_df)
+        return TimestampedDataFrame(result_df)
 
     async def fetch(
         self,
         start_time: datetime,
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
-    ) -> TimestampedDataFrame:
-        """Fetch data from Binance Vision API."""
-        # Validate and normalize time range using centralized utility
-        TimeRangeManager.validate_time_window(start_time, end_time)
+    ) -> pd.DataFrame:
+        """Fetch data for the specified time range.
 
-        # Get time boundaries using the centralized manager
-        time_boundaries = TimeRangeManager.get_time_boundaries(
-            start_time, end_time, self.interval_obj
-        )
-        start_time = time_boundaries["adjusted_start"]
-        end_time = time_boundaries["adjusted_end"]
+        This method applies manual alignment to Vision API requests to match
+        REST API's natural boundary behavior.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+            columns: Optional list of columns to return
+
+        Returns:
+            DataFrame with market data
+        """
+        # Ensure UTC timezone
+        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
         logger.info(
-            f"Fetching {self.symbol} {self.interval} data: "
-            f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
+            f"Fetching {self.symbol} {self.interval} data from {start_time} to {end_time}"
         )
 
-        # Attempt to use cache if enabled
-        if self.use_cache and self._validate_cache(start_time, end_time):
-            try:
-                df = await self._download_and_cache(
-                    start_time, end_time, columns=columns
-                )
-                if not df.empty:
-                    # Validate data integrity
-                    self._validator.validate_dataframe(df)
-                    TimeRangeManager.validate_boundaries(df, start_time, end_time)
+        # Try to get from cache if available
+        cached_df = None
+        if self.use_cache:
+            # Apply manual alignment for cache operations to match REST API behavior
+            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                start_time, end_time, self.interval_obj
+            )
 
-                return df
-            except Exception as e:
-                logger.warning(
-                    f"Error loading from cache: {e}, falling back to direct fetch"
-                )
+            # Check if cache is valid for aligned time range
+            cache_is_valid = self._validate_cache(
+                aligned_boundaries["adjusted_start"], aligned_boundaries["adjusted_end"]
+            )
 
-        # Direct fetch without caching
-        try:
-            df = await self._download_and_cache(start_time, end_time, columns=columns)
-            if not df.empty:
-                # Validate data integrity
-                self._validator.validate_dataframe(df)
-                TimeRangeManager.validate_boundaries(df, start_time, end_time)
+            if cache_is_valid:
+                # Load from cache using time range
+                cached_df = await self._check_cache(start_time, end_time, columns)
 
-                return df
+        if cached_df is not None and not cached_df.empty:
+            # Filter to requested time range
+            result_df = TimeRangeManager.filter_dataframe(
+                cached_df, start_time, end_time
+            )
+            return result_df
 
-            return self._create_empty_dataframe()
+        # Download and cache fresh data
+        result = await self._download_and_cache(start_time, end_time, columns)
 
-        except Exception as e:
-            logger.error(f"Failed to fetch data: {e}")
-            return self._create_empty_dataframe()
+        return result
 
     async def prefetch(
         self, start_time: datetime, end_time: datetime, max_days: int = 5
@@ -393,11 +470,60 @@ class VisionDataClient(Generic[T]):
         except Exception as e:
             logger.error(f"Error during prefetch: {e}")
 
-    async def _check_cache(self, date_to_check: datetime) -> Optional[pd.DataFrame]:
+    async def _check_cache(
+        self,
+        date_or_start_time: datetime,
+        end_time_or_columns: Optional[Union[datetime, Sequence[str]]] = None,
+        columns: Optional[Sequence[str]] = None,
+    ) -> Optional[pd.DataFrame]:
+        """Check if data for a specific date or time range is in cache.
+
+        This method supports two calling patterns:
+        1. _check_cache(date, columns=None) - Check cache for a specific date
+        2. _check_cache(start_time, end_time, columns=None) - Check cache for a time range
+
+        Args:
+            date_or_start_time: Date to check in cache or start time of range
+            end_time_or_columns: End time of range or columns to return for date-only call
+            columns: Optional list of columns to return when using start_time/end_time
+
+        Returns:
+            DataFrame if data is in cache, None otherwise
+        """
+        # Determine which calling pattern is being used
+        if isinstance(end_time_or_columns, datetime):
+            # This is the start_time, end_time pattern
+            start_time = date_or_start_time
+            end_time = end_time_or_columns
+
+            # Apply manual alignment for cache operations to match REST API behavior
+            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                start_time, end_time, self.interval_obj
+            )
+
+            # Use the first day in the range for cache lookup
+            start_date = aligned_boundaries["adjusted_start"].replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+            # Call the date-based version
+            return await self._check_cache_by_date(start_date, columns)
+        else:
+            # This is the date pattern - end_time_or_columns contains columns or None
+            date = date_or_start_time
+            cols = end_time_or_columns
+
+            # Call the date-based version
+            return await self._check_cache_by_date(date, cols)
+
+    async def _check_cache_by_date(
+        self, date: datetime, columns: Optional[Sequence[str]] = None
+    ) -> Optional[pd.DataFrame]:
         """Check if data for a specific date is in cache.
 
         Args:
-            date_to_check: Date to check in cache
+            date: Date to check in cache
+            columns: Optional list of columns to return
 
         Returns:
             DataFrame if data is in cache, None otherwise
@@ -406,12 +532,12 @@ class VisionDataClient(Generic[T]):
             return None
 
         # Ensure date has proper timezone using TimeRangeManager
-        date_to_check = TimeRangeManager.enforce_utc_timezone(date_to_check)
+        date = TimeRangeManager.enforce_utc_timezone(date)
 
         try:
             # Get cache information from the cache manager
             cache_path = self.cache_manager.get_cache_path(
-                self.symbol, self.interval, date_to_check
+                self.symbol, self.interval, date
             )
 
             # Check if cache file exists
@@ -420,21 +546,27 @@ class VisionDataClient(Generic[T]):
                 return None
 
             # Validate cache file integrity
-            is_valid = CacheValidator.validate_cache_file(cache_path)
-            if not is_valid:
-                logger.warning(f"Cache file is invalid: {cache_path}")
+            error = CacheValidator.validate_cache_integrity(cache_path)
+            if error:
+                logger.warning(f"Cache file validation failed: {error.message}")
                 return None
 
             # Load data from cache
             logger.debug(f"Loading data from cache: {cache_path}")
-            df = await CacheValidator.safely_read_arrow_file_async(cache_path)
+            df = await SafeMemoryMap.safely_read_arrow_file(cache_path, columns)
+
+            if df is None or df.empty:
+                logger.debug(f"Empty data loaded from cache: {cache_path}")
+                return None
 
             # Validate the loaded DataFrame
-            self._validator.validate_dataframe(df)
-            logger.info(
-                f"Successfully loaded data from cache for {date_to_check.date()}"
-            )
-            return df
+            try:
+                DataFrameValidator.validate_dataframe(df)
+                logger.info(f"Successfully loaded data from cache for {date.date()}")
+                return df
+            except ValueError as e:
+                logger.warning(f"Invalid data in cache: {e}")
+                return None
         except Exception as e:
             logger.warning(f"Error reading from cache: {e}")
             return None
@@ -482,3 +614,57 @@ class VisionDataClient(Generic[T]):
             logger.error(f"Failed to save to cache: {e}")
             # Don't raise the exception, just log it and continue
             # This is a non-critical operation
+
+    async def _download_date(
+        self,
+        date: datetime,
+        semaphore: asyncio.Semaphore,
+        columns: Optional[Sequence[str]] = None,
+    ) -> Optional[pd.DataFrame]:
+        """Download data for a specific date.
+
+        Args:
+            date: Date to download data for
+            semaphore: Semaphore for concurrency control
+            columns: Optional list of columns to return
+
+        Returns:
+            DataFrame with data for the date, or None if download failed
+        """
+        async with semaphore:
+            try:
+                logger.debug(f"Downloading data for date: {date.strftime('%Y-%m-%d')}")
+
+                # Check cache first if enabled
+                if self.use_cache and self.cache_dir:
+                    cached_df = await self._check_cache(date, columns=columns)
+                    if cached_df is not None and not cached_df.empty:
+                        logger.debug(
+                            f"Using cached data for {date.strftime('%Y-%m-%d')}"
+                        )
+                        return cached_df
+
+                # Download using download manager
+                df = await self._download_manager.download_date(date)
+
+                if df is None or df.empty:
+                    logger.debug(f"No data for date: {date.strftime('%Y-%m-%d')}")
+                    return None
+
+                # Save to cache if enabled
+                if self.use_cache and self.cache_dir and not df.empty:
+                    try:
+                        await self._save_to_cache(df, date)
+                        logger.debug(
+                            f"Saved data to cache for {date.strftime('%Y-%m-%d')}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to save to cache: {e}")
+
+                return df
+
+            except Exception as e:
+                logger.error(
+                    f"Error downloading data for {date.strftime('%Y-%m-%d')}: {e}"
+                )
+                return None

@@ -94,12 +94,35 @@ class UnifiedCacheManager:
         Args:
             symbol: Trading pair symbol
             interval: Time interval
-            date: Target date
+            date: Target date (should be aligned to REST API boundaries)
 
         Returns:
             Path to cache file
         """
-        return CacheKeyManager.get_cache_path(self.data_dir, symbol, interval, date)
+        # Ensure date is aligned to interval boundaries to match REST API behavior
+        try:
+            # Try to convert interval string to Interval enum
+            from utils.market_constraints import Interval
+
+            interval_enum = next(
+                (i for i in Interval if i.value == interval), Interval.SECOND_1
+            )
+
+            # Use TimeRangeManager to align date to match REST API behavior
+            from utils.time_alignment import get_interval_floor
+
+            aligned_date = get_interval_floor(
+                TimeRangeManager.enforce_utc_timezone(date), interval_enum
+            )
+
+            # Use the aligned date for cache path generation
+            return CacheKeyManager.get_cache_path(
+                self.data_dir, symbol, interval, aligned_date
+            )
+        except Exception as e:
+            logger.warning(f"Error aligning date for cache path: {e}")
+            # Fall back to original behavior if alignment fails
+            return CacheKeyManager.get_cache_path(self.data_dir, symbol, interval, date)
 
     def get_cache_key(self, symbol: str, interval: str, date: datetime) -> str:
         """Generate cache key.
@@ -107,12 +130,33 @@ class UnifiedCacheManager:
         Args:
             symbol: Trading pair symbol
             interval: Time interval
-            date: Target date
+            date: Target date (should be aligned to REST API boundaries)
 
         Returns:
             Cache key string
         """
-        return CacheKeyManager.get_cache_key(symbol, interval, date)
+        # Ensure date is aligned to interval boundaries to match REST API behavior
+        try:
+            # Try to convert interval string to Interval enum
+            from utils.market_constraints import Interval
+
+            interval_enum = next(
+                (i for i in Interval if i.value == interval), Interval.SECOND_1
+            )
+
+            # Use TimeRangeManager to align date to match REST API behavior
+            from utils.time_alignment import get_interval_floor
+
+            aligned_date = get_interval_floor(
+                TimeRangeManager.enforce_utc_timezone(date), interval_enum
+            )
+
+            # Use the aligned date for cache key generation
+            return CacheKeyManager.get_cache_key(symbol, interval, aligned_date)
+        except Exception as e:
+            logger.warning(f"Error aligning date for cache key: {e}")
+            # Fall back to original behavior if alignment fails
+            return CacheKeyManager.get_cache_key(symbol, interval, date)
 
     async def save_to_cache(
         self, df: pd.DataFrame, symbol: str, interval: str, date: datetime
@@ -123,13 +167,34 @@ class UnifiedCacheManager:
             df: DataFrame to cache
             symbol: Trading pair symbol
             interval: Time interval
-            date: Target date
+            date: Target date (will be aligned to REST API boundaries)
 
         Returns:
             Tuple of (checksum, record_count)
         """
-        # Ensure date has proper timezone using TimeRangeManager
+        # Ensure date has proper timezone
         date = TimeRangeManager.enforce_utc_timezone(date)
+
+        # Align date to interval boundaries to match REST API behavior
+        try:
+            # Try to convert interval string to Interval enum
+            from utils.market_constraints import Interval
+
+            interval_enum = next(
+                (i for i in Interval if i.value == interval), Interval.SECOND_1
+            )
+
+            # Use TimeRangeManager to align date to match REST API behavior
+            from utils.time_alignment import get_interval_floor
+
+            aligned_date = get_interval_floor(date, interval_enum)
+
+            # Use aligned date for caching
+            date = aligned_date
+            logger.debug(f"Using aligned date for caching: {date.isoformat()}")
+        except Exception as e:
+            logger.warning(f"Error aligning date for cache save: {e}")
+            # Continue with original date if alignment fails
 
         # Log input data for debugging
         logger.debug(
@@ -211,10 +276,11 @@ class UnifiedCacheManager:
         self.metadata[cache_key] = {
             "symbol": symbol,
             "interval": interval,
-            "year_month": date.strftime("%Y%m"),
-            "file_path": str(cache_path.relative_to(self.cache_dir)),
+            "year_month_day": date.strftime("%Y%m%d"),
+            "date": date.strftime("%Y-%m-%d"),
             "checksum": checksum,
             "record_count": record_count,
+            "path": str(cache_path),
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -244,21 +310,46 @@ class UnifiedCacheManager:
         Args:
             symbol: Trading pair symbol
             interval: Time interval
-            date: Target date
+            date: Target date (will be aligned to REST API boundaries)
             columns: Optional list of columns to load
 
         Returns:
-            DataFrame if cache hit, None if cache miss or invalid
+            DataFrame if cache exists and is valid, None otherwise
         """
+        # Ensure date has proper timezone
+        date = TimeRangeManager.enforce_utc_timezone(date)
+
+        # Align date to interval boundaries to match REST API behavior
+        try:
+            # Try to convert interval string to Interval enum
+            from utils.market_constraints import Interval
+
+            interval_enum = next(
+                (i for i in Interval if i.value == interval), Interval.SECOND_1
+            )
+
+            # Use TimeRangeManager to align date to match REST API behavior
+            from utils.time_alignment import get_interval_floor
+
+            aligned_date = get_interval_floor(date, interval_enum)
+
+            # Use aligned date for cache lookup
+            date = aligned_date
+            logger.debug(f"Using aligned date for cache lookup: {date.isoformat()}")
+        except Exception as e:
+            logger.warning(f"Error aligning date for cache load: {e}")
+            # Continue with original date if alignment fails
+
+        # Get cache path
+        cache_path = self.get_cache_path(symbol, interval, date)
+        logger.debug(f"Looking for cache at: {cache_path}")
+
         cache_key = self.get_cache_key(symbol, interval, date)
         cache_info = self.metadata.get(cache_key)
 
         if not cache_info:
             return None
 
-        cache_path = self.cache_dir / cache_info["file_path"]
-
-        # Validate cache
         if not cache_path.exists():
             logger.warning(f"Cache file missing: {cache_path}")
             return None
@@ -305,7 +396,7 @@ class UnifiedCacheManager:
         """
         cache_key = self.get_cache_key(symbol, interval, date)
         if cache_key in self.metadata:
-            cache_path = self.cache_dir / self.metadata[cache_key]["file_path"]
+            cache_path = self.cache_dir / self.metadata[cache_key]["path"]
             if cache_path.exists():
                 cache_path.unlink()
             del self.metadata[cache_key]

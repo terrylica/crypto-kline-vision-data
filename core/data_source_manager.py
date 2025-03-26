@@ -286,58 +286,76 @@ class DataSourceManager:
         start_time: datetime,
         end_time: datetime,
         interval: Interval,
-        use_vision: bool = True,
+        use_vision: bool = False,
     ) -> pd.DataFrame:
-        """Fetch data from the appropriate source.
+        """Fetch data from appropriate source based on parameters.
 
         Args:
             symbol: Trading pair symbol
             start_time: Start time
             end_time: End time
             interval: Time interval
-            use_vision: Whether to try Vision API first
+            use_vision: Whether to force using Vision API
 
         Returns:
-            DataFrame containing market data
+            DataFrame with market data
         """
-        df = pd.DataFrame()
+        # Initialize with empty DataFrame in case of errors
+        result_df = pd.DataFrame()
 
         try:
             if use_vision:
-                try:
-                    if not self.vision_client:
-                        self.vision_client = VisionDataClient(
-                            symbol=symbol,
-                            interval=interval.value,
-                            use_cache=False,  # We use our own unified cache manager
-                        )
-                    df = await self.vision_client.fetch(start_time, end_time)
-                    if df.empty:
-                        logger.warning(
-                            "Vision API returned no records, falling back to REST"
-                        )
-                        use_vision = False
-                except Exception as e:
-                    logger.warning(f"Vision API fetch failed: {e}")
-                    use_vision = False
+                # For Vision API, we need to manually align timestamps to match REST API behavior
+                aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                    start_time, end_time, interval
+                )
+                vision_start = aligned_boundaries["adjusted_start"]
+                vision_end = aligned_boundaries["adjusted_end"]
 
-            if not use_vision:
-                if not self.rest_client:
-                    self.rest_client = EnhancedRetriever(market_type=self.market_type)
-                async with self.rest_client as client:
-                    df, _ = await client.fetch(symbol, interval, start_time, end_time)
+                logger.info(
+                    f"Using Vision API with aligned boundaries: {vision_start} -> {vision_end} "
+                    f"(to match REST API behavior)"
+                )
 
-            # Format DataFrame and slice to exact time range
-            df = self._format_dataframe(df)
-            if not df.empty:
-                # Use centralized time filtering function via manager
-                df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
+                # Create Vision client if not exists
+                if not self.vision_client:
+                    raise ValueError("Vision client is not configured")
 
-            return df
+                # Fetch from Vision API with aligned boundaries
+                result_df = await self.vision_client.fetch(vision_start, vision_end)
+
+                # Filter result to exact requested time range if needed
+                if not result_df.empty:
+                    result_df = TimeRangeManager.filter_dataframe(
+                        result_df, start_time, end_time
+                    )
+            else:
+                # For REST API, use original timestamps - the API handles its own boundary alignment
+                logger.info(
+                    f"Using REST API with original boundaries: {start_time} -> {end_time}"
+                )
+
+                # Fetch from REST API
+                result_df = await self.rest_client.fetch(
+                    symbol, interval, start_time, end_time
+                )
+
+            # Validate and standardize the DataFrame
+            if not result_df.empty:
+                DataFrameValidator.validate_dataframe(result_df)
+            else:
+                # Return empty DataFrame with proper structure
+                logger.warning(
+                    f"No data returned for {symbol} from {start_time} to {end_time}"
+                )
+                result_df = self.rest_client.create_empty_dataframe()
+
+            return result_df
 
         except Exception as e:
             logger.error(f"Error fetching data: {e}")
-            raise
+            # Return empty DataFrame with proper structure
+            return self.rest_client.create_empty_dataframe()
 
     async def get_data(
         self,
@@ -348,105 +366,127 @@ class DataSourceManager:
         use_cache: bool = True,
         enforce_source: DataSource = DataSource.AUTO,
     ) -> pd.DataFrame:
-        """Get market data from the most appropriate source with enhanced caching.
+        """Get data for symbol within time range, with smart source selection.
 
         Args:
             symbol: Trading pair symbol
             start_time: Start time
             end_time: End time
             interval: Time interval
-            use_cache: Whether to use cached data
+            use_cache: Whether to use cache
             enforce_source: Force specific data source
 
         Returns:
-            DataFrame containing market data
+            DataFrame with market data
         """
-        # Validate dates using centralized utility
-        TimeRangeManager.validate_time_window(start_time, end_time)
+        # Validate inputs
+        if not symbol:
+            raise ValueError("Symbol must be provided")
+        if not isinstance(interval, Interval):
+            raise ValueError(f"Invalid interval: {interval}")
 
-        # Get time boundaries using the centralized manager
-        time_boundaries = TimeRangeManager.get_time_boundaries(
-            start_time, end_time, interval
-        )
-        start_time = time_boundaries["adjusted_start"]
-        end_time = time_boundaries["adjusted_end"]
+        # Standardize using utils
+        symbol = symbol.upper()
 
+        # Ensure timestamps are UTC timezone-aware
+        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+        # Log input parameters
         logger.info(
-            f"Using time boundaries: {start_time} -> {end_time} (exclusive end)"
+            f"Getting data for {symbol} from {start_time} to {end_time} "
+            f"with interval {interval.value}"
         )
-        logger.debug(f"Expected records: {time_boundaries['expected_records']}")
 
-        # Check cache if enabled
-        if use_cache and self.cache_manager:
-            try:
-                # Check if cache exists and is valid
-                is_valid, error = await self.validate_cache_integrity(
-                    symbol, interval.value, start_time
-                )
-
-                if is_valid:
-                    cached_data = await self.cache_manager.load_from_cache(
-                        symbol=symbol, interval=interval.value, date=start_time
-                    )
-                    if cached_data is not None:
-                        # Use centralized time filtering function via manager
-                        cached_data = TimeRangeManager.filter_dataframe(
-                            cached_data, start_time, end_time
-                        )
-
-                        if not cached_data.empty:
-                            self._cache_stats["hits"] += 1
-                            logger.info(f"Cache hit for {symbol} from {start_time}")
-                            return cached_data
-                    self._cache_stats["misses"] += 1
-                else:
-                    logger.warning(f"Cache validation failed: {error}")
-                    if error != "Cache miss":
-                        self._cache_stats["errors"] += 1
-                        # Attempt to repair if validation failed (but not for cache misses)
-                        if await self.repair_cache(symbol, interval.value, start_time):
-                            logger.info("Cache repair successful")
-                            cached_data = await self.cache_manager.load_from_cache(
-                                symbol=symbol, interval=interval.value, date=start_time
-                            )
-                            if cached_data is not None:
-                                # Use centralized time filtering function via manager
-                                cached_data = TimeRangeManager.filter_dataframe(
-                                    cached_data, start_time, end_time
-                                )
-
-                                if not cached_data.empty:
-                                    return cached_data
-                    else:
-                        self._cache_stats["misses"] += 1
-
-            except Exception as e:
-                self._cache_stats["errors"] += 1
-                logger.warning(f"Cache operation failed: {e}")
-
-        # Determine data source
+        # Determine data source to use
         use_vision = False
+
         if enforce_source == DataSource.VISION:
             use_vision = True
+            logger.info("Using Vision API (enforced)")
         elif enforce_source == DataSource.REST:
             use_vision = False
-        else:
+            logger.info("Using REST API (enforced)")
+        else:  # AUTO: smart selection
             use_vision = self._should_use_vision_api(start_time, end_time, interval)
+            logger.info(
+                f"Auto-selected source: {'Vision API' if use_vision else 'REST API'}"
+            )
 
-        # Fetch from source
+        # Check if we can use cache
+        is_valid = use_cache and self.cache_manager
+        is_cache_hit = False
+
+        try:
+            # Attempt to load from cache if enabled
+            if is_valid:
+                # For cache operations, we need to align dates to match REST API behavior
+                # This ensures caching works consistently with both REST and Vision APIs
+                if use_vision:
+                    # For Vision API, use aligned timestamps for cache operations
+                    aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                        start_time, end_time, interval
+                    )
+                    cache_date = aligned_boundaries["adjusted_start"]
+                else:
+                    # For REST API, use original start date for cache lookup
+                    # The REST API will handle its own boundary alignment
+                    cache_date = start_time
+
+                cached_data = await self.cache_manager.load_from_cache(
+                    symbol=symbol, interval=interval.value, date=cache_date
+                )
+
+                if cached_data is not None:
+                    # Filter DataFrame based on original requested time range
+                    # Use inclusive start, exclusive end consistent with API behavior
+                    filtered_data = TimeRangeManager.filter_dataframe(
+                        cached_data, start_time, end_time
+                    )
+
+                    if not filtered_data.empty:
+                        self._cache_stats["hits"] += 1
+                        logger.info(f"Cache hit for {symbol} from {start_time}")
+                        return filtered_data
+
+                    logger.info(
+                        "Cache hit, but filtered data is empty. Fetching from source."
+                    )
+                else:
+                    logger.info(f"Cache miss for {symbol} from {start_time}")
+
+                self._cache_stats["misses"] += 1
+
+        except Exception as e:
+            logger.error(f"Cache error: {e}")
+            self._cache_stats["errors"] += 1
+            # Continue with fetching from source
+
+        # Fetch data from appropriate source
         df = await self._fetch_from_source(
             symbol, start_time, end_time, interval, use_vision
         )
 
-        # Cache result if enabled
-        if not df.empty and use_cache and self.cache_manager:
+        # Cache if enabled and data is not empty
+        if is_valid and not df.empty and self.cache_manager:
             try:
+                # For caching purposes, use properly aligned date that matches REST API behavior
+                if use_vision:
+                    # For Vision API, we need to manually align the date for caching
+                    aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                        start_time, end_time, interval
+                    )
+                    cache_date = aligned_boundaries["adjusted_start"]
+                else:
+                    # For REST API, use original start date - the API already handled alignment
+                    cache_date = start_time
+
                 await self.cache_manager.save_to_cache(
-                    df=df, symbol=symbol, interval=interval.value, date=start_time
+                    df, symbol, interval.value, cache_date
                 )
                 logger.info(f"Cached {len(df)} records for {symbol}")
             except Exception as e:
-                logger.warning(f"Failed to cache data: {e}")
+                logger.error(f"Error caching data: {e}")
 
         return df
 

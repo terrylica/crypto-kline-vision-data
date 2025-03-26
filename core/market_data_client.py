@@ -9,7 +9,12 @@ from typing import Dict, List, Optional, Tuple, Any, Set, Union
 import pandas as pd
 import numpy as np
 from utils.logger_setup import get_logger
-from utils.market_constraints import Interval, MarketType, get_market_capabilities
+from utils.market_constraints import (
+    Interval,
+    MarketType,
+    get_market_capabilities,
+    get_endpoint_url,
+)
 from utils.time_alignment import (
     get_bar_close_time,
     get_interval_floor,
@@ -153,11 +158,13 @@ class EnhancedRetriever:
             hw_monitor: Optional hardware monitor instance
         """
         self.market_type = market_type
-        self.client = client
+        self.endpoint_url = get_endpoint_url(market_type)
+        self._client = client
+        self._client_is_external = client is not None
+        self.CHUNK_SIZE_MS = self.CHUNK_SIZE * 1000  # Convert to milliseconds
+        self.hw_monitor = hw_monitor or HardwareMonitor()
+        self.stats = {"total_records": 0, "chunks_processed": 0, "chunks_failed": 0}
         self._capabilities = get_market_capabilities(market_type)
-        self._hw_monitor = hw_monitor or HardwareMonitor()
-        self._endpoint_index = 0  # For round-robin endpoint selection
-        self._endpoint_lock = asyncio.Lock()  # For thread-safe endpoint selection
 
         # Validate market capabilities
         if market_type != MarketType.SPOT:
@@ -169,15 +176,16 @@ class EnhancedRetriever:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        if not self.client:
-            self.client = self._create_optimized_client()
+        if not self._client:
+            self._client = self._create_optimized_client()
+            self._client_is_external = False
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        if self.client:
-            await self.client.close()
-            self.client = None
+        if self._client:
+            await self._client.close()
+            self._client = None
 
     async def _get_next_endpoint(self) -> str:
         """Get next endpoint in round-robin fashion."""
@@ -249,7 +257,9 @@ class EnhancedRetriever:
                     logger.debug(
                         f"Fetching chunk: {start_ms} -> {end_ms} from {endpoint_url}"
                     )
-                    async with self.client.get(endpoint_url, params=params) as response:
+                    async with self._client.get(
+                        endpoint_url, params=params
+                    ) as response:
                         response.raise_for_status()
                         data: List[List[Any]] = await response.json()
 
@@ -294,22 +304,35 @@ class EnhancedRetriever:
     def _validate_request_params(
         self, symbol: str, interval: Interval, start_time: datetime, end_time: datetime
     ) -> None:
-        """Validate request parameters using utility functions.
+        """Validate request parameters.
+
+        This validation ensures parameters are valid but does not apply any
+        manual time alignment. The REST API will handle interval alignment.
 
         Args:
             symbol: Trading pair symbol
-            interval: Time interval for data
+            interval: Time interval
             start_time: Start time
             end_time: End time
+
+        Raises:
+            ValueError: For invalid parameters
         """
-        # Use validation utilities through TimeRangeManager
-        TimeRangeManager.validate_dates(start_time, end_time)
-        DataValidation.validate_interval(interval.value, self.market_type.name)
-        DataValidation.validate_symbol_format(symbol, self.market_type.name)
+        if not symbol:
+            raise ValueError("Symbol must be provided.")
+        if not isinstance(interval, Interval):
+            raise TypeError("Interval must be an Interval enum.")
+        if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
+            raise TypeError("Start and end times must be datetime objects.")
+        if start_time >= end_time:
+            raise ValueError("Start time must be before end time.")
+
+        # Removed all alignment-specific validations
+        # The Binance REST API will handle interval alignment according to its behavior
 
     def _create_optimized_client(self) -> aiohttp.ClientSession:
         """Create an optimized client based on hardware capabilities."""
-        concurrency_info = self._hw_monitor.calculate_optimal_concurrency()
+        concurrency_info = self.hw_monitor.calculate_optimal_concurrency()
         return create_client(
             client_type="aiohttp",
             max_connections=concurrency_info["optimal_concurrency"],
@@ -319,68 +342,27 @@ class EnhancedRetriever:
     def _calculate_chunks(
         self, start_ms: int, end_ms: int, interval: Interval
     ) -> List[Tuple[int, int]]:
-        """Calculate optimal chunk sizes for the time window.
+        """Calculate chunk ranges based on start and end times.
+
+        This method creates chunks based solely on the CHUNK_SIZE parameter
+        without applying any manual time alignment. The REST API will handle
+        interval alignment.
 
         Args:
-            start_ms: Start timestamp in milliseconds
-            end_ms: End timestamp in milliseconds
-            interval: Time interval for data
+            start_ms: Start time in milliseconds
+            end_ms: End time in milliseconds
+            interval: Time interval
 
         Returns:
-            List of (start_ms, end_ms) tuples for each chunk
+            List of (start_ms, end_ms) pairs for each chunk
         """
-        # Count available endpoints
-        endpoint_count = (
-            1
-            + len(self._capabilities.backup_endpoints)
-            + (1 if self._capabilities.data_only_endpoint else 0)  # Primary endpoint
-        )
-
-        # Calculate total records needed
-        interval_ms = interval.to_seconds() * 1000  # Convert interval to milliseconds
-        total_ms = end_ms - start_ms
-        total_records = total_ms // interval_ms
-
-        # Determine number of chunks:
-        # - At least as many chunks as endpoints to maximize endpoint usage
-        # - But no more chunks than records (can't split a record)
-        # - And no chunk larger than max_limit
-        min_chunks = min(endpoint_count, total_records)
-        max_chunks_by_limit = (
-            total_records + self._capabilities.max_limit - 1
-        ) // self._capabilities.max_limit
-        num_chunks = max(min_chunks, max_chunks_by_limit)
-
-        # Calculate chunk size in milliseconds, ensuring it's a multiple of the interval
-        chunk_size_ms = (total_ms // num_chunks) // interval_ms * interval_ms
-        if chunk_size_ms == 0:
-            chunk_size_ms = interval_ms  # Ensure minimum chunk size is one interval
-
-        logger.debug(
-            f"Chunking {total_records} records into {num_chunks} chunks "
-            f"(using {endpoint_count} endpoints, chunk_size={chunk_size_ms}ms, interval={interval_ms}ms)"
-        )
-
-        # Create chunks with consistent boundary handling
         chunks = []
-        current_ms = start_ms
-        while current_ms < end_ms:
-            chunk_end = min(current_ms + chunk_size_ms, end_ms)
-            if chunk_end > current_ms:
-                # Use exact boundary (no -1ms subtraction) for consistent exclusive end
-                chunks.append((current_ms, chunk_end))
-            current_ms = chunk_end
+        current_start = start_ms
 
-        # Log chunk boundaries for verification
-        for i, (chunk_start, chunk_end) in enumerate(chunks):
-            start_time = datetime.fromtimestamp(chunk_start / 1000, tz=timezone.utc)
-            end_time = datetime.fromtimestamp(
-                chunk_end / 1000, tz=timezone.utc
-            )  # No adjustment needed for logging
-            logger.debug(
-                f"Chunk {i + 1}/{len(chunks)}: {start_time} -> {end_time} "
-                f"({(chunk_end - chunk_start)/interval_ms:.0f} intervals, end exclusive)"
-            )
+        while current_start < end_ms:
+            chunk_end = min(current_start + self.CHUNK_SIZE - 1, end_ms)
+            chunks.append((current_start, chunk_end))
+            current_start = chunk_end + 1
 
         return chunks
 
@@ -462,141 +444,117 @@ class EnhancedRetriever:
         interval: Interval,
         start_time: datetime,
         end_time: datetime,
-        concurrency: Optional[int] = None,
-    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Fetch historical kline data with automatic optimization.
+    ) -> Tuple[pd.DataFrame, Dict[str, int]]:
+        """Fetch market data from Binance API.
 
         Args:
-            symbol: Trading symbol
-            interval: Time interval
-            start_time: Start time
-            end_time: End time
-            concurrency: Optional override for concurrency limit
+            symbol: The trading pair symbol
+            interval: Time interval enum
+            start_time: Start datetime (timezone-aware)
+            end_time: End datetime (timezone-aware)
 
         Returns:
-            Tuple of (DataFrame, stats dictionary)
+            Tuple of (DataFrame with market data, statistics dictionary)
         """
-        stats = {"start_time": datetime.now(timezone.utc)}
-        df = pd.DataFrame()
+        # Initialize client if needed
+        if not self._client:
+            self._client = self._create_optimized_client()
+            self._client_is_external = False
 
-        try:
-            # Validate time window using centralized utility
-            TimeRangeManager.validate_time_window(start_time, end_time)
+        # Convert datetime objects to milliseconds since epoch
+        self._validate_request_params(symbol, interval, start_time, end_time)
+        start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
 
-            # Get time boundaries with standard handling through TimeRangeManager
-            time_boundaries = TimeRangeManager.get_time_boundaries(
-                start_time, end_time, interval
-            )
-            start_time = time_boundaries["adjusted_start"]
-            end_time = time_boundaries["adjusted_end"]
-            start_ms = time_boundaries["start_ms"]
-            end_ms = time_boundaries["end_ms"]
+        # Reset stats for this fetch
+        self.stats = {"total_records": 0, "chunks_processed": 0, "chunks_failed": 0}
 
-            logger.debug(
-                f"Fetching {symbol} {interval.value} data: "
-                f"{start_time.isoformat()} -> {end_time.isoformat()} (exclusive end)"
-            )
+        # Calculate chunk boundaries
+        chunks = self._calculate_chunks(start_ms, end_ms, interval)
+        num_chunks = len(chunks)
 
-            # Calculate optimal chunks
-            chunks = self._calculate_chunks(start_ms, end_ms, interval)
+        logger.info(
+            f"Fetching {symbol} {interval.value} data from "
+            f"{start_time} to {end_time} in {num_chunks} chunks"
+        )
 
-            # Set concurrency
-            if concurrency is None:
-                concurrency = min(
-                    len(chunks),
-                    self._hw_monitor.calculate_optimal_concurrency()[
-                        "optimal_concurrency"
-                    ],
-                    (len(self._capabilities.backup_endpoints) + 2),
+        # Get optimal concurrency value
+        optimal_concurrency_result = self.hw_monitor.calculate_optimal_concurrency()
+        optimal_concurrency = optimal_concurrency_result["optimal_concurrency"]
+
+        # Limit semaphore to optimal concurrency
+        sem = asyncio.Semaphore(optimal_concurrency)
+
+        # Create tasks for all chunks
+        tasks = []
+        for chunk_start, chunk_end in chunks:
+            task = asyncio.create_task(
+                self._fetch_chunk_with_retry(
+                    symbol, interval, chunk_start, chunk_end, sem
                 )
+            )
+            tasks.append(task)
 
-            # Fetch in parallel
-            tasks = []
-            semaphore = asyncio.Semaphore(concurrency)
-            for chunk_start, chunk_end in chunks:
-                tasks.append(
-                    self._fetch_chunk_with_retry(
-                        symbol=symbol,
-                        interval=interval,
-                        start_ms=chunk_start,
-                        end_ms=chunk_end,
-                        sem=semaphore,
-                    )
-                )
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Execute all tasks
-            chunk_results = await asyncio.gather(*tasks)
-
-            # Process results
-            dfs = []
-            records_fetched = 0
-            for chunk_data, endpoint in chunk_results:
-                if chunk_data:
-                    df = process_kline_data(chunk_data)
-                    dfs.append(df)
-                    records_fetched += len(df)
-
-            # Combine and sort all data
-            if dfs:
-                df = pd.concat(dfs)
-                df = df.sort_index()
-
-                # Apply consistent time filtering using TimeRangeManager
-                df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
-
-                # Ensure close_time is present as a column
-                if "close_time" not in df.columns:
-                    logger.debug("close_time column is missing, adding it back")
-                    # Calculate close_time based on open_time for 1-second interval
-                    df["close_time"] = (
-                        df.index
-                        + pd.Timedelta(seconds=1)
-                        - pd.Timedelta(microseconds=1)
+        # Process results
+        successful_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Chunk {i+1}/{num_chunks} failed: {result}")
+                self.stats["chunks_failed"] += 1
+            else:
+                klines, endpoint = result
+                self.stats["chunks_processed"] += 1
+                self.stats["total_records"] += len(klines)
+                successful_results.append(klines)
+                if i == 0 or i == len(results) - 1:
+                    logger.debug(
+                        f"Chunk {i+1}/{num_chunks} retrieved {len(klines)} records from {endpoint}"
                     )
 
-                # Add open_time as a column (for tests that expect it)
-                if df.index.name == "open_time" and "open_time" not in df.columns:
-                    logger.debug("Adding open_time as a column for compatibility")
-                    # Make a copy of the dataframe before resetting the index
-                    temp_df = df.copy()
-                    # Reset index to make open_time a regular column
-                    df = temp_df.reset_index()
-
-                    # Ensure the open_time column is sorted
-                    if not df["open_time"].is_monotonic_increasing:
-                        logger.debug(
-                            "Sorting open_time column to ensure monotonic order"
-                        )
-                        df = df.sort_values("open_time")
-
-            # Update stats
-            stats.update(
-                {
-                    "end_time": datetime.now(timezone.utc),
-                    "records_fetched": records_fetched,
-                    "records_returned": len(df),
-                    "total_records": len(df),  # Add for test compatibility
-                    "chunks": len(chunks),
-                    "chunks_processed": len(chunks),  # Add for test compatibility
-                    "chunks_failed": 0,  # Add for test compatibility
-                    "concurrency": concurrency,
-                    "endpoint_used": endpoint,
-                }
+        # Combine results and create DataFrame
+        if not successful_results:
+            logger.warning(
+                f"No data retrieved for {symbol} from {start_time} to {end_time}"
             )
+            return self.create_empty_dataframe(), self.stats
 
-            logger.info(
-                f"Fetched {len(df)} records for {symbol} {interval.value} "
-                f"({stats['end_time'] - stats['start_time']})"
-            )
+        # Combine all chunks
+        all_klines = [item for sublist in successful_results for item in sublist]
 
-            # Validate data
-            self._validate_bar_alignment(df, interval)
-            self._validate_historical_bars(df, datetime.now(timezone.utc))
+        # Process into DataFrame
+        df = process_kline_data(all_klines)
 
-            return df, stats
+        # Ensure we have data
+        if df.empty:
+            logger.warning(f"Processed DataFrame is empty for {symbol}")
+            return self.create_empty_dataframe(), self.stats
 
-        except Exception as e:
-            stats["error"] = str(e)
-            stats["end_time"] = datetime.now(timezone.utc)
-            logger.error(f"Error fetching data: {e}")
-            raise
+        logger.info(
+            f"Successfully retrieved {len(df)} records for {symbol} "
+            f"from {start_time} to {end_time}"
+        )
+
+        return df, self.stats
+
+    def create_empty_dataframe(self) -> pd.DataFrame:
+        """Create an empty DataFrame with the expected structure.
+
+        Returns:
+            Empty DataFrame with proper column structure
+        """
+        columns = [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "close_time",
+            "quote_asset_volume",
+            "number_of_trades",
+            "taker_buy_base_volume",
+            "taker_buy_quote_volume",
+        ]
+        return pd.DataFrame(columns=columns)
