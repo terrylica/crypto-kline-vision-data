@@ -81,7 +81,7 @@ class TestUnifiedCacheManager:
         assert relative_parts[4] == self.symbol, "Symbol directory incorrect"
         assert relative_parts[5] == self.interval, "Interval directory incorrect"
         assert (
-            relative_parts[6] == f"{self.date.strftime('%Y%m')}.arrow"
+            relative_parts[6] == f"{self.date.strftime('%Y%m%d')}.arrow"
         ), "File name incorrect"
 
     def test_cache_manager_creates_directory_structure(self, caplog):

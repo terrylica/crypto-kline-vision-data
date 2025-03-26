@@ -42,7 +42,7 @@ class TestCacheKeyManager:
             / "daily"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "binance" in str(path), "Exchange name not in path"
@@ -65,7 +65,7 @@ class TestCacheKeyManager:
             / "daily"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "coinbase" in str(path), "Custom exchange name not in path"
@@ -87,7 +87,7 @@ class TestCacheKeyManager:
             / "daily"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "futures" in str(path), "Custom market type not in path"
@@ -109,7 +109,7 @@ class TestCacheKeyManager:
             / "daily"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "trades" in str(path), "Custom data nature not in path"
@@ -131,7 +131,7 @@ class TestCacheKeyManager:
             / "monthly"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "monthly" in str(path), "Custom packaging frequency not in path"
@@ -156,7 +156,7 @@ class TestCacheKeyManager:
             / "hourly"
             / self.symbol
             / self.interval
-            / "202301.arrow"
+            / "20230115.arrow"
         )
         assert path == expected_path
         assert "kraken" in str(path), "Custom exchange not in path"
@@ -179,30 +179,30 @@ class TestCacheKeyManager:
         assert path_parts[-2] == self.interval
 
         # Filename should be at position -1 (last)
-        assert path_parts[-1] == f"{self.date.strftime('%Y%m')}.arrow"
+        assert path_parts[-1] == f"{self.date.strftime('%Y%m%d')}.arrow"
 
     def test_different_dates(self, caplog):
-        """Test that different dates produce the correct year-month in the filename."""
+        """Test that different dates produce the correct date format in the filename."""
         # Test with January
         jan_date = datetime(2023, 1, 1, tzinfo=timezone.utc)
         jan_path = CacheKeyManager.get_cache_path(
             self.cache_dir, self.symbol, self.interval, jan_date
         )
-        assert jan_path.name == "202301.arrow"
+        assert jan_path.name == "20230101.arrow"
 
         # Test with December
         dec_date = datetime(2023, 12, 31, tzinfo=timezone.utc)
         dec_path = CacheKeyManager.get_cache_path(
             self.cache_dir, self.symbol, self.interval, dec_date
         )
-        assert dec_path.name == "202312.arrow"
+        assert dec_path.name == "20231231.arrow"
 
         # Test with a date that has time components
         time_date = datetime(2023, 6, 15, 12, 30, 45, tzinfo=timezone.utc)
         time_path = CacheKeyManager.get_cache_path(
             self.cache_dir, self.symbol, self.interval, time_date
         )
-        assert time_path.name == "202306.arrow"
+        assert time_path.name == "20230615.arrow"
 
     def test_create_full_path(self, caplog):
         """Test that we can actually create the full path structure."""
@@ -222,4 +222,4 @@ class TestCacheKeyManager:
 
         # Verify file was created
         assert path.exists(), "Failed to create file"
-        assert "202301.arrow" in str(path), "File name incorrect"
+        assert "20230115.arrow" in str(path), "File name incorrect"
