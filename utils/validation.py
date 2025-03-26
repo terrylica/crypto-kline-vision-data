@@ -63,88 +63,58 @@ class DataValidation:
 
     @staticmethod
     def validate_dates(start_time: datetime, end_time: datetime) -> None:
-        """Validate dates for market data requests.
+        """Validate date inputs.
 
         Args:
             start_time: Start time
             end_time: End time
 
         Raises:
-            ValueError: If the time range is invalid
+            ValueError: If start_time is after end_time
         """
-        if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
+        if start_time >= end_time:
             raise ValueError(
-                f"Invalid date types: start_time={type(start_time)}, end_time={type(end_time)}. "
-                "Both must be datetime objects."
+                f"Start time must be before end time: {start_time} >= {end_time}"
             )
 
-        # Convert to UTC for consistent comparison
-        start_utc = DataValidation.enforce_utc_timestamp(start_time)
-        end_utc = DataValidation.enforce_utc_timestamp(end_time)
-
-        # Check if the end time is in the future
-        now_utc = datetime.now(timezone.utc)
-        if end_utc > now_utc:
-            raise ValueError(f"End time {end_utc.isoformat()} is in the future")
-
-        if start_utc >= end_utc:
-            raise ValueError(
-                f"Invalid time range: start_time ({start_utc.isoformat()}) must be before "
-                f"end_time ({end_utc.isoformat()})."
-            )
+        # Enforce timezone awareness
+        if start_time.tzinfo is None or end_time.tzinfo is None:
+            raise ValueError("Start and end times must be timezone-aware")
 
     @staticmethod
     def validate_time_window(start_time: datetime, end_time: datetime) -> None:
-        """Validate time window for market data requests.
+        """Validate time window for market data.
 
         Args:
             start_time: Start time
             end_time: End time
 
         Raises:
-            ValueError: If time window is invalid
+            ValueError: If time window exceeds maximum allowed
         """
-        # Standard date validation
+        # Ensure dates are valid first
         DataValidation.validate_dates(start_time, end_time)
 
-        # Add any additional time window validations here
+        # Ensure time range is not too large
         time_diff = end_time - start_time
         if time_diff > MAX_TIME_RANGE:
-            raise ValidationError(
-                f"Time range exceeds maximum allowed: {MAX_TIME_RANGE}"
-            )
+            raise ValueError(f"Time range exceeds maximum allowed: {MAX_TIME_RANGE}")
 
-        if time_diff > timedelta(days=365):
-            logger.warning(
-                f"Large time window requested: {time_diff.days} days. "
-                "This may cause performance issues."
-            )
+        # REMOVED: validate_time_boundaries - No longer enforcing manual alignment for REST API calls
 
     @staticmethod
     def enforce_utc_timestamp(dt: datetime) -> datetime:
-        """Ensure timestamp is UTC.
+        """Ensures datetime object is timezone aware and in UTC.
 
         Args:
-            dt: Datetime object
+            dt: Input datetime
 
         Returns:
             UTC timezone-aware datetime
         """
-        if dt.tzinfo is None:
+        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
             return dt.replace(tzinfo=timezone.utc)
-        elif dt.tzinfo != timezone.utc:
-            # Create a new datetime with timezone.utc instead of just converting
-            return datetime(
-                dt.year,
-                dt.month,
-                dt.day,
-                dt.hour,
-                dt.minute,
-                dt.second,
-                dt.microsecond,
-                tzinfo=timezone.utc,
-            )
-        return dt
+        return dt.astimezone(timezone.utc)
 
     @staticmethod
     def validate_time_range(

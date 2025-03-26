@@ -283,19 +283,20 @@ class CacheValidator:
         interval: Optional[Interval] = None,
         symbol: str = "BTCUSDT",
     ) -> Optional[CacheValidationError]:
-        """Validate cached data DataFrame and optionally its alignment with API boundaries.
+        """Validate cached data DataFrame.
 
         Args:
             df: DataFrame to validate
             allow_empty: Whether to allow empty DataFrame
-            start_time: Original start time for API boundary validation
-            end_time: Original end time for API boundary validation
-            interval: Interval for API boundary validation
-            symbol: Symbol for API boundary validation
+            start_time: Optional start time for boundary validation
+            end_time: Optional end time for boundary validation
+            interval: Optional interval for boundary validation
+            symbol: Symbol for API validation
 
         Returns:
-            Error details if validation fails, None if valid
+            ValidationError if invalid, None if valid
         """
+        # Check if DataFrame is empty
         if df.empty and not allow_empty:
             return CacheValidationError(
                 ERROR_TYPES["VALIDATION"],
@@ -303,32 +304,42 @@ class CacheValidator:
                 True,
             )
 
+        # Validate DataFrame structure
         try:
             DataFrameValidator.validate_dataframe(df)
         except ValueError as e:
             return CacheValidationError(
                 ERROR_TYPES["VALIDATION"],
                 f"DataFrame validation failed: {e}",
-                False,  # Data integrity issue, not recoverable
+                False,
             )
 
-        # If API boundary validation is requested and we have a validator
-        if start_time and end_time and interval and self.api_boundary_validator:
+        # Validate API boundaries if validator is available and we have all required parameters
+        if (
+            self.api_boundary_validator
+            and start_time
+            and end_time
+            and interval
+            and not df.empty
+        ):
             try:
+                # Use ApiBoundaryValidator to validate cache data matches REST API behavior
                 is_api_aligned = await self.api_boundary_validator.does_data_range_match_api_response(
-                    df, start_time, end_time, interval, symbol=symbol
+                    df, start_time, end_time, interval, symbol
                 )
 
                 if not is_api_aligned:
                     return CacheValidationError(
                         ERROR_TYPES["API_BOUNDARY"],
-                        f"Cache data does not match expected API response for {symbol} {interval} from {start_time} to {end_time}",
-                        True,  # Recoverable by fetching from API
+                        "Cache data boundaries do not match REST API behavior",
+                        True,  # Recoverable by refetching
                     )
+
+                logger.debug("Cache data boundaries match REST API behavior")
             except Exception as e:
                 logger.warning(f"API boundary validation failed: {e}")
-                # Don't fail the validation just because API boundary check failed
-                # This allows fallback to cached data even if we can't verify against API
+                # Don't fail cache validation just because API validation failed
+                # This keeps the system robust even if we can't reach the API
 
         return None
 
@@ -440,18 +451,19 @@ class CacheKeyManager:
 
     @staticmethod
     def get_cache_key(symbol: str, interval: str, date: datetime) -> str:
-        """Generate cache key in a standardized format.
+        """Generate a unique cache key.
 
         Args:
             symbol: Trading pair symbol
             interval: Time interval
-            date: Date for cache key
+            date: Target date
 
         Returns:
-            Cache key string
+            Unique cache key string
         """
+        # Ensure consistent date format
         date_str = date.strftime("%Y-%m-%d")
-        return f"{symbol}_{interval}_{date_str}"
+        return f"{symbol.upper()}_{interval}_{date_str}"
 
     @staticmethod
     def get_cache_path(
@@ -464,43 +476,47 @@ class CacheKeyManager:
         data_nature: str = "klines",
         packaging_frequency: str = "daily",
     ) -> Path:
-        """Generate a standardized cache file path.
+        """Generate standardized cache path.
 
-        This creates a cache path in the following format:
-        {cache_dir}/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{symbol}/{interval}/
-        {YYYY-MM}.arrow
+        Generates a path that follows the structure defined in docs/roadmap/upgrade_cache_structure.md:
+        cache_dir/{exchange}/{market_type}/{data_nature}/{packaging_frequency}/{SYMBOL}/{INTERVAL}/YYYYMMDD.arrow
 
         Args:
-            cache_dir: Base cache directory
+            cache_dir: Root cache directory
             symbol: Trading pair symbol
-            interval: Time interval (e.g., '1m')
-            date: Date for the cache file
+            interval: Time interval
+            date: Target date
             exchange: Exchange name
-            market_type: Market type (spot, futures, etc.)
-            data_nature: Data nature (klines, trades, etc.)
-            packaging_frequency: How data is packaged (daily, hourly, etc.)
+            market_type: Type of market
+            data_nature: Type of data
+            packaging_frequency: Packaging frequency
 
         Returns:
-            Path object for the cache file
+            Path object for cache file
         """
-        # Use year-month format (YYYYMM) for the filename to group by month
-        # This aligns with the Binance Vision monthly packaging approach
-        year_month = date.strftime("%Y%m")
-        filename = f"{year_month}.arrow"
+        # Format date for filename
+        year_month_day = date.strftime("%Y%m%d")
 
-        # Create path with packaging_frequency BEFORE symbol and interval
-        # to align with Binance Vision API URL structure and documentation
+        # Standardize symbol and interval format
+        symbol = symbol.upper()
+        interval = interval.lower()
+
+        # Generate path with standardized structure
         path = (
             cache_dir
             / exchange
             / market_type
             / data_nature
-            / packaging_frequency  # Moved before symbol and interval
+            / packaging_frequency
             / symbol
             / interval
-            / filename
         )
-        return path
+        path.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename with standardized format - YYYYMMDD.arrow
+        filename = f"{year_month_day}.arrow"
+
+        return path / filename
 
 
 class VisionCacheManager:

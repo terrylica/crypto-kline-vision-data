@@ -1,32 +1,25 @@
 #!/usr/bin/env python
 """Utility module for handling time alignment and incomplete bars.
 
+IMPORTANT: This module has been refactored to remove manual time alignment for REST API calls
+while keeping necessary alignment for Vision API and cache to match REST API behavior.
+
 Key behaviors:
+1. REST API: No manual alignment is performed - timestamps are passed directly to the API
+2. Vision API & Cache: Manual alignment is applied to match REST API's natural boundary behavior
+
+For Vision API and Cache (manual alignment to match REST API behavior):
 1. All units smaller than the interval are removed (e.g., for 1m, all seconds and microseconds are removed)
-2. The current incomplete interval is removed for safety
-3. Start times are ALWAYS rounded DOWN to include the full interval
+2. Start times are rounded DOWN to include the full interval
    (e.g., 08:37:25.528448 gets rounded DOWN to 08:37:25.000000 for 1-second intervals)
-4. End times are rounded DOWN to current interval boundary and are treated as EXCLUSIVE
-   (e.g., 08:37:30.056345 gets rounded DOWN to 08:37:30.000000 for 1-second intervals,
-   and data is returned up to but NOT including 08:37:30.000000)
-5. Start timestamp is inclusive, end timestamp is exclusive
-6. This ensures consistent behavior regardless of microsecond precision
+3. End times are rounded DOWN to current interval boundary
+   (e.g., 08:37:30.056345 gets rounded DOWN to 08:37:30.000000 for 1-second intervals)
+4. Start timestamp is inclusive, end timestamp is exclusive after alignment
 
-Example:
-For a time window from 2025-03-17 08:37:25.528448 to 2025-03-17 08:37:30.056345 with 1-second intervals:
-- Adjusted start: 2025-03-17 08:37:25.000000 (rounded DOWN from 25.528448)
-- Adjusted end: 2025-03-17 08:37:30.000000 (rounded DOWN from 30.056345)
-- Expected records: Records for exactly 5 seconds (25, 26, 27, 28, 29), NOT including 30
-
-Important implementation detail:
-- When filtering data after fetching, the comparison `df.index < end_time` is used
-  to enforce the exclusive end time boundary
-
-IMPORTANT: When counting expected records for a time range:
-1. Start times are INCLUSIVE, end times are EXCLUSIVE after alignment
-2. Start times with microseconds are rounded DOWN to include the full interval
-3. End times with microseconds are rounded DOWN to the current second and treated as exclusive
-4. The number of records is the integer difference in seconds between adjusted start and end
+These alignment utilities should NOT be used for REST API calls, but are retained for:
+1. Vision API alignment (to match REST API behavior)
+2. Cache key generation (to match REST API behavior)
+3. General time utility functions not related to alignment
 """
 
 from dataclasses import dataclass
@@ -199,20 +192,55 @@ def get_bar_close_time(open_time: datetime, interval: Interval) -> datetime:
     return close_time
 
 
+# DEPRECATED: This function should not be used for REST API alignment
+# Only kept for Vision API and cache to match REST API behavior
+def _vision_api_time_window_alignment(
+    start_time: datetime,
+    end_time: datetime,
+    interval: Interval,
+) -> Tuple[datetime, datetime]:
+    """Align time window for Vision API to match REST API behavior.
+
+    This is specifically for Vision API and cache alignment to match REST API behavior.
+    DO NOT use for REST API calls - pass timestamps directly to REST API.
+
+    Args:
+        start_time: Start time
+        end_time: End time
+        interval: The interval specification
+
+    Returns:
+        Tuple of aligned start and end times that match REST API behavior
+    """
+    # Ensure using exact timezone.utc object using centralized utility
+    start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+    end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+    # Get floor times - always floor the start and end time to match REST API behavior
+    start_floor = get_interval_floor(start_time, interval)
+    end_floor = get_interval_floor(end_time, interval)
+
+    # For start time: ALWAYS use floor time (inclusive)
+    adjusted_start = start_floor
+
+    # For end time: Use floor time (exclusive boundary)
+    adjusted_end = end_floor
+
+    return adjusted_start, adjusted_end
+
+
+# DEPRECATED: Do not use for REST API - kept for backward compatibility
+# and will emit a warning if used
 def adjust_time_window(
     start_time: datetime,
     end_time: datetime,
     interval: Interval,
     current_time: Optional[datetime] = None,
 ) -> Tuple[datetime, datetime]:
-    """Adjust time window for data retrieval.
+    """DEPRECATED: Do not use for REST API calls.
 
-    Key behaviors:
-    1. All units smaller than the interval are removed
-    2. The current incomplete interval is removed for safety
-    3. Start times are ALWAYS rounded DOWN to include the full interval
-    4. End times are rounded DOWN to the current interval (exclusive - the end interval is not included)
-    5. Start timestamp is inclusive, end timestamp is exclusive
+    Use _vision_api_time_window_alignment for Vision API and cache instead.
+    This function will be removed in a future version.
 
     Args:
         start_time: Start time
@@ -223,348 +251,184 @@ def adjust_time_window(
     Returns:
         Tuple of adjusted start and end times
     """
-    if current_time is None:
-        current_time = datetime.now(timezone.utc)
-
-    # Ensure using exact timezone.utc object using centralized utility
-    start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-    end_time = TimeRangeManager.enforce_utc_timezone(end_time)
-    current_time = TimeRangeManager.enforce_utc_timezone(current_time)
-
-    # Get floor times - always floor the start time
-    start_floor = get_interval_floor(start_time, interval)
-    end_floor = get_interval_floor(end_time, interval)
-
-    # For start time: ALWAYS use floor time
-    adjusted_start = start_floor
-
-    # Check if we're in an incomplete interval
-    interval_td = get_interval_timedelta(interval)
-    time_since_floor = current_time - end_floor
-    if time_since_floor < interval_td:
-        # We're in an incomplete interval, move back one interval
-        end_floor = end_floor - interval_td
-
-    # End time is exclusive (the end interval is not included)
-    # So we use the floor time exactly (not the close time of the interval)
-    adjusted_end = end_floor
-
-    # Calculate expected number of records
-    expected_records = (
-        int((adjusted_end - adjusted_start).total_seconds()) // interval.to_seconds()
-    )
-
-    return adjusted_start, adjusted_end
-
-
-def get_time_boundaries(
-    start_time: datetime, end_time: datetime, interval: Interval
-) -> Dict[str, Any]:
-    """Get detailed time boundary information for consistent handling across the codebase.
-
-    Args:
-        start_time: Original start time
-        end_time: Original end time
-        interval: Time interval
-
-    Returns:
-        Dictionary with time boundary details for use in multiple contexts:
-        - adjusted_start: Adjusted start time (inclusive)
-        - adjusted_end: Adjusted end time (exclusive)
-        - start_ms: Start time in milliseconds for API calls
-        - end_ms: End time in milliseconds for API calls
-        - expected_records: Expected number of records
-        - interval_ms: Interval in milliseconds
-        - interval_micros: Interval in microseconds
-    """
-    # Apply time window adjustment
-    adjusted_start, adjusted_end = adjust_time_window(start_time, end_time, interval)
-
-    # Calculate timestamps in milliseconds (for API calls)
-    start_ms = int(adjusted_start.timestamp() * 1000)
-    end_ms = int(adjusted_end.timestamp() * 1000)
-
-    # Calculate interval in various units
-    interval_seconds = interval.to_seconds()
-    interval_ms = interval_seconds * 1000
-    interval_micros = interval_seconds * 1_000_000
-
-    # Calculate expected records
-    expected_records = (
-        int((adjusted_end - adjusted_start).total_seconds()) // interval_seconds
-    )
-
-    return {
-        "adjusted_start": adjusted_start,
-        "adjusted_end": adjusted_end,
-        "start_ms": start_ms,
-        "end_ms": end_ms,
-        "expected_records": expected_records,
-        "interval_ms": interval_ms,
-        "interval_micros": interval_micros,
-        "boundary_type": "inclusive_start_exclusive_end",
-    }
-
-
-def filter_time_range(
-    df: pd.DataFrame, start_time: datetime, end_time: datetime
-) -> pd.DataFrame:
-    """
-    Filter a DataFrame to a specific time range.
-    Implements inclusive start time (>=) and exclusive end time (<) behavior.
-
-    This function will handle DataFrames with either:
-    1. A DatetimeIndex (preferred)
-    2. An 'open_time' column containing datetime values
-
-    Args:
-        df: DataFrame to filter
-        start_time: Inclusive start time
-        end_time: Exclusive end time
-
-    Returns:
-        Filtered DataFrame
-    """
-    if df.empty:
-        return df
-
-    # Ensure both timestamps are UTC using centralized utility
-    start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-    end_time = TimeRangeManager.enforce_utc_timezone(end_time)
-
-    # Check if index is datetime type
-    if pd.api.types.is_datetime64_any_dtype(df.index):
-        # Case 1: DataFrame has a datetime index
-        mask = (df.index >= start_time) & (df.index < end_time)
-        return df[mask]
-
-    # Case 2: Try to use open_time column if it exists
-    elif "open_time" in df.columns:
-        if pd.api.types.is_datetime64_any_dtype(df["open_time"]):
-            mask = (df["open_time"] >= start_time) & (df["open_time"] < end_time)
-            return df[mask]
-        else:
-            logger.warning(
-                f"open_time column exists but is not datetime type: {df['open_time'].dtype}"
-            )
-
-    # Case 3: No valid datetime index or column found
     logger.warning(
-        f"Cannot filter DataFrame: no valid datetime index or open_time column found. "
-        f"Index type: {type(df.index)}, columns: {df.columns}"
+        "adjust_time_window() is deprecated. "
+        "For REST API: Do not manually align timestamps. "
+        "For Vision API/cache: Use _vision_api_time_window_alignment()."
     )
-
-    # In case of failure, we should return an empty DataFrame of the same structure
-    return df.iloc[0:0]
+    return _vision_api_time_window_alignment(start_time, end_time, interval)
 
 
 def is_bar_complete(
-    bar_time: datetime, current_time: datetime, interval: Interval = Interval.SECOND_1
+    timestamp: datetime, interval: Interval, current_time: Optional[datetime] = None
 ) -> bool:
-    """Check if a bar is complete based on its timestamp.
-
-    A bar is considered complete when:
-    1. It's at least one interval old
-    2. The bar's close time has passed
+    """Check if a bar is complete based on the current time.
 
     Args:
-        bar_time: The bar's open time
-        current_time: Current time to compare against
-        interval: The interval specification (default: 1 second)
+        timestamp: The bar's timestamp
+        interval: The interval specification
+        current_time: Optional current time for testing
 
     Returns:
-        bool: True if the bar is complete, False otherwise
+        bool: True if the bar is complete
     """
-    # Ensure UTC timezone
-    bar_time = bar_time.astimezone(timezone.utc)
-    current_time = current_time.astimezone(timezone.utc)
+    if current_time is None:
+        current_time = datetime.now(timezone.utc)
 
-    # Get close time
-    close_time = get_bar_close_time(bar_time, interval)
+    # Calculate interval timedelta based on interval seconds
+    interval_td = get_interval_timedelta(interval)
 
-    # Bar is complete if we're past its close time
-    return current_time > close_time
+    # A bar is complete if current time is at least one interval after its start
+    return current_time >= (timestamp + interval_td)
 
 
 class TimeRangeManager:
-    """Centralized manager for time range validation and adjustment across the codebase.
+    """Centralized manager for handling time ranges and alignment.
 
-    This class implements the DRY principle by providing a single source of truth
-    for time range operations, including:
-
-    1. Time window validation
-    2. Boundary alignment for intervals
-    3. Consistent filtering of DataFrames based on time ranges
-    4. Utilities for time zone standardization
-
-    Each method in this class follows consistent behavior:
-    - Start times are INCLUSIVE
-    - End times are EXCLUSIVE
-    - All timestamps are converted to UTC
-    - Timestamps are aligned to interval boundaries
+    IMPORTANT: Do not use get_time_boundaries() or get_adjusted_boundaries()
+    for REST API calls - pass timestamps directly to REST API.
+    These methods are kept for Vision API and cache alignment only.
     """
 
     @staticmethod
-    def validate_dates(start_time: datetime, end_time: datetime) -> None:
-        """Validate date inputs.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-
-        Raises:
-            ValueError: If dates are invalid
-        """
-        from utils.validation import DataValidation
-
-        DataValidation.validate_dates(start_time, end_time)
-
-    @staticmethod
-    def validate_time_window(start_time: datetime, end_time: datetime) -> None:
-        """Validate time window for market data requests.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-
-        Raises:
-            ValueError: If time window is invalid
-        """
-        from utils.validation import DataValidation
-
-        DataValidation.validate_time_window(start_time, end_time)
-
-    @staticmethod
     def enforce_utc_timezone(dt: datetime) -> datetime:
-        """Ensure a datetime is UTC timezone-aware.
-
-        Args:
-            dt: Input datetime
-
-        Returns:
-            UTC timezone-aware datetime
-        """
-        from utils.validation import DataValidation
-
-        return DataValidation.enforce_utc_timestamp(dt)
+        """Ensures datetime object is timezone aware and in UTC."""
+        if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     @staticmethod
-    def get_adjusted_boundaries(
-        start_time: datetime, end_time: datetime, interval: Interval
-    ) -> Tuple[datetime, datetime]:
-        """Get adjusted time boundaries for data retrieval.
-
-        Args:
-            start_time: Original start time
-            end_time: Original end time
-            interval: Time interval
-
-        Returns:
-            Tuple of (adjusted_start, adjusted_end)
-        """
-        return adjust_time_window(start_time, end_time, interval)
-
-    @staticmethod
-    def get_time_boundaries(
+    def align_vision_api_to_rest(
         start_time: datetime, end_time: datetime, interval: Interval
     ) -> Dict[str, Any]:
-        """Get complete time boundary information.
+        """Align Vision API time boundaries to match REST API behavior.
 
-        Creates a standardized dictionary with all boundary information
-        needed across different parts of the application.
+        This method should be used to manually align Vision API and cache operations
+        to match REST API's natural boundary behavior.
 
         Args:
-            start_time: Original start time
-            end_time: Original end time
-            interval: Time interval
+            start_time: Start time
+            end_time: End time
+            interval: The interval specification
 
         Returns:
-            Dictionary of boundary information
+            Dictionary with aligned start and end times
         """
-        return get_time_boundaries(start_time, end_time, interval)
+        # Apply alignment to match REST API behavior
+        adjusted_start, adjusted_end = _vision_api_time_window_alignment(
+            start_time, end_time, interval
+        )
+
+        # Calculate other useful properties
+        interval_seconds = interval.to_seconds()
+        interval_ms = interval_seconds * 1000
+        interval_micros = interval_seconds * 1_000_000
+
+        # Calculate timestamps for API calls
+        start_ms = int(adjusted_start.timestamp() * 1000)
+        end_ms = int(adjusted_end.timestamp() * 1000)
+
+        # Calculate expected records
+        expected_records = (
+            int((adjusted_end - adjusted_start).total_seconds()) // interval_seconds
+        )
+
+        return {
+            "adjusted_start": adjusted_start,
+            "adjusted_end": adjusted_end,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "expected_records": expected_records,
+            "interval_ms": interval_ms,
+            "interval_micros": interval_micros,
+            "boundary_type": "inclusive_start_exclusive_end",
+        }
 
     @staticmethod
     def filter_dataframe(
         df: pd.DataFrame, start_time: datetime, end_time: datetime
     ) -> pd.DataFrame:
-        """Filter DataFrame by time range with consistent boundary behavior.
+        """Filter DataFrame by time range with boundary handling.
+
+        This method applies consistent filtering based on the boundary definitions:
+        - start_time: inclusive
+        - end_time: exclusive
 
         Args:
-            df: DataFrame to filter
-            start_time: Inclusive start time
-            end_time: Exclusive end time
+            df: Input DataFrame with DatetimeIndex
+            start_time: Start time (inclusive)
+            end_time: End time (exclusive)
 
         Returns:
             Filtered DataFrame
         """
-        return filter_time_range(df, start_time, end_time)
-
-    @staticmethod
-    def validate_boundaries(
-        df: pd.DataFrame, start_time: datetime, end_time: datetime
-    ) -> None:
-        """Validate that DataFrame covers requested time range.
-
-        This validation implements Binance REST API boundary behavior:
-        - Start times earlier than data start are valid (Binance API returns data from the earliest available point)
-        - Start times after data start (data starting too late) are invalid
-        - End times later than data end are valid (Binance API returns data up to what's available)
-        - End times earlier than data end (data ending too early) are invalid
-
-        Args:
-            df: DataFrame to validate
-            start_time: Expected start time (inclusive)
-            end_time: Expected end time (exclusive)
-
-        Raises:
-            ValueError: If data doesn't cover the requested range
-        """
         if df.empty:
-            raise ValueError("Cannot validate boundaries: DataFrame is empty")
+            return df
 
-        # Ensure both timestamps are UTC
+        # Ensure proper timezone
         start_time = TimeRangeManager.enforce_utc_timezone(start_time)
         end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
-        # Determine if we're working with a DatetimeIndex or open_time column
-        if pd.api.types.is_datetime64_any_dtype(df.index):
-            data_start = df.index.min()
-            data_end = df.index.max()
-        elif "open_time" in df.columns and pd.api.types.is_datetime64_any_dtype(
-            df["open_time"]
-        ):
-            data_start = df["open_time"].min()
-            data_end = df["open_time"].max()
-        else:
-            raise ValueError(
-                "Cannot validate boundaries: No datetime index or open_time column found"
-            )
+        # Apply filtering with explicit boundary handling
+        filtered_df = df.loc[(df.index >= start_time) & (df.index < end_time)]
 
-        # Ensure datetime objects are timezone-aware
-        data_start = TimeRangeManager.enforce_utc_timezone(data_start)
-        data_end = TimeRangeManager.enforce_utc_timezone(data_end)
+        return filtered_df
 
-        # Validate boundaries according to Binance REST API behavior
-        # 1. If requested start time is AFTER data start, data starts too late (error)
-        # 2. If requested start time is BEFORE data start, that's allowed (Binance API behavior)
-        if start_time > data_start:
-            raise ValueError(
-                f"Data starts too late: requested start={start_time.isoformat()}, "
-                f"data start={data_start.isoformat()}"
-            )
+    # DEPRECATED: Do not use for REST API - kept for backward compatibility only
+    @staticmethod
+    def get_adjusted_boundaries(
+        start_time: datetime, end_time: datetime, interval: Interval
+    ) -> Dict[str, datetime]:
+        """DEPRECATED: Do not use for REST API calls.
 
-        # For end time, Binance API behaviors:
-        # 1. If requested end time is BEFORE data end, data ends too early (error)
-        # 2. If requested end time is AFTER data end, that's fine (Binance returns what's available)
-        if end_time <= data_end:
-            # If the requested end time is before or equal to data_end, we're fine
-            # Binance will return data up to the requested end time
-            return
+        Use align_vision_api_to_rest for Vision API and cache alignment instead.
+        This method will be removed in a future version.
 
-        # Check if there's a specific point in the data we need to validate
-        # For example, if we need specific data points before the requested end time
-        # This can be used for specific validation needs beyond the standard API behavior
-        if "validate_specific_end" in df.attrs and df.attrs["validate_specific_end"]:
-            # Example of a custom validation that could be added here
-            # Only trigger error for specific validation cases
-            pass
+        Args:
+            start_time: Start time
+            end_time: End time
+            interval: The interval specification
+
+        Returns:
+            Dictionary with adjusted start and end times
+        """
+        logger.warning(
+            "get_adjusted_boundaries() is deprecated. "
+            "For REST API: Do not manually align timestamps. "
+            "For Vision API/cache: Use align_vision_api_to_rest()."
+        )
+
+        adjusted_start, adjusted_end = _vision_api_time_window_alignment(
+            start_time, end_time, interval
+        )
+
+        return {
+            "adjusted_start": adjusted_start,
+            "adjusted_end": adjusted_end,
+        }
+
+    # DEPRECATED: Do not use for REST API - kept for backward compatibility only
+    @staticmethod
+    def get_time_boundaries(
+        start_time: datetime, end_time: datetime, interval: Interval
+    ) -> Dict[str, Any]:
+        """DEPRECATED: Do not use for REST API calls.
+
+        Use align_vision_api_to_rest for Vision API and cache alignment instead.
+        This method will be removed in a future version.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+            interval: The interval specification
+
+        Returns:
+            Dictionary with time boundary information
+        """
+        logger.warning(
+            "get_time_boundaries() is deprecated. "
+            "For REST API: Do not manually align timestamps. "
+            "For Vision API/cache: Use align_vision_api_to_rest()."
+        )
+
+        return TimeRangeManager.align_vision_api_to_rest(start_time, end_time, interval)

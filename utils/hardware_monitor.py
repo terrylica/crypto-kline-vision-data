@@ -208,3 +208,23 @@ class HardwareMonitor:
             "rate_limit": rate_limit_optimal,
         }
         return min(factors.items(), key=lambda x: x[1])[0]
+
+    def get_optimal_concurrency(
+        self,
+        base_concurrent_requests: int = 20,
+        min_concurrent_requests: int = 10,
+        max_concurrent_requests: int = 50,
+    ) -> Dict[str, Any]:
+        """Alias for calculate_optimal_concurrency to maintain backward compatibility.
+
+        Args:
+            base_concurrent_requests: Base number of concurrent requests (default: 20)
+            min_concurrent_requests: Minimum number of concurrent requests (default: 10)
+            max_concurrent_requests: Maximum number of concurrent requests (default: 50)
+
+        Returns:
+            Dictionary containing optimal concurrency and the factors considered
+        """
+        return self.calculate_optimal_concurrency(
+            base_concurrent_requests, min_concurrent_requests, max_concurrent_requests
+        )
