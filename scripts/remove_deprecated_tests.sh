@@ -27,7 +27,7 @@ CACHE_FILES=(
 # Function to remove files with git
 remove_files() {
     local files=("$@")
-    local success=true
+    local success=0
     
     for file in "${files[@]}"; do
         if [ -f "$file" ]; then
@@ -35,7 +35,7 @@ remove_files() {
             git rm "$file"
             if [ $? -ne 0 ]; then
                 echo "Error removing $file"
-                success=false
+                success=1
             fi
         else
             echo "File not found: $file (already removed?)"
