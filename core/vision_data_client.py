@@ -1,42 +1,19 @@
 #!/usr/bin/env python
-"""Enhanced Vision Data Client with optimized Arrow MMAP caching.
+"""VisionDataClient provides direct access to Binance Vision API for historical data.
 
-This client implements a high-performance caching system using Arrow Memory-Mapped format for:
-- Zero-copy reads through Arrow memory mapping
-- Columnar data storage and retrieval
-- Granular data loading with column selection
-- Comprehensive error classification and recovery
-- Multi-layered validation framework
-- Cache metadata tracking and integrity checks
+This module implements a client for retrieving historical market data from the
+Binance Vision API. It provides functions for fetching, validating, and processing data.
 
-Migration Guide for Caching:
+Functionality:
+- Fetch historical market data by symbol, interval, and time range
+- Validate data integrity and structure
+- Process data into pandas DataFrames for analysis
 
-1. Current (Legacy) Usage:
-   ```python
-   client = VisionDataClient("BTCUSDT", cache_dir=Path("./cache"), use_cache=True)
-   df = await client.fetch(start_time, end_time)
-   ```
+The VisionDataClient is primarily used through the DataSourceManager, which provides
+a unified interface for data retrieval with automatic source selection and caching.
 
-2. Recommended Usage:
-   ```python
-   manager = DataSourceManager(
-       cache_dir=Path("./cache"),
-       use_cache=True
-   )
-   df = await manager.get_data(
-       symbol="BTCUSDT",
-       start_time=start_time,
-       end_time=end_time,
-       enforce_source=DataSource.VISION  # If Vision API is specifically needed
-   )
-   ```
-
-Benefits of using DataSourceManager:
-- Centralized caching through UnifiedCacheManager
-- Smart source selection between REST and Vision APIs
-- Consistent data format and validation
-- Better error handling and retry logic
-- Optimized memory usage with MMAP
+For most use cases, users should interact with the DataSourceManager rather than
+directly with this client.
 """
 
 import asyncio
@@ -392,56 +369,64 @@ class VisionDataClient(Generic[T]):
         start_time: datetime,
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
-    ) -> pd.DataFrame:
-        """Fetch data for the specified time range.
-
-        This method applies manual alignment to Vision API requests to match
-        REST API's natural boundary behavior.
+    ) -> TimestampedDataFrame:
+        """Fetch data from Binance Vision API with caching.
 
         Args:
-            start_time: Start time
-            end_time: End time
-            columns: Optional list of columns to return
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
+            columns: Optional list of specific columns to retrieve
 
         Returns:
-            DataFrame with market data
+            DataFrame containing requested data
         """
-        # Ensure UTC timezone
-        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+        # Validate and normalize time range
+        from utils.time_alignment import TimeRangeManager
+
+        TimeRangeManager.validate_time_window(start_time, end_time)
+
+        # Get time boundaries using the helper function
+        time_boundaries = ApiBoundaryValidator.get_time_boundaries(
+            start_time, end_time, self.interval_obj
+        )
+        start_time = time_boundaries["adjusted_start"]
+        end_time = time_boundaries["adjusted_end"]
 
         logger.info(
-            f"Fetching {self.symbol} {self.interval} data from {start_time} to {end_time}"
+            f"Fetching {self.symbol} {self.interval} data: "
+            f"{start_time.isoformat()} -> {end_time.isoformat()}"
         )
 
-        # Try to get from cache if available
-        cached_df = None
         if self.use_cache:
-            # Apply manual alignment for cache operations to match REST API behavior
-            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
-                start_time, end_time, self.interval_obj
-            )
+            # Initialize cache manager if needed
+            if self.cache_manager is None:
+                self._setup_cache()
 
-            # Check if cache is valid for aligned time range
-            cache_is_valid = self._validate_cache(
-                aligned_boundaries["adjusted_start"], aligned_boundaries["adjusted_end"]
-            )
+            # Try to get data from cache
+            try:
+                df = await self._get_from_cache(start_time, end_time, columns)
+                if not df.empty:
+                    return df
+                logger.info("Cache miss or invalid cache, downloading data")
+            except Exception as e:
+                logger.warning(f"Error reading from cache: {e}")
 
-            if cache_is_valid:
-                # Load from cache using time range
-                cached_df = await self._check_cache(start_time, end_time, columns)
+        # Download data directly
+        try:
+            df = await self._download_and_cache(start_time, end_time, columns=columns)
+            if not df.empty:
+                # Validate data integrity
+                self._validator.validate_dataframe(df)
+                TimeRangeManager.validate_boundaries(df, start_time, end_time)
+                logger.info(f"Successfully fetched {len(df)} records")
+                return df
 
-        if cached_df is not None and not cached_df.empty:
-            # Filter to requested time range
-            result_df = TimeRangeManager.filter_dataframe(
-                cached_df, start_time, end_time
-            )
-            return result_df
+            logger.warning(f"No data available for {start_time} to {end_time}")
+            return TimestampedDataFrame(self._create_empty_dataframe())
 
-        # Download and cache fresh data
-        result = await self._download_and_cache(start_time, end_time, columns)
-
-        return result
+        except Exception as e:
+            logger.error(f"Failed to fetch data: {e}")
+            return TimestampedDataFrame(self._create_empty_dataframe())
 
     async def prefetch(
         self, start_time: datetime, end_time: datetime, max_days: int = 5

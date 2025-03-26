@@ -1,65 +1,44 @@
-# Binance Data Services Examples
+# Example Scripts
 
-This directory contains example scripts demonstrating how to use the Binance Data Services package.
+This directory contains example scripts demonstrating different ways to use the Binance data services library.
 
 ## Available Examples
 
 ### 1. Recommended Data Retrieval (`recommended_data_retrieval.py`)
 
-Demonstrates the current recommended approach for retrieving data using `DataSourceManager` with unified caching.
+Shows the recommended approach for retrieving market data using `DataSourceManager`.
 
 ```bash
 python -m examples.recommended_data_retrieval
 ```
 
-Features demonstrated:
+Key features:
 
-- Fetching recent market data (last hour)
-- Fetching historical data for a specific date
-- Proper caching configuration
-- Using the correct API based on the data timeframe
+1. **Automatic Source Selection**: Chooses the optimal data source based on the time range
+2. **Integrated Caching**: Automatic caching for improved performance
+3. **Comprehensive Error Handling**: Gracefully handles API errors
+4. **Flexible Configuration**: Supports various market types and intervals
 
-### 2. Migration Guide (`migration_guide.py`)
+## Cache Directories
 
-Demonstrates the migration path from the deprecated direct caching with `VisionDataClient` to the recommended approach using `DataSourceManager` with `UnifiedCacheManager`.
+The example scripts create the following cache directories:
 
-```bash
-python -m examples.migration_guide
-```
+- `./cache/` - for the recommended approach
 
-This example shows three approaches:
+## Running All Examples
 
-1. **Deprecated Approach**: Direct caching with `VisionDataClient` (will show deprecation warnings)
-2. **Recommended Approach**: Using `DataSourceManager` with unified caching
-3. **Hybrid Approach**: Using `VisionDataClient` through `DataSourceManager` (useful during migration)
-
-## Running the Examples
-
-All examples are designed to be run from the root of the project. Use the following format:
+To run all examples sequentially:
 
 ```bash
-# From project root
-python -m examples.example_name
+for example in recommended_data_retrieval; do
+  echo "Running $example..."
+  python -m examples.$example
+done
 ```
 
-## Cache Directory
+## Notes
 
-The examples create cache directories to demonstrate caching functionality. You can find the cached data in:
-
-- `./cache/` - for the recommended data retrieval example
-- `./cache/deprecated/` - for the deprecated approach in the migration guide
-- `./cache/recommended/` - for the recommended approach in the migration guide
-- `./cache/hybrid/` - for the hybrid approach in the migration guide
-
-You can delete these directories to clear the cache and force a fresh data download.
-
-## Testing
-
-When running these examples with code coverage, you can use the pytest coverage features:
-
-```bash
-# Run any example with coverage
-PYTHONPATH=. pytest examples/recommended_data_retrieval.py --cov=. --cov-report=term
-```
-
-This will display the coverage report directly in the terminal, showing which parts of the code are covered by the tests.
+- These examples are designed to demonstrate basic usage patterns
+- Error handling is simplified for clarity
+- For production use, consider adding additional validation and error handling
+- API calls are rate-limited to avoid exceeding Binance's limits

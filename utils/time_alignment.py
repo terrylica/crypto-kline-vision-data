@@ -1,98 +1,49 @@
 #!/usr/bin/env python
-"""Utility module for handling time alignment and incomplete bars.
+"""Time alignment utilities for Binance API requests.
 
-IMPORTANT: This module has been refactored to remove manual time alignment for REST API calls
-while keeping necessary alignment for Vision API and cache to match REST API behavior.
+This module provides utilities for handling time alignment in API requests
+and data processing. It includes functions for:
 
-Key behaviors:
-1. REST API: No manual alignment is performed - timestamps are passed directly to the API
-2. Vision API & Cache: Manual alignment is applied to match REST API's natural boundary behavior
+1. Time zone conversion and normalization
+2. Validating time windows for API requests
+3. Filtering data based on time boundaries
+4. Enforcing consistent time formats throughout the application
 
-For Vision API and Cache (manual alignment to match REST API behavior):
-1. All units smaller than the interval are removed (e.g., for 1m, all seconds and microseconds are removed)
-2. Start times are rounded DOWN to include the full interval
-   (e.g., 08:37:25.528448 gets rounded DOWN to 08:37:25.000000 for 1-second intervals)
-3. End times are rounded DOWN to current interval boundary
-   (e.g., 08:37:30.056345 gets rounded DOWN to 08:37:30.000000 for 1-second intervals)
-4. Start timestamp is inclusive, end timestamp is exclusive after alignment
-
-These alignment utilities should NOT be used for REST API calls, but are retained for:
-1. Vision API alignment (to match REST API behavior)
-2. Cache key generation (to match REST API behavior)
-3. General time utility functions not related to alignment
+These utilities ensure consistent data handling across different data sources.
 """
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Union
 import re
 import pandas as pd
 import numpy as np
 import logging
+from enum import Enum, auto
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval
+from utils.deprecation_rules import TimeUnit
 
-# Import the canonical TimeUnit implementation to highlight we should use this one instead
-from utils.deprecation_rules import TimeUnit as DeprecationTimeUnit
+# Configure module logger
+logger = logging.getLogger(__name__)
 
-# Ensure we use a consistent logger with INFO level
-logger = get_logger(__name__, "INFO", show_path=False)
+# Remove any imported TimeUnit implementation for direct alignment calculation
+# All alignment is now handled by ApiBoundaryValidator
 
 
-# DEPRECATION WARNING: This TimeUnit implementation is deprecated
-# Use utils.deprecation_rules.TimeUnit instead
-@dataclass(frozen=True)
-class TimeUnit:
-    """Represents a time unit with conversion to microseconds.
+def enforce_utc_timezone(dt: datetime) -> datetime:
+    """Ensure datetime is in UTC timezone.
 
-    DEPRECATED: Use utils.deprecation_rules.TimeUnit instead
+    Args:
+        dt: Input datetime, potentially with or without timezone
+
+    Returns:
+        Datetime object guaranteed to have UTC timezone
     """
-
-    name: str
-    micros: int
-    symbol: str
-
-    @classmethod
-    def MICRO(cls) -> "TimeUnit":
-        return cls("microsecond", 1, "us")
-
-    @classmethod
-    def MILLI(cls) -> "TimeUnit":
-        return cls("millisecond", 1_000, "ms")
-
-    @classmethod
-    def SECOND(cls) -> "TimeUnit":
-        return cls("second", 1_000_000, "s")
-
-    @classmethod
-    def MINUTE(cls) -> "TimeUnit":
-        return cls("minute", 60 * 1_000_000, "m")
-
-    @classmethod
-    def HOUR(cls) -> "TimeUnit":
-        return cls("hour", 3600 * 1_000_000, "h")
-
-    @classmethod
-    def DAY(cls) -> "TimeUnit":
-        return cls("day", 86400 * 1_000_000, "d")
-
-    @classmethod
-    def WEEK(cls) -> "TimeUnit":
-        return cls("week", 7 * 86400 * 1_000_000, "w")
-
-    @classmethod
-    def get_all_units(cls) -> List["TimeUnit"]:
-        """Get all available units in descending order of size."""
-        return [
-            cls.MICRO(),
-            cls.MILLI(),
-            cls.SECOND(),
-            cls.MINUTE(),
-            cls.HOUR(),
-            cls.DAY(),
-            cls.WEEK(),
-        ]
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def get_interval_micros(interval: Interval) -> int:
@@ -291,6 +242,35 @@ class TimeRangeManager:
     """
 
     @staticmethod
+    def validate_time_window(start_time: datetime, end_time: datetime) -> None:
+        """Validate the time window for an API request.
+
+        Args:
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
+
+        Raises:
+            ValueError: If start_time is after end_time or time window is invalid
+        """
+        # Ensure datetimes are timezone aware and in UTC
+        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+        # Basic validation - start time must be before end time
+        if start_time >= end_time:
+            raise ValueError(
+                f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
+            )
+
+        # Check if time range is within reasonable limits
+        time_diff = end_time - start_time
+        if time_diff > timedelta(days=365):
+            raise ValueError(
+                f"Time range too large: {time_diff.days} days. "
+                "Consider breaking into smaller requests."
+            )
+
+    @staticmethod
     def enforce_utc_timezone(dt: datetime) -> datetime:
         """Ensures datetime object is timezone aware and in UTC."""
         if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
@@ -298,64 +278,13 @@ class TimeRangeManager:
         return dt.astimezone(timezone.utc)
 
     @staticmethod
-    def align_vision_api_to_rest(
-        start_time: datetime, end_time: datetime, interval: Interval
-    ) -> Dict[str, Any]:
-        """Align Vision API time boundaries to match REST API behavior.
-
-        This method should be used to manually align Vision API and cache operations
-        to match REST API's natural boundary behavior.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-            interval: The interval specification
-
-        Returns:
-            Dictionary with aligned start and end times
-        """
-        # Apply alignment to match REST API behavior
-        adjusted_start, adjusted_end = _vision_api_time_window_alignment(
-            start_time, end_time, interval
-        )
-
-        # Calculate other useful properties
-        interval_seconds = interval.to_seconds()
-        interval_ms = interval_seconds * 1000
-        interval_micros = interval_seconds * 1_000_000
-
-        # Calculate timestamps for API calls
-        start_ms = int(adjusted_start.timestamp() * 1000)
-        end_ms = int(adjusted_end.timestamp() * 1000)
-
-        # Calculate expected records
-        expected_records = (
-            int((adjusted_end - adjusted_start).total_seconds()) // interval_seconds
-        )
-
-        return {
-            "adjusted_start": adjusted_start,
-            "adjusted_end": adjusted_end,
-            "start_ms": start_ms,
-            "end_ms": end_ms,
-            "expected_records": expected_records,
-            "interval_ms": interval_ms,
-            "interval_micros": interval_micros,
-            "boundary_type": "inclusive_start_exclusive_end",
-        }
-
-    @staticmethod
     def filter_dataframe(
         df: pd.DataFrame, start_time: datetime, end_time: datetime
     ) -> pd.DataFrame:
-        """Filter DataFrame by time range with boundary handling.
-
-        This method applies consistent filtering based on the boundary definitions:
-        - start_time: inclusive
-        - end_time: exclusive
+        """Filter dataframe to include only data within the specified time range.
 
         Args:
-            df: Input DataFrame with DatetimeIndex
+            df: DataFrame with datetime index
             start_time: Start time (inclusive)
             end_time: End time (exclusive)
 
@@ -363,72 +292,140 @@ class TimeRangeManager:
             Filtered DataFrame
         """
         if df.empty:
-            return df
+            return df.copy()
 
-        # Ensure proper timezone
+        # First, normalize the start_time and end_time
         start_time = TimeRangeManager.enforce_utc_timezone(start_time)
         end_time = TimeRangeManager.enforce_utc_timezone(end_time)
 
-        # Apply filtering with explicit boundary handling
-        filtered_df = df.loc[(df.index >= start_time) & (df.index < end_time)]
+        # Next, check if index is timezone aware and normalize if needed
+        if df.index.tzinfo is None:
+            logger.warning("DataFrame index has no timezone - assuming UTC")
+            df = df.copy()
+            df.index = df.index.tz_localize("UTC")
 
-        return filtered_df
+        # Filter data using time range
+        mask = (df.index >= start_time) & (df.index < end_time)
+        result = df.loc[mask].copy()
 
-    # DEPRECATED: Do not use for REST API - kept for backward compatibility only
-    @staticmethod
-    def get_adjusted_boundaries(
-        start_time: datetime, end_time: datetime, interval: Interval
-    ) -> Dict[str, datetime]:
-        """DEPRECATED: Do not use for REST API calls.
-
-        Use align_vision_api_to_rest for Vision API and cache alignment instead.
-        This method will be removed in a future version.
-
-        Args:
-            start_time: Start time
-            end_time: End time
-            interval: The interval specification
-
-        Returns:
-            Dictionary with adjusted start and end times
-        """
-        logger.warning(
-            "get_adjusted_boundaries() is deprecated. "
-            "For REST API: Do not manually align timestamps. "
-            "For Vision API/cache: Use align_vision_api_to_rest()."
+        logger.debug(
+            f"Filtered DataFrame: {len(df)} -> {len(result)} rows, "
+            f"Time range: {start_time.isoformat()} to {end_time.isoformat()}"
         )
+        return result
 
-        adjusted_start, adjusted_end = _vision_api_time_window_alignment(
-            start_time, end_time, interval
-        )
-
-        return {
-            "adjusted_start": adjusted_start,
-            "adjusted_end": adjusted_end,
-        }
-
-    # DEPRECATED: Do not use for REST API - kept for backward compatibility only
     @staticmethod
-    def get_time_boundaries(
+    def align_vision_api_to_rest(
         start_time: datetime, end_time: datetime, interval: Interval
     ) -> Dict[str, Any]:
-        """DEPRECATED: Do not use for REST API calls.
+        """Apply alignment to Vision API requests that matches REST API's natural boundary behavior.
 
-        Use align_vision_api_to_rest for Vision API and cache alignment instead.
-        This method will be removed in a future version.
+        This function should be used ONLY for Vision API requests and cache operations
+        to ensure compatibility with REST API behavior.
 
         Args:
-            start_time: Start time
-            end_time: End time
-            interval: The interval specification
+            start_time: Start time for the request
+            end_time: End time for the request
+            interval: The interval object representing data granularity
 
         Returns:
-            Dictionary with time boundary information
+            Dictionary containing adjusted start/end times and metadata
         """
-        logger.warning(
-            "get_time_boundaries() is deprecated. "
-            "For REST API: Do not manually align timestamps. "
-            "For Vision API/cache: Use align_vision_api_to_rest()."
+        # First, ensure times are in UTC
+        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
+        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+
+        # Get interval in microseconds
+        interval_micros = get_interval_micros(interval)
+
+        # Round start time DOWN to interval boundary
+        start_micros = int(start_time.timestamp() * 1_000_000)
+        aligned_start_micros = (start_micros // interval_micros) * interval_micros
+        aligned_start = datetime.fromtimestamp(
+            aligned_start_micros / 1_000_000, tz=timezone.utc
         )
 
-        return TimeRangeManager.align_vision_api_to_rest(start_time, end_time, interval)
+        # Round end time DOWN to interval boundary
+        end_micros = int(end_time.timestamp() * 1_000_000)
+        aligned_end_micros = (end_micros // interval_micros) * interval_micros
+        aligned_end = datetime.fromtimestamp(
+            aligned_end_micros / 1_000_000, tz=timezone.utc
+        )
+
+        # If end time was exactly on a boundary, we don't want to exclude it
+        # So we only adjust if the original wasn't already aligned
+        if end_micros != aligned_end_micros and aligned_end < end_time:
+            # Add one interval to include the partial interval at the end
+            aligned_end = datetime.fromtimestamp(
+                (aligned_end_micros + interval_micros) / 1_000_000, tz=timezone.utc
+            )
+
+        # Create result with metadata
+        result = {
+            "original_start": start_time,
+            "original_end": end_time,
+            "adjusted_start": aligned_start,
+            "adjusted_end": aligned_end,
+            "interval": interval,
+            "interval_micros": interval_micros,
+        }
+
+        return result
+
+
+def get_interval_floor(dt: datetime, interval: Interval) -> datetime:
+    """Get the floor timestamp for a given datetime and interval.
+
+    This function rounds down a datetime to the nearest interval boundary.
+    For example, with a 5m interval:
+    - 2021-01-01 12:07:30 -> 2021-01-01 12:05:00
+
+    Args:
+        dt: The datetime to floor
+        interval: The interval to floor to
+
+    Returns:
+        Floored datetime
+    """
+    # Ensure datetime is timezone aware
+    dt = TimeRangeManager.enforce_utc_timezone(dt)
+
+    # Get interval in microseconds
+    interval_micros = get_interval_micros(interval)
+
+    # Round down to nearest interval
+    dt_micros = int(dt.timestamp() * 1_000_000)
+    floored_micros = (dt_micros // interval_micros) * interval_micros
+    return datetime.fromtimestamp(floored_micros / 1_000_000, tz=timezone.utc)
+
+
+def get_interval_micros(interval: Interval) -> int:
+    """Convert an interval to microseconds.
+
+    Args:
+        interval: The interval to convert
+
+    Returns:
+        Interval in microseconds
+    """
+    # Mapping of intervals to microseconds
+    interval_to_micros = {
+        Interval.SECOND_1: 1_000_000,  # 1 second
+        Interval.MINUTE_1: 60_000_000,  # 1 minute
+        Interval.MINUTE_3: 180_000_000,  # 3 minutes
+        Interval.MINUTE_5: 300_000_000,  # 5 minutes
+        Interval.MINUTE_15: 900_000_000,  # 15 minutes
+        Interval.MINUTE_30: 1_800_000_000,  # 30 minutes
+        Interval.HOUR_1: 3_600_000_000,  # 1 hour
+        Interval.HOUR_2: 7_200_000_000,  # 2 hours
+        Interval.HOUR_4: 14_400_000_000,  # 4 hours
+        Interval.HOUR_6: 21_600_000_000,  # 6 hours
+        Interval.HOUR_8: 28_800_000_000,  # 8 hours
+        Interval.HOUR_12: 43_200_000_000,  # 12 hours
+        Interval.DAY_1: 86_400_000_000,  # 1 day
+        Interval.DAY_3: 259_200_000_000,  # 3 days
+        Interval.WEEK_1: 604_800_000_000,  # 1 week
+        Interval.MONTH_1: 2_592_000_000_000,  # 30 days (approximate month)
+    }
+
+    return interval_to_micros.get(interval, 1_000_000)  # Default to 1 second

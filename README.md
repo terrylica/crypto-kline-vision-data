@@ -251,25 +251,38 @@ The client enforces strict data integrity rules:
 - Column name and type validation
 - Symbol format validation
 
-## Caching Migration
+## Caching and Performance
 
-> **Important Deprecation Notice**: Direct caching through `VisionDataClient` is deprecated and will be removed in a future version.
+The library includes a sophisticated caching system that dramatically improves performance for repeated queries.
 
-### Migration Guide
+### Caching Configuration
 
-We've created a comprehensive migration guide to help you update your code from the deprecated caching approach to the recommended approach using `DataSourceManager` with `UnifiedCacheManager`:
+Caching is enabled by default when using `DataSourceManager`.
 
-- See [Caching Migration Guide](docs/caching_migration_guide.md) for detailed instructions
-- Check the [examples directory](examples/) for working code examples:
-  - [Recommended Data Retrieval](examples/recommended_data_retrieval.py) - Shows the recommended approach
-  - [Migration Guide Example](examples/migration_guide.py) - Demonstrates all migration approaches side by side
+```python
+# Create a DataSourceManager with caching enabled (default)
+manager = DataSourceManager(market_type=MarketType.SPOT)
 
-### Why Are We Making This Change?
+# Or explicitly configure the cache
+from core.cache_manager import UnifiedCacheManager
 
-1. **Unified Caching**: The new approach provides a unified caching mechanism that works with multiple data sources
-2. **Better Cache Management**: `UnifiedCacheManager` offers improved cache validation, statistics, and performance
-3. **Simplified API**: `DataSourceManager` provides a cleaner, more consistent API for data retrieval
-4. **Improved Source Selection**: Automatic selection of the most appropriate data source based on request parameters
+manager = DataSourceManager(
+    cache_manager=UnifiedCacheManager(
+        use_cache=True,
+        cache_dir=Path("./custom_cache_directory")
+    ),
+    market_type=MarketType.SPOT
+)
+```
+
+The caching system automatically:
+
+- Stores data to disk in an efficient format
+- Validates data integrity on retrieval
+- Handles cache invalidation for stale data
+- Optimizes memory usage with memory-mapped files
+
+For more details on caching, see the [Caching Documentation](docs/caching/).
 
 ## Dependencies
 
