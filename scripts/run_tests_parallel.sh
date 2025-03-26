@@ -2,108 +2,100 @@
 # Run tests in parallel mode with 8 workers
 #
 # DESCRIPTION:
-#   This script runs pytest tests in parallel mode using pytest-xdist to speed up
-#   test execution. It automatically utilizes 8 worker processes for parallelization.
-#   Key features and configurations include:
+#   This script runs pytest tests in parallel using pytest-xdist to accelerate
+#   test execution. It enhances testing efficiency through several key features:
 #
-#   - Parallel Test Execution: Leverages pytest-xdist to run tests in parallel,
-#     significantly reducing test execution time, especially for large test suites.
-#   - Interactive Test Selection: Supports an interactive mode where users can
-#     choose specific test directories or files to run, enhancing flexibility
-#     for focused testing sessions.
-#   - Comprehensive Test Path Discovery: Automatically discovers test files and
-#     directories, including both Git-tracked and untracked files, ensuring
-#     all relevant tests are included in the selection menu in interactive mode.
-#   - asyncio Configuration: Explicitly sets the `asyncio_default_fixture_loop_scope`
-#     to 'function' to prevent pytest-asyncio deprecation warnings and ensure
-#     consistent event loop behavior for asynchronous tests. This setting is
-#     crucial for avoiding future compatibility issues with pytest-asyncio.
-#   - Flexible Logging: Allows users to control the verbosity of test output
-#     through a log level argument, enabling detailed debugging or reduced output
-#     noise as needed.
-#   - Custom Pytest Arguments: Supports passing additional pytest arguments,
-#     providing advanced users with the ability to further customize test execution.
+#   - Parallel Test Execution: Employs pytest-xdist to run tests concurrently,
+#     significantly reducing test times, especially for extensive test suites. By
+#     default, it uses 8 worker processes, which can be adjusted via additional
+#     pytest arguments.
+#   - Interactive Test Selection: Offers an interactive mode, allowing users to
+#     select specific test directories or files from a menu, providing focused
+#     testing capabilities.
+#   - Comprehensive Test Path Discovery: Automatically identifies test files and
+#     directories, including both Git-tracked and newly added, untracked files,
+#     ensuring all relevant tests are available for selection in interactive mode.
+#   - Flexible Logging: Enables users to control the verbosity of test output
+#     using a log level argument, facilitating detailed debugging or minimizing
+#     output for cleaner test runs.
+#   - Custom Pytest Arguments: Supports the inclusion of extra pytest command-line
+#     arguments, allowing advanced users to further customize test execution behavior.
+#   - asyncio Configuration:  Configures asyncio loop scope to 'function'
+#     (`asyncio_default_fixture_loop_scope=function`) to prevent pytest-asyncio
+#     deprecation warnings and ensure consistent behavior for asynchronous tests.
 #
 # USAGE:
 #   ./scripts/run_tests_parallel.sh [options] [test_path] [log_level] [additional_pytest_args]
 #   ./scripts/run_tests_parallel.sh -i|--interactive [log_level] [additional_pytest_args]
 #
 # OPTIONS:
-#   -i, --interactive:  Enable interactive test selection mode. When this option is
-#                       used, the script will present a menu of available test
-#                       directories and files, allowing the user to choose which
-#                       tests to run. This is particularly useful for focusing on
-#                       specific test areas or exploring the test suite.
+#   -i, --interactive:  Enable interactive test selection mode. Presents a menu
+#                       of test directories and files for selection, useful for
+#                       focused testing.
+#   -h, --help:         Show detailed help message and exit. Displays comprehensive
+#                       usage instructions, options, arguments, and examples.
 #
 # ARGUMENTS:
-#   test_path: (Optional) Path to specific test file or directory to run.
-#              Default: tests/ (runs tests in the tests directory).
+#   test_path: (Optional) Path to a specific test file or directory.
+#              Default: tests/ (runs all tests in the tests directory if no path is provided).
 #              Examples: tests/, tests/time_boundary/, tests/test_specific.py
 #              If -i or --interactive is used, this argument is ignored, and the
 #              test path is selected interactively.
 #
 #   log_level: (Optional) Controls verbosity of test output.
 #              Default: INFO (standard level of detail).
-#              Options: DEBUG (most verbose, for detailed debugging),
-#                       INFO (normal output),
-#                       WARNING (reduced output),
-#                       ERROR (least verbose, only errors).
+#              Options: ${CYAN}DEBUG${NC} (most verbose),
+#                       ${CYAN}INFO${NC} (normal output),
+#                       ${CYAN}WARNING${NC} (reduced output),
+#                       ${CYAN}ERROR${NC} (least verbose).
 #              Use DEBUG for detailed logs, INFO for standard test progress, and
 #              WARNING or ERROR to minimize output noise, especially in CI environments.
 #
-#   additional_pytest_args: (Optional) Any extra pytest command-line arguments.
-#                           These arguments are passed directly to pytest, allowing
-#                           for further customization of test execution.
+#   additional_pytest_args: (Optional)  Extra arguments to pass directly to pytest.
 #                           Examples: --tb=short (shorter tracebacks), -k "pattern"
 #                           (run tests matching a pattern), -m "marker" (run tests
-#                           with specific markers).
+#                           with specific markers), -n4 (reduce parallel workers to 4).
 #
 # EXAMPLES:
-#   # 1. Run all tests in the tests/ directory with standard logging:
-#   #    (Default behavior if no arguments are provided)
+#   # 1. Run all tests in the tests/ directory with standard logging (default):
 #   ./scripts/run_tests_parallel.sh
 #
-#   # 2. Run tests interactively, allowing selection from a menu:
+#   # 2. Run tests interactively to select specific tests:
 #   ./scripts/run_tests_parallel.sh -i
-#   ./scripts/run_tests_parallel.sh --interactive
 #
-#   # 3. Run all tests under the 'tests/' directory with normal output:
-#   ./scripts/run_tests_parallel.sh tests/
+#   # 3. Run tests in a specific subdirectory (e.g., time_boundary) with default log level:
+#   ./scripts/run_tests_parallel.sh tests/time_boundary
 #
-#   # 4. Run 1-second interval tests with very verbose output (for debugging):
-#   ./scripts/run_tests_parallel.sh tests/time_boundary/ DEBUG
+#   # 4. Display the full help message:
+#   ./scripts/run_tests_parallel.sh -h
 #
-#   # 5. Run a specific test file with shorter tracebacks:
-#   ./scripts/run_tests_parallel.sh tests/test_file.py --tb=short
+#   # 5. Run all tests with DEBUG log level for verbose output:
+#   ./scripts/run_tests_parallel.sh tests/ DEBUG
 #
-#   # 6. Run tests matching a specific pattern with INFO log level:
-#   ./scripts/run_tests_parallel.sh tests/ INFO -k "test_pattern"
-#
-#   # 7. Run tests with specific markers and WARNING log level:
+#   # 6. Run tests with specific markers and WARNING log level:
 #   ./scripts/run_tests_parallel.sh tests/ WARNING -m "real"
 #
-#   # 8. Run tests interactively with DEBUG log level and additional arguments:
+#   # 7. Run tests interactively with DEBUG log level and filter by test name:
 #   ./scripts/run_tests_parallel.sh -i DEBUG -k "some_test"
 #
+#   # 8. Run all tests with reduced parallel workers (e.g., 4) and short tracebacks:
+#   ./scripts/run_tests_parallel.sh tests/ --tb=short -n4
+#
 # BEST PRACTICES and NOTES:
-#   - Interactive Mode Discovery: The interactive mode intelligently lists test
-#     directories and files by scanning both Git-tracked files and all files
-#     within the 'tests/' directory. This ensures that even newly created,
-#     untracked test files are available for selection.
-#   - asyncio Configuration: The script enforces `asyncio_default_fixture_loop_scope=function`
-#     to address pytest-asyncio deprecation warnings and ensure consistent behavior
-#     for asynchronous fixtures. This setting is applied via the pytest command-line
-#     option `-o asyncio_default_fixture_loop_scope=function`, making the script
-#     self-contained and configuration-independent of `pytest.ini`.
-#   - Log Level Flexibility: Utilizing different log levels can significantly
-#     aid in debugging (DEBUG) or provide cleaner outputs for routine test runs
-#     (INFO, WARNING, ERROR). Choose the log level that best suits your testing needs.
-#   - Parallel Execution: Running tests in parallel with `-n8` (8 worker processes)
-#     can drastically reduce test times. Adjust the number of workers (`-n`) as
-#     needed based on your CPU core count and system resources.
-#   - Error Handling: The script includes basic error handling to check if pytest-xdist
-#     is installed and provides informative messages for test completion status
-#     (success or failure).
+#   - Interactive Test Selection:  The interactive mode smartly detects both
+#     Git-tracked and untracked test files in the 'tests/' directory, ensuring
+#     comprehensive test discovery for selection.
+#   - asyncio Configuration: The script automatically configures
+#     `asyncio_default_fixture_loop_scope=function` via pytest command-line option,
+#     preventing pytest-asyncio deprecation warnings and ensuring consistent
+#     async test behavior, independent of `pytest.ini` settings.
+#   - Log Level Flexibility: Leverage different log levels (DEBUG, INFO, WARNING, ERROR)
+#     to control output verbosity, aiding in detailed debugging or cleaner routine runs.
+#   - Parallel Execution Efficiency: Parallel testing with `-n8` significantly
+#     reduces test execution time. Adjust the worker count (`-n`) based on your
+#     system's CPU cores and resources for optimal performance.
+#   - Error Handling: The script includes basic error handling for pytest-xdist
+#     installation and provides clear messages on test completion status (success/failure).
 #
 # LICENSE:
 #   This script is provided as is, without warranty. Use it at your own risk.
