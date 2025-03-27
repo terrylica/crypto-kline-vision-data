@@ -29,7 +29,7 @@ import traceback
 import inspect
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import AsyncGenerator, Optional, Generator, Dict, Any, List, Tuple
+from typing import AsyncGenerator, Optional, Generator
 
 from core.data_source_manager import DataSourceManager, DataSource
 from core.vision_data_client import VisionDataClient

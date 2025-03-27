@@ -2,13 +2,13 @@
 """Centralized validation utilities for data integrity and constraints."""
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional, Union, Sequence, Any, Tuple
+from typing import Dict, Optional, Union, Any
 import re
 import pandas as pd
 import numpy as np
 
 from utils.logger_setup import get_logger
-from utils.market_constraints import MarketType, Interval
+from utils.market_constraints import Interval
 from utils.api_boundary_validator import ApiBoundaryValidator
 
 # Column name constants

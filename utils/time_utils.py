@@ -13,13 +13,12 @@ api_boundary_validator.py to ensure consistent behavior throughout the applicati
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, List, Dict, Any
-import logging
 import re
 
 import pandas as pd
 
 from utils.market_constraints import Interval as MarketInterval
-from utils.deprecation_rules import TimeUnit, IntervalParseError
+from utils.deprecation_rules import TimeUnit
 from utils.logger_setup import get_logger
 
 # Configure module logger
@@ -334,6 +333,12 @@ def estimate_record_count(
 ) -> int:
     """Estimate number of records between two timestamps for a given interval.
 
+    The Binance API uses specific boundary treatment:
+    1. For exact boundaries: inclusive-inclusive (returns both start and end timestamps)
+    2. For timestamps with milliseconds:
+       - startTime: rounds UP to next interval boundary
+       - endTime: rounds DOWN to previous interval boundary
+
     Args:
         start_time: Start time
         end_time: End time
@@ -350,17 +355,18 @@ def estimate_record_count(
     aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
 
     # If end is before start after alignment, return 0
-    if aligned_end <= aligned_start:
+    if aligned_end < aligned_start:
         return 0
 
     # Calculate interval in seconds
     interval_secs = get_interval_seconds(interval)
 
-    # Calculate time difference in seconds
+    # The formula accounts for inclusive-inclusive behavior:
+    # For a 1-second interval from 05:23:20 to 05:23:30:
+    # (30 - 20) / 1 + 1 = 11 records
+    # This formula works for all cases when boundaries are properly aligned
     time_diff_secs = int((aligned_end - aligned_start).total_seconds())
-
-    # Calculate record count
-    record_count = time_diff_secs // interval_secs + 1
+    record_count = (time_diff_secs // interval_secs) + 1
 
     return record_count
 

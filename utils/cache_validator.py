@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Optional, Any, NamedTuple, Sequence, Union
+from typing import Any, Dict, NamedTuple, Optional, Sequence, Union
 from dataclasses import dataclass
 
 import pandas as pd
@@ -288,16 +288,22 @@ class CacheValidator:
         return all(field in cache_info for field in required_fields)
 
     @classmethod
-    def validate_cache_records(cls, record_count: int) -> bool:
+    def validate_cache_records(cls, record_count: Union[int, str]) -> bool:
         """Validate cache contains records.
 
         Args:
-            record_count: Number of records in cache
+            record_count: Number of records in cache (as int or str)
 
         Returns:
             True if record count is valid, False otherwise
         """
-        return record_count > 0
+        try:
+            # Convert record_count to int if it's a string
+            if isinstance(record_count, str):
+                record_count = int(record_count)
+            return record_count > 0
+        except (ValueError, TypeError):
+            return False
 
     async def validate_cache_data(
         self,
@@ -772,3 +778,86 @@ class VisionCacheManager:
         except (IOError, OSError, ValueError, pa.ArrowInvalid, pa.ArrowIOError) as e:
             logger.error("Error loading from cache: %s", e)
             return None
+
+
+# Add standalone versions of the class methods to support direct imports
+
+
+def validate_cache_integrity(
+    cache_path: Path,
+    max_age: timedelta = None,
+    min_size: int = None,
+) -> Optional[CacheValidationError]:
+    """Standalone version of CacheValidator.validate_cache_integrity.
+
+    Args:
+        cache_path: Path to cache file
+        max_age: Maximum allowed age of cache
+        min_size: Minimum valid file size
+
+    Returns:
+        Error details if validation fails, None if valid
+    """
+    return CacheValidator.validate_cache_integrity(cache_path, max_age, min_size)
+
+
+def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
+    """Standalone version of CacheValidator.validate_cache_checksum.
+
+    Args:
+        cache_path: Path to cache file
+        stored_checksum: Previously stored checksum
+
+    Returns:
+        True if checksum matches, False otherwise
+    """
+    return CacheValidator.validate_cache_checksum(cache_path, stored_checksum)
+
+
+def validate_cache_metadata(
+    cache_info: Optional[Dict[str, Any]],
+    required_fields: list = None,
+) -> bool:
+    """Standalone version of CacheValidator.validate_cache_metadata.
+
+    Args:
+        cache_info: Cache metadata dictionary
+        required_fields: List of required fields in metadata
+
+    Returns:
+        True if metadata is valid, False otherwise
+    """
+    return CacheValidator.validate_cache_metadata(cache_info, required_fields)
+
+
+def validate_cache_records(record_count: Union[int, str]) -> bool:
+    """Standalone version of CacheValidator.validate_cache_records.
+
+    Args:
+        record_count: Number of records in cache (as int or str)
+
+    Returns:
+        True if record count is valid, False otherwise
+    """
+    try:
+        # Convert record_count to int if it's a string
+        if isinstance(record_count, str):
+            record_count = int(record_count)
+        return record_count > 0
+    except (ValueError, TypeError):
+        return False
+
+
+async def safely_read_arrow_file_async(
+    file_path: Path, columns: Optional[list] = None
+) -> Optional[pd.DataFrame]:
+    """Standalone version of CacheValidator.safely_read_arrow_file_async.
+
+    Args:
+        file_path: Path to Arrow file
+        columns: Optional list of columns to read
+
+    Returns:
+        DataFrame or None if read fails
+    """
+    return await CacheValidator.safely_read_arrow_file_async(file_path, columns)

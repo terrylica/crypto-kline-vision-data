@@ -8,9 +8,8 @@ data boundaries for given time ranges, ensuring alignment with real API response
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Tuple, List, Any
-import warnings
+from datetime import datetime, timezone
+from typing import Dict, Tuple, List, Any
 import httpx
 import pandas as pd
 
@@ -19,10 +18,7 @@ from utils.market_constraints import MarketType, Interval, get_endpoint_url
 from utils.config import DEFAULT_TIMEZONE
 from utils.time_utils import (
     enforce_utc_timezone,
-    get_interval_micros,
-    get_interval_seconds,
     align_time_boundaries as time_utils_align_time_boundaries,
-    estimate_record_count as time_utils_estimate_record_count,
 )
 
 logger = get_logger(__name__, "INFO")
@@ -208,37 +204,8 @@ class ApiBoundaryValidator:
     ) -> Tuple[datetime, datetime]:
         """Align time boundaries according to Binance REST API behavior.
 
-        DEPRECATED: Use utils.time_utils.align_time_boundaries instead.
-
-        This method implements the exact boundary alignment behavior of the Binance REST API
-        as documented in binance_rest_api_boundary_behaviour.md:
-        - startTime: Rounds UP to the next interval boundary if not exactly on a boundary
-        - endTime: Rounds DOWN to the previous interval boundary if not exactly on a boundary
-
-        Args:
-            start_time: User-provided start time
-            end_time: User-provided end time
-            interval: Data interval
-
-        Returns:
-            Tuple of (aligned_start_time, aligned_end_time) mimicking Binance API behavior
-        """
-        warnings.warn(
-            DEPRECATION_WARNING.format(
-                "align_time_boundaries", "align_time_boundaries"
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return time_utils_align_time_boundaries(start_time, end_time, interval)
-
-    def estimate_record_count(
-        self, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> int:
-        """Estimate number of records between two timestamps for a given interval.
-
-        DEPRECATED: Use utils.time_utils.estimate_record_count instead.
+        This method is maintained for compatibility with existing code.
+        For new code, use utils.time_utils.align_time_boundaries instead.
 
         Args:
             start_time: Start time
@@ -246,17 +213,9 @@ class ApiBoundaryValidator:
             interval: Data interval
 
         Returns:
-            Estimated number of records
+            Tuple of (aligned_start, aligned_end)
         """
-        warnings.warn(
-            DEPRECATION_WARNING.format(
-                "estimate_record_count", "estimate_record_count"
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return time_utils_estimate_record_count(start_time, end_time, interval)
+        return time_utils_align_time_boundaries(start_time, end_time, interval)
 
     async def does_data_range_match_api_response(
         self,
@@ -465,46 +424,6 @@ class ApiBoundaryValidator:
             empty_df.index.name = "open_time"
             return empty_df
 
-    def _get_interval_seconds(self, interval: Interval) -> int:
-        """Get interval duration in seconds.
-
-        DEPRECATED: Use utils.time_utils.get_interval_seconds instead.
-
-        Args:
-            interval: The interval to convert
-
-        Returns:
-            Number of seconds in the interval
-        """
-        warnings.warn(
-            DEPRECATION_WARNING.format("_get_interval_seconds", "get_interval_seconds"),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return get_interval_seconds(interval)
-
-    def _get_interval_microseconds(self, interval: Interval) -> int:
-        """Get interval duration in microseconds.
-
-        DEPRECATED: Use utils.time_utils.get_interval_micros instead.
-
-        Args:
-            interval: The interval to convert
-
-        Returns:
-            Number of microseconds in the interval
-        """
-        warnings.warn(
-            DEPRECATION_WARNING.format(
-                "_get_interval_microseconds", "get_interval_micros"
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return get_interval_micros(interval)
-
     async def _call_api(
         self,
         start_time: datetime,
@@ -591,23 +510,3 @@ class ApiBoundaryValidator:
         # If we get here, all retries failed
         logger.error(f"All API call attempts failed after {MAX_RETRIES} retries")
         return []
-
-    @staticmethod
-    def _ensure_timezone(dt: datetime) -> datetime:
-        """Ensure datetime is in UTC timezone.
-
-        DEPRECATED: Use utils.time_utils.enforce_utc_timezone instead.
-
-        Args:
-            dt: Input datetime, potentially with or without timezone
-
-        Returns:
-            Datetime object guaranteed to have UTC timezone
-        """
-        warnings.warn(
-            DEPRECATION_WARNING.format("_ensure_timezone", "enforce_utc_timezone"),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return enforce_utc_timezone(dt)

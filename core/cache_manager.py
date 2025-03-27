@@ -8,18 +8,30 @@ import pandas as pd
 import pyarrow as pa
 
 from utils.logger_setup import get_logger
-from utils.cache_validator import CacheValidator, SafeMemoryMap, CacheKeyManager
-from utils.validation import DataFrameValidator
+from utils.cache_validator import (
+    CacheKeyManager,
+    safely_read_arrow_file_async,
+)
+from utils.validation_utils import (
+    validate_dataframe,
+    calculate_checksum,
+    validate_file_with_checksum,
+)
 from utils.config import (
     OUTPUT_DTYPES,
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
-    standardize_column_names,
 )
-from utils.time_alignment import TimeRangeManager  # Keep for backward compatibility
 from utils.time_utils import (
     enforce_utc_timezone,
     get_interval_floor,
+)
+from utils.market_constraints import Interval
+from core.vision_constraints import (
+    MIN_VALID_FILE_SIZE,
+    MAX_CACHE_AGE,
+    FileExtensions,
+    CACHE_SCHEMA,
 )
 
 logger = get_logger(__name__, "INFO", show_path=False)
@@ -112,8 +124,6 @@ class UnifiedCacheManager:
         # Ensure date is aligned to interval boundaries to match REST API behavior
         try:
             # Try to convert interval string to Interval enum
-            from utils.market_constraints import Interval
-
             interval_enum = next(
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
@@ -144,8 +154,6 @@ class UnifiedCacheManager:
         # Ensure date is aligned to interval boundaries to match REST API behavior
         try:
             # Try to convert interval string to Interval enum
-            from utils.market_constraints import Interval
-
             interval_enum = next(
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
@@ -180,8 +188,6 @@ class UnifiedCacheManager:
         # Align date to interval boundaries to match REST API behavior
         try:
             # Try to convert interval string to Interval enum
-            from utils.market_constraints import Interval
-
             interval_enum = next(
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
@@ -219,7 +225,7 @@ class UnifiedCacheManager:
 
         # Validate DataFrame before caching
         try:
-            DataFrameValidator.validate_dataframe(df)
+            validate_dataframe(df)
         except ValueError as e:
             logger.warning(f"Invalid DataFrame, not caching: {e}")
             # Log more details about the DataFrame for debugging
@@ -268,7 +274,7 @@ class UnifiedCacheManager:
             raise
 
         # Calculate checksum and record count
-        checksum = CacheValidator.calculate_checksum(cache_path)
+        checksum = calculate_checksum(cache_path)
         record_count = len(df)
 
         # Update metadata
@@ -322,8 +328,6 @@ class UnifiedCacheManager:
         # Align date to interval boundaries to match REST API behavior
         try:
             # Try to convert interval string to Interval enum
-            from utils.market_constraints import Interval
-
             interval_enum = next(
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
@@ -352,14 +356,12 @@ class UnifiedCacheManager:
             logger.warning(f"Cache file missing: {cache_path}")
             return None
 
-        if not CacheValidator.validate_cache_checksum(
-            cache_path, cache_info["checksum"]
-        ):
+        if not validate_file_with_checksum(cache_path, cache_info["checksum"]):
             logger.warning(f"Cache checksum mismatch: {cache_path}")
             return None
 
         # Use the async version of the safe reader for Arrow files for better performance
-        df = await CacheValidator.safely_read_arrow_file_async(cache_path, columns)
+        df = await safely_read_arrow_file_async(cache_path, columns)
         if df is None:
             return None
 
@@ -373,7 +375,7 @@ class UnifiedCacheManager:
 
         # Perform validation on loaded data
         try:
-            DataFrameValidator.validate_dataframe(df)
+            validate_dataframe(df)
         except ValueError as e:
             logger.warning(f"Invalid cached data: {e}")
             return None

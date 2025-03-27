@@ -9,7 +9,6 @@ from pathlib import Path
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType
-from utils.time_alignment import TimeRangeManager  # Keep for backward compatibility
 from utils.time_utils import (
     enforce_utc_timezone,
     align_vision_api_to_rest,

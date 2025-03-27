@@ -5,7 +5,7 @@
 import asyncio
 import aiohttp
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple, Any, Set, Union
+from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import numpy as np
 from utils.logger_setup import get_logger
@@ -21,7 +21,6 @@ from utils.time_utils import (
     is_bar_complete,
 )
 from utils.hardware_monitor import HardwareMonitor
-from utils.validation import DataValidation
 from utils.network_utils import create_client
 from utils.config import (
     KLINE_COLUMNS,

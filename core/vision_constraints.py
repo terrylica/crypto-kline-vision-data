@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import TypeVar, NewType, Final, Optional, NamedTuple, Literal
+from typing import TypeVar, NewType, Final, Optional, NamedTuple, Literal, Dict
 from datetime import datetime, timedelta
 import pandas as pd
 from pathlib import Path
@@ -14,8 +14,11 @@ from utils.validation import DataValidation, DataFrameValidator
 from utils.cache_validator import (
     CacheKeyManager,
 )
-from utils.time_alignment import TimeRangeManager
 from utils.time_utils import enforce_utc_timezone
+from utils.validation_utils import (
+    validate_time_range,
+    validate_dataframe_time_boundaries,
+)
 from utils.config import (
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
@@ -26,6 +29,21 @@ from utils.config import (
 TimeseriesIndex = NewType("TimeseriesIndex", pd.DatetimeIndex)
 CachePath = NewType("CachePath", Path)
 TimestampUnit = Literal["ms", "us"]  # Supported timestamp units
+
+# Define cache schema for Arrow files
+CACHE_SCHEMA: Final[Dict[str, pa.DataType]] = {
+    "open_time": pa.timestamp("ns", tz="UTC"),
+    "open": pa.float64(),
+    "high": pa.float64(),
+    "low": pa.float64(),
+    "close": pa.float64(),
+    "volume": pa.float64(),
+    "close_time": pa.timestamp("ns", tz="UTC"),
+    "quote_asset_volume": pa.float64(),
+    "number_of_trades": pa.int64(),
+    "taker_buy_base_asset_volume": pa.float64(),
+    "taker_buy_quote_asset_volume": pa.float64(),
+}
 
 # Constraint constants
 MAX_CONCURRENT_DOWNLOADS: Final[int] = 13
@@ -296,16 +314,16 @@ def validate_time_range(
     start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
 ) -> tuple[Optional[datetime], Optional[datetime]]:
     """Validate and normalize time range parameters."""
-    # Use centralized utility via TimeRangeManager
-    return TimeRangeManager.validate_time_range(start_time, end_time)
+    # Use centralized utility from validation_utils
+    return validate_time_range(start_time, end_time)
 
 
 def validate_time_boundaries(
     df: pd.DataFrame, start_time: datetime, end_time: datetime
 ) -> None:
     """Validate that DataFrame covers the requested time range."""
-    # Use centralized utility via TimeRangeManager
-    TimeRangeManager.validate_boundaries(df, start_time, end_time)
+    # Use centralized utility from validation_utils
+    validate_dataframe_time_boundaries(df, start_time, end_time)
 
 
 def validate_symbol_format(symbol: str) -> None:

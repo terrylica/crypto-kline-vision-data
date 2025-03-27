@@ -30,8 +30,6 @@ from core.market_data_client import EnhancedRetriever
 from utils.market_constraints import (
     Interval,
     MarketType,
-    get_endpoint_url,
-    get_market_capabilities,
 )
 from utils.logger_setup import get_logger
 

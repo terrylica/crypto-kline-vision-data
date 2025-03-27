@@ -15,17 +15,14 @@ It provides a unified interface for validating:
 """
 
 import hashlib
-import os
-import asyncio
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple, NamedTuple, Sequence
+from typing import Dict, List, Optional, Union, Any, Tuple, NamedTuple
 import re
 from dataclasses import dataclass
 
 import pandas as pd
 import numpy as np
-import pyarrow as pa
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import MarketType, Interval
@@ -613,6 +610,42 @@ def validate_file_integrity(
             }
 
     return None
+
+
+def validate_file_with_checksum(
+    file_path: Path,
+    expected_checksum: str = None,
+    min_size: int = MIN_VALID_FILE_SIZE,
+    max_age: timedelta = MAX_CACHE_AGE,
+) -> bool:
+    """Validate file integrity with optional checksum verification.
+
+    Args:
+        file_path: Path to the file
+        expected_checksum: Expected checksum to validate against
+        min_size: Minimum valid file size in bytes
+        max_age: Maximum valid file age
+
+    Returns:
+        True if file passes all integrity checks, False otherwise
+    """
+    # Check basic integrity first
+    integrity_result = validate_file_integrity(file_path, min_size, max_age)
+    if integrity_result is not None:
+        # Failed basic validation
+        return False
+
+    # If checksum validation is requested, perform it
+    if expected_checksum:
+        try:
+            actual_checksum = calculate_checksum(file_path)
+            return actual_checksum == expected_checksum
+        except (IOError, OSError) as e:
+            logger.error(f"Error calculating checksum for {file_path}: {e}")
+            return False
+
+    # If no checksum validation requested or it passed
+    return True
 
 
 def validate_cache_integrity(
@@ -1209,187 +1242,40 @@ class DataValidator:
         return aligned_df
 
 
-# ----- Deprecated Classes and Functions for backward compatibility -----
+# ----- Time Boundary Validation -----
 
 
-class DataFrameValidator:
-    """Validation and standardization for DataFrames.
+def validate_dataframe_time_boundaries(
+    df: pd.DataFrame, start_time: datetime, end_time: datetime
+) -> None:
+    """Validate that DataFrame covers the requested time range.
 
-    DEPRECATED: Use standalone functions instead.
+    Args:
+        df: DataFrame to validate
+        start_time: Start time boundary
+        end_time: End time boundary
+
+    Raises:
+        ValueError: If DataFrame doesn't cover the time range
     """
+    if df.empty:
+        return  # Empty DataFrame cannot be validated against time boundaries
 
-    @staticmethod
-    def validate_dataframe(df: pd.DataFrame) -> None:
-        """Validate DataFrame structure and integrity.
+    # Ensure timezone-aware datetimes
+    start_time = enforce_utc_timezone(start_time)
+    end_time = enforce_utc_timezone(end_time)
 
-        DEPRECATED: Use validate_dataframe() function instead.
+    # Get actual time range covered
+    actual_start = df.index.min()
+    actual_end = df.index.max()
 
-        Args:
-            df: DataFrame to validate
-
-        Raises:
-            ValueError: If DataFrame structure is invalid
-        """
-        import warnings
-
-        warnings.warn(
-            "DataFrameValidator.validate_dataframe is deprecated. "
-            "Use validate_dataframe function instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return validate_dataframe(df)
-
-    @staticmethod
-    def format_dataframe(
-        df: pd.DataFrame, output_dtypes: Dict[str, str] = OUTPUT_DTYPES
-    ) -> pd.DataFrame:
-        """Format DataFrame to ensure consistent structure.
-
-        DEPRECATED: Use format_dataframe() function instead.
-
-        Args:
-            df: DataFrame to format
-            output_dtypes: Expected data types for columns
-
-        Returns:
-            Formatted DataFrame
-        """
-        import warnings
-
-        warnings.warn(
-            "DataFrameValidator.format_dataframe is deprecated. "
-            "Use format_dataframe function instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return format_dataframe(df, output_dtypes)
-
-    @staticmethod
-    def validate_cache_integrity(
-        file_path: Path,
-        min_size: int = MIN_VALID_FILE_SIZE,
-        max_age: timedelta = MAX_CACHE_AGE,
-    ) -> Optional[Dict[str, Any]]:
-        """Validate cache file integrity.
-
-        DEPRECATED: Use validate_file_integrity() function instead.
-
-        Args:
-            file_path: Path to cache file
-            min_size: Minimum valid file size
-            max_age: Maximum allowed age for cache file
-
-        Returns:
-            Error information if validation fails, None if valid
-        """
-        import warnings
-
-        warnings.warn(
-            "DataFrameValidator.validate_cache_integrity is deprecated. "
-            "Use validate_file_integrity function instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return validate_file_integrity(file_path, min_size, max_age)
-
-
-class CacheValidator:
-    """Centralized cache validation utilities.
-
-    DEPRECATED: Use ValidationUtils classes instead.
-    """
-
-    def __init__(self, api_boundary_validator: Optional[ApiBoundaryValidator] = None):
-        """Initialize the CacheValidator.
-
-        DEPRECATED: Use DataValidator instead.
-
-        Args:
-            api_boundary_validator: Optional ApiBoundaryValidator for API boundary validations
-        """
-        import warnings
-
-        warnings.warn(
-            "CacheValidator is deprecated. Use DataValidator instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.api_boundary_validator = api_boundary_validator
-        self.data_validator = DataValidator(
-            ApiValidator(api_boundary_validator) if api_boundary_validator else None
+    # Check time boundaries (with small tolerance for floating point precision)
+    if actual_start > start_time + timedelta(microseconds=1000):
+        raise ValueError(
+            f"DataFrame starts at {actual_start}, which is after the requested start time {start_time}"
         )
 
-    async def validate_cache_data(
-        self,
-        df: pd.DataFrame,
-        options: ValidationOptions = None,
-        allow_empty: bool = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        interval: Optional[Interval] = None,
-        symbol: str = None,
-    ) -> Optional[CacheValidationError]:
-        """Validate cached data DataFrame.
-
-        DEPRECATED: Use DataValidator.validate_data instead.
-
-        Args:
-            df: DataFrame to validate
-            options: Validation options
-            allow_empty: Optional flag to allow empty DataFrames
-            start_time: Optional start time for validation
-            end_time: Optional end time for validation
-            interval: Optional interval for validation
-            symbol: Optional symbol for validation
-
-        Returns:
-            ValidationError if invalid, None if valid
-        """
-        import warnings
-
-        warnings.warn(
-            "CacheValidator.validate_cache_data is deprecated. "
-            "Use DataValidator.validate_data instead.",
-            DeprecationWarning,
-            stacklevel=2,
+    if actual_end < end_time - timedelta(microseconds=1000):
+        raise ValueError(
+            f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}"
         )
-        # Use default options if none provided
-        if options is None:
-            options = ValidationOptions()
-
-        # Override options with individual parameters if provided
-        if allow_empty is not None:
-            options.allow_empty = allow_empty
-        if start_time is not None:
-            options.start_time = start_time
-        if end_time is not None:
-            options.end_time = end_time
-        if interval is not None:
-            options.interval = interval
-        if symbol is not None:
-            options.symbol = symbol
-
-        return await self.data_validator.validate_data(df, options)
-
-    @staticmethod
-    def calculate_checksum(file_path: Path) -> str:
-        """Calculate SHA-256 checksum of a file.
-
-        DEPRECATED: Use calculate_checksum function instead.
-
-        Args:
-            file_path: Path to file
-
-        Returns:
-            Hexadecimal checksum string
-        """
-        import warnings
-
-        warnings.warn(
-            "CacheValidator.calculate_checksum is deprecated. "
-            "Use calculate_checksum function instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return calculate_checksum(file_path)

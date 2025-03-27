@@ -28,20 +28,14 @@ import pytest
 import pytest_asyncio
 import arrow
 import pandas as pd
-import time
 import psutil
 import os
 from datetime import timedelta, timezone, datetime
-from typing import Any, cast as type_cast, Tuple, Dict, List, AsyncGenerator
-import asyncio
-import sys
-import gc
-import logging
+from typing import Any, cast as type_cast, AsyncGenerator
 
 from utils.logger_setup import get_logger
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import Interval, MarketType
-from tests.utils.debug_helpers import debug_datetime_comparison
 
 logger = get_logger(__name__, "INFO", show_path=False)
 

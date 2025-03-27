@@ -34,9 +34,9 @@ import pytest_asyncio
 from utils.logger_setup import get_logger
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import Interval, MarketType
-from utils.time_alignment import (
-    adjust_time_window,
-    TimeRangeManager,
+from utils.time_utils import (
+    align_vision_api_to_rest,
+    get_interval_timedelta,
 )
 
 # Import functions directly from time_utils
