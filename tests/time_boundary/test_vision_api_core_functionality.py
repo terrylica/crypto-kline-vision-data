@@ -96,11 +96,32 @@ async def test_basic_data_retrieval():
     )  # Yellow color for validation description
     # --- Enhanced Banner End ---
 
+    # Add debugging information before client creation
+    logger.info(f"DEBUG: About to create VisionDataClient for BTCUSDT")
+
     async with VisionDataClient[str]("BTCUSDT") as client:
+        # Debug before fetching
+        logger.info(f"DEBUG: About to fetch data using VisionDataClient")
+
         df = await client.fetch(start_time, end_time)
+
+        # Debug after fetching
+        logger.info(
+            f"DEBUG: Fetch completed. DF empty: {df.empty}, Shape: {df.shape if not df.empty else 'N/A'}"
+        )
+
+        if not df.empty:
+            logger.info(f"DEBUG: DF columns: {df.columns.tolist()}")
+            logger.info(f"DEBUG: DF index type: {type(df.index)}")
+            logger.info(f"DEBUG: DF index timezone: {df.index.tz}")
+            logger.info(f"DEBUG: First few rows:\n{df.head().to_string()}")
+        else:
+            logger.info(f"DEBUG: DataFrame is empty")
 
         # Basic validation
         assert not df.empty, "Retrieved data is empty"
+
+        # Rest of the test stays the same
         assert df.index.is_monotonic_increasing, "Data is not monotonically increasing"
         assert df.index.tz == timezone.utc, "Data timezone is not UTC"
 

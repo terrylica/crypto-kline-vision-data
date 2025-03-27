@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """HTTP client factory functions for creating standardized client instances.
 
+DEPRECATED: This module is deprecated in favor of utils.network_utils.
+It will be removed in a future version.
+
 This module centralizes the creation of HTTP clients, ensuring consistent configuration
 across different parts of the application. It supports both aiohttp and httpx clients
 with standardized headers, timeouts, and connection settings.
@@ -34,6 +37,7 @@ This unified approach ensures consistent client configuration and behavior throu
 the application regardless of which HTTP client implementation is used.
 """
 
+import warnings
 from typing import Dict, Any, Optional, Union, Literal
 import aiohttp
 import httpx
@@ -41,6 +45,17 @@ from utils.config import (
     DEFAULT_USER_AGENT,
     DEFAULT_ACCEPT_HEADER,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+)
+from utils.network_utils import (
+    create_client as _create_client,
+    create_aiohttp_client as _create_aiohttp_client,
+    create_httpx_client as _create_httpx_client,
+)
+
+# Deprecation warning message template
+DEPRECATION_WARNING = (
+    "{} is deprecated and will be removed in a future version. "
+    "Use utils.network_utils.{} instead."
 )
 
 
@@ -52,6 +67,8 @@ def create_client(
     **kwargs: Any,
 ) -> Union[aiohttp.ClientSession, httpx.AsyncClient]:
     """Create a standardized HTTP client of the specified type.
+
+    DEPRECATED: Use utils.network_utils.create_client instead.
 
     Provides a unified interface for creating both aiohttp and httpx clients
     with consistent configuration options.
@@ -69,36 +86,18 @@ def create_client(
     Raises:
         ValueError: If an unsupported client_type is specified
     """
-    # Use default max connections based on client type if not specified
-    if max_connections is None:
-        max_connections = 20 if client_type == "aiohttp" else 13
-
-    # Merge default headers with custom headers
-    default_headers = {
-        "Accept": DEFAULT_ACCEPT_HEADER,
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
-
-    if headers:
-        default_headers.update(headers)
-
-    # Create the appropriate client type
-    if client_type == "aiohttp":
-        return create_aiohttp_client(
-            timeout=timeout,
-            max_connections=max_connections,
-            headers=default_headers,
-            **kwargs,
-        )
-    elif client_type == "httpx":
-        return create_httpx_client(
-            timeout=timeout,
-            max_connections=max_connections,
-            headers=default_headers,
-            **kwargs,
-        )
-    else:
-        raise ValueError(f"Unsupported client type: {client_type}")
+    warnings.warn(
+        DEPRECATION_WARNING.format("create_client", "create_client"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _create_client(
+        client_type=client_type,
+        timeout=timeout,
+        max_connections=max_connections,
+        headers=headers,
+        **kwargs,
+    )
 
 
 def create_aiohttp_client(
@@ -109,6 +108,8 @@ def create_aiohttp_client(
 ) -> aiohttp.ClientSession:
     """Factory function to create a pre-configured aiohttp ClientSession.
 
+    DEPRECATED: Use utils.network_utils.create_aiohttp_client instead.
+
     Args:
         timeout: Total timeout in seconds
         max_connections: Maximum number of connections
@@ -118,29 +119,17 @@ def create_aiohttp_client(
     Returns:
         Configured aiohttp ClientSession with standardized settings
     """
-    client_headers = {
-        "Accept": DEFAULT_ACCEPT_HEADER,
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
-
-    if headers:
-        client_headers.update(headers)
-
-    client_timeout = aiohttp.ClientTimeout(
-        total=timeout, connect=3, sock_connect=3, sock_read=5
+    warnings.warn(
+        DEPRECATION_WARNING.format("create_aiohttp_client", "create_aiohttp_client"),
+        DeprecationWarning,
+        stacklevel=2,
     )
-    connector = aiohttp.TCPConnector(limit=max_connections, force_close=False)
-
-    client_kwargs = {
-        "timeout": client_timeout,
-        "connector": connector,
-        "headers": client_headers,
-    }
-
-    # Add any additional kwargs
-    client_kwargs.update(kwargs)
-
-    return aiohttp.ClientSession(**client_kwargs)
+    return _create_aiohttp_client(
+        timeout=timeout,
+        max_connections=max_connections,
+        headers=headers,
+        **kwargs,
+    )
 
 
 def create_httpx_client(
@@ -151,6 +140,8 @@ def create_httpx_client(
 ) -> httpx.AsyncClient:
     """Factory function to create a pre-configured httpx AsyncClient.
 
+    DEPRECATED: Use utils.network_utils.create_httpx_client instead.
+
     Args:
         timeout: Total timeout in seconds
         max_connections: Maximum number of connections
@@ -160,26 +151,14 @@ def create_httpx_client(
     Returns:
         Configured httpx AsyncClient with standardized settings
     """
-    limits = httpx.Limits(
-        max_connections=max_connections, max_keepalive_connections=max_connections
+    warnings.warn(
+        DEPRECATION_WARNING.format("create_httpx_client", "create_httpx_client"),
+        DeprecationWarning,
+        stacklevel=2,
     )
-    timeout_config = httpx.Timeout(timeout)
-
-    client_headers = {
-        "Accept": DEFAULT_ACCEPT_HEADER,
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
-
-    if headers:
-        client_headers.update(headers)
-
-    client_kwargs = {
-        "limits": limits,
-        "timeout": timeout_config,
-        "headers": client_headers,
-    }
-
-    # Add any additional kwargs
-    client_kwargs.update(kwargs)
-
-    return httpx.AsyncClient(**client_kwargs)
+    return _create_httpx_client(
+        timeout=timeout,
+        max_connections=max_connections,
+        headers=headers,
+        **kwargs,
+    )

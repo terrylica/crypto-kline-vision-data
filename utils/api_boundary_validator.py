@@ -10,12 +10,20 @@ data boundaries for given time ranges, ensuring alignment with real API response
 import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Tuple, List, Any
+import warnings
 import httpx
 import pandas as pd
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import MarketType, Interval, get_endpoint_url
 from utils.config import DEFAULT_TIMEZONE
+from utils.time_utils import (
+    enforce_utc_timezone,
+    get_interval_micros,
+    get_interval_seconds,
+    align_time_boundaries as time_utils_align_time_boundaries,
+    estimate_record_count as time_utils_estimate_record_count,
+)
 
 logger = get_logger(__name__, "INFO")
 
@@ -23,6 +31,12 @@ logger = get_logger(__name__, "INFO")
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0  # seconds
 RATE_LIMIT_STATUS = 429
+
+# Deprecation warning message template
+DEPRECATION_WARNING = (
+    "{} is deprecated and will be moved to utils.time_utils in a future version. "
+    "Use utils.time_utils.{} instead."
+)
 
 
 class ApiBoundaryValidator:
@@ -132,8 +146,8 @@ class ApiBoundaryValidator:
         )
 
         # Ensure timezone awareness for input times
-        start_time = self._ensure_timezone(start_time)
-        end_time = self._ensure_timezone(end_time)
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
 
         try:
             # Call API to get data for the requested range
@@ -194,6 +208,8 @@ class ApiBoundaryValidator:
     ) -> Tuple[datetime, datetime]:
         """Align time boundaries according to Binance REST API behavior.
 
+        DEPRECATED: Use utils.time_utils.align_time_boundaries instead.
+
         This method implements the exact boundary alignment behavior of the Binance REST API
         as documented in binance_rest_api_boundary_behaviour.md:
         - startTime: Rounds UP to the next interval boundary if not exactly on a boundary
@@ -207,84 +223,40 @@ class ApiBoundaryValidator:
         Returns:
             Tuple of (aligned_start_time, aligned_end_time) mimicking Binance API behavior
         """
-        logger.info(
-            f"Aligning time boundaries: {start_time} -> {end_time} for interval {interval}"
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "align_time_boundaries", "align_time_boundaries"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
         )
 
-        # Ensure timezone awareness
-        start_time = self._ensure_timezone(start_time)
-        end_time = self._ensure_timezone(end_time)
-
-        # Get interval in microseconds for precise calculations
-        interval_microseconds = self._get_interval_microseconds(interval)
-
-        # Extract microseconds since epoch for calculations
-        start_microseconds = int(start_time.timestamp() * 1_000_000)
-        end_microseconds = int(end_time.timestamp() * 1_000_000)
-
-        # Calculate floor of each timestamp to interval boundary
-        start_floor = start_microseconds - (start_microseconds % interval_microseconds)
-        end_floor = end_microseconds - (end_microseconds % interval_microseconds)
-
-        # Apply Binance API boundary rules:
-        # - startTime: Round UP to next interval boundary if not exactly on boundary
-        # - endTime: Round DOWN to previous interval boundary if not exactly on boundary
-        aligned_start_microseconds = (
-            start_floor
-            if start_microseconds == start_floor
-            else start_floor + interval_microseconds
-        )
-        aligned_end_microseconds = end_floor
-
-        # Convert back to datetime
-        aligned_start = datetime.fromtimestamp(
-            aligned_start_microseconds / 1_000_000, tz=timezone.utc
-        )
-        aligned_end = datetime.fromtimestamp(
-            aligned_end_microseconds / 1_000_000, tz=timezone.utc
-        )
-
-        logger.info(
-            f"Aligned boundaries: {aligned_start} -> {aligned_end} for interval {interval}"
-        )
-
-        return aligned_start, aligned_end
+        return time_utils_align_time_boundaries(start_time, end_time, interval)
 
     def estimate_record_count(
         self, start_time: datetime, end_time: datetime, interval: Interval
     ) -> int:
-        """Estimate the number of records that would be returned by the Binance API.
+        """Estimate number of records between two timestamps for a given interval.
 
-        This implements the record counting logic described in binance_rest_api_boundary_behaviour.md,
-        taking into account the boundary alignment behavior.
+        DEPRECATED: Use utils.time_utils.estimate_record_count instead.
 
         Args:
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
+            start_time: Start time
+            end_time: End time
             interval: Data interval
 
         Returns:
-            Estimated number of records based on interval and time range
+            Estimated number of records
         """
-        # First align the boundaries according to API behavior
-        aligned_start, aligned_end = self.align_time_boundaries(
-            start_time, end_time, interval
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "estimate_record_count", "estimate_record_count"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
         )
 
-        # Calculate interval in seconds
-        interval_seconds = self._get_interval_seconds(interval)
-
-        # Calculate number of records
-        time_diff_seconds = (aligned_end - aligned_start).total_seconds()
-        estimated_records = (
-            int(time_diff_seconds / interval_seconds) + 1
-        )  # +1 because endpoints are inclusive
-
-        logger.info(
-            f"Estimated {estimated_records} records for time range {aligned_start} -> {aligned_end}"
-        )
-
-        return estimated_records
+        return time_utils_estimate_record_count(start_time, end_time, interval)
 
     async def does_data_range_match_api_response(
         self,
@@ -294,54 +266,73 @@ class ApiBoundaryValidator:
         interval: Interval,
         symbol: str = "BTCUSDT",
     ) -> bool:
-        """Validate if DataFrame's time range matches what would be returned by the API.
+        """Check if the DataFrame contains the same data that would be returned by the API.
 
-        This method checks if the provided DataFrame's data range aligns with what would be
-        returned by the Binance API for the specified parameters.
+        This method compares the DataFrame's contents with what would be returned
+        by directly calling the Binance API with the same parameters.
 
         Args:
-            df: The DataFrame to validate
-            start_time: The start time to check
-            end_time: The end time to check
-            interval: The data interval
-            symbol: The trading pair symbol
+            df: DataFrame to check
+            start_time: Start time for data request
+            end_time: End time for data request
+            interval: Data interval
+            symbol: Trading pair symbol
 
         Returns:
-            True if the DataFrame's range matches the expected API response, False otherwise
+            True if DataFrame matches what would be returned by the API
         """
-        if df.empty:
-            return False
+        logger.info(
+            f"Checking if DataFrame matches API response for {symbol} {interval}: "
+            f"{start_time} -> {end_time}"
+        )
 
-        # Get the actual API boundaries for these parameters
-        try:
-            boundaries = await self.get_api_boundaries(
+        # Ensure timezone awareness for input times
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
+
+        # First check if DataFrame is empty
+        if df.empty:
+            # If empty, check if API would return any data
+            api_response = await self._call_api(
                 start_time, end_time, interval, symbol=symbol
             )
+            return len(api_response) == 0
 
-            if boundaries["record_count"] == 0:
-                # API would return no data
-                return False
+        # Get API boundaries to check time alignment
+        api_boundaries = await self.get_api_boundaries(
+            start_time, end_time, interval, symbol
+        )
 
-            # Check if DataFrame's first and last timestamps match API boundaries
-            df_start_time = df.index[0].to_pydatetime()
-            df_end_time = df.index[-1].to_pydatetime()
-
-            # Allow small tolerance for timestamp comparison (1ms)
-            start_matches = (
-                abs((df_start_time - boundaries["api_start_time"]).total_seconds())
-                < 0.001
-            )
-            end_matches = (
-                abs((df_end_time - boundaries["api_end_time"]).total_seconds()) < 0.001
-            )
-
-            # Check if record count matches
-            count_matches = len(df) == boundaries["record_count"]
-
-            return start_matches and end_matches and count_matches
-        except Exception as e:
-            logger.warning(f"Error comparing data range with API: {e}")
+        # If API couldn't return valid boundaries, we can't validate
+        if not api_boundaries.get("api_start_time"):
+            logger.warning("Couldn't determine API boundaries, validation skipped")
             return False
+
+        # Compare first and last timestamps
+        df_start_time = df.index.min()
+        df_end_time = df.index.max()
+
+        api_start_time = api_boundaries["api_start_time"]
+        api_end_time = api_boundaries["api_end_time"]
+
+        # Allow a small tolerance (1 millisecond) for timestamp comparisons
+        start_time_match = abs((df_start_time - api_start_time).total_seconds()) < 0.001
+        end_time_match = abs((df_end_time - api_end_time).total_seconds()) < 0.001
+
+        # Also check record count
+        df_record_count = len(df)
+        api_record_count = api_boundaries["record_count"]
+        record_count_match = df_record_count == api_record_count
+
+        result = start_time_match and end_time_match and record_count_match
+
+        logger.info(
+            f"DataFrame validation result: {'Valid' if result else 'Invalid'} "
+            f"(Start: {start_time_match}, End: {end_time_match}, "
+            f"Count: {df_record_count} vs {api_record_count} - {record_count_match})"
+        )
+
+        return result
 
     async def get_api_response(
         self,
@@ -351,31 +342,40 @@ class ApiBoundaryValidator:
         limit: int = 1000,
         symbol: str = "BTCUSDT",
     ) -> pd.DataFrame:
-        """Get actual API response for the given parameters as a DataFrame.
+        """Call Binance API and return the response as a DataFrame.
 
-        This is a utility method that calls the API and returns the result as a properly
-        formatted DataFrame.
+        This method serves as a reference for what the API would return for
+        the given parameters, for validation or comparison purposes.
 
         Args:
-            start_time: The start time for data retrieval
-            end_time: The end time for data retrieval
-            interval: The data interval
+            start_time: Start time for the request
+            end_time: End time for the request
+            interval: Data interval
             limit: Maximum number of records to retrieve
-            symbol: The trading pair symbol
+            symbol: Trading pair symbol
 
         Returns:
-            DataFrame containing the API response data
+            DataFrame containing the API response
         """
+        logger.info(
+            f"Getting API response for {symbol} {interval}: "
+            f"{start_time} -> {end_time}, limit={limit}"
+        )
+
+        # Ensure timezone awareness for input times
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
+
         try:
             # Call API
             api_data = await self._call_api(
-                start_time, end_time, interval, limit, symbol=symbol
+                start_time, end_time, interval, limit, symbol
             )
 
             if not api_data:
-                # Return empty DataFrame with correct structure
-                return pd.DataFrame(
-                    [],
+                logger.warning("API returned no data")
+                # Return empty DataFrame with the right structure
+                empty_df = pd.DataFrame(
                     columns=[
                         "open_time",
                         "open",
@@ -388,9 +388,13 @@ class ApiBoundaryValidator:
                         "trades",
                         "taker_buy_volume",
                         "taker_buy_quote_volume",
-                        "ignore",
-                    ],
+                    ]
                 )
+                empty_df["open_time"] = pd.to_datetime(
+                    empty_df["open_time"], unit="ms", utc=True
+                )
+                empty_df.set_index("open_time", inplace=True)
+                return empty_df
 
             # Convert to DataFrame
             df = pd.DataFrame(
@@ -411,37 +415,40 @@ class ApiBoundaryValidator:
                 ],
             )
 
-            # Convert timestamp columns to datetime and set as index
+            # Convert timestamp to datetime
             df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
-            df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)
-
-            # Set index
-            df = df.set_index("open_time")
+            df.set_index("open_time", inplace=True)
 
             # Convert numeric columns
-            numeric_columns = [
+            numeric_cols = [
                 "open",
                 "high",
                 "low",
                 "close",
                 "volume",
+                "close_time",
                 "quote_volume",
                 "trades",
                 "taker_buy_volume",
                 "taker_buy_quote_volume",
             ]
-            for col in numeric_columns:
+            for col in numeric_cols:
                 df[col] = pd.to_numeric(df[col])
 
-            # Drop the 'ignore' column
+            # Drop 'ignore' column
             df = df.drop(columns=["ignore"])
 
+            logger.info(
+                f"API returned {len(df)} records with index range "
+                f"{df.index.min()} -> {df.index.max()}"
+            )
+
             return df
+
         except Exception as e:
-            logger.warning(f"Error getting API response: {e}")
-            # Return empty DataFrame with correct structure on error
+            logger.error(f"Error getting API response: {e}")
+            # Return empty DataFrame
             empty_df = pd.DataFrame(
-                [],
                 columns=[
                     "open",
                     "high",
@@ -453,52 +460,50 @@ class ApiBoundaryValidator:
                     "trades",
                     "taker_buy_volume",
                     "taker_buy_quote_volume",
-                ],
+                ]
             )
-            empty_df.index = pd.DatetimeIndex([], name="open_time")
+            empty_df.index.name = "open_time"
             return empty_df
 
     def _get_interval_seconds(self, interval: Interval) -> int:
         """Get interval duration in seconds.
 
+        DEPRECATED: Use utils.time_utils.get_interval_seconds instead.
+
         Args:
-            interval: The interval type
+            interval: The interval to convert
 
         Returns:
             Number of seconds in the interval
         """
-        # Map of interval to seconds
-        interval_seconds_map = {
-            Interval.SECOND_1: 1,
-            Interval.MINUTE_1: 60,
-            Interval.MINUTE_3: 3 * 60,
-            Interval.MINUTE_5: 5 * 60,
-            Interval.MINUTE_15: 15 * 60,
-            Interval.MINUTE_30: 30 * 60,
-            Interval.HOUR_1: 60 * 60,
-            Interval.HOUR_2: 2 * 60 * 60,
-            Interval.HOUR_4: 4 * 60 * 60,
-            Interval.HOUR_6: 6 * 60 * 60,
-            Interval.HOUR_8: 8 * 60 * 60,
-            Interval.HOUR_12: 12 * 60 * 60,
-            Interval.DAY_1: 24 * 60 * 60,
-            Interval.DAY_3: 3 * 24 * 60 * 60,
-            Interval.WEEK_1: 7 * 24 * 60 * 60,
-            Interval.MONTH_1: 30 * 24 * 60 * 60,  # Approximate
-        }
+        warnings.warn(
+            DEPRECATION_WARNING.format("_get_interval_seconds", "get_interval_seconds"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-        return interval_seconds_map.get(interval, 60)  # Default to 1 minute if unknown
+        return get_interval_seconds(interval)
 
     def _get_interval_microseconds(self, interval: Interval) -> int:
-        """Get interval duration in microseconds for precise calculations.
+        """Get interval duration in microseconds.
+
+        DEPRECATED: Use utils.time_utils.get_interval_micros instead.
 
         Args:
-            interval: The interval type
+            interval: The interval to convert
 
         Returns:
             Number of microseconds in the interval
         """
-        return self._get_interval_seconds(interval) * 1_000_000
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "_get_interval_microseconds", "get_interval_micros"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return get_interval_micros(interval)
 
     async def _call_api(
         self,
@@ -508,81 +513,101 @@ class ApiBoundaryValidator:
         limit: int = 1000,
         symbol: str = "BTCUSDT",
     ) -> List[List[Any]]:
-        """Call the Binance API with the provided parameters.
+        """Call Binance REST API to get kline data.
+
+        This is the internal method that directly interacts with the Binance API.
+        It handles retries, rate limiting, and extracting the raw API response.
 
         Args:
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
+            start_time: Start time for the request
+            end_time: End time for the request
             interval: Data interval
-            limit: Maximum number of records (default: 1000)
-            symbol: Trading pair symbol (default: BTCUSDT)
+            limit: Maximum number of records to retrieve
+            symbol: Trading pair symbol
 
         Returns:
-            List of kline data from the API
+            List of kline data records from the API
         """
         # Ensure timezone awareness
-        start_time = self._ensure_timezone(start_time)
-        end_time = self._ensure_timezone(end_time)
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
 
-        # Convert to milliseconds for API
-        start_ms = int(start_time.timestamp() * 1000)
-        end_ms = int(end_time.timestamp() * 1000)
-
-        # Get the endpoint URL
-        endpoint = get_endpoint_url(self.market_type)
+        # Convert to milliseconds for Binance API
+        start_time_ms = int(start_time.timestamp() * 1000)
+        end_time_ms = int(end_time.timestamp() * 1000)
 
         # Prepare request parameters
         params = {
             "symbol": symbol,
             "interval": interval.value,
-            "startTime": start_ms,
-            "endTime": end_ms,
+            "startTime": start_time_ms,
+            "endTime": end_time_ms,
             "limit": limit,
         }
 
-        logger.debug(f"Making API call to {endpoint} with params: {params}")
+        # Get endpoint URL
+        endpoint = get_endpoint_url(self.market_type)
 
-        retry_count = 0
-        while retry_count < MAX_RETRIES:
+        # Make request with retry logic
+        for retry in range(MAX_RETRIES):
             try:
                 response = await self.http_client.get(endpoint, params=params)
 
+                # Handle rate limiting
                 if response.status_code == RATE_LIMIT_STATUS:
-                    retry_count += 1
+                    retry_after = int(response.headers.get("Retry-After", RETRY_DELAY))
                     logger.warning(
-                        f"Rate limit hit, attempt {retry_count}/{MAX_RETRIES}. "
-                        f"Waiting {RETRY_DELAY} seconds..."
+                        f"Rate limited by API, retrying after {retry_after}s (attempt {retry+1}/{MAX_RETRIES})"
                     )
-                    await asyncio.sleep(RETRY_DELAY)
+                    await asyncio.sleep(retry_after)
                     continue
 
-                response.raise_for_status()
+                # Handle other errors
+                if response.status_code != 200:
+                    logger.warning(
+                        f"API error: {response.status_code} - {response.text}, "
+                        f"retrying (attempt {retry+1}/{MAX_RETRIES})"
+                    )
+                    await asyncio.sleep(RETRY_DELAY * (retry + 1))
+                    continue
+
+                # Process successful response
                 data = response.json()
-                logger.debug(f"API call successful, received {len(data)} records")
+                logger.debug(f"API returned {len(data)} records")
                 return data
 
-            except httpx.HTTPStatusError as e:
-                logger.error(
-                    f"HTTP error occurred: {e.response.status_code} - {e.response.text}"
+            except httpx.TimeoutException:
+                logger.warning(
+                    f"Request timed out, retrying (attempt {retry+1}/{MAX_RETRIES})"
                 )
-                raise
+                await asyncio.sleep(RETRY_DELAY * (retry + 1))
             except Exception as e:
-                logger.error(f"Error calling API: {str(e)}")
-                raise
+                logger.warning(
+                    f"Unexpected error calling API: {str(e)}, "
+                    f"retrying (attempt {retry+1}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(RETRY_DELAY * (retry + 1))
 
-        logger.error("Max retries exceeded for API call")
-        raise Exception("Max retries exceeded for API call")
+        # If we get here, all retries failed
+        logger.error(f"All API call attempts failed after {MAX_RETRIES} retries")
+        return []
 
     @staticmethod
     def _ensure_timezone(dt: datetime) -> datetime:
-        """Ensure datetime is timezone aware.
+        """Ensure datetime is in UTC timezone.
+
+        DEPRECATED: Use utils.time_utils.enforce_utc_timezone instead.
 
         Args:
-            dt: A datetime object
+            dt: Input datetime, potentially with or without timezone
 
         Returns:
-            Timezone-aware datetime in UTC
+            Datetime object guaranteed to have UTC timezone
         """
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=DEFAULT_TIMEZONE)
-        return dt.astimezone(DEFAULT_TIMEZONE)
+        warnings.warn(
+            DEPRECATION_WARNING.format("_ensure_timezone", "enforce_utc_timezone"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return enforce_utc_timezone(dt)

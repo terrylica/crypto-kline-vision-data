@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 from typing import Dict, Optional, List, Coroutine, Any
 from dataclasses import dataclass
-from utils.http_client_factory import create_client
+from utils.network_utils import create_client
 
 from utils.logger_setup import get_logger
 

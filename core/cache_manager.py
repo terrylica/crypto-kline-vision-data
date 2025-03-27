@@ -16,22 +16,32 @@ from utils.config import (
     DEFAULT_TIMEZONE,
     standardize_column_names,
 )
-from utils.time_alignment import TimeRangeManager
+from utils.time_alignment import TimeRangeManager  # Keep for backward compatibility
+from utils.time_utils import (
+    enforce_utc_timezone,
+    get_interval_floor,
+)
 
 logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class UnifiedCacheManager:
-    """Centralized cache management with simplified directory structure.
+    """Centralized cache management with hierarchical directory structure.
 
     Directory Structure:
     /cache_dir
         /data
-            /SYMBOL
-                /INTERVAL
-                    /YYYYMM.arrow
+            /{exchange}            # Default: binance
+                /{market_type}     # Default: spot
+                    /{data_nature} # Default: klines
+                        /{packaging_frequency} # Default: daily
+                            /{SYMBOL}
+                                /{INTERVAL}
+                                    /YYYYMMDD.arrow
         /metadata
             cache_index.json
+
+    This structure is implemented through CacheKeyManager.get_cache_path().
     """
 
     def __init__(self, cache_dir: Path):
@@ -108,12 +118,8 @@ class UnifiedCacheManager:
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
 
-            # Use TimeRangeManager to align date to match REST API behavior
-            from utils.time_alignment import get_interval_floor
-
-            aligned_date = get_interval_floor(
-                TimeRangeManager.enforce_utc_timezone(date), interval_enum
-            )
+            # Use time_utils to align date to match REST API behavior
+            aligned_date = get_interval_floor(enforce_utc_timezone(date), interval_enum)
 
             # Use the aligned date for cache path generation
             return CacheKeyManager.get_cache_path(
@@ -144,12 +150,8 @@ class UnifiedCacheManager:
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
 
-            # Use TimeRangeManager to align date to match REST API behavior
-            from utils.time_alignment import get_interval_floor
-
-            aligned_date = get_interval_floor(
-                TimeRangeManager.enforce_utc_timezone(date), interval_enum
-            )
+            # Use time_utils to align date to match REST API behavior
+            aligned_date = get_interval_floor(enforce_utc_timezone(date), interval_enum)
 
             # Use the aligned date for cache key generation
             return CacheKeyManager.get_cache_key(symbol, interval, aligned_date)
@@ -173,7 +175,7 @@ class UnifiedCacheManager:
             Tuple of (checksum, record_count)
         """
         # Ensure date has proper timezone
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        date = enforce_utc_timezone(date)
 
         # Align date to interval boundaries to match REST API behavior
         try:
@@ -184,9 +186,7 @@ class UnifiedCacheManager:
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
 
-            # Use TimeRangeManager to align date to match REST API behavior
-            from utils.time_alignment import get_interval_floor
-
+            # Use time_utils to align date to match REST API behavior
             aligned_date = get_interval_floor(date, interval_enum)
 
             # Use aligned date for caching
@@ -317,7 +317,7 @@ class UnifiedCacheManager:
             DataFrame if cache exists and is valid, None otherwise
         """
         # Ensure date has proper timezone
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        date = enforce_utc_timezone(date)
 
         # Align date to interval boundaries to match REST API behavior
         try:
@@ -328,9 +328,7 @@ class UnifiedCacheManager:
                 (i for i in Interval if i.value == interval), Interval.SECOND_1
             )
 
-            # Use TimeRangeManager to align date to match REST API behavior
-            from utils.time_alignment import get_interval_floor
-
+            # Use time_utils to align date to match REST API behavior
             aligned_date = get_interval_floor(date, interval_enum)
 
             # Use aligned date for cache lookup
@@ -365,13 +363,10 @@ class UnifiedCacheManager:
         if df is None:
             return None
 
-        # Ensure index has correct timezone using TimeRangeManager
+        # Ensure index has correct timezone using time_utils
         if isinstance(df.index, pd.DatetimeIndex):
             new_index = pd.DatetimeIndex(
-                [
-                    TimeRangeManager.enforce_utc_timezone(dt)
-                    for dt in df.index.to_pydatetime()
-                ],
+                [enforce_utc_timezone(dt) for dt in df.index.to_pydatetime()],
                 name=df.index.name,
             )
             df.index = new_index

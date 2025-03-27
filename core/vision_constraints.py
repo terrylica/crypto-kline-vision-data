@@ -15,6 +15,7 @@ from utils.cache_validator import (
     CacheKeyManager,
 )
 from utils.time_alignment import TimeRangeManager
+from utils.time_utils import enforce_utc_timezone
 from utils.config import (
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
@@ -327,8 +328,8 @@ def get_cache_path(cache_dir: Path, symbol: str, interval: str, date: datetime) 
 
 def enforce_utc_timestamp(dt: datetime) -> datetime:
     """Ensure timestamp is UTC."""
-    # Use TimeRangeManager directly instead of DataValidation
-    return TimeRangeManager.enforce_utc_timezone(dt)
+    # Use the direct function instead of TimeRangeManager
+    return enforce_utc_timezone(dt)
 
 
 def validate_column_names(columns: list[str]) -> list[str]:

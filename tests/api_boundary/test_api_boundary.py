@@ -23,6 +23,11 @@ import httpx
 
 from utils.api_boundary_validator import ApiBoundaryValidator
 from utils.market_constraints import Interval, MarketType
+from utils.time_utils import (
+    align_time_boundaries,
+    estimate_record_count,
+    enforce_utc_timezone,
+)
 from utils.logger_setup import get_logger
 
 # Configure logger
@@ -353,8 +358,8 @@ async def test_align_time_boundaries(api_validator, millisecond_time_ranges, cap
     for start_time, end_time, interval, description in millisecond_time_ranges:
         logger.info(f"Testing alignment for {description}: {start_time} -> {end_time}")
 
-        # Get aligned boundaries using our method
-        aligned_start, aligned_end = api_validator.align_time_boundaries(
+        # Get aligned boundaries using consolidated time_utils function
+        aligned_start, aligned_end = align_time_boundaries(
             start_time, end_time, interval
         )
 
@@ -402,10 +407,8 @@ async def test_estimate_record_count(api_validator, millisecond_time_ranges, cap
             f"Testing record count estimation for {description}: {start_time} -> {end_time}"
         )
 
-        # Get estimated record count
-        estimated_count = api_validator.estimate_record_count(
-            start_time, end_time, interval
-        )
+        # Get estimated record count using consolidated time_utils function
+        estimated_count = estimate_record_count(start_time, end_time, interval)
 
         # Get actual API response to verify
         api_data = await api_validator.get_api_response(
@@ -604,7 +607,7 @@ async def test_millisecond_precision(api_validator, recent_time_range, caplog):
     logger.info(f"API boundaries with millisecond precision: {boundaries}")
 
     # Get aligned boundaries to check proper handling
-    aligned_start, aligned_end = api_validator.align_time_boundaries(
+    aligned_start, aligned_end = align_time_boundaries(
         start_time_ms, end_time_ms, interval
     )
 

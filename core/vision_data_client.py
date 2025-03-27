@@ -34,11 +34,17 @@ from utils.cache_validator import (
 )
 from utils.validation import DataFrameValidator
 from utils.market_constraints import Interval
-from utils.time_alignment import TimeRangeManager
-from utils.download_handler import VisionDownloadManager
+from utils.time_utils import (
+    validate_time_window,
+    align_time_boundaries,
+    enforce_utc_timezone,
+    filter_dataframe_by_time,
+    get_interval_floor,
+    align_vision_api_to_rest,
+)
+from utils.network_utils import create_client, VisionDownloadManager
 from core.vision_constraints import FileExtensions
 from utils.config import create_empty_dataframe
-from utils.http_client_factory import create_client
 from utils.api_boundary_validator import ApiBoundaryValidator
 from core.vision_constraints import (
     TimestampedDataFrame,
@@ -50,6 +56,66 @@ from core.cache_manager import UnifiedCacheManager
 T = TypeVar("T")
 
 logger = get_logger(__name__, "INFO", show_path=False)
+
+
+# Keep class TimeRangeManager for backward compatibility
+class TimeRangeManager:
+    """Deprecated wrapper around time_utils functions for backward compatibility."""
+
+    @staticmethod
+    def validate_time_window(start_time, end_time):
+        """Deprecated: Use utils.time_utils.validate_time_window instead."""
+        warnings.warn(
+            "validate_time_window is deprecated and will be removed in a future version. "
+            "Use utils.time_utils.validate_time_window instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return validate_time_window(start_time, end_time)
+
+    @staticmethod
+    def align_time_boundaries(start_time, end_time, interval):
+        """Deprecated: Use utils.time_utils.align_time_boundaries instead."""
+        warnings.warn(
+            "align_time_boundaries is deprecated and will be moved to utils.time_utils in a future version. "
+            "Use utils.time_utils.align_time_boundaries instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return align_time_boundaries(start_time, end_time, interval)
+
+    @staticmethod
+    def enforce_utc_timezone(dt):
+        """Deprecated: Use utils.time_utils.enforce_utc_timezone instead."""
+        warnings.warn(
+            "enforce_utc_timezone is deprecated and will be removed in a future version. "
+            "Use utils.time_utils.enforce_utc_timezone instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return enforce_utc_timezone(dt)
+
+    @staticmethod
+    def filter_dataframe(df, start_time, end_time):
+        """Deprecated: Use utils.time_utils.filter_dataframe_by_time instead."""
+        warnings.warn(
+            "filter_dataframe is deprecated and will be removed in a future version. "
+            "Use utils.time_utils.filter_dataframe_by_time instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return filter_dataframe_by_time(df, start_time, end_time)
+
+    @staticmethod
+    def align_vision_api_to_rest(start_time, end_time, interval):
+        """Deprecated: Use utils.time_utils.align_vision_api_to_rest instead."""
+        warnings.warn(
+            "align_vision_api_to_rest is deprecated and will be removed in a future version. "
+            "Use utils.time_utils.align_vision_api_to_rest instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return align_vision_api_to_rest(start_time, end_time, interval)
 
 
 class VisionDataClient(Generic[T]):
@@ -192,7 +258,7 @@ class VisionDataClient(Generic[T]):
             Date aligned to match REST API boundary behavior
         """
         # Ensure datetime uses consistent timezone
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        date = enforce_utc_timezone(date)
 
         # Use interval object for alignment
         try:
@@ -206,8 +272,6 @@ class VisionDataClient(Generic[T]):
             )
 
         # Apply REST API-like alignment by flooring to interval boundary
-        from utils.time_alignment import get_interval_floor
-
         aligned_date = get_interval_floor(date, interval)
 
         return aligned_date
@@ -230,8 +294,8 @@ class VisionDataClient(Generic[T]):
 
         try:
             # Align dates to match REST API behavior for cache validation
-            start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-            end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+            start_time = enforce_utc_timezone(start_time)
+            end_time = enforce_utc_timezone(end_time)
 
             # Use interval object for alignment
             try:
@@ -244,7 +308,7 @@ class VisionDataClient(Generic[T]):
                 )
 
             # Get aligned boundaries to match REST API behavior
-            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+            aligned_boundaries = align_vision_api_to_rest(
                 start_time, end_time, interval
             )
             aligned_start = aligned_boundaries["adjusted_start"]
@@ -313,13 +377,12 @@ class VisionDataClient(Generic[T]):
         Returns:
             DataFrame with market data
         """
-        # Use TimeRangeManager to enforce timezone
-        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+        # Use time_utils to enforce timezone
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
 
-        # Get time boundaries using ApiBoundaryValidator
-        api_validator = ApiBoundaryValidator()
-        aligned_start, aligned_end = api_validator.align_time_boundaries(
+        # Use align_time_boundaries directly from time_utils
+        aligned_start, aligned_end = align_time_boundaries(
             start_time, end_time, self.interval_obj
         )
         start_time = aligned_start
@@ -362,7 +425,7 @@ class VisionDataClient(Generic[T]):
         combined_df = pd.concat(all_dfs).sort_index()
 
         # Apply final filtering to match original requested time range
-        result_df = TimeRangeManager.filter_dataframe(combined_df, start_time, end_time)
+        result_df = filter_dataframe_by_time(combined_df, start_time, end_time)
 
         return TimestampedDataFrame(result_df)
 
@@ -383,13 +446,10 @@ class VisionDataClient(Generic[T]):
             DataFrame containing requested data
         """
         # Validate and normalize time range
-        from utils.time_alignment import TimeRangeManager
+        validate_time_window(start_time, end_time)
 
-        TimeRangeManager.validate_time_window(start_time, end_time)
-
-        # Get time boundaries using ApiBoundaryValidator
-        api_validator = ApiBoundaryValidator()
-        aligned_start, aligned_end = api_validator.align_time_boundaries(
+        # Use align_time_boundaries directly from time_utils
+        aligned_start, aligned_end = align_time_boundaries(
             start_time, end_time, self.interval_obj
         )
         start_time = aligned_start
@@ -421,7 +481,7 @@ class VisionDataClient(Generic[T]):
                 # Validate data integrity
                 self._validator.validate_dataframe(df)
                 # Filter DataFrame to ensure it's within the requested time boundaries
-                df = TimeRangeManager.filter_dataframe(df, start_time, end_time)
+                df = filter_dataframe_by_time(df, start_time, end_time)
                 logger.info(f"Successfully fetched {len(df)} records")
                 return df
 
@@ -442,10 +502,10 @@ class VisionDataClient(Generic[T]):
             end_time: End time for prefetch
             max_days: Maximum number of days to prefetch
         """
-        # Validate time range and enforce UTC timezone using TimeRangeManager
-        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
-        TimeRangeManager.validate_time_window(start_time, end_time)
+        # Validate time range and enforce UTC timezone using time_utils
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
+        validate_time_window(start_time, end_time)
 
         # Limit prefetch to max_days
         limited_end = min(end_time, start_time + timedelta(days=max_days))
@@ -486,7 +546,7 @@ class VisionDataClient(Generic[T]):
             end_time = end_time_or_columns
 
             # Apply manual alignment for cache operations to match REST API behavior
-            aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+            aligned_boundaries = align_vision_api_to_rest(
                 start_time, end_time, self.interval_obj
             )
 
@@ -520,8 +580,8 @@ class VisionDataClient(Generic[T]):
         if not self.cache_dir or not self.use_cache or not self.cache_manager:
             return None
 
-        # Ensure date has proper timezone using TimeRangeManager
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        # Ensure date has proper timezone using time_utils
+        date = enforce_utc_timezone(date)
 
         try:
             # Get cache information from the cache manager
@@ -570,8 +630,8 @@ class VisionDataClient(Generic[T]):
         if not self.cache_dir or not self.use_cache or not self.cache_manager:
             return
 
-        # Ensure date has proper timezone using TimeRangeManager
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        # Ensure date has proper timezone using time_utils
+        date = enforce_utc_timezone(date)
 
         try:
             logger.debug(f"Saving data to cache for {date.date()}")

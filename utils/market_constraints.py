@@ -12,6 +12,7 @@ logger = get_logger(__name__, "INFO", show_path=False)
 
 class MarketType(Enum):
     SPOT = auto()
+    FUTURES = auto()
 
 
 class Interval(Enum):
@@ -105,6 +106,27 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1000,
         endpoint_reliability="All endpoints (primary, backup, and data-only) are reliable and support all features.",
+    ),
+    MarketType.FUTURES: MarketCapabilities(
+        primary_endpoint="https://fapi.binance.com",
+        backup_endpoints=[
+            "https://fapi-gcp.binance.com",
+            "https://fapi1.binance.com",
+            "https://fapi2.binance.com",
+            "https://fapi3.binance.com",
+        ],
+        data_only_endpoint=None,  # No dedicated data-only endpoint for futures
+        api_version="v1",
+        supported_intervals=[
+            interval for interval in Interval if interval.value != "1s"
+        ],  # All intervals except 1s
+        symbol_format="BTCUSDT",
+        description=(
+            "Futures market with support for most intervals except 1-second data. "
+            "Returns up to 1500 records when requested."
+        ),
+        max_limit=1500,
+        endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
     ),
 }
 

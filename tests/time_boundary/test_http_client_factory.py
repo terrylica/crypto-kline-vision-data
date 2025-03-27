@@ -1,7 +1,7 @@
 import pytest
 import aiohttp
 import httpx
-from utils.http_client_factory import (
+from utils.network_utils import (
     create_aiohttp_client,
     create_httpx_client,
     create_client,

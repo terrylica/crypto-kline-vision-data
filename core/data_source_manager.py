@@ -9,7 +9,12 @@ from pathlib import Path
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType
-from utils.time_alignment import TimeRangeManager
+from utils.time_alignment import TimeRangeManager  # Keep for backward compatibility
+from utils.time_utils import (
+    enforce_utc_timezone,
+    align_vision_api_to_rest,
+    filter_dataframe_by_time,
+)
 from utils.validation import DataFrameValidator
 from utils.config import (
     OUTPUT_DTYPES,
@@ -306,7 +311,7 @@ class DataSourceManager:
         try:
             if use_vision:
                 # For Vision API, we need to manually align timestamps to match REST API behavior
-                aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                aligned_boundaries = align_vision_api_to_rest(
                     start_time, end_time, interval
                 )
                 vision_start = aligned_boundaries["adjusted_start"]
@@ -326,7 +331,7 @@ class DataSourceManager:
 
                 # Filter result to exact requested time range if needed
                 if not result_df.empty:
-                    result_df = TimeRangeManager.filter_dataframe(
+                    result_df = filter_dataframe_by_time(
                         result_df, start_time, end_time
                     )
             else:
@@ -389,8 +394,8 @@ class DataSourceManager:
         symbol = symbol.upper()
 
         # Ensure timestamps are UTC timezone-aware
-        start_time = TimeRangeManager.enforce_utc_timezone(start_time)
-        end_time = TimeRangeManager.enforce_utc_timezone(end_time)
+        start_time = enforce_utc_timezone(start_time)
+        end_time = enforce_utc_timezone(end_time)
 
         # Log input parameters
         logger.info(
@@ -424,7 +429,7 @@ class DataSourceManager:
                 # This ensures caching works consistently with both REST and Vision APIs
                 if use_vision:
                     # For Vision API, use aligned timestamps for cache operations
-                    aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                    aligned_boundaries = align_vision_api_to_rest(
                         start_time, end_time, interval
                     )
                     cache_date = aligned_boundaries["adjusted_start"]
@@ -440,7 +445,7 @@ class DataSourceManager:
                 if cached_data is not None:
                     # Filter DataFrame based on original requested time range
                     # Use inclusive start, exclusive end consistent with API behavior
-                    filtered_data = TimeRangeManager.filter_dataframe(
+                    filtered_data = filter_dataframe_by_time(
                         cached_data, start_time, end_time
                     )
 
@@ -473,7 +478,7 @@ class DataSourceManager:
                 # For caching purposes, use properly aligned date that matches REST API behavior
                 if use_vision:
                     # For Vision API, we need to manually align the date for caching
-                    aligned_boundaries = TimeRangeManager.align_vision_api_to_rest(
+                    aligned_boundaries = align_vision_api_to_rest(
                         start_time, end_time, interval
                     )
                     cache_date = aligned_boundaries["adjusted_start"]

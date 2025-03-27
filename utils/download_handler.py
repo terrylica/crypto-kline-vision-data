@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-"""Utility module for handling downloads with retry logic and progress monitoring."""
+"""Utility module for handling downloads with retry logic and progress monitoring.
+
+DEPRECATED: This module is deprecated in favor of utils.network_utils.
+It will be removed in a future version.
+"""
 
 import asyncio
 import logging
 import time
 import tempfile
+import warnings
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -21,74 +26,86 @@ from tenacity import (
 )
 
 from utils.logger_setup import get_logger
-from utils.time_alignment import TimeRangeManager
+from utils.time_utils import enforce_utc_timezone
+from utils.network_utils import (
+    DownloadProgressTracker as _DownloadProgressTracker,
+    DownloadHandler as _DownloadHandler,
+    DownloadStalledException as _DownloadStalledException,
+    RateLimitException as _RateLimitException,
+    VisionDownloadManager as _VisionDownloadManager,
+)
 
 logger = get_logger(__name__, "INFO", show_path=False)
 
+# Deprecation warning message template
+DEPRECATION_WARNING = (
+    "{} is deprecated and will be removed in a future version. "
+    "Use utils.network_utils.{} instead."
+)
 
-class DownloadProgressTracker:
-    """Tracks download progress and detects stalled downloads."""
+
+class DownloadProgressTracker(_DownloadProgressTracker):
+    """Tracks download progress and detects stalled downloads.
+
+    DEPRECATED: Use utils.network_utils.DownloadProgressTracker instead.
+    """
 
     def __init__(self, total_size: Optional[int] = None, check_interval: int = 5):
         """Initialize progress tracker.
+
+        DEPRECATED: Use utils.network_utils.DownloadProgressTracker instead.
 
         Args:
             total_size: Expected total size in bytes, if known
             check_interval: How often to check progress in seconds
         """
-        self.start_time = time.monotonic()
-        self.last_progress_time = self.start_time
-        self.bytes_received = 0
-        self.total_size = total_size
-        self.last_bytes = 0
-        self.check_interval = check_interval
-
-    def update(self, chunk_size: int) -> bool:
-        """Update progress and check if download is stalled.
-
-        Args:
-            chunk_size: Size of the latest chunk in bytes
-
-        Returns:
-            False if download appears stalled, True otherwise
-        """
-        current_time = time.monotonic()
-        self.bytes_received += chunk_size
-
-        # Check progress every check_interval seconds
-        if current_time - self.last_progress_time >= self.check_interval:
-            bytes_per_sec = (
-                self.bytes_received - self.last_bytes
-            ) / self.check_interval
-
-            # If progress is less than 1KB/s for check_interval seconds, consider it stalled
-            if bytes_per_sec < 1024:
-                logger.warning(
-                    f"Download stalled: {bytes_per_sec:.2f} B/s "
-                    f"({self.bytes_received}/{self.total_size or 'unknown'} bytes)"
-                )
-                return False
-
-            self.last_progress_time = current_time
-            self.last_bytes = self.bytes_received
-
-        return True
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "DownloadProgressTracker", "DownloadProgressTracker"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(total_size=total_size, check_interval=check_interval)
 
 
-class DownloadStalledException(Exception):
-    """Raised when download progress stalls."""
+class DownloadStalledException(_DownloadStalledException):
+    """Raised when download progress stalls.
 
-    pass
+    DEPRECATED: Use utils.network_utils.DownloadStalledException instead.
+    """
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "DownloadStalledException", "DownloadStalledException"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
 
-class RateLimitException(Exception):
-    """Raised when rate limited by the server."""
+class RateLimitException(_RateLimitException):
+    """Raised when rate limited by the server.
 
-    pass
+    DEPRECATED: Use utils.network_utils.RateLimitException instead.
+    """
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            DEPRECATION_WARNING.format("RateLimitException", "RateLimitException"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
 
 class DownloadHandler:
-    """Handles file downloads with retry logic and progress monitoring."""
+    """Handles file downloads with retry logic and progress monitoring.
+
+    DEPRECATED: Use utils.network_utils.DownloadHandler instead.
+    """
 
     def __init__(
         self,
@@ -100,6 +117,8 @@ class DownloadHandler:
     ):
         """Initialize download handler.
 
+        DEPRECATED: Use utils.network_utils.DownloadHandler instead.
+
         Args:
             client: Async HTTP client to use
             max_retries: Maximum number of retry attempts
@@ -107,25 +126,19 @@ class DownloadHandler:
             max_wait: Maximum wait time between retries (seconds)
             chunk_size: Size of download chunks in bytes
         """
-        self.client = client
-        self.max_retries = max_retries
-        self.min_wait = min_wait
-        self.max_wait = max_wait
-        self.chunk_size = chunk_size
+        warnings.warn(
+            DEPRECATION_WARNING.format("DownloadHandler", "DownloadHandler"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.real_handler = _DownloadHandler(
+            client=client,
+            max_retries=max_retries,
+            min_wait=min_wait,
+            max_wait=max_wait,
+            chunk_size=chunk_size,
+        )
 
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=1, min=4, max=60),
-        retry=retry_if_exception_type(
-            (
-                DownloadStalledException,
-                RateLimitException,
-                httpx.TimeoutException,
-                httpx.NetworkError,
-            )
-        ),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-    )
     async def download_file(
         self,
         url: str,
@@ -134,6 +147,8 @@ class DownloadHandler:
         progress_tracker_kwargs: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Download file with progress monitoring and retries.
+
+        DEPRECATED: Use utils.network_utils.DownloadHandler.download_file instead.
 
         Args:
             url: URL to download from
@@ -150,58 +165,26 @@ class DownloadHandler:
             httpx.TimeoutException: If request times out
             httpx.NetworkError: If network error occurs
         """
-        temp_path = local_path.with_suffix(".tmp")
-        progress_tracker_kwargs = progress_tracker_kwargs or {}
-
-        try:
-            async with self.client.stream("GET", url, headers=headers) as response:
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get("Retry-After", 60))
-                    logger.warning(f"Rate limit hit. Retry after {retry_after}s")
-                    await asyncio.sleep(retry_after)  # Honor the retry-after header
-                    raise RateLimitException()
-
-                if response.status_code != 200:
-                    logger.error(f"Download failed with status {response.status_code}")
-                    return False
-
-                total_size = int(response.headers.get("content-length", 0))
-                progress = DownloadProgressTracker(
-                    total_size, **progress_tracker_kwargs
-                )
-
-                with open(temp_path, "wb") as f:
-                    async for chunk in response.aiter_bytes(self.chunk_size):
-                        if not progress.update(len(chunk)):
-                            msg = f"Download stalled at {progress.bytes_received}/{total_size} bytes"
-                            logger.warning(msg)
-                            raise DownloadStalledException(msg)
-                        f.write(chunk)
-
-            # Only move to final location if download completed successfully
-            temp_path.rename(local_path)
-            return True
-
-        except (
-            DownloadStalledException,
-            RateLimitException,
-            httpx.TimeoutException,
-            httpx.NetworkError,
-        ) as e:
-            # Let these exceptions propagate for retry
-            raise
-
-        except Exception as e:
-            logger.error(f"Unexpected error during download: {str(e)}")
-            return False
-
-        finally:
-            # Cleanup temp file if it exists
-            temp_path.unlink(missing_ok=True)
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "download_file", "DownloadHandler.download_file"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return await self.real_handler.download_file(
+            url=url,
+            local_path=local_path,
+            headers=headers,
+            progress_tracker_kwargs=progress_tracker_kwargs,
+        )
 
 
-class VisionDownloadManager:
-    """Handles downloading Vision data files with validation and processing."""
+class VisionDownloadManager(_VisionDownloadManager):
+    """Handles downloading Vision data files with validation and processing.
+
+    DEPRECATED: Use utils.network_utils.VisionDownloadManager instead.
+    """
 
     def __init__(
         self,
@@ -212,18 +195,26 @@ class VisionDownloadManager:
     ):
         """Initialize the download manager.
 
+        DEPRECATED: Use utils.network_utils.VisionDownloadManager instead.
+
         Args:
             client: HTTP client for downloads
             symbol: Trading pair symbol
             interval: Time interval
             market_type: Market type (spot, futures_usdt, futures_coin)
         """
-        self.client = client
-        self.symbol = symbol
-        self.interval = interval
-        self.market_type = market_type
-        self.download_handler = DownloadHandler(
-            client, max_retries=5, min_wait=4, max_wait=60
+        warnings.warn(
+            DEPRECATION_WARNING.format(
+                "VisionDownloadManager", "VisionDownloadManager"
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(
+            client=client,
+            symbol=symbol,
+            interval=interval,
+            market_type=market_type,
         )
 
     def _get_checksum_url(self, date: datetime) -> str:
@@ -236,7 +227,7 @@ class VisionDownloadManager:
             URL for the checksum file
         """
         # Import and use TimeRangeManager for consistent timezone handling
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        date = enforce_utc_timezone(date)
 
         # Note: This assumes the vision_constraints module has this function
         from core.vision_constraints import get_vision_url, FileType
@@ -255,7 +246,7 @@ class VisionDownloadManager:
             URL for the data file
         """
         # Import and use TimeRangeManager for consistent timezone handling
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        date = enforce_utc_timezone(date)
 
         # Note: This assumes the vision_constraints module has this function
         from core.vision_constraints import get_vision_url, FileType
@@ -310,8 +301,8 @@ class VisionDownloadManager:
         Returns:
             DataFrame with data or None if download failed
         """
-        # Ensure date has proper timezone using TimeRangeManager
-        date = TimeRangeManager.enforce_utc_timezone(date)
+        # Ensure date has proper timezone using direct function call
+        date = enforce_utc_timezone(date)
 
         # Add debugging timestamp
         debug_id = f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_{int(time.time())}"
@@ -477,13 +468,13 @@ class VisionDownloadManager:
                     f"[{debug_id}] Processed DataFrame shape: {df.shape}, index range: {df.index.min()} to {df.index.max()}"
                 )
 
-                # Ensure UTC timezone using TimeRangeManager
+                # Ensure UTC timezone using direct function call
                 if df.index.tz is None:
                     logger.info(
                         f"[{debug_id}] Setting timezone for DatetimeIndex without timezone"
                     )
                     df.index = pd.DatetimeIndex(
-                        [TimeRangeManager.enforce_utc_timezone(dt) for dt in df.index],
+                        [enforce_utc_timezone(dt) for dt in df.index],
                         name=df.index.name,
                     )
                 else:
@@ -491,10 +482,7 @@ class VisionDownloadManager:
                         f"[{debug_id}] Converting existing timezone to UTC: {df.index.tz}"
                     )
                     df.index = pd.DatetimeIndex(
-                        [
-                            TimeRangeManager.enforce_utc_timezone(dt)
-                            for dt in df.index.to_pydatetime()
-                        ],
+                        [enforce_utc_timezone(dt) for dt in df.index.to_pydatetime()],
                         name=df.index.name,
                     )
                 logger.info(

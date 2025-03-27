@@ -37,6 +37,11 @@ from utils.market_constraints import Interval, MarketType
 from utils.time_alignment import (
     adjust_time_window,
     TimeRangeManager,
+)
+
+# Import functions directly from time_utils
+from utils.time_utils import (
+    align_vision_api_to_rest,
     get_interval_timedelta,
 )
 
@@ -194,8 +199,8 @@ async def test_time_boundary_comprehensive(manager: DataSourceManager) -> None:
                 f"Original window: {start_time.isoformat()} → {end_time.isoformat()}"
             )
 
-            # Get time boundaries using the centralized utility
-            time_boundaries = TimeRangeManager.align_vision_api_to_rest(
+            # Get time boundaries using the consolidated utility function directly
+            time_boundaries = align_vision_api_to_rest(
                 start_time, end_time, TEST_INTERVAL
             )
             adjusted_start = time_boundaries["adjusted_start"]
