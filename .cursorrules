@@ -1,29 +1,29 @@
 # Cursor Rules for AI in Current Workspace
 
-- Leverage popular libraries and frameworks to minimizing bespoke development.
+- Maintain flat directory structures
+- Utilize established libraries and frameworks to minimize custom code
+- Focus on high-impact, essential code - remove peripheral edge cases
+- Execute tests using `scripts/run_tests_parallel.sh`:
 
-- Because the assumed users of the code is careful and professional so that no only the lowest-hanging-fruit (minimum viable high inpact) codes are needed. Always try to propose removal of non-essential codes that are dealing with fringe issues.
+  Run all tests:
 
-- Use `scripts/run_tests_parallel.sh` exclusively to run PyTest:
+  ```bash
+  scripts/run_tests_parallel.sh
+  ```
 
-  Example:
+  Run specific test directory:
 
   ```bash
   scripts/run_tests_parallel.sh tests/cache_structure
   ```
 
-- Try not to resolve any Python type linting error using type ignore.
+- Resolve type hints properly instead of using type ignore comments
+- Include --no-cli-pager flag in AWS CLI commands
+- Implement guard clause pattern for cleaner control flow
+- Use full project-relative paths for file operations
+- Move or rename files and directories with git mv
 
-- Use `--no-cli-pager` for all AWS CLI commands.
+## Code Quality
 
-- When coding, prefer flat code style (or guard clause style).
-
-- When issuing file related command, always include current project root relative full path in the workspace.
-
-- Always use `git mv` when renaming files or folders.
-
-## Python Linter
-
-- For Python files (`.py`), Use `pylint` exclusively but no other linters `flake8`
-
-- Prefer CLI flags over configuration files (e.g., `.pylintrc`)
+- Use pylint for Python linting (no flake8)
+- Configure pylint via CLI flags rather than config files

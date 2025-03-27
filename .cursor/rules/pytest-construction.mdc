@@ -1,6 +1,6 @@
 ---
 description: 
-globs: tests/*,test_*
+globs: 
 alwaysApply: false
 ---
 # Principles
