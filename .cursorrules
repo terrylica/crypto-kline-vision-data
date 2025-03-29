@@ -22,6 +22,7 @@
 - Implement guard clause pattern for cleaner control flow
 - Use full project-relative paths for file operations
 - Move or rename files and directories with git mv
+- Prefer curl_cffi over requests, aiohttp, httpx, and pycurl for HTTP client implementations
 
 ## Code Quality
 
