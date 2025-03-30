@@ -223,6 +223,7 @@ class DownloadHandler:
         max_retries: int = 3,
         min_wait: int = 1,
         max_wait: int = 60,
+        timeout: float = 60.0,
     ):
         """Initialize download handler.
 
@@ -231,17 +232,19 @@ class DownloadHandler:
             max_retries: Maximum number of retry attempts
             min_wait: Minimum wait time between retries in seconds
             max_wait: Maximum wait time between retries in seconds
+            timeout: Download timeout in seconds
         """
         self.client = client
         self.max_retries = max_retries
         self.min_wait = min_wait
         self.max_wait = max_wait
+        self.timeout = timeout
         self._client_is_external = client is not None
 
     async def __aenter__(self):
         """Enter async context manager."""
         if not self.client:
-            self.client = create_client(timeout=30.0)
+            self.client = create_client(timeout=self.timeout)
             self._client_is_external = False
         return self
 
@@ -292,7 +295,7 @@ class DownloadHandler:
         # Create a temporary client if not provided
         client_created = False
         if not self.client:
-            self.client = create_client(timeout=timeout)
+            self.client = create_client(timeout=self.timeout)
             client_created = True
 
         try:
@@ -345,7 +348,7 @@ async def download_files_concurrently(
     client: AsyncSession,
     urls: List[str],
     local_paths: List[Path],
-    max_concurrent: int = 5,
+    max_concurrent: int = 50,
     **download_kwargs: Any,
 ) -> List[bool]:
     """Download multiple files concurrently with rate limiting.
@@ -370,8 +373,27 @@ async def download_files_concurrently(
     # Create download handler
     handler = DownloadHandler(client=client)
 
+    # Dynamically adjust concurrency based on batch size
+    batch_size = len(urls)
+    adjusted_concurrency = max_concurrent
+
+    if batch_size <= 10:
+        # Small batch optimization
+        adjusted_concurrency = min(10, max_concurrent)
+    elif batch_size <= 50:
+        # Medium batch optimization (optimal concurrency)
+        adjusted_concurrency = min(50, max_concurrent)
+    else:
+        # Large batch optimization
+        adjusted_concurrency = min(100, max_concurrent)
+
+    if adjusted_concurrency != max_concurrent:
+        logger.debug(
+            f"Adjusting concurrency to {adjusted_concurrency} for {batch_size} files"
+        )
+
     # Set up semaphore for concurrency control
-    semaphore = asyncio.Semaphore(max_concurrent)
+    semaphore = asyncio.Semaphore(adjusted_concurrency)
 
     async def download_with_semaphore(url: str, path: Path) -> bool:
         async with semaphore:
@@ -531,7 +553,7 @@ class VisionDownloadManager:
         self.interval = interval
         self.market_type = market_type
         self.download_handler = DownloadHandler(
-            client, max_retries=5, min_wait=4, max_wait=60
+            client, max_retries=5, min_wait=4, max_wait=60, timeout=3.0
         )
 
     def _get_checksum_url(self, date: datetime) -> str:
@@ -859,15 +881,33 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                     # Convert timestamp column (milliseconds since epoch) to datetime
                     if "timestamp" in df.columns and not df.empty:
                         try:
-                            # Most Binance kline timestamps are in milliseconds
+                            # Check the timestamp digits to determine format
                             logger.info(
-                                f"{log_prefix} Converting timestamp column (milliseconds to datetime)"
+                                f"{log_prefix} Converting timestamp column to datetime"
                             )
+                            timestamp_val = df["timestamp"].astype(float)
+                            sample_ts = (
+                                timestamp_val.iloc[0] if not timestamp_val.empty else 0
+                            )
+                            digits = len(str(int(sample_ts)))
 
-                            # Simple approach for Binance data: treat as ms directly
-                            df["timestamp"] = pd.to_datetime(
-                                df["timestamp"], unit="ms", utc=True
-                            )
+                            # Handle different timestamp formats
+                            if digits > 13:  # Microseconds (16 digits)
+                                logger.info(
+                                    f"{log_prefix} Detected microsecond timestamps ({digits} digits)"
+                                )
+                                # Use direct microsecond conversion to avoid overflow
+                                df["timestamp"] = pd.to_datetime(
+                                    df["timestamp"], unit="us", utc=True
+                                )
+                            else:  # Standard millisecond format (13 digits)
+                                logger.info(
+                                    f"{log_prefix} Detected millisecond timestamps ({digits} digits)"
+                                )
+                                df["timestamp"] = pd.to_datetime(
+                                    df["timestamp"], unit="ms", utc=True
+                                )
+
                             df = df.set_index("timestamp")
 
                             # Log sample after conversion
@@ -893,19 +933,22 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                 )
                                 digits = len(str(int(sample_ts)))
 
-                                if digits > 13:  # Assume microseconds or finer
-                                    df["timestamp"] = pd.to_datetime(
-                                        timestamp_val / 1_000_000, unit="s", utc=True
+                                # Handle timestamp format based on number of digits
+                                if digits > 13:  # Microseconds (16 digits)
+                                    # Use unit parameter directly to prevent overflow
+                                    logger.info(
+                                        f"{log_prefix} Using direct microsecond conversion for {digits} digits"
                                     )
-                                elif (
-                                    digits > 10
-                                ):  # Milliseconds (standard Binance format)
                                     df["timestamp"] = pd.to_datetime(
-                                        timestamp_val / 1_000, unit="s", utc=True
+                                        df["timestamp"], unit="us", utc=True
                                     )
-                                else:  # Seconds
+                                elif digits > 10:  # Milliseconds (13 digits)
                                     df["timestamp"] = pd.to_datetime(
-                                        timestamp_val, unit="s", utc=True
+                                        df["timestamp"], unit="ms", utc=True
+                                    )
+                                else:  # Seconds (10 digits)
+                                    df["timestamp"] = pd.to_datetime(
+                                        df["timestamp"], unit="s", utc=True
                                     )
 
                                 df = df.set_index("timestamp")
@@ -935,24 +978,7 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
 
                 except Exception as e:
                     logger.error(f"{log_prefix} Error processing data: {str(e)}")
-                    # If there's a specific CSV parsing error, try a more basic approach
-                    try:
-                        # Attempt with more lenient parsing
-                        df = pd.read_csv(
-                            io.BytesIO(file_content),
-                            header=None,
-                            names=column_names,
-                            on_bad_lines="skip",
-                        )
-                        logger.info(
-                            f"{log_prefix} Parsed with lenient mode, got {len(df)} rows"
-                        )
-                        return df
-                    except Exception as fallback_e:
-                        logger.error(
-                            f"{log_prefix} Fallback parsing also failed: {str(fallback_e)}"
-                        )
-                        return pd.DataFrame()
+                    return pd.DataFrame()
 
     except Exception as e:
         logger.error(f"{log_prefix} Error reading zip file: {str(e)}")

@@ -48,7 +48,7 @@ CACHE_SCHEMA: Final[Dict[str, pa.DataType]] = {
 }
 
 # Constraint constants
-MAX_CONCURRENT_DOWNLOADS: Final[int] = 13
+MAX_CONCURRENT_DOWNLOADS: Final[int] = 50
 FILES_PER_DAY: Final[int] = 2
 # Import canonical values from config instead of redefining
 # CANONICAL_INDEX_NAME: Final[str] = "open_time"  # Removed as it's now imported

@@ -114,7 +114,9 @@ class VisionDataClient(Generic[T]):
             max_concurrent_downloads or MAX_CONCURRENT_DOWNLOADS
         )
         # Prepare HTTP client for API access - use curl_cffi for better performance
-        self._client = create_client(timeout=30)  # Default is now curl_cffi
+        self._client = create_client(
+            timeout=3.0
+        )  # Reduced from 30s to 3s for optimal performance (benchmark best practice)
         # Initialize download manager
         self._download_manager = VisionDownloadManager(
             client=self._client, symbol=self.symbol, interval=self.interval
@@ -160,6 +162,22 @@ class VisionDataClient(Generic[T]):
         """
         return create_empty_dataframe()
 
+    def _adjust_concurrency(self, batch_size: int) -> int:
+        """Dynamically adjust concurrency based on batch size.
+
+        Args:
+            batch_size: Number of items in the batch
+
+        Returns:
+            Adjusted concurrency value optimized for the batch size
+        """
+        if batch_size <= 10:
+            return min(10, self._max_concurrent_downloads)
+        elif batch_size <= 50:
+            return min(50, self._max_concurrent_downloads)
+        else:
+            return min(100, self._max_concurrent_downloads)
+
     async def _download_data(
         self,
         start_time: datetime,
@@ -204,9 +222,18 @@ class VisionDataClient(Generic[T]):
             dates.append(current_date)
             current_date += timedelta(days=1)
 
+        # Dynamically adjust concurrency based on batch size
+        batch_size = len(dates)
+        adjusted_concurrency = self._adjust_concurrency(batch_size)
+
+        if adjusted_concurrency != self._max_concurrent_downloads:
+            logger.debug(
+                f"Adjusting concurrency to {adjusted_concurrency} for {batch_size} dates"
+            )
+
         # Download data for each date
         all_dfs = []
-        semaphore = asyncio.Semaphore(self._max_concurrent_downloads)
+        semaphore = asyncio.Semaphore(adjusted_concurrency)
         download_tasks = []
 
         for date in dates:

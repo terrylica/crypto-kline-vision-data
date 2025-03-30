@@ -29,7 +29,7 @@ from utils.config import (
     TIMESTAMP_UNIT,
     CLOSE_TIME_ADJUSTMENT,
     CANONICAL_INDEX_NAME,
-    DEFAULT_COLUMN_ORDER,
+    create_empty_dataframe,
 )
 
 logger = get_logger(__name__, "INFO", show_path=False)
@@ -670,4 +670,4 @@ class RestDataClient:
         Returns:
             Empty DataFrame with proper column structure
         """
-        return pd.DataFrame(columns=DEFAULT_COLUMN_ORDER)
+        return create_empty_dataframe()
