@@ -22,7 +22,8 @@
 - Implement guard clause pattern for cleaner control flow
 - Use full project-relative paths for file operations
 - Move or rename files and directories with git mv
-- Prefer curl_cffi over requests, aiohttp, httpx, and pycurl for HTTP client implementations
+- Assume `curl_cffi` is installed and available for import so no need to try importing it
+- Prefer `curl_cffi` with AsyncSession over requests, aiohttp, httpx, and pycurl for HTTP client implementations
 
 ## Code Quality
 
