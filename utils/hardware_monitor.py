@@ -17,7 +17,7 @@ from curl_cffi.requests import AsyncSession
 from utils.logger_setup import get_logger
 from utils.network_utils import create_client, safely_close_client
 
-logger = get_logger(__name__, "INFO", show_path=False)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 @dataclass

@@ -77,7 +77,6 @@ class ValidationError(Exception):
     """Custom exception for validation errors."""
 
 
-
 class CacheValidationError(NamedTuple):
     """Standardized cache validation error details."""
 
@@ -835,9 +834,9 @@ class ApiBoundaryValidator:
                 "matches_request": start_matches and end_within_range,
             }
 
-            logger.info(
-                f"API boundaries found - Start: {api_start_time}, End: {api_end_time}, "
-                f"Records: {len(api_data)}, Matches Request: {start_matches and end_within_range}"
+            logger.debug(
+                f"API boundaries found. Start: {api_start_time}, End: {api_end_time}, "
+                f"Count: {len(api_data)}, Matches Request: {start_matches and end_within_range}"
             )
 
             return result
@@ -972,7 +971,7 @@ class ApiBoundaryValidator:
 
         result = start_time_match and end_time_match and record_count_match
 
-        logger.info(
+        logger.debug(
             f"DataFrame validation result: {'Valid' if result else 'Invalid'} "
             f"(Start: {start_time_match}, End: {end_time_match}, "
             f"Count: {df_record_count} vs {api_record_count} - {record_count_match})"
@@ -1232,9 +1231,8 @@ class DataValidator:
             (df.index >= api_start_time) & (df.index <= api_end_time)
         ].copy()
 
-        logger.info(
-            f"Aligned DataFrame from {len(df)} to {len(aligned_df)} rows "
-            f"({api_start_time} to {api_end_time})"
+        logger.debug(
+            f"Successfully aligned DataFrame to API boundaries: {len(df)} rows remain"
         )
 
         return aligned_df

@@ -7,7 +7,7 @@ import re
 
 from utils.logger_setup import get_logger
 
-logger = get_logger(__name__, "INFO", show_path=False)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 class MarketType(Enum):

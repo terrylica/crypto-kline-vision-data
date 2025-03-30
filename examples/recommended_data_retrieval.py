@@ -16,7 +16,7 @@ from utils.time_utils import validate_time_window
 from utils.config import VISION_DATA_DELAY_HOURS
 
 # Set up logging with DEBUG level for detailed diagnostics
-logger = get_logger(__name__, "DEBUG", show_path=True)
+logger = get_logger(__name__, "INFO", show_path=True)
 
 
 def validate_time_range(
@@ -321,11 +321,101 @@ async def example_fetch_historical_data():
                 logger.error(f"Error cleaning up Vision client: {e}")
 
 
+async def example_fetch_same_day_minute_data():
+    """Example function to fetch 1-minute data for the current day using DataSourceManager."""
+    logger.info("\nFetching 1-minute data for the current day (recommended approach)")
+
+    # Create cache directory
+    cache_dir = Path("./cache")
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Cache directory created/verified at: {cache_dir}")
+    except Exception as e:
+        logger.error(f"Failed to create cache directory: {e}")
+        raise
+
+    # Initialize Vision client
+    vision_client = None
+    try:
+        vision_client = VisionDataClient(
+            symbol="BTCUSDT",
+            interval="1m",  # Using 1-minute interval
+            use_cache=False,  # Disable direct caching as we use DataSourceManager's cache
+        )
+        logger.debug("Vision client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Vision client: {e}")
+        raise
+
+    # Define time range for today
+    now = datetime.now(timezone.utc)
+    # Set end time a few hours in the past to ensure data availability
+    end_time = now - timedelta(hours=2)
+    # Set start time to the beginning of the same day
+    start_time = datetime(
+        end_time.year, end_time.month, end_time.day, 0, 0, 0, tzinfo=timezone.utc
+    )
+
+    logger.info(f"Same-day time range: {start_time} to {end_time}")
+
+    try:
+        # Validate time range for REST API (recent data)
+        validate_time_range(start_time, end_time, use_vision=False)
+        logger.debug("Time range validation passed")
+
+        # Using DataSourceManager with async context manager
+        async with DataSourceManager(
+            market_type=MarketType.SPOT,
+            vision_client=vision_client,
+            cache_dir=cache_dir,
+            use_cache=True,  # Enable caching
+        ) as manager:
+            logger.debug("DataSourceManager initialized successfully")
+
+            # Fetch 1-minute data
+            df = await manager.get_data(
+                symbol="BTCUSDT",
+                start_time=start_time,
+                end_time=end_time,
+                interval=Interval.MINUTE_1,  # Using 1-minute interval
+            )
+
+            logger.info(f"1-minute data retrieved: {len(df)} rows")
+            logger.info(f"Data shape: {df.shape}")
+            logger.info(f"Data columns: {df.columns.tolist()}")
+
+            # Display a sample of the data
+            if not df.empty:
+                logger.info("\nSample 1-minute data:")
+                print(df.head().to_string())
+
+            # Get cache statistics
+            cache_stats = manager.get_cache_stats()
+            logger.info(f"\nCache statistics: {cache_stats}")
+
+    except ValueError as e:
+        logger.error(f"Invalid time range: {e}")
+        logger.debug(f"Time range validation failed: {traceback.format_exc()}")
+    except Exception as e:
+        logger.error(f"Error fetching data: {e}")
+        logger.debug(f"Unexpected error: {traceback.format_exc()}")
+    finally:
+        # Clean up Vision client
+        if vision_client:
+            try:
+                await vision_client.__aexit__(None, None, None)
+                logger.debug("Vision client cleaned up successfully")
+            except Exception as e:
+                logger.error(f"Error cleaning up Vision client: {e}")
+
+
 async def main():
     """Run the example functions."""
     try:
-        # Only run historical data test for now
+        # Run all example functions
+        await example_fetch_recent_data()  # Run the recent data example
         await example_fetch_historical_data()
+        await example_fetch_same_day_minute_data()
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt, shutting down gracefully...")
     except Exception as e:

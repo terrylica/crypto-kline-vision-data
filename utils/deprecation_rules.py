@@ -41,7 +41,7 @@ import pandas as pd
 from utils.logger_setup import get_logger
 from .market_constraints import Interval as MarketInterval
 
-logger = get_logger(__name__, "INFO", show_path=False)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 class IntervalParseError(ValueError):

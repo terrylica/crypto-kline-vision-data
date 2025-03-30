@@ -24,7 +24,7 @@ from utils.time_utils import (
 )
 from utils.network_utils import create_client, safely_close_client
 
-logger = get_logger(__name__, "INFO", show_path=False)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 # Constants for API interaction
 MAX_RETRIES = 3
@@ -60,7 +60,7 @@ class ApiBoundaryValidator:
         self.market_type = market_type
         # Use curl_cffi by default through create_client function
         self.http_client = create_client(timeout=10.0)
-        logger.info(f"Initialized ApiBoundaryValidator for {market_type} market")
+        logger.debug(f"Initialized ApiBoundaryValidator for {market_type} market")
 
     async def __aenter__(self):
         """Context manager entry for async with statements."""
@@ -96,7 +96,7 @@ class ApiBoundaryValidator:
         Returns:
             True if the time range is valid for the API, False otherwise
         """
-        logger.info(
+        logger.debug(
             f"Validating time range: {start_time} -> {end_time} for {symbol} {interval}"
         )
         try:
@@ -106,7 +106,7 @@ class ApiBoundaryValidator:
             )
 
             is_valid = len(api_data) > 0
-            logger.info(
+            logger.debug(
                 f"Time range validation result: {'Valid' if is_valid else 'Invalid'}"
             )
             return is_valid
@@ -141,7 +141,7 @@ class ApiBoundaryValidator:
                 'matches_request': bool      # Whether API boundaries match requested boundaries
             }
         """
-        logger.info(
+        logger.debug(
             f"Getting API boundaries for {symbol} {interval}: {start_time} -> {end_time}"
         )
 
@@ -187,7 +187,7 @@ class ApiBoundaryValidator:
                 "matches_request": start_matches and end_within_range,
             }
 
-            logger.info(
+            logger.debug(
                 f"API boundaries found - Start: {api_start_time}, End: {api_end_time}, "
                 f"Records: {len(api_data)}, Matches Request: {start_matches and end_within_range}"
             )
@@ -219,6 +219,9 @@ class ApiBoundaryValidator:
         Returns:
             Tuple of (aligned_start, aligned_end)
         """
+        logger.debug(
+            f"Aligning time boundaries: {start_time} -> {end_time} for interval {interval}"
+        )
         return time_utils_align_time_boundaries(start_time, end_time, interval)
 
     async def does_data_range_match_api_response(
@@ -244,8 +247,8 @@ class ApiBoundaryValidator:
         Returns:
             True if DataFrame matches what would be returned by the API
         """
-        logger.info(
-            f"Checking if DataFrame matches API response for {symbol} {interval}: "
+        logger.debug(
+            f"Checking if data matches API response for {symbol} {interval}: "
             f"{start_time} -> {end_time}"
         )
 
@@ -289,7 +292,7 @@ class ApiBoundaryValidator:
 
         result = start_time_match and end_time_match and record_count_match
 
-        logger.info(
+        logger.debug(
             f"DataFrame validation result: {'Valid' if result else 'Invalid'} "
             f"(Start: {start_time_match}, End: {end_time_match}, "
             f"Count: {df_record_count} vs {api_record_count} - {record_count_match})"
@@ -320,9 +323,8 @@ class ApiBoundaryValidator:
         Returns:
             DataFrame containing the API response
         """
-        logger.info(
-            f"Getting API response for {symbol} {interval}: "
-            f"{start_time} -> {end_time}, limit={limit}"
+        logger.debug(
+            f"Getting API response for {symbol} {interval}: {start_time} -> {end_time}"
         )
 
         # Ensure timezone awareness for input times

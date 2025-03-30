@@ -47,7 +47,7 @@ from core.vision_constraints import (
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
 
-logger = get_logger(__name__, "INFO", show_path=False)
+logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 class VisionDataClient(Generic[T]):
@@ -185,7 +185,7 @@ class VisionDataClient(Generic[T]):
         start_time = aligned_start
         end_time = aligned_end
 
-        logger.info(
+        logger.debug(
             f"Vision API request with aligned boundaries: {aligned_start} -> {aligned_end} "
             f"(to match REST API behavior)"
         )
@@ -252,7 +252,7 @@ class VisionDataClient(Generic[T]):
         start_time = aligned_start
         end_time = aligned_end
 
-        logger.info(
+        logger.debug(
             f"Fetching {self.symbol} {self.interval} data: "
             f"{start_time.isoformat()} -> {end_time.isoformat()}"
         )
@@ -274,7 +274,7 @@ class VisionDataClient(Generic[T]):
                 validate_dataframe(df)
                 # Filter DataFrame to ensure it's within the requested time boundaries
                 df = filter_dataframe_by_time(df, start_time, end_time)
-                logger.info(f"Successfully fetched {len(df)} records")
+                logger.debug(f"Successfully fetched {len(df)} records")
                 return df
 
             logger.warning(f"No data available for {start_time} to {end_time}")
@@ -304,12 +304,12 @@ class VisionDataClient(Generic[T]):
 
         # Limit prefetch to max_days
         limited_end = min(end_time, start_time + timedelta(days=max_days))
-        logger.info(f"Prefetching data from {start_time} to {limited_end}")
+        logger.debug(f"Prefetching data from {start_time} to {limited_end}")
 
         # Download data directly
         try:
             await self._download_data(start_time, limited_end)
-            logger.info(f"Prefetch completed for {start_time} to {limited_end}")
+            logger.debug(f"Prefetch completed for {start_time} to {limited_end}")
         except Exception as e:
             logger.error(f"Error during prefetch: {e}")
 
