@@ -192,6 +192,14 @@ def create_empty_dataframe() -> pd.DataFrame:
 def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     """Standardize column names in DataFrame to use canonical names.
 
+    This function ensures column names follow the canonical naming convention.
+    While Vision API data now uses proper column names from the start,
+    this function is still needed for:
+
+    1. REST API responses that might contain variant column names
+    2. Third-party data sources with different column naming conventions
+    3. Backward compatibility with existing code expecting canonical names
+
     Args:
         df: DataFrame with potentially non-standard column names
 

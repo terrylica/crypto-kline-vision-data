@@ -105,15 +105,6 @@ async def test_client_factory_dsm_integration():
     # Get logger for test
     logger = logging.getLogger(__name__)
 
-    # Column name mapping between different API responses
-    rest_to_vision_columns = {
-        "quote_asset_volume": "quote_volume",
-        "number_of_trades": "trades",
-        "taker_buy_base_volume": "taker_buy_volume",
-    }
-
-    vision_to_rest_columns = {v: k for k, v in rest_to_vision_columns.items()}
-
     # Create a temporary cache directory
     with tempfile.TemporaryDirectory() as temp_dir:
         cache_dir = Path(temp_dir)

@@ -260,10 +260,10 @@ class DataSourceManager:
         return True
 
     def _format_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Format DataFrame to ensure consistent structure.
+        """Format DataFrame to ensure consistent structure and data types.
 
         Args:
-            df: Input DataFrame
+            df: DataFrame to format
 
         Returns:
             Formatted DataFrame
@@ -278,7 +278,10 @@ class DataSourceManager:
             f"Index type before formatting: {type(df.index) if not df.empty else 'none'}"
         )
 
-        # First standardize column names
+        # Note: Vision API data no longer needs column name standardization since
+        # it now uses KLINE_COLUMNS directly during parsing.
+        # However, we still run standardize_column_names for any other potential data sources
+        # and to maintain backward compatibility with third-party APIs.
         df = standardize_column_names(df)
 
         # Then use the centralized formatter

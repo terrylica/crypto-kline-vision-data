@@ -43,6 +43,7 @@ from utils.config import (
     DEFAULT_USER_AGENT,
     DEFAULT_ACCEPT_HEADER,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+    KLINE_COLUMNS,
 )
 from utils.logger_setup import get_logger
 
@@ -771,9 +772,8 @@ class VisionDownloadManager:
                     logger.warning(f"[{debug_id}] Downloaded CSV is empty")
                     return None
 
-                # Set index name to match expected format
-                if df.index.name != "open_time":
-                    df.index.name = "open_time"
+                # No need to rename index anymore since read_csv_from_zip already uses KLINE_COLUMNS
+                # which includes "open_time" as the timestamp column name
 
                 return df
 
@@ -826,28 +826,15 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                     logger.warning(f"{log_prefix} CSV file is empty")
                     return pd.DataFrame()
 
-                # Define column names explicitly for Binance kline data format
-                column_names = [
-                    "timestamp",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "close_time",
-                    "quote_asset_volume",
-                    "number_of_trades",
-                    "taker_buy_base_asset_volume",
-                    "taker_buy_quote_asset_volume",
-                    "ignore",
-                ]
+                # Use KLINE_COLUMNS from config to ensure consistency with REST API
+                from utils.config import KLINE_COLUMNS
 
                 # Use StringIO for CSV parsing
                 import io
 
                 try:
                     df = pd.read_csv(
-                        io.BytesIO(file_content), header=None, names=column_names
+                        io.BytesIO(file_content), header=None, names=KLINE_COLUMNS
                     )
 
                     # Log sample of raw data for debugging
@@ -878,14 +865,14 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                         if col in df.columns:
                             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-                    # Convert timestamp column (milliseconds since epoch) to datetime
-                    if "timestamp" in df.columns and not df.empty:
+                    # Convert open_time column (milliseconds since epoch) to datetime
+                    if "open_time" in df.columns and not df.empty:
                         try:
                             # Check the timestamp digits to determine format
                             logger.info(
-                                f"{log_prefix} Converting timestamp column to datetime"
+                                f"{log_prefix} Converting open_time column to datetime"
                             )
-                            timestamp_val = df["timestamp"].astype(float)
+                            timestamp_val = df["open_time"].astype(float)
                             sample_ts = (
                                 timestamp_val.iloc[0] if not timestamp_val.empty else 0
                             )
@@ -897,18 +884,18 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                     f"{log_prefix} Detected microsecond timestamps ({digits} digits)"
                                 )
                                 # Use direct microsecond conversion to avoid overflow
-                                df["timestamp"] = pd.to_datetime(
-                                    df["timestamp"], unit="us", utc=True
+                                df["open_time"] = pd.to_datetime(
+                                    df["open_time"], unit="us", utc=True
                                 )
                             else:  # Standard millisecond format (13 digits)
                                 logger.info(
                                     f"{log_prefix} Detected millisecond timestamps ({digits} digits)"
                                 )
-                                df["timestamp"] = pd.to_datetime(
-                                    df["timestamp"], unit="ms", utc=True
+                                df["open_time"] = pd.to_datetime(
+                                    df["open_time"], unit="ms", utc=True
                                 )
 
-                            df = df.set_index("timestamp")
+                            df = df.set_index("open_time")
 
                             # Log sample after conversion
                             if not df.empty:
@@ -920,12 +907,12 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                 )
                         except Exception as e:
                             logger.error(
-                                f"{log_prefix} Error converting timestamp: {str(e)}"
+                                f"{log_prefix} Error converting open_time: {str(e)}"
                             )
                             # Fallback to a more flexible approach
                             try:
                                 # Try autodetecting the format based on the number of digits
-                                timestamp_val = df["timestamp"].astype(float)
+                                timestamp_val = df["open_time"].astype(float)
                                 sample_ts = (
                                     timestamp_val.iloc[0]
                                     if not timestamp_val.empty
@@ -939,19 +926,19 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                     logger.info(
                                         f"{log_prefix} Using direct microsecond conversion for {digits} digits"
                                     )
-                                    df["timestamp"] = pd.to_datetime(
-                                        df["timestamp"], unit="us", utc=True
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit="us", utc=True
                                     )
                                 elif digits > 10:  # Milliseconds (13 digits)
-                                    df["timestamp"] = pd.to_datetime(
-                                        df["timestamp"], unit="ms", utc=True
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit="ms", utc=True
                                     )
                                 else:  # Seconds (10 digits)
-                                    df["timestamp"] = pd.to_datetime(
-                                        df["timestamp"], unit="s", utc=True
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit="s", utc=True
                                     )
 
-                                df = df.set_index("timestamp")
+                                df = df.set_index("open_time")
                                 logger.info(
                                     f"{log_prefix} Fallback timestamp conversion succeeded with {digits} digits"
                                 )
@@ -1095,11 +1082,72 @@ async def safely_close_client(client: AsyncSession) -> None:
             logger.warning("Client doesn't have a close method, skipping cleanup")
             return
 
+        # Add debug logging to examine curl_cffi client internals
+        logger.debug(f"Closing curl_cffi client: {id(client)}")
+        # Extract the curl instance if available
+        curl_instance = None
+        if hasattr(client, "curl"):
+            curl_instance = client.curl
+            logger.debug(f"Client has curl instance: {id(curl_instance)}")
+
+        # Check if there are async jobs in the curl client
+        if hasattr(curl_instance, "async_jobs") and curl_instance.async_jobs:
+            logger.debug(
+                f"Found {len(curl_instance.async_jobs)} async jobs before closing"
+            )
+
         # Close the client (this releases connection resources)
         await client.close()
+        logger.debug("Client close() completed")
 
-        # Small delay to allow AsyncCurl._force_timeout tasks to complete
-        await asyncio.sleep(0.1)
+        # Look for pending curl_cffi tasks
+        pending_force_timeout_tasks = []
+        for task in asyncio.all_tasks():
+            task_str = str(task)
+            if not task.done() and "AsyncCurl._force_timeout" in task_str:
+                pending_force_timeout_tasks.append(task)
+                logger.debug(f"Found pending task: {task.get_name()} - {task_str}")
+
+        if pending_force_timeout_tasks:
+            logger.debug(
+                f"Attempting to clean up {len(pending_force_timeout_tasks)} pending tasks"
+            )
+            try:
+                # Get current event loop
+                loop = asyncio.get_event_loop()
+
+                # Try to directly cancel these tasks - more aggressive approach
+                for task in pending_force_timeout_tasks:
+                    task.cancel()
+
+                # Give a very short opportunity for tasks to clean up
+                await asyncio.sleep(0.2)
+
+                # Check if any tasks are still pending
+                still_pending = [t for t in pending_force_timeout_tasks if not t.done()]
+                if still_pending:
+                    logger.debug(
+                        f"{len(still_pending)} tasks still pending after cancellation"
+                    )
+                else:
+                    logger.debug("All pending tasks successfully cancelled")
+            except Exception as e:
+                logger.debug(f"Error during task cleanup: {e}")
+        else:
+            logger.debug("No pending curl_cffi tasks found")
+            # Short delay to allow any hidden tasks to settle
+            await asyncio.sleep(0.1)
+
+        # Final check for any remaining tasks
+        curl_tasks = []
+        for task in asyncio.all_tasks():
+            if "AsyncCurl" in str(task) and not task.done():
+                curl_tasks.append(task)
+
+        if curl_tasks:
+            logger.debug(f"After cleanup, {len(curl_tasks)} curl tasks still pending")
+        else:
+            logger.debug("No curl tasks remaining after cleanup")
 
         logger.debug("Successfully closed AsyncSession client")
     except asyncio.CancelledError:
