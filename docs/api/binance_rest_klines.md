@@ -28,7 +28,7 @@ Get detailed information about available symbols and trading rules.
 
 **Response Highlights:**
 
-- Contains 3000+ trading pairs (symbols)
+- Contains over 1000 trading pairs (symbols)
 - Includes detailed filter information for each symbol
 - Shows rate limits for the API
 - Lists supported order types
@@ -195,6 +195,46 @@ For perpetual contracts that don't expire:
   - `interval` (ENUM, required): Time interval
   - Other parameters same as regular klines
 - **Example:** `https://fapi.binance.com/fapi/v1/continuousKlines?pair=BTCUSDT&contractType=PERPETUAL&interval=1m&limit=1`
+
+#### Options Market Klines
+
+- **Endpoint:** `GET /eapi/v1/klines`
+- **Parameters:**
+  - `symbol` (STRING, required): Options contract (e.g., BTC-250627-55000-C)
+  - `interval` (ENUM, required): Candlestick interval
+  - `startTime` (LONG, optional): Start time in milliseconds
+  - `endTime` (LONG, optional): End time in milliseconds
+  - `limit` (INT, optional): Default 500; max 1000
+- **Example:** `https://eapi.binance.com/eapi/v1/klines?symbol=BTC-250627-55000-C&interval=1m&limit=1`
+
+**Response Format (Options Klines):**
+The options API returns a different response structure than other markets:
+
+```json
+[
+  {
+    "open": "30800",
+    "high": "30800",
+    "low": "30800",
+    "close": "30800",
+    "volume": "0",
+    "interval": "1m",
+    "tradeCount": 0,
+    "takerVolume": "0",
+    "takerAmount": "0",
+    "amount": "0",
+    "openTime": 1743454200000,
+    "closeTime": 1743454260000
+  }
+]
+```
+
+**Key Differences in Options Market:**
+
+- Returns objects with named fields inside an array instead of positional arrays
+- Includes named fields (e.g., "open", "high") instead of positional values
+- Uses different field names for some values
+- Does NOT support 1-second intervals
 
 ### 2.3 Trade Data Endpoints
 
@@ -437,7 +477,7 @@ Empirical testing reveals important information about historical data limits:
 
 - The default number of records returned is 500
 - The maximum number of records per request is 1000
-- When requesting more than 1000 records (e.g., limit=1500), the API still returns only 1000 records
+- When requesting more than 1000 records (e.g., limit=1500), the API still returns only 1000 records (server-enforced limit)
 - For historical data spanning more than 1000 candlesticks, multiple requests with different startTime/endTime parameters are required
 
 ## 6. Error Responses
@@ -539,16 +579,16 @@ https://data-api.binance.vision/api/v3/klines
 
 Based on empirical testing, different market types have different capabilities:
 
-| Feature              | Spot       | USDT-M Futures        | COIN-M Futures      | Options               |
-| -------------------- | ---------- | --------------------- | ------------------- | --------------------- |
-| 1s kline interval    | ✅ Yes     | ❌ No                 | ❌ No               | ❌ No                 |
-| Maximum klines limit | 1000       | 1000                  | 1000                | N/A                   |
-| Continuous klines    | N/A        | ✅ Yes                | ✅ Yes              | N/A                   |
-| Base API path        | /api/v3/   | /fapi/v1/             | /dapi/v1/           | /eapi/v1/             |
-| Symbol format        | BTCUSDT    | BTCUSDT               | BTCUSD_PERP         | BTC-YYMMDD-STRIKE-C/P |
-| Response format      | Standard   | Additional time field | Different structure | Limited availability  |
-| Price precision      | 8 decimals | 1-2 decimals          | 1 decimal           | Varies                |
-| Historical data      | Extensive  | More limited          | More limited        | Very limited          |
+| Feature              | Spot       | USDT-M Futures | COIN-M Futures | Options               |
+| -------------------- | ---------- | -------------- | -------------- | --------------------- |
+| 1s kline interval    | ✅ Yes     | ❌ No          | ❌ No          | ❌ No                 |
+| Maximum klines limit | 1000       | 1000           | 1000           | 1000                  |
+| Continuous klines    | N/A        | ✅ Yes         | ✅ Yes         | N/A                   |
+| Base API path        | /api/v3/   | /fapi/v1/      | /dapi/v1/      | /eapi/v1/             |
+| Symbol format        | BTCUSDT    | BTCUSDT        | BTCUSD_PERP    | BTC-YYMMDD-STRIKE-C/P |
+| Response format      | Standard   | Standard       | Standard       | Named object format   |
+| Price precision      | 8 decimals | 1-2 decimals   | 1 decimal      | Varies                |
+| Historical data      | Extensive  | More limited   | More limited   | Very limited          |
 
 ### 9.1 Cross-Market Data Consistency
 

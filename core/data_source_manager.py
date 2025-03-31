@@ -83,7 +83,7 @@ class DataSourceManager:
         """Initialize the data source manager.
 
         Args:
-            market_type: Type of market (SPOT, FUTURES, etc.)
+            market_type: Type of market (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
             rest_client: Optional pre-configured REST client
             vision_client: Optional pre-configured Vision client
             cache_dir: Directory for caching data
@@ -91,6 +91,9 @@ class DataSourceManager:
         """
         self.market_type = market_type
         self.rest_client = rest_client or RestDataClient(market_type=market_type)
+
+        # Convert market_type to string for Vision API if needed
+        self.market_type_str = self._get_market_type_str(market_type)
 
         # Store original vision client cache settings and disable its caching
         self._vision_original_cache = None
@@ -111,6 +114,26 @@ class DataSourceManager:
             else None
         )
         self._cache_stats = {"hits": 0, "misses": 0, "errors": 0}
+
+    def _get_market_type_str(self, market_type: MarketType) -> str:
+        """Convert MarketType enum to string representation for Vision API.
+
+        Args:
+            market_type: MarketType enum value
+
+        Returns:
+            String representation for Vision API
+        """
+        if market_type == MarketType.SPOT:
+            return "spot"
+        elif market_type == MarketType.FUTURES_USDT:
+            return "futures_usdt"
+        elif market_type == MarketType.FUTURES_COIN:
+            return "futures_coin"
+        elif market_type == MarketType.FUTURES:
+            return "futures_usdt"  # Default to USDT-margined for legacy type
+        else:
+            raise ValueError(f"Unsupported market type: {market_type}")
 
     def get_cache_stats(self) -> Dict[str, int]:
         """Get cache performance statistics.
@@ -534,6 +557,9 @@ class DataSourceManager:
                 self.vision_client.cache_dir = self._vision_original_cache["dir"]
                 self.vision_client.use_cache = self._vision_original_cache["use_cache"]
                 logger.debug("Restored original vision client cache settings")
+
+                # Properly cleanup vision client
+                await self.vision_client.__aexit__(exc_type, exc_val, exc_tb)
         except Exception as e:
             logger.warning(f"Failed to restore vision client cache settings: {e}")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import TypeVar, NewType, Final, Optional, NamedTuple, Literal, Dict
+from typing import TypeVar, NewType, Final, Optional, NamedTuple, Literal, Dict, Union
 from datetime import datetime, timedelta
 import pandas as pd
 from pathlib import Path
@@ -26,6 +26,7 @@ from utils.config import (
     ERROR_TYPES,
     CONSOLIDATION_DELAY,
 )  # Import ERROR_TYPES from central config
+from utils.market_constraints import MarketType
 
 # Type definitions for semantic clarity and safety
 TimeseriesIndex = NewType("TimeseriesIndex", pd.DatetimeIndex)
@@ -167,7 +168,7 @@ def get_vision_url(
     interval: str,
     date: datetime,
     file_type: FileType,
-    market_type: str = "spot",
+    market_type: Union[str, MarketType] = "spot",
 ) -> str:
     """Generate standard Vision URLs.
 
@@ -176,34 +177,48 @@ def get_vision_url(
         interval: Time interval
         date: Target date
         file_type: Type of file to generate URL for
-        market_type: Market type (spot, futures_usdt, futures_coin)
+        market_type: Market type (spot, futures_usdt, futures_coin) or MarketType enum
 
     Returns:
         Formatted Vision URL
     """
-    # Normalize market_type
-    market_type = market_type.lower()
+    # Convert MarketType enum to appropriate string path if needed
+    if isinstance(market_type, MarketType):
+        market_path = market_type.vision_api_path
+    else:
+        # Handle string inputs for backward compatibility
+        # Normalize market_type
+        market_type = market_type.lower()
 
-    # Map market types to URL paths
-    market_path_mapping = {
-        "spot": "spot",
-        "futures_usdt": "futures/um",
-        "futures_coin": "futures/cm",
-    }
+        # Map market types to URL paths
+        market_path_mapping = {
+            "spot": "spot",
+            "futures_usdt": "futures/um",
+            "futures_coin": "futures/cm",
+        }
 
-    if market_type not in market_path_mapping:
-        raise ValueError(f"Invalid market type: {market_type}")
+        if market_type not in market_path_mapping:
+            raise ValueError(f"Invalid market type: {market_type}")
 
-    market_path = market_path_mapping[market_type]
+        market_path = market_path_mapping[market_type]
+
+    # Adjust symbol for coin-margined futures (CM)
+    adjusted_symbol = symbol
+    if (
+        isinstance(market_type, MarketType) and market_type == MarketType.FUTURES_COIN
+    ) or (isinstance(market_type, str) and market_type.lower() == "futures_coin"):
+        # Add _PERP suffix if not already present
+        if not symbol.endswith("_PERP"):
+            adjusted_symbol = f"{symbol}_PERP"
 
     base_url = f"https://data.binance.vision/data/{market_path}/daily/klines"
     date_str = date.strftime("%Y-%m-%d")
-    file_name = f"{symbol}-{interval}-{date_str}"
+    file_name = f"{adjusted_symbol}-{interval}-{date_str}"
 
     if file_type == FileType.DATA:
-        return f"{base_url}/{symbol}/{interval}/{file_name}.zip"
+        return f"{base_url}/{adjusted_symbol}/{interval}/{file_name}.zip"
     elif file_type == FileType.CHECKSUM:
-        return f"{base_url}/{symbol}/{interval}/{file_name}.zip.CHECKSUM"
+        return f"{base_url}/{adjusted_symbol}/{interval}/{file_name}.zip.CHECKSUM"
     else:
         raise ValueError(f"Invalid file type for Vision URL: {file_type}")
 

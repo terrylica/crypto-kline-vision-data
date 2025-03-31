@@ -14,7 +14,6 @@ from utils.network_utils import (
     create_curl_cffi_client,
     DownloadProgressTracker,
     DownloadHandler,
-    RateLimitException,
     download_files_concurrently,
     make_api_request,
     read_csv_from_zip,

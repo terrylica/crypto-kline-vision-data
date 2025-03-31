@@ -4,7 +4,6 @@ This file contains fixtures and setup for properly testing the data source
 selection and fallback mechanisms.
 """
 
-import os
 import sys
 from pathlib import Path
 import pytest

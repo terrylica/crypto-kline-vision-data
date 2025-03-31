@@ -4,7 +4,6 @@
 # Left empty for backwards compatibility
 # The fixtures were previously imported here but are no longer used
 
-import asyncio
 import pytest
 from curl_cffi.requests import AsyncSession
 from utils.network_utils import safely_close_client

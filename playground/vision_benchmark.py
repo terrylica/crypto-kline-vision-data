@@ -8,8 +8,6 @@ with the optimized settings and compares it with baseline metrics.
 import asyncio
 import time
 from datetime import datetime, timedelta
-import os
-from pathlib import Path
 
 from core.vision_data_client import VisionDataClient
 from utils.time_utils import enforce_utc_timezone

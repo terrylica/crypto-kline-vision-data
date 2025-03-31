@@ -3,7 +3,7 @@
 """Unified REST API data client with optimized 1-second data handling."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import numpy as np
@@ -29,7 +29,6 @@ from utils.config import (
     TIMESTAMP_UNIT,
     CLOSE_TIME_ADJUSTMENT,
     CANONICAL_INDEX_NAME,
-    DEFAULT_COLUMN_ORDER,
     create_empty_dataframe,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
 )
@@ -218,7 +217,7 @@ class RestDataClient:
             finally:
                 self._client = None
 
-    async def _fetch_chunk_with_retry(
+    async def _fetch_chunk_with_endpoint(
         self, endpoint: str, params: Dict[str, Any], retry_count: int = 0
     ) -> List[List[Any]]:
         """Fetch a chunk of data with retry logic.
@@ -249,7 +248,7 @@ class RestDataClient:
                     retry_after = int(response.headers.get("Retry-After", 1))
                     logger.warning(f"Rate limited by API. Retry after {retry_after}s")
                     await asyncio.sleep(retry_after)
-                    return await self._fetch_chunk_with_retry(
+                    return await self._fetch_chunk_with_endpoint(
                         endpoint, params, retry_count
                     )
 
@@ -289,9 +288,11 @@ class RestDataClient:
             logger.info(f"Rotating to endpoint: {new_endpoint}")
 
             # Retry with new endpoint
-            return await self._fetch_chunk_with_retry(new_endpoint, params, retry_count)
+            return await self._fetch_chunk_with_endpoint(
+                new_endpoint, params, retry_count
+            )
 
-    async def _fetch_chunk_with_retry(
+    async def _fetch_chunk_with_semaphore(
         self,
         symbol: str,
         interval: Interval,
@@ -301,6 +302,10 @@ class RestDataClient:
         retry_count: int = 0,
     ) -> Tuple[List[List[Any]], str]:
         """Fetch a chunk of klines data with retry logic and semaphore control.
+
+        This method implements boundary-aware time chunking with the Binance REST API.
+        The API handles interval alignment where startTime is rounded up and
+        endTime is rounded down to interval boundaries.
 
         Args:
             symbol: Trading pair symbol
@@ -352,7 +357,7 @@ class RestDataClient:
                                 self._endpoints
                             )
 
-                        return await self._fetch_chunk_with_retry(
+                        return await self._fetch_chunk_with_semaphore(
                             symbol,
                             interval,
                             chunk_start,
@@ -375,7 +380,20 @@ class RestDataClient:
                     logger.error(f"Unexpected API response format: {type(data)}")
                     raise ValueError(f"Unexpected API response format: {type(data)}")
 
-                logger.debug(f"Retrieved {len(data)} records from chunk")
+                # Log first and last timestamps if data is available
+                if data and len(data) > 0:
+                    first_ts = datetime.fromtimestamp(
+                        data[0][0] / 1000, tz=timezone.utc
+                    )
+                    last_ts = datetime.fromtimestamp(
+                        data[-1][0] / 1000, tz=timezone.utc
+                    )
+                    logger.debug(
+                        f"Retrieved {len(data)} records from {first_ts} to {last_ts}"
+                    )
+                else:
+                    logger.debug(f"Retrieved empty chunk (no records)")
+
                 return data, endpoint
 
             except Exception as e:
@@ -398,7 +416,7 @@ class RestDataClient:
                     )
 
                 # Retry
-                return await self._fetch_chunk_with_retry(
+                return await self._fetch_chunk_with_semaphore(
                     symbol, interval, chunk_start, chunk_end, semaphore, retry_count
                 )
 
@@ -444,7 +462,15 @@ class RestDataClient:
     ) -> List[Tuple[int, int]]:
         """Calculate chunk ranges based on start and end times.
 
-        This method divides the time range into chunks that respect the API limit.
+        This method divides the time range into chunks that respect the API limit
+        of 1000 records per request. It accounts for the API's boundary behavior
+        where startTime is rounded up and endTime is rounded down to interval
+        boundaries.
+
+        The chunk calculation is optimized for each interval type to ensure:
+        1. Efficient retrieval of data with minimal API calls
+        2. Respect for the 1000 record limit per API call
+        3. Appropriate chunk sizes for different interval durations
 
         Args:
             start_ms: Start time in milliseconds
@@ -457,29 +483,88 @@ class RestDataClient:
         chunks = []
         current_start = start_ms
 
-        # Determine the appropriate chunk size based on interval
-        # For 1s data, we need smaller chunks to avoid exceeding API limits
-        is_small_interval = interval in (Interval.SECOND_1, Interval.MINUTE_1)
+        # Get interval duration in milliseconds
+        interval_ms = interval.to_seconds() * 1000
 
-        # While there's still time range to process
-        while current_start < end_ms:
-            # Calculate end of this chunk
-            # Use a smaller chunk size for small intervals to avoid hitting API limits
-            chunk_duration = min(
-                end_ms - current_start,  # Don't go beyond the requested end time
-                self.CHUNK_SIZE
-                * (60 * 1000 if is_small_interval else 60 * 60 * 1000),  # Convert to ms
+        # Calculate records per chunk - API max is 1000
+        records_per_chunk = self.CHUNK_SIZE  # default 1000
+
+        # Calculate optimal chunk duration based on interval type
+        # We want to retrieve records_per_chunk records in each API call
+        # while considering practical limitations for different intervals
+
+        # For very small intervals (1s, 1m), we need to limit chunk size to avoid
+        # excessive time ranges in a single request
+        if interval == Interval.SECOND_1:
+            # For 1s: max ~16 minutes per chunk (1000 records)
+            chunk_ms = min(
+                records_per_chunk * interval_ms, 1000 * 1000
+            )  # Max 1000 seconds
+            logger.debug(
+                f"Using 1s interval chunk size: {chunk_ms/1000:.1f}s for {interval.value}"
             )
 
-            chunk_end = current_start + chunk_duration
-            if chunk_end > end_ms:
-                chunk_end = end_ms
+        elif interval == Interval.MINUTE_1:
+            # For 1m: max ~16 hours per chunk (1000 records)
+            chunk_ms = min(
+                records_per_chunk * interval_ms, 1000 * 60 * 1000
+            )  # Max 1000 minutes
+            logger.debug(
+                f"Using 1m interval chunk size: {chunk_ms/(60*1000):.1f}m for {interval.value}"
+            )
 
+        elif interval in (
+            Interval.MINUTE_3,
+            Interval.MINUTE_5,
+            Interval.MINUTE_15,
+            Interval.MINUTE_30,
+        ):
+            # For other minute intervals: cap at 7 days per chunk
+            chunk_ms = min(
+                records_per_chunk * interval_ms, 7 * 24 * 60 * 60 * 1000
+            )  # Max 7 days
+            logger.debug(
+                f"Using minute interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
+            )
+
+        elif interval in (
+            Interval.HOUR_1,
+            Interval.HOUR_2,
+            Interval.HOUR_4,
+            Interval.HOUR_6,
+            Interval.HOUR_8,
+            Interval.HOUR_12,
+        ):
+            # For hour intervals: cap at 30 days per chunk
+            chunk_ms = min(
+                records_per_chunk * interval_ms, 30 * 24 * 60 * 60 * 1000
+            )  # Max 30 days
+            logger.debug(
+                f"Using hour interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
+            )
+
+        else:
+            # For day/week/month intervals: use full chunk capacity
+            # These intervals are large enough that we're unlikely to hit API limits
+            chunk_ms = records_per_chunk * interval_ms
+            logger.debug(
+                f"Using full interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
+            )
+
+        # Process chunks with proper boundary alignment
+        while current_start < end_ms:
+            # Calculate end of this chunk
+            chunk_end = min(current_start + chunk_ms, end_ms)
+
+            # Add the chunk
             chunks.append((current_start, chunk_end))
 
-            # Move to next chunk
+            # Move to next chunk (add 1ms to avoid overlap)
             current_start = chunk_end + 1
 
+        logger.debug(
+            f"Calculated {len(chunks)} chunks for time range spanning {(end_ms - start_ms) / (24*60*60*1000):.2f} days"
+        )
         return chunks
 
     def _validate_bar_duration(self, open_time: datetime, interval: Interval) -> float:
@@ -554,6 +639,55 @@ class RestDataClient:
                     f"Bar at {ts} is not properly aligned (should be {floor_time})"
                 )
 
+    def _align_interval_boundaries(
+        self, start_time: datetime, end_time: datetime, interval: Interval
+    ) -> Tuple[datetime, datetime]:
+        """Align time boundaries according to Binance REST API behavior.
+
+        The Binance REST API applies specific boundary handling:
+        - startTime: Rounds UP to the next interval boundary if not exactly on boundary
+        - endTime: Rounds DOWN to the previous interval boundary if not exactly on boundary
+
+        This method pre-aligns times to match the API's natural behavior, which helps
+        with accurate pagination and chunk calculations.
+
+        Args:
+            start_time: Start time to align
+            end_time: End time to align
+            interval: Time interval
+
+        Returns:
+            Tuple of (aligned_start_time, aligned_end_time)
+        """
+        # Get interval in seconds
+        interval_seconds = interval.to_seconds()
+
+        # Extract seconds since epoch for calculations
+        start_seconds = start_time.timestamp()
+        end_seconds = end_time.timestamp()
+
+        # Calculate floor of each timestamp to interval boundary
+        start_floor = int(start_seconds) - (int(start_seconds) % interval_seconds)
+        end_floor = int(end_seconds) - (int(end_seconds) % interval_seconds)
+
+        # Apply Binance API boundary rules:
+        # - startTime: Round UP to next interval boundary if not exactly on boundary
+        # - endTime: Round DOWN to previous interval boundary if not exactly on boundary
+        if start_seconds != start_floor:
+            aligned_start = datetime.fromtimestamp(
+                start_floor + interval_seconds, tz=timezone.utc
+            )
+        else:
+            aligned_start = datetime.fromtimestamp(start_floor, tz=timezone.utc)
+
+        aligned_end = datetime.fromtimestamp(end_floor, tz=timezone.utc)
+
+        logger.debug(
+            f"Aligned boundaries: {start_time} -> {aligned_start}, {end_time} -> {aligned_end}"
+        )
+
+        return aligned_start, aligned_end
+
     async def fetch(
         self,
         symbol: str,
@@ -562,6 +696,20 @@ class RestDataClient:
         end_time: datetime,
     ) -> Tuple[pd.DataFrame, Dict[str, int]]:
         """Fetch market data from Binance API.
+
+        This method implements time-based chunking pagination to handle large data requests
+        efficiently. It splits the time range into appropriate chunks based on the interval
+        and fetches them concurrently with proper rate limit handling.
+
+        The pagination strategy:
+        1. Divides the time range into optimal chunks based on interval size
+        2. Executes concurrent requests for all chunks with semaphore control
+        3. Handles rate limiting with endpoint rotation and exponential backoff
+        4. Aggregates results from all chunks into a single DataFrame
+
+        This approach is robust across different interval types and handles API boundary
+        behaviors where startTime is rounded up and endTime is rounded down to interval
+        boundaries.
 
         Args:
             symbol: The trading pair symbol
@@ -588,10 +736,24 @@ class RestDataClient:
             logger.error(f"Cannot connect to Binance API at {self._base_url}")
             return self.create_empty_dataframe(), {"error": "connectivity_failed"}
 
-        # Convert datetime objects to milliseconds since epoch
+        # Ensure timezone awareness
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+
+        # Validate request parameters
         self._validate_request_params(symbol, interval, start_time, end_time)
-        start_ms = int(start_time.timestamp() * 1000)
-        end_ms = int(end_time.timestamp() * 1000)
+
+        # Align boundaries to match API behavior
+        # This ensures proper time slicing and avoids rounding issues
+        aligned_start, aligned_end = self._align_interval_boundaries(
+            start_time, end_time, interval
+        )
+
+        # Convert aligned datetime objects to milliseconds since epoch
+        start_ms = int(aligned_start.timestamp() * 1000)
+        end_ms = int(aligned_end.timestamp() * 1000)
 
         # Reset stats for this fetch
         self.stats = {"total_records": 0, "chunks_processed": 0, "chunks_failed": 0}
@@ -602,7 +764,7 @@ class RestDataClient:
 
         logger.info(
             f"Fetching {symbol} {interval.value} data from "
-            f"{start_time} to {end_time} in {num_chunks} chunks"
+            f"{aligned_start} to {aligned_end} in {num_chunks} chunks"
         )
 
         # Get optimal concurrency value
@@ -616,7 +778,7 @@ class RestDataClient:
         tasks = []
         for chunk_start, chunk_end in chunks:
             task = asyncio.create_task(
-                self._fetch_chunk_with_retry(
+                self._fetch_chunk_with_semaphore(
                     symbol, interval, chunk_start, chunk_end, sem
                 )
             )

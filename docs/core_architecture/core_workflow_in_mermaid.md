@@ -1,25 +1,43 @@
 # Market Data Retrieval Workflow
 
 ```mermaid
-graph LR
-    A["Start: Data Request<br/>symbol, time range, interval"] --> B["**Check Cache (Daily)?**<br/>use_cache=True<br/><br/><sup>User preference & config</sup>"]
-    B -- Yes --> C["**Cache Hit (Daily)?**<br/>Valid & Recent Data for Day?<br/><br/><sup>Metadata & checksum validation</sup><br/><sup>Data freshness threshold</sup>"]
-    B -- No --> D["**Data Source Selection**<br/>_should_use_vision_api<br/><br/><sup>Estimate data points</sup><br/><sup>Vision API for large requests</sup>"]
-    C -- Yes --> E["**Load Data from Cache**<br/>UnifiedCacheManager.load_from_cache<br/><br/><sup>Fast daily retrieval</sup><br/><sup>REST API boundary aligned</sup>"] --> F["Return Data<br/>DataFrame from Cache"]
-    C -- No --> D
-    D --> G1["**Vision API (Primary)**<br/>VisionDataClient.fetch<br/><br/><sup>Download-First Approach</sup><br/><sup>No pre-checking - faster retrieval</sup>"]
-    G1 --> G{"**Vision API Fetch**<br/>VisionDataClient._download_data<br/><br/><sup>Direct download with dynamic concurrency</sup><br/><sup>Aligned boundaries via ApiBoundaryValidator</sup>"}
-    G -- Success --> I{"**Save to Cache (Daily)?**<br/>UnifiedCacheManager.save_to_cache<br/><br/><sup>Saves with REST API-aligned boundaries</sup><br/><sup>using TimeRangeManager.align_vision_api_to_rest</sup>"}
-    G -- Fail --> H["**Automatic Fallback**<br/>RestDataClient.fetch<br/><br/><sup>Transparent fallback for the user</sup><br/><sup>Same consistent interface</sup>"]
-    H -- Success --> K{"**Save to Cache (Daily)?**<br/>UnifiedCacheManager.save_to_cache<br/><br/><sup>Caches successful REST API data</sup><br/><sup>Same format as Vision API data</sup>"}
-    H -- Fail --> M["**Error Handling**<br/>raise Exception<br/><br/><sup>Retrieval failure</sup><br/><sup>Logged error details</sup>"]
-    I --> J["Return Data<br/>DataFrame from Vision API<br/><br/><sup>Aligned with REST API boundaries</sup>"]
-    K --> L["Return Data<br/>DataFrame from REST API"]
-    E --> N["End: Data Retrieval<br/>Returns DataFrame"]
-    F --> N
+graph TB
+    %% Define four columns to maximize horizontal space
+    subgraph "Initial Request"
+        A["Start: Data Request<br/>symbol, time range, interval"] --> B["**Check Cache (Daily)?**<br/>use_cache=True<br/><br/><sup>User preference & config</sup>"]
+    end
+
+    subgraph "Cache Check"
+        B -- Yes --> C["**Cache Hit (Daily)?**<br/>Valid & Recent Data for Day?<br/><br/><sup>Metadata & checksum validation</sup><br/><sup>Data freshness threshold</sup>"]
+        C -- Yes --> E["**Load Data from Cache**<br/>UnifiedCacheManager.load_from_cache<br/><br/><sup>Fast daily retrieval</sup><br/><sup>REST API boundary aligned</sup>"]
+        E --> F["Return Data<br/>DataFrame from Cache"]
+    end
+
+    subgraph "API Strategy"
+        B -- No --> D["**Data Source Selection**<br/>_should_use_vision_api<br/><br/><sup>Estimate data points</sup><br/><sup>Vision API for large requests</sup>"]
+        C -- No --> D
+        D --> G1["**Vision API (Primary)**<br/>VisionDataClient.fetch<br/><br/><sup>Download-First Approach</sup><br/><sup>No pre-checking - faster retrieval</sup>"]
+        G1 --> G{"**Vision API Fetch**<br/>VisionDataClient._download_data<br/><br/><sup>Direct download with dynamic concurrency</sup><br/><sup>Aligned boundaries via ApiBoundaryValidator</sup>"}
+    end
+
+    subgraph "Results & Caching"
+        G -- Success --> I{"**Save to Cache (Daily)?**<br/>UnifiedCacheManager.save_to_cache<br/><br/><sup>Saves with REST API-aligned boundaries</sup><br/><sup>using TimeRangeManager.align_vision_api_to_rest</sup>"}
+        G -- Fail --> H["**Automatic Fallback**<br/>RestDataClient.fetch<br/><br/><sup>Transparent fallback for the user</sup><br/><sup>Same consistent interface</sup>"]
+
+        H -- Success --> K{"**Save to Cache (Daily)?**<br/>UnifiedCacheManager.save_to_cache<br/><br/><sup>Caches successful REST API data</sup><br/><sup>Same format as Vision API data</sup>"}
+        H -- Fail --> M["**Error Handling**<br/>raise Exception<br/><br/><sup>Retrieval failure</sup><br/><sup>Logged error details</sup>"]
+
+        I --> J["Return Data<br/>DataFrame from Vision API<br/><br/><sup>Aligned with REST API boundaries</sup>"]
+        K --> L["Return Data<br/>DataFrame from REST API"]
+    end
+
+    %% Connect across subgraphs
+    F --> N["End: Data Retrieval<br/>Returns DataFrame"]
     J --> N
     L --> N
     M --> N
+
+    %% Styling
     style I fill:#f9f,stroke:#333,stroke-width:2px,color:#000
     style K fill:#f9f,stroke:#333,stroke-width:2px,color:#000
     style B fill:#ccf,stroke:#333,stroke-width:2px,color:#000,shape:rect
@@ -30,6 +48,12 @@ graph LR
     style E fill:#cfc,stroke:#333,stroke-width:2px,color:#000
     style G fill:#eee,stroke:#333,stroke-width:2px,color:#000
     style M fill:#fee,stroke:#333,stroke-width:2px,color:#000
+
+    %% Define larger font class
+    classDef largeText fontSize:18px;
+
+    %% Apply large text to all nodes
+    class A,B,C,D,E,F,G,G1,H,I,J,K,L,M,N largeText;
 ```
 
 ## Updated Workflow Overview

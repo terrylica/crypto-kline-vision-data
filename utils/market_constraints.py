@@ -12,7 +12,56 @@ logger = get_logger(__name__, "DEBUG", show_path=False)
 
 class MarketType(Enum):
     SPOT = auto()
-    FUTURES = auto()
+    FUTURES_USDT = auto()  # USDT-margined futures (UM)
+    FUTURES_COIN = auto()  # Coin-margined futures (CM)
+    FUTURES = auto()  # Legacy/generic futures type for backward compatibility
+
+    @property
+    def is_futures(self) -> bool:
+        """Check if this is any type of futures market."""
+        return self in (self.FUTURES, self.FUTURES_USDT, self.FUTURES_COIN)
+
+    @property
+    def vision_api_path(self) -> str:
+        """Get the corresponding path component for Binance Vision API."""
+        if self == self.SPOT:
+            return "spot"
+        elif self == self.FUTURES_USDT:
+            return "futures/um"
+        elif self == self.FUTURES_COIN:
+            return "futures/cm"
+        elif self == self.FUTURES:
+            return "futures/um"  # Default to UM for backward compatibility
+        else:
+            raise ValueError(f"Unknown market type: {self}")
+
+    @classmethod
+    def from_string(cls, market_type_str: str) -> "MarketType":
+        """Convert string representation to MarketType enum.
+
+        Args:
+            market_type_str: String representation of market type
+
+        Returns:
+            MarketType enum value
+
+        Raises:
+            ValueError: If the string doesn't match any known market type
+        """
+        mapping = {
+            "spot": cls.SPOT,
+            "futures": cls.FUTURES,
+            "futures_usdt": cls.FUTURES_USDT,
+            "um": cls.FUTURES_USDT,
+            "futures_coin": cls.FUTURES_COIN,
+            "cm": cls.FUTURES_COIN,
+        }
+
+        market_type_str = market_type_str.lower()
+        if market_type_str in mapping:
+            return mapping[market_type_str]
+
+        raise ValueError(f"Unknown market type string: {market_type_str}")
 
 
 class Interval(Enum):
@@ -107,6 +156,50 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         max_limit=1000,
         endpoint_reliability="All endpoints (primary, backup, and data-only) are reliable and support all features.",
     ),
+    MarketType.FUTURES_USDT: MarketCapabilities(
+        primary_endpoint="https://fapi.binance.com",
+        backup_endpoints=[
+            "https://fapi-gcp.binance.com",
+            "https://fapi1.binance.com",
+            "https://fapi2.binance.com",
+            "https://fapi3.binance.com",
+        ],
+        data_only_endpoint=None,  # No dedicated data-only endpoint for futures
+        api_version="v1",
+        supported_intervals=[
+            interval for interval in Interval if interval.value != "1s"
+        ],  # All intervals except 1s
+        symbol_format="BTCUSDT",
+        description=(
+            "USDT-margined futures (UM) market with support for most intervals except 1-second data. "
+            "Returns up to 1500 records when requested. Vision API uses futures/um path."
+        ),
+        max_limit=1500,
+        endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
+    ),
+    MarketType.FUTURES_COIN: MarketCapabilities(
+        primary_endpoint="https://dapi.binance.com",
+        backup_endpoints=[
+            "https://dapi-gcp.binance.com",
+            "https://dapi1.binance.com",
+            "https://dapi2.binance.com",
+            "https://dapi3.binance.com",
+        ],
+        data_only_endpoint=None,  # No dedicated data-only endpoint for futures
+        api_version="v1",
+        supported_intervals=[
+            interval for interval in Interval if interval.value != "1s"
+        ],  # All intervals except 1s
+        symbol_format="BTCUSD_PERP",  # Using _PERP suffix for perpetual contracts
+        description=(
+            "Coin-margined futures (CM) market with support for most intervals except 1-second data. "
+            "Returns up to 1500 records when requested. Symbol format uses _PERP suffix. "
+            "Vision API uses futures/cm path."
+        ),
+        max_limit=1500,
+        endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
+    ),
+    # Keep legacy FUTURES type for backward compatibility
     MarketType.FUTURES: MarketCapabilities(
         primary_endpoint="https://fapi.binance.com",
         backup_endpoints=[
@@ -122,8 +215,9 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],  # All intervals except 1s
         symbol_format="BTCUSDT",
         description=(
-            "Futures market with support for most intervals except 1-second data. "
-            "Returns up to 1500 records when requested."
+            "Generic futures market type (kept for backward compatibility). "
+            "Defaults to USDT-margined futures behavior. "
+            "For specific futures types, use FUTURES_USDT or FUTURES_COIN instead."
         ),
         max_limit=1500,
         endpoint_reliability="Primary and backup endpoints are reliable and support all features.",

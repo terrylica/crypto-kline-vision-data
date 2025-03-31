@@ -19,14 +19,14 @@ directly with this client.
 import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Sequence, TypeVar, Generic
+from typing import Optional, Sequence, TypeVar, Generic, Union
 
 import pandas as pd
 import warnings
 
 from utils.logger_setup import get_logger
 from utils.validation_utils import validate_dataframe
-from utils.market_constraints import Interval
+from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
     validate_time_window,
     align_time_boundaries,
@@ -57,6 +57,7 @@ class VisionDataClient(Generic[T]):
         self,
         symbol: str,
         interval: str = "1s",
+        market_type: Union[str, MarketType] = MarketType.SPOT,
         cache_dir: Optional[Path] = None,
         use_cache: bool = False,
         max_concurrent_downloads: Optional[int] = None,
@@ -66,12 +67,28 @@ class VisionDataClient(Generic[T]):
         Args:
             symbol: Trading symbol e.g. 'BTCUSDT'
             interval: Kline interval e.g. '1s', '1m'
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
             cache_dir: Legacy parameter, no longer used (use DataSourceManager for caching)
             use_cache: Legacy parameter, no longer used (use DataSourceManager for caching)
             max_concurrent_downloads: Maximum concurrent downloads
         """
         self.symbol = symbol.upper()
         self.interval = interval
+        self.market_type = market_type
+
+        # Convert MarketType enum to string if needed
+        market_type_str = market_type
+        if isinstance(market_type, MarketType):
+            if market_type == MarketType.SPOT:
+                market_type_str = "spot"
+            elif market_type == MarketType.FUTURES_USDT:
+                market_type_str = "futures_usdt"
+            elif market_type == MarketType.FUTURES_COIN:
+                market_type_str = "futures_coin"
+            elif market_type == MarketType.FUTURES:
+                market_type_str = "futures_usdt"  # Default to USDT for legacy type
+            else:
+                raise ValueError(f"Unsupported market type: {market_type}")
 
         # Parse interval string to Interval object
         try:
@@ -119,7 +136,10 @@ class VisionDataClient(Generic[T]):
         )  # Reduced from 30s to 3s for optimal performance (benchmark best practice)
         # Initialize download manager
         self._download_manager = VisionDownloadManager(
-            client=self._client, symbol=self.symbol, interval=self.interval
+            client=self._client,
+            symbol=self.symbol,
+            interval=self.interval,
+            market_type=market_type_str,
         )
 
     async def __aenter__(self) -> "VisionDataClient":

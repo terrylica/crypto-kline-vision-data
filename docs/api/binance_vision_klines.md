@@ -1,6 +1,6 @@
 # Binance Vision API Kline Data Documentation
 
-This document provides information about the available kline (candlestick) data granularity intervals on the Binance Vision API for spot markets.
+This document provides information about the available kline (candlestick) data granularity intervals on the Binance Vision API for spot and futures markets.
 
 ## Available Kline Intervals
 
@@ -24,7 +24,9 @@ The following intervals are available for historical kline data on Binance Visio
 
 ## URL Structure
 
-The Binance Vision API follows a consistent URL structure for accessing historical kline data:
+The Binance Vision API follows a consistent URL structure for accessing historical kline data, with different formats depending on the market type:
+
+### Spot Market
 
 ```url
 https://data.binance.vision/data/spot/daily/klines/{SYMBOL}/{INTERVAL}/{SYMBOL}-{INTERVAL}-{DATE}.zip
@@ -36,20 +38,61 @@ And the corresponding checksum file:
 https://data.binance.vision/data/spot/daily/klines/{SYMBOL}/{INTERVAL}/{SYMBOL}-{INTERVAL}-{DATE}.zip.CHECKSUM
 ```
 
+### USDT-Margined Futures (UM)
+
+```url
+https://data.binance.vision/data/futures/um/daily/klines/{SYMBOL}/{INTERVAL}/{SYMBOL}-{INTERVAL}-{DATE}.zip
+```
+
+And the corresponding checksum file:
+
+```url
+https://data.binance.vision/data/futures/um/daily/klines/{SYMBOL}/{INTERVAL}/{SYMBOL}-{INTERVAL}-{DATE}.zip.CHECKSUM
+```
+
+### Coin-Margined Futures (CM)
+
+```url
+https://data.binance.vision/data/futures/cm/daily/klines/{SYMBOL}_PERP/{INTERVAL}/{SYMBOL}_PERP-{INTERVAL}-{DATE}.zip
+```
+
+And the corresponding checksum file:
+
+```url
+https://data.binance.vision/data/futures/cm/daily/klines/{SYMBOL}_PERP/{INTERVAL}/{SYMBOL}_PERP-{INTERVAL}-{DATE}.zip.CHECKSUM
+```
+
 Where:
 
-- `{SYMBOL}`: The trading pair (e.g., BTCUSDT)
+- `{SYMBOL}`: The trading pair (e.g., BTCUSDT for spot and UM, BTCUSD for CM)
 - `{INTERVAL}`: One of the supported intervals from the table above
 - `{DATE}`: Date in YYYY-MM-DD format
 
+Note that for Coin-Margined Futures (CM), the symbol includes a `_PERP` suffix for perpetual contracts.
+
 ## Example URLs
 
-Here are example URLs for accessing BTCUSDT kline data for December 1, 2023:
+Here are example URLs for accessing kline data for different market types:
+
+### Spot Market (BTCUSDT)
 
 ```url
 https://data.binance.vision/data/spot/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2023-12-01.zip
 https://data.binance.vision/data/spot/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2023-12-01.zip
-https://data.binance.vision/data/spot/daily/klines/BTCUSDT/1d/BTCUSDT-1d-2023-12-01.zip
+```
+
+### USDT-Margined Futures (BTCUSDT)
+
+```url
+https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2023-12-01.zip
+https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2023-12-01.zip
+```
+
+### Coin-Margined Futures (BTCUSD_PERP)
+
+```url
+https://data.binance.vision/data/futures/cm/daily/klines/BTCUSD_PERP/1m/BTCUSD_PERP-1m-2023-12-01.zip
+https://data.binance.vision/data/futures/cm/daily/klines/BTCUSD_PERP/1h/BTCUSD_PERP-1h-2023-12-01.zip
 ```
 
 ## Data Format

@@ -44,7 +44,6 @@ from utils.config import (
     DEFAULT_USER_AGENT,
     DEFAULT_ACCEPT_HEADER,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
-    KLINE_COLUMNS,
 )
 from utils.logger_setup import get_logger
 

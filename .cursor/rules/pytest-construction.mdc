@@ -11,71 +11,45 @@ alwaysApply: false
 
 Make good use of `caplog` and `utils/logger_setup.py` for PyTest.
 
-- ***Never*** use any suppression or silencing techniques to avoid confronting errors or warnings.
+- For all API data retrieval tests (e.g., Vision API), unless testing cross-boundary or date format changes, we start from the current date and search backward up to 3 days for the latest available date with downloadable zipped files. Availability checks must be handled in business scripts, not in test scripts.
+- **_Never_** use any suppression or silencing techniques to avoid confronting errors or warnings.
 - Moreover, it is a fact that we cannot artificially force 3rd party network produce real-world errors from LIVE network intentionally so we don't need these kind of testing but resort to `tenacity` related techniques.
 - Don't deal with anything related to Options market data. Remove all concerns and codes related to options market.
 - We trade spot and perpetual futures only but never futures with expiration date. Remove all concerns and codes related to futures with expiration dates.
 - Cannot contain any business logics on its own but the purpose is to test the business logics of the target scripts
 - Don't use any `pytest.skip()`. Handle errors without skipping.
 - Follow the principle that resources should be properly initialized and cleaned up, especially for network connections.
-- ***Explicitly configure `asyncio_default_fixture_loop_scope = function` for `pytest-asyncio`***. This ensures consistent event loop behavior and prevents deprecation warnings.  This configuration should be managed either in `pytest.ini` or, preferably, directly within the test execution script (e.g., `run_tests_parallel.sh`) for self-contained test runs.
+- **_Explicitly configure `asyncio_default_fixture_loop_scope = function` for `pytest-asyncio`_**. This ensures consistent event loop behavior and prevents deprecation warnings. This configuration should be managed either in `pytest.ini` or, preferably, directly within the test execution script (e.g., `run_tests_parallel.sh`) for self-contained test runs.
 
 ## Problem Solving Approach
 
 On API related issues, always use `CURL` from terminal to find the root causes first.
 
-- Resolve `WARNING` with options made available for me to choose from *before* proceeding further.
-- When encountering API related issues, use terminal-based `Curl` to find out more *before* making coding changes.
-- Address deprecation warnings by properly configuring the library settings in configuration files or test execution scripts, rather than suppressing them with warning filters. ***Prioritize explicit configuration to ensure consistent and future-proof test behavior.***
+- Resolve `WARNING` with options made available for me to choose from _before_ proceeding further.
+- When encountering API related issues, use terminal-based `Curl` to find out more _before_ making coding changes.
+- Address deprecation warnings by properly configuring the library settings in configuration files or test execution scripts, rather than suppressing them with warning filters. **_Prioritize explicit configuration to ensure consistent and future-proof test behavior._**
 
 ## No Mocking and No Sample Data
 
-- ***Never*** use any sample or mock data for PyTest cases but real-world data only.
+- **_Never_** use any sample or mock data for PyTest cases but real-world data only.
 - Always use actual integration tests against real components rather than mocked interactions.
 - We can accept synthetic test scenarios (e.g. for stress testing purposes) that still rely on real-world interfaces and data.
 - If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.
 
 `# Testing Principles (PyTest Execution)
 
-- Use `scripts/run_tests_parallel.sh` as the *only* entry point for running tests.
+- Use `scripts/run_tests_parallel.sh` as the _only_ entry point for running tests.
 - Do not invoke `pytest` directly.
-- *Avoid* all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
-- Pass all configurations and flags *explicitly* via the `scripts/run_tests_parallel.sh` script arguments — never rely on hidden config files.
+- _Avoid_ all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
+- Pass all configurations and flags _explicitly_ via the `scripts/run_tests_parallel.sh` script arguments — never rely on hidden config files.
 - Centralize execution. Standardize behavior. Ensure reproducibility.
 - No implicit state. No config sprawl. No surprises.
 - CLI arguments over config files. Script for execution control.
 
-## `scripts/run_tests_parallel.sh` Argument Handling
+## `scripts/run_tests_parallel.sh`
 
-- **Positional Arguments**: The script uses positional arguments in the following order:
-    1.  `test_path` (Optional): Path to test directory or file. Defaults to `tests/time_boundary`.
-    2.  `log_level` (Optional):  Controls logging verbosity. Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`. Defaults to `INFO`.
-    3.  `additional_pytest_args` (Optional):  A string containing any additional pytest command-line arguments.
+### Example Usage:
 
-- **Interactive Mode**: Use `-i` or `--interactive` flag to enable interactive test selection. This flag must be placed at the beginning of the command.
-
-- **Implicit Flags**: The script *implicitly* always includes the following pytest flags:
-    - `-n8`:  Runs tests in parallel using 8 worker processes.
-    - `--asyncio-mode=auto`: Manages asyncio behavior.
-    - `-o asyncio_default_fixture_loop_scope=function`: Sets fixture loop scope for `pytest-asyncio`.
-
-- **Passing Pytest Flags**: To pass standard pytest flags (like `-v` for verbose, `-k <pattern>` for keyword matching, `-m <marker>` for marker selection, etc.), include them within the `additional_pytest_args` positional argument.
-
-**Example Usages (Clarified):**
-
-- **Run default tests with verbose output**:
-  ```bash
-  scripts/run_tests_parallel.sh tests/time_boundary DEBUG
-  ```
-
-- **Run tests in `tests/` directory with keyword matching and short tracebacks**:
-  ```bash
-  scripts/run_tests_parallel.sh tests/ INFO "-k 'test_api' --tb=short"
-  ```
-
-- **Run tests interactively with warning log level and marker selection**:
-  ```bash
-  scripts/run_tests_parallel.sh -i WARNING "-m 'real'"
-  ```
-
-By explicitly detailing how `scripts/run_tests_parallel.sh` handles arguments and pytest flags, and by providing clarified examples, you can reduce the chance of the language model misinterpreting the script's capabilities. This revised documentation emphasizes that pytest flags are passed through the `additional_pytest_args` argument, rather than being directly processed by `run_tests_parallel.sh` itself.
+```bash
+PYTHONPATH=/workspaces/binance-data-services pytest "tests/market_types/test_vision_market_types.py::test_data_source_manager_market_types" -v --asyncio-mode=auto --no-header
+```
