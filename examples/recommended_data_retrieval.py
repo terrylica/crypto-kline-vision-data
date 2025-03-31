@@ -187,8 +187,8 @@ async def example_fetch_historical_data():
     # Define historical time range (from 2023 to ensure data exists)
     # Use a date well in the past to guarantee Vision API has the data
     # Using January 15, 2023 as it's a more reliable date for testing
-    end_time = datetime(2023, 1, 15, 1, 0, 0, tzinfo=timezone.utc)
-    start_time = datetime(2023, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+    end_time = datetime(2025, 2, 28, 1, 0, 0, tzinfo=timezone.utc)
+    start_time = datetime(2025, 2, 27, 0, 0, 0, tzinfo=timezone.utc)
 
     logger.info(f"Historical time range: {start_time} to {end_time}")
 

@@ -302,7 +302,7 @@ class DataSourceManager:
             start_time: Start time
             end_time: End time
             interval: Time interval
-            use_vision: Whether to force using Vision API
+            use_vision: Whether to try Vision API first (with REST API fallback)
 
         Returns:
             DataFrame with market data
@@ -310,8 +310,9 @@ class DataSourceManager:
         # Initialize with empty DataFrame in case of errors
         result_df = pd.DataFrame()
 
-        try:
-            if use_vision:
+        # If Vision API is requested, try it first
+        if use_vision:
+            try:
                 # For Vision API, we need to manually align timestamps to match REST API behavior
                 aligned_boundaries = align_vision_api_to_rest(
                     start_time, end_time, interval
@@ -326,43 +327,67 @@ class DataSourceManager:
 
                 # Create Vision client if not exists
                 if not self.vision_client:
-                    raise ValueError("Vision client is not configured")
-
-                # Fetch from Vision API with aligned boundaries
-                result_df = await self.vision_client.fetch(vision_start, vision_end)
-
-                # Filter result to exact requested time range if needed
-                if not result_df.empty:
-                    result_df = filter_dataframe_by_time(
-                        result_df, start_time, end_time
+                    logger.warning(
+                        "Vision client is not configured, falling back to REST API"
                     )
-            else:
-                # For REST API, use original timestamps - the API handles its own boundary alignment
+                else:
+                    # Fetch from Vision API with aligned boundaries
+                    vision_df = await self.vision_client.fetch(vision_start, vision_end)
+
+                    # Check if we got valid data
+                    if not vision_df.empty:
+                        # Filter result to exact requested time range if needed
+                        result_df = filter_dataframe_by_time(
+                            vision_df, start_time, end_time
+                        )
+
+                        # If we have data, return it
+                        if not result_df.empty:
+                            logger.info(
+                                f"Successfully retrieved {len(result_df)} records from Vision API"
+                            )
+                            return result_df
+
+                # If we get here, Vision API failed or returned empty results
+                logger.info("Vision API returned no data, falling back to REST API")
+
+            except Exception as e:
+                logger.warning(f"Vision API error, falling back to REST API: {e}")
+
+        # Fall back to REST API (or use it directly if use_vision=False)
+        try:
+            logger.info(
+                f"Using REST API with original boundaries: {start_time} -> {end_time}"
+            )
+
+            # Fetch from REST API - returns tuple of (DataFrame, stats)
+            rest_result = await self.rest_client.fetch(
+                symbol, interval, start_time, end_time
+            )
+
+            # Unpack the tuple - RestDataClient.fetch returns (df, stats)
+            rest_df, stats = rest_result
+
+            if not rest_df.empty:
                 logger.info(
-                    f"Using REST API with original boundaries: {start_time} -> {end_time}"
+                    f"Successfully retrieved {len(rest_df)} records from REST API"
                 )
+                # Validate the DataFrame
+                DataFrameValidator.validate_dataframe(rest_df)
+                return rest_df
 
-                # Fetch from REST API
-                result_df = await self.rest_client.fetch(
-                    symbol, interval, start_time, end_time
-                )
-
-            # Validate and standardize the DataFrame
-            if not result_df.empty:
-                DataFrameValidator.validate_dataframe(result_df)
-            else:
-                # Return empty DataFrame with proper structure
-                logger.warning(
-                    f"No data returned for {symbol} from {start_time} to {end_time}"
-                )
-                result_df = self.rest_client.create_empty_dataframe()
-
-            return result_df
+            logger.warning(
+                f"REST API returned no data for {symbol} from {start_time} to {end_time}"
+            )
 
         except Exception as e:
-            logger.error(f"Error fetching data: {e}")
-            # Return empty DataFrame with proper structure
-            return self.rest_client.create_empty_dataframe()
+            logger.error(f"REST API fetch error: {e}")
+
+        # If we reach here, both APIs failed or returned empty results
+        logger.warning(
+            f"No data returned for {symbol} from {start_time} to {end_time} from any source"
+        )
+        return self.rest_client.create_empty_dataframe()
 
     async def get_data(
         self,

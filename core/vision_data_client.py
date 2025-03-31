@@ -351,7 +351,7 @@ class VisionDataClient(Generic[T]):
         semaphore: asyncio.Semaphore,
         columns: Optional[Sequence[str]] = None,
     ) -> Optional[pd.DataFrame]:
-        """Download data for a specific date.
+        """Download data for a specific date using direct download-first approach.
 
         Args:
             date: Date to download data for
@@ -365,7 +365,8 @@ class VisionDataClient(Generic[T]):
             try:
                 logger.debug(f"Downloading data for date: {date.strftime('%Y-%m-%d')}")
 
-                # Download using download manager
+                # Directly attempt to download without pre-checking
+                # This is faster than checking if the file exists first
                 df = await self._download_manager.download_date(date)
 
                 if df is None or df.empty:

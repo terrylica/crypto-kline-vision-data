@@ -310,3 +310,33 @@ cache_dir/
     │   └── 202403.arrow
     └── metadata.json
 ```
+
+## Recent Improvements
+
+### Download-First Approach for Vision API
+
+We've implemented the download-first approach for Vision API based on benchmark testing. This approach:
+
+- Directly attempts to download files without pre-checking file existence
+- Significantly reduces latency by eliminating unnecessary HEAD requests
+- Improves performance by dynamically adjusting concurrency based on batch size
+
+### Automatic Fallback from Vision to REST API
+
+The system now automatically falls back to REST API when Vision API fails or returns no data:
+
+1. First attempts to retrieve data from Vision API (for historical data)
+2. If Vision API fails or returns empty data, automatically tries REST API
+3. Caches data from whichever source successfully returns it
+4. Returns data to the client from the successful source
+
+## Architecture Update
+
+The Binance Data Services library provides a unified interface for retrieving market data from both REST and Vision APIs, with intelligent source selection and automatic caching.
+
+Main components:
+
+- DataSourceManager: Central coordinator for data source selection and caching
+- VisionDataClient: Client for historical data from Binance Vision API
+- RestDataClient: Client for real-time and recent data from Binance REST API
+- UnifiedCacheManager: Manages caching of data from all sources

@@ -24,6 +24,15 @@ scripts/run_tests_parallel.sh tests/time_boundary INFO "-k 'test_cache' --tb=sho
 
 The tests are organized by category:
 
+### Data Source Tests
+
+`tests/data_sources/test_fallback.py` - Tests for data source selection and fallback:
+
+- Automatic fallback from Vision API to REST API
+- Download-first approach efficiency
+- Caching integration with different data sources
+- Error handling for unavailable sources
+
 ### API Boundary Tests
 
 `tests/api_boundary/test_api_boundary.py` - Tests for the ApiBoundaryValidator:
