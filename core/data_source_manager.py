@@ -6,6 +6,8 @@ from typing import Dict, Optional, Tuple
 from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
+import warnings
+import asyncio
 
 from utils.logger_setup import get_logger
 from utils.market_constraints import Interval, MarketType
@@ -79,32 +81,58 @@ class DataSourceManager:
         vision_client: Optional[VisionDataClient] = None,
         cache_dir: Optional[Path] = None,
         use_cache: bool = True,
+        max_concurrent: int = 50,
+        retry_count: int = 5,
+        max_concurrent_downloads: Optional[int] = None,
     ):
         """Initialize the data source manager.
 
         Args:
             market_type: Type of market (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
             rest_client: Optional pre-configured REST client
-            vision_client: Optional pre-configured Vision client
+            vision_client: Optional pre-configured Vision client (deprecated, will be created internally if needed)
             cache_dir: Directory for caching data
             use_cache: Whether to use caching
+            max_concurrent: Maximum concurrent API requests for REST client (default: 50)
+            retry_count: Number of retries for failed REST API requests (default: 5)
+            max_concurrent_downloads: Maximum concurrent downloads for Vision API (default: None, uses client default)
         """
+        # Store performance tuning parameters
+        self.max_concurrent = max_concurrent
+        self.retry_count = retry_count
+        self.max_concurrent_downloads = max_concurrent_downloads
+
         self.market_type = market_type
-        self.rest_client = rest_client or RestDataClient(market_type=market_type)
+        self.rest_client = rest_client or RestDataClient(
+            market_type=market_type,
+            max_concurrent=max_concurrent,
+            retry_count=retry_count,
+        )
 
         # Convert market_type to string for Vision API if needed
         self.market_type_str = self._get_market_type_str(market_type)
 
-        # Store original vision client cache settings and disable its caching
+        # Store original vision client cache settings
         self._vision_original_cache = None
+
+        # Instead of requiring a VisionDataClient, we'll create it internally when needed
         if vision_client:
+            # For backward compatibility only - emit a deprecation warning
+            warnings.warn(
+                "Passing a VisionDataClient externally is deprecated. "
+                "DataSourceManager will create its own VisionDataClient instance when needed.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self._vision_original_cache = {
                 "dir": vision_client.cache_dir,
                 "use_cache": vision_client.use_cache,
             }
             vision_client.use_cache = False
             vision_client.cache_dir = None
+
         self.vision_client = vision_client
+        self._vision_client_initialized = self.vision_client is not None
 
         # Initialize cache manager if caching is enabled
         self.use_cache = use_cache and cache_dir is not None
@@ -242,12 +270,8 @@ class DataSourceManager:
             Estimated number of data points
         """
         time_diff = end_time - start_time
-        if interval == Interval.SECOND_1:
-            return int(time_diff.total_seconds())
-        elif interval == Interval.MINUTE_1:
-            return int(time_diff.total_seconds()) // 60
-        else:
-            raise ValueError(f"Unsupported interval: {interval}")
+        interval_seconds = interval.to_seconds()
+        return int(time_diff.total_seconds()) // interval_seconds
 
     def _should_use_vision_api(
         self, start_time: datetime, end_time: datetime, interval: Interval
@@ -349,27 +373,24 @@ class DataSourceManager:
                 )
 
                 # Create Vision client if not exists
-                if not self.vision_client:
-                    logger.warning(
-                        "Vision client is not configured, falling back to REST API"
+                self._ensure_vision_client(symbol, interval.value)
+
+                # Fetch from Vision API with aligned boundaries
+                vision_df = await self.vision_client.fetch(vision_start, vision_end)
+
+                # Check if we got valid data
+                if not vision_df.empty:
+                    # Filter result to exact requested time range if needed
+                    result_df = filter_dataframe_by_time(
+                        vision_df, start_time, end_time
                     )
-                else:
-                    # Fetch from Vision API with aligned boundaries
-                    vision_df = await self.vision_client.fetch(vision_start, vision_end)
 
-                    # Check if we got valid data
-                    if not vision_df.empty:
-                        # Filter result to exact requested time range if needed
-                        result_df = filter_dataframe_by_time(
-                            vision_df, start_time, end_time
+                    # If we have data, return it
+                    if not result_df.empty:
+                        logger.info(
+                            f"Successfully retrieved {len(result_df)} records from Vision API"
                         )
-
-                        # If we have data, return it
-                        if not result_df.empty:
-                            logger.info(
-                                f"Successfully retrieved {len(result_df)} records from Vision API"
-                            )
-                            return result_df
+                        return result_df
 
                 # If we get here, Vision API failed or returned empty results
                 logger.info("Vision API returned no data, falling back to REST API")
@@ -446,6 +467,15 @@ class DataSourceManager:
         # Ensure timestamps are UTC timezone-aware
         start_time = enforce_utc_timezone(start_time)
         end_time = enforce_utc_timezone(end_time)
+
+        # Validate time range including future date check
+        try:
+            from utils.validation_utils import validate_time_range
+
+            start_time, end_time = validate_time_range(start_time, end_time)
+        except ValueError as e:
+            logger.error(f"Invalid time range: {e}")
+            return self.rest_client.create_empty_dataframe()
 
         # Log input parameters
         logger.info(
@@ -565,3 +595,63 @@ class DataSourceManager:
 
         if self.rest_client:
             await self.rest_client.__aexit__(exc_type, exc_val, exc_tb)
+
+    def _ensure_vision_client(self, symbol: str, interval: str) -> None:
+        """Ensure a VisionDataClient is available for the current operation.
+
+        Lazily initializes the VisionDataClient when needed.
+
+        Args:
+            symbol: Trading pair symbol
+            interval: Time interval
+        """
+        # Handle symbol formatting for FUTURES_COIN market type
+        if self.market_type == MarketType.FUTURES_COIN and "_PERP" not in symbol:
+            # Append _PERP suffix for coin-margined futures
+            symbol = f"{symbol}_PERP"
+            logger.debug(f"Adjusted symbol for FUTURES_COIN market: {symbol}")
+
+        if not self._vision_client_initialized:
+            logger.debug(
+                f"Initializing VisionDataClient for {symbol} with interval {interval}"
+            )
+            self.vision_client = VisionDataClient(
+                symbol=symbol,
+                interval=interval,
+                market_type=self.market_type,
+                use_cache=False,  # We use our own caching
+                max_concurrent_downloads=self.max_concurrent_downloads,
+            )
+            self._vision_client_initialized = True
+        elif (
+            self.vision_client.symbol != symbol
+            or self.vision_client.interval != interval
+        ):
+            # If symbol or interval doesn't match, reinitialize
+            logger.debug(
+                f"Reinitializing VisionDataClient for {symbol} with interval {interval}"
+            )
+            # Clean up the old client first
+            try:
+                old_client = self.vision_client
+                self.vision_client = VisionDataClient(
+                    symbol=symbol,
+                    interval=interval,
+                    market_type=self.market_type,
+                    use_cache=False,  # We use our own caching
+                    max_concurrent_downloads=self.max_concurrent_downloads,
+                )
+                # Properly close the old client
+                asyncio.create_task(old_client.__aexit__(None, None, None))
+            except Exception as e:
+                logger.warning(f"Error while reinitializing VisionDataClient: {e}")
+                # Create a new client anyway
+                self.vision_client = VisionDataClient(
+                    symbol=symbol,
+                    interval=interval,
+                    market_type=self.market_type,
+                    use_cache=False,  # We use our own caching
+                    max_concurrent_downloads=self.max_concurrent_downloads,
+                )
+
+            self._vision_client_initialized = True

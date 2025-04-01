@@ -745,6 +745,12 @@ class RestDataClient:
         # Validate request parameters
         self._validate_request_params(symbol, interval, start_time, end_time)
 
+        # Handle symbol formatting for FUTURES_COIN market type
+        if self.market_type == MarketType.FUTURES_COIN and "_PERP" not in symbol:
+            # Append _PERP suffix for coin-margined futures
+            symbol = f"{symbol}_PERP"
+            logger.debug(f"Adjusted symbol for FUTURES_COIN market: {symbol}")
+
         # Align boundaries to match API behavior
         # This ensures proper time slicing and avoids rounding issues
         aligned_start, aligned_end = self._align_interval_boundaries(

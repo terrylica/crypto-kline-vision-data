@@ -96,3 +96,5 @@ lib64
 cache/
 tests/binance_data_cache
 scripts/binance_vision_api_aws_s3/historical_data/earliest_dates
+docs/complaints_to_binance
+test_cache/

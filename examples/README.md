@@ -4,12 +4,12 @@ This directory contains example scripts demonstrating different ways to use the 
 
 ## Available Examples
 
-### 1. Recommended Data Retrieval (`recommended_data_retrieval.py`)
+### 1. Recommended Data Retrieval (`data_retrieval_best_practices.py`)
 
 Shows the recommended approach for retrieving market data using `DataSourceManager`.
 
 ```bash
-python -m examples.recommended_data_retrieval
+python -m examples.data_retrieval_best_practices
 ```
 
 Key features:
@@ -30,7 +30,7 @@ The example scripts create the following cache directories:
 To run all examples sequentially:
 
 ```bash
-for example in recommended_data_retrieval; do
+for example in data_retrieval_best_practices; do
   echo "Running $example..."
   python -m examples.$example
 done

@@ -285,6 +285,17 @@ def validate_time_range(
     start_time = enforce_utc_timezone(start_time)
     end_time = enforce_utc_timezone(end_time)
 
+    # Check for future dates
+    now = datetime.now(timezone.utc)
+    if start_time > now:
+        raise ValueError(
+            f"Start time ({start_time}) cannot be in the future (current time: {now})"
+        )
+    if end_time > now:
+        raise ValueError(
+            f"End time ({end_time}) cannot be in the future (current time: {now})"
+        )
+
     # Check range validity
     if start_time >= end_time:
         raise ValueError(
