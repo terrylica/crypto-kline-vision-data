@@ -9,6 +9,7 @@ This directory contains integration tests for different market types supported b
 ## Test Files
 
 - `test_vision_market_types.py` - Tests Vision API data retrieval across different market types
+- `test_rest_pagination_market_types.py` - Tests REST API pagination strategy across different market types
 
 ## Purpose
 
