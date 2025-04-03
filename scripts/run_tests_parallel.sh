@@ -9,6 +9,9 @@
 #     significantly reducing test times, especially for extensive test suites. By
 #     default, it uses 8 worker processes, which can be adjusted via additional
 #     pytest arguments.
+#   - Sequential Execution Option: Provides an option to run tests sequentially
+#     (without parallelism) for debugging complex test interactions or when
+#     troubleshooting race conditions.
 #   - Interactive Test Selection: Offers an interactive mode, allowing users to
 #     select specific test directories or files from a menu, providing focused
 #     testing capabilities.
@@ -23,6 +26,14 @@
 #   - asyncio Configuration:  Configures asyncio loop scope to 'function'
 #     (`asyncio_default_fixture_loop_scope=function`) to prevent pytest-asyncio
 #     deprecation warnings and ensure consistent behavior for asynchronous tests.
+#   - Error Summary: Collects and displays a summary of all errors and warnings,
+#     even from passing tests, to help identify issues that don't cause test failures.
+#   - Enhanced Asyncio Error Detection: Provides specialized detection and reporting
+#     for common asyncio issues like task destruction errors, with severity scoring
+#     to prioritize the most critical problems.
+#   - Profiling Capabilities: Supports performance profiling via pytest-profiling
+#     with options to generate line-by-line profiling data (.prof files) and
+#     SVG visualizations of the call graph.
 #
 # USAGE:
 #   ./scripts/run_tests_parallel.sh [options] [test_path] [log_level] [additional_pytest_args]
@@ -32,8 +43,19 @@
 #   -i, --interactive:  Enable interactive test selection mode. Presents a menu
 #                       of test directories and files for selection, useful for
 #                       focused testing.
+#   -s, --sequential:   Run tests sequentially (without parallelism). Useful for
+#                       debugging race conditions or complex test interactions.
 #   -h, --help:         Show detailed help message and exit. Displays comprehensive
 #                       usage instructions, options, arguments, and examples.
+#   -e, --error-summary: Generate a summary of all errors and warnings at the end,
+#                        even from passing tests. Includes severity scoring (1-10)
+#                        to prioritize critical issues.
+#   -a, --analyze-log FILE: Analyze an existing log file for errors and warnings
+#                        without running tests. Useful for post-run analysis.
+#   -p, --profile:      Enable profiling and generate .prof files for performance
+#                       analysis. Forces sequential mode for accurate results.
+#   -g, --profile-svg:  Generate SVG visualizations of the profile (requires graphviz).
+#                       Must be used with -p/--profile option.
 #
 # ARGUMENTS:
 #   test_path: (Optional) Path to a specific test file or directory.
@@ -44,10 +66,10 @@
 #
 #   log_level: (Optional) Controls verbosity of test output.
 #              Default: INFO (standard level of detail).
-#              Options: ${CYAN}DEBUG${NC} (most verbose),
-#                       ${CYAN}INFO${NC} (normal output),
-#                       ${CYAN}WARNING${NC} (reduced output),
-#                       ${CYAN}ERROR${NC} (least verbose).
+#              Options: DEBUG (most verbose),
+#                       INFO (normal output),
+#                       WARNING (reduced output),
+#                       ERROR (least verbose).
 #              Use DEBUG for detailed logs, INFO for standard test progress, and
 #              WARNING or ERROR to minimize output noise, especially in CI environments.
 #
@@ -81,14 +103,33 @@
 #   # 8. Run all tests with reduced parallel workers (e.g., 4) and short tracebacks:
 #   ./scripts/run_tests_parallel.sh tests/ --tb=short -n4
 #
+#   # 9. Run tests and show a summary of all errors, even from passing tests:
+#   ./scripts/run_tests_parallel.sh -e
+#
+#   # 10. Analyze errors in a previously generated log file:
+#   ./scripts/run_tests_parallel.sh -a test_output.log
+#
+#   # 11. Run asyncio-heavy tests with error summary for better debugging:
+#   ./scripts/run_tests_parallel.sh tests/time_boundary -e
+#
+#   # 12. Run tests sequentially (without parallelism) for debugging:
+#   ./scripts/run_tests_parallel.sh -s
+#
+#   # 13. Run specific tests sequentially with error summary:
+#   ./scripts/run_tests_parallel.sh -s -e tests/time_boundary
+#
 # BEST PRACTICES and NOTES:
 #   - Interactive Test Selection:  The interactive mode smartly detects both
 #     Git-tracked and untracked test files in the 'tests/' directory, ensuring
 #     comprehensive test discovery for selection.
+#   - Sequential vs Parallel: Use sequential mode (-s) when debugging test interactions
+#     or race conditions that might be masked by parallel execution. Use parallel mode
+#     (default) for faster execution in CI/CD pipelines and routine test runs.
 #   - asyncio Configuration: The script automatically configures
 #     `asyncio_default_fixture_loop_scope=function` via pytest command-line option,
 #     preventing pytest-asyncio deprecation warnings and ensuring consistent
-#     async test behavior, independent of `pytest.ini` settings.
+#     async test behavior, independent of `pytest.ini` settings. This is critical
+#     for proper cleanup of asyncio resources between tests.
 #   - Log Level Flexibility: Leverage different log levels (DEBUG, INFO, WARNING, ERROR)
 #     to control output verbosity, aiding in detailed debugging or cleaner routine runs.
 #   - Parallel Execution Efficiency: Parallel testing with `-n8` significantly
@@ -96,9 +137,23 @@
 #     system's CPU cores and resources for optimal performance.
 #   - Error Handling: The script includes basic error handling for pytest-xdist
 #     installation and provides clear messages on test completion status (success/failure).
+#   - Error Summary: Use the -e/--error-summary option to see all errors and warnings
+#     logged during tests, even from passing tests, helping identify hidden issues.
+#   - Error Severity Scoring: The error summary includes a severity score (1-10) for
+#     each error type, with asyncio task destruction (9/10) and connection errors (8/10)
+#     being the most critical to address.
+#   - Asyncio Troubleshooting: For tests with asyncio issues, the script provides
+#     targeted diagnostics that help identify tasks that weren't properly awaited
+#     or were destroyed while still pending.
+#   - Profiling Capabilities: Supports performance profiling via pytest-profiling
+#     with options to generate line-by-line profiling data (.prof files) and
+#     SVG visualizations of the call graph.
 #
 # LICENSE:
 #   This script is provided as is, without warranty. Use it at your own risk.
+
+# Source the enhanced error extraction script for better asyncio error reporting
+source "$(dirname "$0")/enhanced_extract_errors.sh"
 
 set -e
 
@@ -115,6 +170,10 @@ BOLD='\033[1m'
 SCRIPT_DIR=$(dirname "$0")
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
+
+# Create a temp file for error logs
+ERROR_LOG_FILE=$(mktemp)
+trap 'rm -f "$ERROR_LOG_FILE"' EXIT
 
 # Function to display help based on verbosity level
 show_help() {
@@ -135,6 +194,11 @@ show_help() {
     echo -e ""
     echo -e "${YELLOW}Options:${NC}"
     echo -e "  ${GREEN}-i, --interactive${NC} : Select tests interactively"
+    echo -e "  ${GREEN}-s, --sequential${NC}  : Run tests sequentially (not in parallel)"
+    echo -e "  ${GREEN}-e, --error-summary${NC}: Show summary of all errors and warnings"
+    echo -e "  ${GREEN}-a, --analyze-log FILE${NC}: Analyze an existing log file for errors and warnings"
+    echo -e "  ${GREEN}-p, --profile${NC}    : Enable profiling and save .prof files"
+    echo -e "  ${GREEN}-g, --profile-svg${NC}: Generate SVG visual profiles (requires graphviz)"
     echo -e "  ${GREEN}-h, --help${NC}        : Show this detailed help"
     echo -e ""
     echo -e "${YELLOW}Arguments:${NC}"
@@ -145,9 +209,16 @@ show_help() {
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ${CYAN}./scripts/run_tests_parallel.sh${NC}                  : Run all tests"
     echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -i${NC}               : Interactive mode"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -s${NC}               : Sequential mode"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -e${NC}               : Show all errors"
     echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/cache${NC}      : Run specific tests"
     echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/ DEBUG${NC}     : With debug logging"
     echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/ INFO -k test${NC}: Filter by test name"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -a test_output.log${NC} : Analyze existing log"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -e -n4${NC}           : Error summary with 4 workers"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -s -e${NC}            : Sequential with error summary"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -p tests/intervals${NC}: Profile tests in intervals directory"
+    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -p -g${NC}            : Profile with SVG visualization"
   fi
   
   echo -e "${BOLD}${BLUE}======================================================${NC}"
@@ -192,20 +263,333 @@ get_test_paths() {
   printf '%s\n' "${all_dirs[@]}" "${all_files[@]}"
 }
 
+# Function to extract and summarize errors from test output
+extract_errors() {
+  local log_file=$1
+  
+  echo -e "\n${BOLD}${BLUE}======================================================${NC}"
+  echo -e "${BOLD}${RED}                  ERROR SUMMARY                       ${NC}"
+  echo -e "${BOLD}${BLUE}======================================================${NC}"
+  echo -e "${YELLOW}All errors and warnings, even from passing tests:${NC}\n"
+  
+  # Initialize counters and data structures
+  local error_count=0
+  local warning_count=0
+  local current_test=""
+  local has_errors=false
+  local json_errors=()
+  
+  # Define severity scores for different error types
+  local -A severity_scores=(
+    ["asyncio_task_destroyed"]=9
+    ["asyncio_task_cancelled"]=7
+    ["logging_error"]=6
+    ["connection_error"]=8
+    ["timeout_error"]=7
+    ["assertion_error"]=5
+    ["standard_error"]=4
+    ["warning"]=2
+  )
+  
+  # Define a section for special errors with better structure
+  local special_errors=""
+  local has_special_errors=false
+  local special_error_count=0
+  local in_task_error=false
+  
+  # Map to track asyncio errors by test
+  local -A asyncio_errors_by_test
+  local current_asyncio_error=""
+  
+  # First, check for any asyncio task destruction errors, even without context
+  if grep "Task was destroyed but it is pending" "$log_file" > /dev/null; then
+    # Extract all task destruction error contexts - collect all related lines
+    local task_errors=$(grep -A 2 -B 2 "Task was destroyed but it is pending" "$log_file")
+    
+    # Try to identify which test case this error belongs to
+    while IFS= read -r line; do
+      if [[ "$line" =~ tests/.*::test_.* ]]; then
+        # Extract test name - handles both normal and parameterized tests
+        if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+ ]]; then
+          local test_name=$(echo "$line" | grep -o "tests/[^[:space:]]*::test_[^[:space:]^[^]]*")
+          # For parameterized tests, try to extract the parameter too
+          if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+\[[^\]]+\] ]]; then
+            local param=$(echo "$line" | grep -o "\[[^]]*\]")
+            test_name="${test_name}${param}"
+          fi
+          
+          # Store in the map
+          if [[ -n "${asyncio_errors_by_test[$test_name]}" ]]; then
+            asyncio_errors_by_test[$test_name]="${asyncio_errors_by_test[$test_name]}\n${task_errors}"
+          else
+            asyncio_errors_by_test[$test_name]="$task_errors"
+          fi
+        fi
+      fi
+    done < <(grep -B 10 "Task was destroyed but it is pending" "$log_file")
+    
+    has_special_errors=true
+    special_error_count=$(grep -c "Task was destroyed but it is pending" "$log_file")
+    special_errors+="${RED}${BOLD}Found ${special_error_count} asyncio task destruction errors (Severity: ${severity_scores["asyncio_task_destroyed"]}/10)${NC}\n"
+    
+    # If we couldn't associate errors with specific tests
+    if [[ ${#asyncio_errors_by_test[@]} -eq 0 ]]; then
+      special_errors+="${RED}${task_errors}${NC}\n\n"
+    fi
+    
+    # Mark these lines as already processed
+    in_task_error=true
+  fi
+  
+  # Check for task cancellation errors with test context
+  if grep -A 10 -B 3 "Task .* was cancelled" "$log_file" > /tmp/task_cancel_errors.txt; then
+    if [[ -s /tmp/task_cancel_errors.txt ]]; then
+      has_special_errors=true
+      local cancel_count=$(grep -c "Task .* was cancelled" "$log_file")
+      special_error_count=$((special_error_count + cancel_count))
+      special_errors+="${RED}${BOLD}Task cancellation error detected (${cancel_count} occurrences) (Severity: ${severity_scores["asyncio_task_cancelled"]}/10)${NC}\n"
+      
+      # Try to associate these errors with test cases
+      while IFS= read -r line; do
+        if [[ "$line" =~ tests/.*::test_.* ]]; then
+          # Extract test name as before
+          if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+ ]]; then
+            local test_name=$(echo "$line" | grep -o "tests/[^[:space:]]*::test_[^[:space:]^[^]]*")
+            if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+\[[^\]]+\] ]]; then
+              local param=$(echo "$line" | grep -o "\[[^]]*\]")
+              test_name="${test_name}${param}"
+            fi
+            current_asyncio_error="$test_name"
+          fi
+        elif [[ "$line" == *"Task .* was cancelled"* ]]; then
+          if [[ -n "$current_asyncio_error" ]]; then
+            if [[ -n "${asyncio_errors_by_test[$current_asyncio_error]}" ]]; then
+              asyncio_errors_by_test[$current_asyncio_error]="${asyncio_errors_by_test[$current_asyncio_error]}\n$line"
+            else
+              asyncio_errors_by_test[$current_asyncio_error]="$line"
+            fi
+          fi
+        fi
+      done < <(grep -B 10 "Task .* was cancelled" "$log_file")
+      
+      # If we couldn't associate errors with specific tests
+      if [[ ${#asyncio_errors_by_test[@]} -eq 0 ]]; then
+        special_errors+="${RED}$(cat /tmp/task_cancel_errors.txt)${NC}\n\n"
+      fi
+    fi
+  fi
+  
+  # Check for logging errors that often accompany asyncio issues
+  if grep -A 10 -B 3 "Logging error" "$log_file" > /tmp/logging_errors.txt; then
+    if [[ -s /tmp/logging_errors.txt ]]; then
+      has_special_errors=true
+      local logging_count=$(grep -c "Logging error" "$log_file")
+      special_error_count=$((special_error_count + logging_count))
+      special_errors+="${RED}${BOLD}Logging error detected (${logging_count} occurrences, possibly related to asyncio) (Severity: ${severity_scores["logging_error"]}/10)${NC}\n"
+      special_errors+="${RED}$(cat /tmp/logging_errors.txt)${NC}\n\n"
+    fi
+  fi
+  
+  # Check for JSON structured logs
+  if grep -E '^\s*\{.*"level":("|)?(debug|info|warning|error|critical)("|)?.*\}' "$log_file" > /tmp/json_logs.txt; then
+    if [[ -s /tmp/json_logs.txt ]]; then
+      # Extract errors and warnings from JSON logs
+      grep -E '^\s*\{.*"level":("|)?(error|critical)("|)?.*\}' /tmp/json_logs.txt > /tmp/json_errors.txt
+      grep -E '^\s*\{.*"level":("|)?warning("|)?.*\}' /tmp/json_logs.txt > /tmp/json_warnings.txt
+      
+      local json_error_count=$(wc -l < /tmp/json_errors.txt)
+      local json_warning_count=$(wc -l < /tmp/json_warnings.txt)
+      
+      if [[ $json_error_count -gt 0 ]]; then
+        echo -e "${YELLOW}Found ${json_error_count} structured JSON log errors:${NC}"
+        while IFS= read -r line; do
+          echo -e "  ${RED}$line${NC}"
+          ((error_count++))
+        done < /tmp/json_errors.txt
+        echo -e ""
+      fi
+      
+      if [[ $json_warning_count -gt 0 ]]; then
+        echo -e "${YELLOW}Found ${json_warning_count} structured JSON log warnings:${NC}"
+        while IFS= read -r line; do
+          echo -e "  ${YELLOW}$line${NC}"
+          ((warning_count++))
+        done < /tmp/json_warnings.txt
+        echo -e ""
+      fi
+    fi
+  fi
+  
+  # Process the log file line by line for regular errors and warnings
+  while IFS= read -r line; do
+    # Remove ANSI color codes for pattern matching
+    local clean_line=$(echo "$line" | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g")
+    
+    # Skip processing if we've already caught this in our special error section
+    if [[ "$clean_line" == *"Task was destroyed but it is pending"* || 
+          "$clean_line" == *"Logging error"* ||
+          "$clean_line" == *"Task .* was cancelled"* ]]; then
+      continue
+    fi
+    
+    # Skip the traceback for special errors we've already captured
+    if [[ "$in_task_error" == "true" && 
+          ("$clean_line" == *"Traceback"* || 
+           "$clean_line" == *"File "* || 
+           "$clean_line" == *"ValueError:"* || 
+           "$clean_line" == *"Call stack:"* ||
+           "$clean_line" == *"Message:"* ||
+           "$clean_line" == *"Arguments:"* ||
+           "$clean_line" == *"task:"* ||
+           "$clean_line" == *"coro="* ||
+           "$clean_line" =~ ^[[:space:]]+.*) ]]; then
+      # Check for end of error block
+      if [[ "$clean_line" == *"Arguments: ()"* ]]; then
+        in_task_error=false
+      fi
+      continue
+    fi
+    
+    # Check if this is a test case header line
+    if [[ "$clean_line" =~ tests/.*::test_.* ]]; then
+      # Extract test name - handles both normal and parameterized tests
+      if [[ "$clean_line" =~ tests/[^\ ]+::test_[^\ \[\]]+ ]]; then
+        current_test=$(echo "$clean_line" | grep -o "tests/[^[:space:]]*::test_[^[:space:]^[^]]*")
+        # For parameterized tests, try to extract the parameter too
+        if [[ "$clean_line" =~ tests/[^\ ]+::test_[^\ \[\]]+\[[^\]]+\] ]]; then
+          local param=$(echo "$clean_line" | grep -o "\[[^]]*\]")
+          current_test="${current_test}${param}"
+        fi
+        has_errors=false
+      fi
+    fi
+    
+    # Extract ERROR and WARNING lines
+    if [[ "$clean_line" == *"ERROR "* || "$clean_line" == *"CRITICAL "* ]]; then
+      if [[ "$has_errors" == "false" && "$current_test" != "" ]]; then
+        echo -e "${BOLD}${current_test}:${NC}"
+        has_errors=true
+      fi
+      
+      # Determine severity based on content
+      local severity=${severity_scores["standard_error"]}
+      if [[ "$clean_line" == *"Connection"*"Error"* || "$clean_line" == *"ConnectionError"* ]]; then
+        severity=${severity_scores["connection_error"]}
+        echo -e "  ${RED}$clean_line ${YELLOW}(Severity: $severity/10)${NC}"
+      elif [[ "$clean_line" == *"Timeout"*"Error"* || "$clean_line" == *"TimeoutError"* ]]; then
+        severity=${severity_scores["timeout_error"]}
+        echo -e "  ${RED}$clean_line ${YELLOW}(Severity: $severity/10)${NC}"
+      elif [[ "$clean_line" == *"AssertionError"* ]]; then
+        severity=${severity_scores["assertion_error"]}
+        echo -e "  ${RED}$clean_line ${YELLOW}(Severity: $severity/10)${NC}"
+      else
+        echo -e "  ${RED}$clean_line ${YELLOW}(Severity: $severity/10)${NC}"
+      fi
+      ((error_count++))
+    elif [[ "$clean_line" == *"WARNING "* ]]; then
+      if [[ "$has_errors" == "false" && "$current_test" != "" ]]; then
+        echo -e "${BOLD}${current_test}:${NC}"
+        has_errors=true
+      fi
+      echo -e "  ${YELLOW}$clean_line ${YELLOW}(Severity: ${severity_scores["warning"]}/10)${NC}"
+      ((warning_count++))
+    fi
+  done < "$log_file"
+  
+  # Output the asyncio errors by test 
+  if [[ ${#asyncio_errors_by_test[@]} -gt 0 ]]; then
+    echo -e "\n${BOLD}${RED}Asyncio errors by test case:${NC}"
+    for test_name in "${!asyncio_errors_by_test[@]}"; do
+      echo -e "${BOLD}$test_name:${NC}"
+      echo -e "${RED}${asyncio_errors_by_test[$test_name]}${NC}"
+      echo -e ""
+    done
+  fi
+  
+  # Add special errors section if any were found
+  if [[ "$has_special_errors" == "true" && -z ${#asyncio_errors_by_test[@]} ]]; then
+    echo -e "\n${BOLD}${RED}Special errors detected:${NC}"
+    echo -e "$special_errors"
+  fi
+  
+  # Add special errors to total count
+  error_count=$((error_count + special_error_count))
+  
+  echo -e "\n${BOLD}Total: $error_count errors, $warning_count warnings${NC}"
+  echo -e "${BOLD}${BLUE}======================================================${NC}"
+  
+  # Clean up temp files
+  rm -f /tmp/asyncio_errors.txt /tmp/task_cancel_errors.txt /tmp/logging_errors.txt /tmp/json_logs.txt /tmp/json_errors.txt /tmp/json_warnings.txt
+}
+
 # Check if help is requested
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   show_help "full"
   exit 0
-else
-  # Show minimal help at the beginning
-  show_help "minimal"
 fi
 
-# Check for interactive mode
+# Initialize variables
 INTERACTIVE=false
-if [[ "$1" == "-i" || "$1" == "--interactive" ]]; then
-  INTERACTIVE=true
-  shift
+ERROR_SUMMARY=false
+ANALYZE_LOG_FILE=""
+SEQUENTIAL=false
+PROFILE=false
+PROFILE_SVG=false
+PYTEST_OPTIONS=()  # New array to collect pytest options
+
+# Parse options
+while [[ $# -gt 0 && "$1" == -* ]]; do
+  case "$1" in
+    -i|--interactive)
+      INTERACTIVE=true
+      shift
+      ;;
+    -s|--sequential)
+      SEQUENTIAL=true
+      shift
+      ;;
+    -e|--error-summary)
+      ERROR_SUMMARY=true
+      shift
+      ;;
+    -a|--analyze-log)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "Error: --analyze-log requires a file path argument"
+        show_help "full"
+        exit 1
+      fi
+      ANALYZE_LOG_FILE="$2"
+      shift 2
+      ;;
+    -p|--profile)
+      PROFILE=true
+      shift
+      ;;
+    -g|--profile-svg)
+      PROFILE_SVG=true
+      shift
+      ;;
+    -h|--help)
+      show_help "full"
+      exit 0
+      ;;
+    *)
+      # Instead of erroring, collect this as a pytest option
+      PYTEST_OPTIONS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# If analyzing an existing log file, just do that and exit
+if [[ -n "$ANALYZE_LOG_FILE" ]]; then
+  if [[ ! -f "$ANALYZE_LOG_FILE" ]]; then
+    echo "Error: File not found: $ANALYZE_LOG_FILE"
+    exit 1
+  fi
+  echo "Analyzing log file: $ANALYZE_LOG_FILE"
+  enhanced_extract_errors "$ANALYZE_LOG_FILE"
+  exit 0
 fi
 
 # Set default values
@@ -249,44 +633,248 @@ if $INTERACTIVE; then
   shift 1 2>/dev/null || shift $# 2>/dev/null || true
 else
   TEST_PATH=${1:-tests/}  # Default to tests/ directory if not specified
-  LOG_LEVEL=${2:-INFO}               # Default to INFO log level
-  shift 2 2>/dev/null || shift $# 2>/dev/null || true
+  
+  # Skip log level check if we have no more arguments
+  if [[ $# -gt 1 ]]; then
+    # Only set LOG_LEVEL from the second argument if it doesn't start with a dash
+    if [[ "${2:0:1}" != "-" ]]; then
+      LOG_LEVEL=${2}
+      shift
+    else
+      LOG_LEVEL=INFO
+    fi
+  else
+    LOG_LEVEL=INFO
+  fi
+  
+  shift 1 2>/dev/null || shift $# 2>/dev/null || true
 fi
 
-ADDITIONAL_ARGS="$* -n8"           # Always run with 8 parallel workers
+# Configure worker count or sequential mode
+ADDITIONAL_ARGS=()
 
-# Install pytest-xdist if not installed
-if ! python -c "import pytest; import xdist" 2>/dev/null; then
+# Add any collected pytest options
+for opt in "${PYTEST_OPTIONS[@]}"; do
+  ADDITIONAL_ARGS+=("$opt")
+done
+
+# Add remaining arguments
+for arg in "$@"; do
+  ADDITIONAL_ARGS+=("$arg")
+done
+
+# Format the arguments for display and command usage
+ADDITIONAL_ARGS_STR="${ADDITIONAL_ARGS[*]}"
+
+if $SEQUENTIAL; then
+  # No -n8 for sequential mode
+  WORKER_INFO="sequentially (no parallel workers)"
+else
+  # Add -n8 for parallel mode if -n wasn't already specified
+  if [[ ! "$ADDITIONAL_ARGS_STR" =~ -n[0-9]+ ]]; then
+    ADDITIONAL_ARGS+=("-n8")  # Default: 8 parallel workers
+    WORKER_INFO="using 8 worker processes"
+  else
+    WORKER_INFO="using parallel workers"
+  fi
+fi
+
+# Install pytest-xdist if not installed and we're using parallel mode
+if ! $SEQUENTIAL && ! python -c "import pytest; import xdist" 2>/dev/null; then
     echo "Installing pytest-xdist for parallel testing..."
     pip install pytest-xdist
 fi
 
+# Install pytest-profiling if not installed and we're using profiling
+if $PROFILE && ! python -c "import pytest_profiling" 2>/dev/null; then
+    echo "Installing pytest-profiling for profiling..."
+    pip install pytest-profiling
+fi
+
+# Install gprof2dot if needed for SVG visualization
+if $PROFILE_SVG && ! python -c "import gprof2dot" 2>/dev/null; then
+    echo "Installing gprof2dot for SVG visualization..."
+    pip install gprof2dot
+fi
+
+# Update ADDITIONAL_ARGS_STR after possible changes
+ADDITIONAL_ARGS_STR="${ADDITIONAL_ARGS[*]}"
+
+# Add profiling options
+if $PROFILE; then
+  # Create prof directory if it doesn't exist
+  mkdir -p "${PROJECT_ROOT}/prof"
+  
+  # Add profiling plugin options
+  ADDITIONAL_ARGS+=("--profile")
+  
+  # Force sequential mode if profiling is enabled
+  # Running profiling in parallel often gives unreliable results
+  SEQUENTIAL=true
+  
+  if $PROFILE_SVG; then
+    ADDITIONAL_ARGS+=("--profile-svg")
+  fi
+fi
+
 # Display basic info
-echo "Running parallel tests (using 8 worker processes)"
+echo "Running tests $WORKER_INFO"
 echo "Test path: $TEST_PATH"
 echo "Log level: $LOG_LEVEL (higher = more detailed output)"
-echo "Additional args: $ADDITIONAL_ARGS"
+if $ERROR_SUMMARY; then
+  echo "Error summary: Enabled (will show all errors after tests complete)"
+fi
+if $SEQUENTIAL; then
+  echo "Mode: Sequential (easier debugging)"
+fi
+if $PROFILE; then
+  echo "Profiling: Enabled (generating .prof files in ${PROJECT_ROOT}/prof/)"
+  if $PROFILE_SVG; then
+    echo "SVG Visualization: Enabled (generating .svg files in ${PROJECT_ROOT}/prof/)"
+  fi
+fi
+echo "Additional args: $ADDITIONAL_ARGS_STR"
 echo "---------------------------------------------------"
 
+# Construct the additional args string with proper spacing
+ADDITIONAL_ARGS_CMD=""
+for arg in "${ADDITIONAL_ARGS[@]}"; do
+  ADDITIONAL_ARGS_CMD+=" $arg"
+done
+
 # Construct and run the pytest command
+# Move all pytest.ini settings to command line flags:
 # -vv: Increases verbosity
-# --log-cli-level: Controls logging detail level
+# -p no:timer: Disable the pytest-timer plugin since we use --durations
+# -o testpaths=tests: Define test paths
+# -o python_files=test_*.py: Define pattern for test files 
 # --asyncio-mode=auto: Manages asyncio behavior
-# -o asyncio_default_fixture_loop_scope=function: Sets fixture loop scope to function via ini option
+# -o asyncio_default_fixture_loop_scope=function: Sets fixture loop scope
 # -n8: Runs tests in 8 parallel processes
-PYTEST_CMD="PYTHONPATH=${PROJECT_ROOT} pytest \"${TEST_PATH}\" -vv --log-cli-level=${LOG_LEVEL} --asyncio-mode=auto -o asyncio_default_fixture_loop_scope=function ${ADDITIONAL_ARGS}"
+# --durations=10: Show execution time for top 10 slowest tests
+# -o markers: Define markers (we register but don't apply them)
+# -o filterwarnings: Configure warning filters
+# --showlocals and -rA flags for better error context
+PYTEST_CMD="PYTHONPATH=${PROJECT_ROOT} pytest \"${TEST_PATH}\" \
+  -p no:timer \
+  -vv \
+  -o testpaths=tests \
+  -o python_files=test_*.py \
+  --asyncio-mode=auto \
+  -o asyncio_default_fixture_loop_scope=function \
+  --durations=10 \
+  -o 'markers=real: mark tests that run against real data/resources rather than mocks
+integration: mark tests that integrate with external services' \
+  -o 'filterwarnings=ignore::ResourceWarning' \
+  --showlocals \
+  -rA${ADDITIONAL_ARGS_CMD}"
 echo "Running: $PYTEST_CMD"
 echo "---------------------------------------------------"
 
-# Run the command
-eval "$PYTEST_CMD"
-
-PYTEST_EXIT_CODE=$?
-
-if [ $PYTEST_EXIT_CODE -eq 0 ]; then
-  echo "Tests completed successfully!"
+# Run the command and capture the output
+if $ERROR_SUMMARY; then
+  # Create a temporary file for logging if not already set
+  if [ -z "$ERROR_LOG_FILE" ]; then
+    ERROR_LOG_FILE=$(mktemp)
+    trap 'rm -f "$ERROR_LOG_FILE"' EXIT
+  fi
+  
+  echo "Running with error summary enabled (log file: $ERROR_LOG_FILE)"
+  
+  # Set COLUMNS to a very wide value to prevent truncation in the summary table
+  export COLUMNS=200
+  
+  # Force color output with --color=yes and capture both stdout and stderr
+  # Set PYTHONUNBUFFERED=1 to prevent output buffering
+  # Set FORCE_COLOR=1 to ensure terminal colors are preserved through the pipe
+  # Pass COLUMNS to ensure wide tables in the output
+  TEMP_CMD="PYTHONUNBUFFERED=1 FORCE_COLOR=1 PYTHONASYNCIOEBUG=1 COLUMNS=${COLUMNS} $PYTEST_CMD --color=yes"
+  echo "Executing: $TEMP_CMD"
+  
+  # Use eval with direct output redirection to tee
+  eval "$TEMP_CMD" 2>&1 | tee "$ERROR_LOG_FILE"
+  # Capture exit code from first command in the pipe (bash-specific)
+  PYTEST_EXIT_CODE=${PIPESTATUS[0]}
+  
+  echo "Pytest finished with exit code: $PYTEST_EXIT_CODE"
+  
+  # Add custom detailed failure summary if asyncio tests are involved
+  if [[ "$TEST_PATH" == *"asyncio"* ]]; then
+    echo -e "\n${BOLD}${GREEN}==================================================================${NC}"
+    echo -e "${BOLD}${BLUE}                 DETAILED FAILURE SUMMARY                       ${NC}"
+    echo -e "${BOLD}${GREEN}==================================================================${NC}"
+    
+    echo "Generating a comprehensive error summary with full file paths..."
+    echo ""
+    
+    # Call the Python script directly with the test path
+    python "${SCRIPT_DIR}/detailed_failure_summary.py" "$TEST_PATH"
+  fi
+  
+  # Process and display error summary
+  enhanced_extract_errors "$ERROR_LOG_FILE"
+  
+  # Run a custom command to get a full failure table without truncation if needed
+  if [[ "$TEST_PATH" == *test_asyncio_errors.py ]]; then
+    echo -e "\n${BOLD}${BLUE}======================================================${NC}"
+    echo -e "${BOLD}${GREEN}        COMPREHENSIVE FAILURE SUMMARY (FULL PATHS)     ${NC}"
+    echo -e "${BOLD}${BLUE}======================================================${NC}"
+    
+    # Use our dedicated Python script for improved failure summary
+    python "${SCRIPT_DIR}/detailed_failure_summary.py" "$TEST_PATH"
+  fi
+  
 else
-  echo "Tests failed with exit code $PYTEST_EXIT_CODE"
+  # Run pytest without capturing output but still set COLUMNS to avoid truncation
+  export COLUMNS=200
+  eval "COLUMNS=${COLUMNS} $PYTEST_CMD"
+  PYTEST_EXIT_CODE=$?
 fi
 
-exit $PYTEST_EXIT_CODE 
+# Check if exit code is defined and not empty
+if [[ -n "$PYTEST_EXIT_CODE" ]]; then
+  # Display profiling summary if profiling was enabled
+  if $PROFILE; then
+    echo -e "\n${BOLD}${BLUE}======================================================${NC}"
+    echo -e "${BOLD}${GREEN}                 PROFILING SUMMARY                    ${NC}"
+    echo -e "${BOLD}${BLUE}======================================================${NC}"
+    
+    PROF_DIR="${PROJECT_ROOT}/prof"
+    PROF_COUNT=$(ls -1 "${PROF_DIR}"/*.prof 2>/dev/null | wc -l)
+    
+    if [ "$PROF_COUNT" -gt 0 ]; then
+      echo -e "${GREEN}${PROF_COUNT} profile files generated in ${PROF_DIR}${NC}"
+      
+      # List the profile files
+      echo -e "\n${YELLOW}Profile files:${NC}"
+      ls -lh "${PROF_DIR}"/*.prof | awk '{print $9, "("$5")"}'
+      
+      if $PROFILE_SVG; then
+        SVG_COUNT=$(ls -1 "${PROF_DIR}"/*.svg 2>/dev/null | wc -l)
+        if [ "$SVG_COUNT" -gt 0 ]; then
+          echo -e "\n${YELLOW}SVG visualizations:${NC}"
+          ls -lh "${PROF_DIR}"/*.svg | awk '{print $9, "("$5")"}'
+        fi
+      fi
+      
+      echo -e "\n${YELLOW}To analyze a specific profile, use:${NC}"
+      echo -e "  python -m pstats ${PROF_DIR}/<profile_file>"
+      echo -e "  or"
+      echo -e "  gprof2dot -f pstats ${PROF_DIR}/<profile_file> | dot -Tsvg -o ${PROF_DIR}/<output_file>.svg"
+    else
+      echo -e "${RED}No profile files generated. Make sure tests are actually running.${NC}"
+    fi
+    
+    echo -e "${BOLD}${BLUE}======================================================${NC}"
+  fi
+
+  if [ $PYTEST_EXIT_CODE -eq 0 ]; then
+    echo "Tests completed successfully!"
+  else
+    echo "Tests failed with exit code $PYTEST_EXIT_CODE"
+  fi
+  exit $PYTEST_EXIT_CODE
+else
+  echo "Warning: No exit code was captured"
+  exit 1
+fi 

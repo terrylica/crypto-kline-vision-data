@@ -17,6 +17,8 @@
   scripts/run_tests_parallel.sh tests/cache_structure
   ```
 
+`utils/logger_setup.py` is used for all debug
+
 - Resolve type hints properly instead of using type ignore comments
 - Include --no-cli-pager flag in AWS CLI commands
 - Implement guard clause pattern for cleaner control flow
@@ -29,3 +31,64 @@
 
 - Use pylint for Python linting (no flake8)
 - Configure pylint via CLI flags rather than config files
+
+## Logging
+
+- Make use of `utils/logger_setup.py` as custom logging import for creating all new Python script as follows:
+
+```python
+from utils.logger_setup import logger
+
+```
+
+## Principles of PyTest
+
+- Only focus on most low-hanging real-world user cases.
+
+### Rules
+
+Make good use of `caplog` and `utils/logger_setup.py` for PyTest.
+
+- Timeout should never be set at more than 5 seconds constructed in the target tested main script core or its utils business logics but never in the test codes.
+- For all API data retrieval tests (e.g., Vision API), unless testing cross-boundary or date format changes, we start from the current date and search backward up to 3 days for the latest available date with downloadable zipped files. Availability checks must be handled in business scripts, not in test scripts.
+- **_Never_** use any suppression or silencing techniques to avoid confronting errors or warnings.
+- Moreover, it is a fact that we cannot artificially force 3rd party network produce real-world errors from LIVE network intentionally so we don't need these kind of testing but resort to `tenacity` related techniques.
+- Don't deal with anything related to Options market data. Remove all concerns and codes related to options market.
+- We trade spot and perpetual futures only but never futures with expiration date. Remove all concerns and codes related to futures with expiration dates.
+- Cannot contain any business logics on its own but the purpose is to test the business logics of the target scripts
+- Don't use any `pytest.skip()`. Handle errors without skipping.
+- Follow the principle that resources should be properly initialized and cleaned up, especially for network connections.
+- **_Explicitly configure `asyncio_default_fixture_loop_scope = function` for `pytest-asyncio`_**. This ensures consistent event loop behavior and prevents deprecation warnings. This configuration should be managed either in `pytest.ini` or, preferably, directly within the test execution script (e.g., `run_tests_parallel.sh`) for self-contained test runs.
+
+### Problem Solving Approach
+
+On API related issues, always use `CURL` from terminal to find the root causes first.
+
+- Resolve `WARNING` with options made available for me to choose from _before_ proceeding further.
+- When encountering API related issues, use terminal-based `Curl` to find out more _before_ making coding changes.
+- Address deprecation warnings by properly configuring the library settings in configuration files or test execution scripts, rather than suppressing them with warning filters. **_Prioritize explicit configuration to ensure consistent and future-proof test behavior._**
+
+### No Mocking and No Sample Data
+
+- **_Never_** use any sample or mock data for PyTest cases but real-world data only.
+- Always use actual integration tests against real components rather than mocked interactions.
+- We can accept synthetic test scenarios (e.g. for stress testing purposes) that still rely on real-world interfaces and data.
+- If certain tests can't be run due to external dependencies, properly document why with appropriate markers rather than mocking.
+
+`# Testing Principles (PyTest Execution)
+
+- Use `scripts/run_tests_parallel.sh` as the _only_ entry point for running tests.
+- Do not invoke `pytest` directly.
+- _Avoid_ all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
+- Pass all configurations and flags _explicitly_ via the `scripts/run_tests_parallel.sh` script arguments — never rely on hidden config files.
+- Centralize execution. Standardize behavior. Ensure reproducibility.
+- No implicit state. No config sprawl. No surprises.
+- CLI arguments over config files. Script for execution control.
+
+### `scripts/run_tests_parallel.sh`
+
+### Example Usage
+
+```bash
+PYTHONPATH=/workspaces/binance-data-services pytest "tests/market_types/test_vision_market_types.py::test_data_source_manager_market_types" -v --asyncio-mode=auto --no-header
+```

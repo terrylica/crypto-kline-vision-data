@@ -11,6 +11,7 @@ alwaysApply: false
 
 Make good use of `caplog` and `utils/logger_setup.py` for PyTest.
 
+- Timeout should never be set at more than 5 seconds constructed in the target tested main script core or its utils business logics but never in the test codes.
 - For all API data retrieval tests (e.g., Vision API), unless testing cross-boundary or date format changes, we start from the current date and search backward up to 3 days for the latest available date with downloadable zipped files. Availability checks must be handled in business scripts, not in test scripts.
 - **_Never_** use any suppression or silencing techniques to avoid confronting errors or warnings.
 - Moreover, it is a fact that we cannot artificially force 3rd party network produce real-world errors from LIVE network intentionally so we don't need these kind of testing but resort to `tenacity` related techniques.
