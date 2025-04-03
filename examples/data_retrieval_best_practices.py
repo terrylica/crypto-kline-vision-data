@@ -41,6 +41,18 @@ Examples included:
      - 1-minute BTCUSDT data from FUTURES_USDT market
      - 3-minute BTCUSD data from FUTURES_COIN market (with automatic _PERP suffix handling)
 
+Chart Types:
+The system supports various chart data types defined in the `ChartType` enum:
+- `KLINES`: Standard candlestick data (default, supported by all markets)
+- `UI_KLINES`: Optimized klines for UI applications (spot market only)
+- `MARK_PRICE_KLINES`: Mark price klines (futures markets only)
+- `PREMIUM_INDEX_KLINES`: Premium index klines (futures markets only)
+- `CONTINUOUS_KLINES`: Continuous contract klines (futures markets only)
+
+Each chart type is mapped to the corresponding API endpoint, and compatibility with
+different market types is handled automatically. The DataSourceManager and underlying
+clients use this to construct the proper API URLs for data retrieval.
+
 Best Practices Demonstrated:
 - Always specifying market_type explicitly when creating DataSourceManager
 - Proper error handling and validation
@@ -58,20 +70,21 @@ from pathlib import Path
 import traceback
 import pandas as pd
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType, is_interval_supported
 from core.data_source_manager import DataSourceManager, DataSource
-
-# Set up logging with INFO level for clear output
-logger = get_logger(__name__, "INFO", show_path=True)
 
 
 async def example_fetch_recent_data():
     """Example function to fetch recent data using DataSourceManager."""
     # Log current time for reference
     now = datetime.now(timezone.utc)
+    logger.debug("Starting example_fetch_recent_data function")
     logger.info(f"Current time: {now.isoformat()}")
     logger.info("Fetching recent Bitcoin data using the recommended approach")
+    logger.warning("This is a sample WARNING message")
+    logger.error("This is a sample ERROR message")
+    logger.critical("This is a sample CRITICAL message")
 
     # Create cache directory
     cache_dir = Path("./cache")
