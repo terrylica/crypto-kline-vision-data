@@ -56,8 +56,9 @@
 #                       analysis. Forces sequential mode for accurate results.
 #   -g, --profile-svg:  Generate SVG visualizations of the profile (requires graphviz).
 #                       Must be used with -p/--profile option.
-#   -c, --clear:        Clear the screen after selecting a test folder in interactive mode.
-#                       This is useful for starting with a clean output from the test execution.
+#   -c, --clear:        Clear the screen before test execution.
+#                       In interactive mode, clears after test selection. 
+#                       In non-interactive mode, clears before displaying test information.
 #
 # ARGUMENTS:
 #   test_path: (Optional) Path to a specific test file or directory.
@@ -209,7 +210,7 @@ show_help() {
     echo -e "  ${GREEN}-a, --analyze-log FILE${NC}: Analyze an existing log file for errors and warnings"
     echo -e "  ${GREEN}-p, --profile${NC}    : Enable profiling and save .prof files"
     echo -e "  ${GREEN}-g, --profile-svg${NC}: Generate SVG visual profiles (requires graphviz)"
-    echo -e "  ${GREEN}-c, --clear${NC}      : Clear screen after test selection"
+    echo -e "  ${GREEN}-c, --clear${NC}      : Clear screen before test execution"
     echo -e "  ${GREEN}-h, --help${NC}        : Show this detailed help"
     echo -e ""
     echo -e "${YELLOW}Arguments:${NC}"
@@ -739,6 +740,11 @@ if $PROFILE; then
 fi
 
 # Display basic info
+# Clear the screen if requested in non-interactive mode
+if $CLEAR_AFTER_SELECTION && ! $INTERACTIVE; then
+  clear
+fi
+
 echo "Running tests $WORKER_INFO"
 echo "Test path: $TEST_PATH"
 echo "Log level: $LOG_LEVEL (higher = more detailed output)"
