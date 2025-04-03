@@ -323,13 +323,118 @@ error_tracker = ErrorTracker()
 
 ### 3. Logger Enhancement (`utils/logger_setup.py`)
 
-Based on examining the existing `logger_setup.py` which is relatively simple at 102 lines, we'll enhance it with error context support:
+After thorough examination of the existing `logger_setup.py` which already implements a sophisticated LoggerProxy pattern, we'll enhance it with error context support while preserving its current strengths:
 
 ```python
 import logging
 import json
+import inspect
 from logging import LogRecord
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+# Keep existing imports and constants
+# ...
+
+class ErrorContextAdapter:
+    """Adapter for adding error context to log records without modifying LoggerProxy."""
+
+    @staticmethod
+    def with_error_context(logger_method, message, error_context=None, exc_info=None, **kwargs):
+        """
+        Wrap a logger method call with error context
+
+        Args:
+            logger_method: The logging method to call (e.g., logger.info)
+            message: Log message
+            error_context: Dictionary with error context
+            exc_info: Exception info for traceback
+            **kwargs: Additional kwargs for the logger method
+        """
+        if error_context:
+            # Add error_context as extra for the logging call
+            extra = kwargs.get('extra', {})
+            # Ensure extra is a dict
+            if not isinstance(extra, dict):
+                extra = {}
+            extra['error_context'] = error_context
+            kwargs['extra'] = extra
+
+        # Call the original method with updated kwargs
+        return logger_method(message, exc_info=exc_info, **kwargs)
+
+
+# Enhance the existing LoggerProxy class with error context support
+class EnhancedLoggerProxy(LoggerProxy):
+    """
+    Enhanced proxy implementation with error context support.
+
+    Extends the existing LoggerProxy to add error context capabilities
+    while maintaining backward compatibility.
+    """
+
+    def with_error_context(self, error_context=None):
+        """
+        Create a context-aware logger proxy instance
+
+        Args:
+            error_context: Dictionary with error context data
+
+        Returns:
+            An error-context-aware logger proxy
+        """
+        # Create a new proxy that wraps logging methods with error context
+        proxy = ErrorContextLoggerProxy(self, error_context)
+        return proxy
+
+    # Preserve all other existing methods from LoggerProxy
+
+
+class ErrorContextLoggerProxy:
+    """
+    Proxy for logging with error context information.
+
+    Wraps the standard LoggerProxy to include error context in all log calls.
+    """
+
+    def __init__(self, logger_proxy, error_context=None):
+        """
+        Initialize with a logger proxy and error context
+
+        Args:
+            logger_proxy: The original LoggerProxy instance
+            error_context: Dictionary with error context data
+        """
+        self._logger_proxy = logger_proxy
+        self._error_context = error_context or {}
+
+    def __getattr__(self, name):
+        """
+        Forward attribute access to the original proxy with error context
+
+        Args:
+            name: The attribute name (e.g., 'info', 'error')
+
+        Returns:
+            A wrapped logging method that includes error context
+        """
+        # Get the original method from the logger proxy
+        original_attr = getattr(self._logger_proxy, name)
+
+        # For logging methods, wrap them with error context
+        if name in ('debug', 'info', 'warning', 'warn', 'error', 'critical', 'exception'):
+            def log_with_context(*args, **kwargs):
+                # Add error context to the call
+                return ErrorContextAdapter.with_error_context(
+                    original_attr,
+                    *args,
+                    error_context=self._error_context,
+                    **kwargs
+                )
+            return log_with_context
+
+        # For non-logging methods, return the original attribute
+        return original_attr
+
 
 class ErrorContextFormatter(logging.Formatter):
     """Custom formatter that handles error context in log records"""
@@ -354,53 +459,104 @@ class ErrorContextFormatter(logging.Formatter):
         # Regular formatting for messages without error context
         return super().format(record)
 
-# Update existing get_logger function
-def get_logger(name, level="INFO"):
+
+# Update _setup_root_logger to use the error context formatter
+def _setup_root_logger(level=None):
     """
-    Get a configured logger with error context handling
+    Configure the root logger with specified level and colorized output with error context support.
+
+    Most implementation remains the same as the original, with formatter changes.
+    """
+    # [Keep existing implementation...]
+
+    # Update to use ErrorContextFormatter
+    handler = logging.StreamHandler()
+    formatter = ErrorContextFormatter(
+        FORMAT,
+        log_colors=DEFAULT_LOG_COLORS,
+        style="%",
+        reset=True,
+    )
+    handler.setFormatter(formatter)
+    # [Rest of the implementation remains the same...]
+
+
+# Convenient helper for direct error context logging
+def log_with_error_context(level, message, error_context=None, exc_info=None):
+    """
+    Log a message with error context using the logger proxy
+
+    This function automatically determines the calling module and uses
+    the appropriate logger instance.
 
     Args:
-        name: Logger name
-        level: Logging level
-
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level))
-
-    # Remove existing handlers to avoid duplicates
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
-    # Create console handler with error context formatter
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(ErrorContextFormatter(
-        '%(asctime)s [%(name)s] [%(levelname)s] %(message)s'
-    ))
-    logger.addHandler(console_handler)
-
-    return logger
-
-def log_with_error_context(logger, level, message, error_context=None, exc_info=None):
-    """
-    Log a message with error context
-
-    Args:
-        logger: Logger instance
         level: Log level (e.g., 'INFO', 'ERROR')
         message: Log message
         error_context: Dictionary with error context
         exc_info: Exception info for traceback
     """
-    log_method = getattr(logger, level.lower())
+    frame = inspect.currentframe().f_back
+    module = inspect.getmodule(frame)
+    module_name = module.__name__ if module else "__main__"
 
-    if error_context:
-        extra = {'error_context': error_context}
-        log_method(message, extra=extra, exc_info=exc_info)
-    else:
-        log_method(message, exc_info=exc_info)
+    # Get the appropriate logger
+    logger_instance = get_logger(module_name)
+
+    # Get the logging method
+    log_method = getattr(logger_instance, level.lower())
+
+    # Log with error context
+    ErrorContextAdapter.with_error_context(
+        log_method,
+        message,
+        error_context=error_context,
+        exc_info=exc_info
+    )
+
+
+# Replace existing logger with enhanced version
+logger = EnhancedLoggerProxy()
 ```
+
+This implementation enhances the existing `LoggerProxy` pattern with error context capabilities while maintaining backward compatibility. Key improvements include:
+
+1. **Enhanced LoggerProxy**: Extends the current implementation to support error context without breaking existing code.
+
+2. **Error Context Support**: Adds structured error context to log messages using a non-intrusive adapter pattern.
+
+3. **Pythonic Interface**: Maintains the clean API and fluent interface that exists in the current implementation.
+
+4. **Testing Support**: Fully compatible with pytest's caplog fixture, allowing tests to verify both log messages and error context.
+
+5. **Backward Compatibility**: All existing code using `logger` will continue to work without changes.
+
+**Usage in Tests:**
+
+The enhanced logger remains compatible with pytest's caplog fixture, allowing easy verification of logs with error context:
+
+```python
+from utils.logger_setup import logger
+
+def test_error_context_logging(caplog):
+    # Set capture level
+    caplog.set_level("DEBUG")
+
+    # Log with error context
+    error_data = {"error_code": "API_TIMEOUT", "retry_count": 3}
+    logger.with_error_context(error_data).error("API request failed")
+
+    # Verify log content
+    assert "API request failed" in caplog.text
+
+    # Verify error context is included
+    for record in caplog.records:
+        if "API request failed" in record.message:
+            assert hasattr(record, 'error_context')
+            assert record.error_context['error_code'] == "API_TIMEOUT"
+            assert record.error_context['retry_count'] == 3
+```
+
+This approach preserves the simplicity of using just `from utils.logger_setup import logger` in test files while enabling comprehensive error context verification.
 
 ### 4. Data Source Manager Integration (`core/data_source_manager.py`)
 
@@ -408,7 +564,7 @@ After examining the existing `data_source_manager.py` (568 lines), we'll integra
 
 ```python
 from utils.error_tracker import DataResult, classify_exception, classify_empty_data, error_tracker
-from utils.logger_setup import log_with_error_context
+from utils.logger_setup import logger
 
 # Modified _fetch_from_source method in DataSourceManager
 def _fetch_from_source(self, symbol, interval, start_time, end_time, **kwargs):
@@ -434,13 +590,11 @@ def _fetch_from_source(self, symbol, interval, start_time, end_time, **kwargs):
                 "end_time": end_time
             })
 
-            # Log the empty result
-            log_with_error_context(
-                self.logger,
-                "INFO",
-                f"Empty data returned for {symbol} {interval} from {start_time} to {end_time}",
-                {"error_type": error_type, "error_message": error_message}
-            )
+            # Log the empty result with error context
+            logger.with_error_context({
+                "error_type": error_type,
+                "error_message": error_message
+            }).info(f"Empty data returned for {symbol} {interval} from {start_time} to {end_time}")
 
             return DataResult(
                 data=df,
@@ -483,14 +637,13 @@ def _fetch_from_source(self, symbol, interval, start_time, end_time, **kwargs):
             "exception_type": type(e).__name__
         })
 
-        # Log the error
-        log_with_error_context(
-            self.logger,
-            "ERROR",
-            f"Error fetching data for {symbol} {interval}: {error_message}",
-            {"error_type": error_type, "error_message": error_message},
-            exc_info=True
-        )
+        # Log the error with error context
+        logger.with_error_context({
+            "error_type": error_type,
+            "error_message": error_message,
+            "symbol": symbol,
+            "interval": interval
+        }).error(f"Error fetching data for {symbol} {interval}: {error_message}", exc_info=True)
 
         # Return error result with empty dataframe
         empty_df = self.rest_client.create_empty_dataframe()
@@ -514,7 +667,7 @@ Based on examining `rest_data_client.py` (838 lines), which focuses on handling 
 
 ```python
 from utils.error_tracker import DataResult, classify_exception, classify_empty_data, error_tracker
-from utils.logger_setup import log_with_error_context
+from utils.logger_setup import logger
 
 # Modify the fetch method in RestDataClient
 def fetch(self, symbol, interval, start_time, end_time, **kwargs):
@@ -562,14 +715,14 @@ def fetch(self, symbol, interval, start_time, end_time, **kwargs):
             "exception_type": type(e).__name__
         })
 
-        # Log the error
-        log_with_error_context(
-            self.logger,
-            "ERROR",
-            f"REST API error for {symbol} {interval} in {market_type}: {error_message}",
-            {"error_type": error_type, "error_message": error_message},
-            exc_info=True
-        )
+        # Log the error with enhanced context
+        logger.with_error_context({
+            "error_type": error_type,
+            "error_message": error_message,
+            "symbol": symbol,
+            "interval": interval,
+            "market_type": market_type
+        }).error(f"REST API error for {symbol} {interval} in {market_type}: {error_message}", exc_info=True)
 
         # Return error result with empty dataframe
         empty_df = self.create_empty_dataframe()
@@ -595,23 +748,20 @@ Based on examining the comprehensive `network_utils.py` (1310 lines) which handl
 
 ```python
 from utils.error_tracker import classify_exception, error_tracker
-from utils.logger_setup import log_with_error_context
+from utils.logger_setup import logger
 
 # Enhanced check_connectivity function
-def check_connectivity(url, timeout=5, logger=None):
+def check_connectivity(url, timeout=5):
     """
     Check connectivity to a URL with enhanced error reporting
 
     Args:
         url: URL to check
         timeout: Connection timeout in seconds
-        logger: Logger instance
 
     Returns:
         Tuple of (bool, error_type, error_message)
     """
-    logger = logger or logging.getLogger(__name__)
-
     try:
         # Using curl_cffi as per project conventions
         response = curl_cffi.requests.head(url, timeout=timeout)
@@ -631,13 +781,13 @@ def check_connectivity(url, timeout=5, logger=None):
             "exception_type": type(e).__name__
         })
 
-        # Log the error
-        log_with_error_context(
-            logger,
-            "WARNING",
-            f"Connectivity check failed for {url}: {error_message}",
-            {"error_type": error_type, "error_message": error_message}
-        )
+        # Log the error with rich context
+        logger.with_error_context({
+            "error_type": error_type,
+            "error_message": error_message,
+            "url": url,
+            "timeout": timeout
+        }).warning(f"Connectivity check failed for {url}: {error_message}")
 
         return False, error_type, error_message
 ```
@@ -657,17 +807,92 @@ def check_connectivity(url, timeout=5, logger=None):
    - Validate the cleanup of old entries works as expected
    - Confirm statistics gathering functions with time-based filtering
 
-3. **Integration Test for DataResult Usage**
+3. **Unit Tests for Enhanced Logger**
+
+   - Test the EnhancedLoggerProxy and error context capturing
+   - Verify integration with pytest's caplog fixture
+   - Ensure backward compatibility with existing logger usage
+   - Test error context serialization in log output
+
+4. **Integration Test for DataResult Usage**
 
    - Test DataResult creation and property access
    - Verify error context is properly captured and propagated
    - Test serialization to log dictionaries
+   - Verify DataResult works with the enhanced logger
 
-4. **End-to-End Tests**
+5. **End-to-End Tests**
    - Create tests that simulate various error conditions in REST and Vision clients
    - Verify error tracking during concurrent operations
    - Test threshold alerting with artificially increased error rates
    - Validate integration with existing error handling mechanisms
+   - Ensure logger error context is properly captured by pytest's caplog
+
+## Test Examples
+
+### Testing Enhanced Logger with caplog
+
+```python
+from utils.logger_setup import logger
+
+def test_enhanced_logger_with_error_context(caplog):
+    """Test that error context is properly captured by caplog."""
+    # Set capture level for all logs
+    caplog.set_level("DEBUG")
+
+    # Log with error context
+    error_data = {"error_code": "TIMEOUT", "api": "rest", "retry": 3}
+    logger.with_error_context(error_data).error("Request failed")
+
+    # Verify basic logging works
+    assert "Request failed" in caplog.text
+
+    # Verify error context is captured and accessible
+    for record in caplog.records:
+        if "Request failed" in record.message:
+            assert hasattr(record, 'error_context')
+            assert record.error_context['error_code'] == "TIMEOUT"
+            assert record.error_context['retry'] == 3
+```
+
+### Testing DataResult with ErrorTracker
+
+```python
+import pandas as pd
+from utils.error_tracker import DataResult, error_tracker
+
+def test_data_result_tracking(caplog):
+    """Test integration between DataResult and error tracking."""
+    caplog.set_level("WARNING")
+
+    # Create a DataResult with error
+    result = DataResult(
+        data=pd.DataFrame(),
+        error_type="API_RATE_LIMIT",
+        error_message="Rate limit exceeded",
+        metadata={"symbol": "BTCUSDT"}
+    )
+
+    # Track the error
+    error_tracker.track_error(result.error_type, result.metadata)
+
+    # Log the error using the enhanced logger
+    logger.with_error_context({
+        "error_type": result.error_type,
+        "error_message": result.error_message,
+        **result.metadata
+    }).warning(f"Data fetching issue: {result.error_message}")
+
+    # Verify error was tracked
+    stats = error_tracker.get_stats()
+    assert "API_RATE_LIMIT" in stats
+    assert stats["API_RATE_LIMIT"]["count"] > 0
+
+    # Verify caplog captured the error context
+    assert "Data fetching issue: Rate limit exceeded" in caplog.text
+    assert any("error_type" in getattr(record, 'error_context', {})
+               for record in caplog.records)
+```
 
 ## Metrics and Monitoring
 
