@@ -5,6 +5,13 @@ This script demonstrates best practices for retrieving market data using the Dat
 with different market types, intervals, and time ranges. Each example function showcases specific
 use cases and recommended approaches for different scenarios.
 
+Note about cache statistics tracking:
+- Single DataSourceManager instance examples use direct get_cache_stats() calls
+- Multi-instance examples (like example_different_market_types) use aggregated statistics
+  tracking to ensure accurate reporting across independent manager lifecycles
+- See docs/cache_diagnostics/multi_manager_stats_integrity.md for detailed analysis on
+  why this approach is necessary for tracking statistics across multiple instances
+
 Examples included:
 
 1. `example_fetch_recent_data()`:
@@ -34,7 +41,7 @@ Examples included:
 6. `example_different_market_types()`:
    - Demonstrates data retrieval across different market types (SPOT, FUTURES_USDT, FUTURES_COIN)
    - Shows handling of market-specific symbols and intervals
-   - Illustrates how to display cache statistics for different market types
+   - Illustrates proper cache statistics aggregation across multiple DataSourceManager instances
    - Tests combination of different intervals with appropriate market types:
      - 1-second BTCUSDT data from SPOT market
      - 15-minute ETHUSDT data from SPOT market
@@ -97,6 +104,9 @@ async def example_fetch_recent_data():
 
     logger.info(f"Time range: {start_time} to {end_time}")
 
+    # Track cache statistics (single manager instance)
+    cache_stats = {"hits": 0, "misses": 0, "errors": 0}
+
     # Using DataSourceManager (recommended approach with async context manager)
     async with DataSourceManager(
         market_type=MarketType.SPOT,
@@ -113,6 +123,11 @@ async def example_fetch_recent_data():
             end_time=end_time,
             interval=Interval.SECOND_1,
         )
+
+        # Update stats after first operation
+        current_stats = manager.get_cache_stats()
+        for key in current_stats:
+            cache_stats[key] += current_stats[key]
 
         # Display results
         logger.info(f"Data retrieved: {len(df)} rows")
@@ -135,7 +150,15 @@ async def example_fetch_recent_data():
             enforce_source=DataSource.REST,  # Force REST API
         )
 
+        # Update stats after second operation
+        current_stats = manager.get_cache_stats()
+        for key in current_stats:
+            cache_stats[key] = current_stats[
+                key
+            ]  # Reset to latest since these are cumulative
+
         logger.info(f"REST API data retrieved: {len(df_rest)} rows")
+        logger.info(f"\nFinal cache statistics: {cache_stats}")
 
 
 async def example_fetch_historical_data():
@@ -156,6 +179,9 @@ async def example_fetch_historical_data():
 
     logger.info(f"Historical time range: {start_time} to {end_time}")
 
+    # Track cache statistics (single manager instance)
+    cache_stats = {"hits": 0, "misses": 0, "errors": 0}
+
     # Using DataSourceManager
     async with DataSourceManager(
         market_type=MarketType.SPOT,
@@ -172,6 +198,11 @@ async def example_fetch_historical_data():
             enforce_source=DataSource.VISION,  # Enforce Vision API
         )
 
+        # Update stats after first operation
+        current_stats = manager.get_cache_stats()
+        for key in current_stats:
+            cache_stats[key] += current_stats[key]
+
         # Display results
         logger.info(f"Historical data retrieved: {len(df)} rows")
 
@@ -180,8 +211,7 @@ async def example_fetch_historical_data():
             logger.info("\nSample historical data:")
             print(df.head().to_string())
 
-            # Access cache statistics
-            cache_stats = manager.get_cache_stats()
+            # No need to call get_cache_stats() again as we're tracking it
             logger.info(f"\nCache statistics: {cache_stats}")
         else:
             logger.info("No data retrieved. Attempting with 1-minute data instead.")
@@ -194,10 +224,18 @@ async def example_fetch_historical_data():
                 interval=Interval.MINUTE_1,
             )
 
+            # Update stats after second operation
+            current_stats = manager.get_cache_stats()
+            for key in current_stats:
+                cache_stats[key] = current_stats[
+                    key
+                ]  # Reset to latest since these are cumulative
+
             logger.info(f"1-minute data retrieved: {len(df_minute)} rows")
             if not df_minute.empty:
                 logger.info("\nSample 1-minute data:")
                 print(df_minute.head().to_string())
+                logger.info(f"\nFinal cache statistics: {cache_stats}")
 
 
 async def example_fetch_same_day_minute_data():
@@ -222,6 +260,8 @@ async def example_fetch_same_day_minute_data():
     logger.info(f"Same-day time range: {start_time} to {end_time}")
 
     # Using DataSourceManager with async context manager
+    # Note: This example uses a single manager instance, so cache statistics
+    # are reported directly after operations complete.
     async with DataSourceManager(
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
@@ -245,7 +285,7 @@ async def example_fetch_same_day_minute_data():
             logger.info("\nSample 1-minute data:")
             print(df.head().to_string())
 
-        # Get cache statistics
+        # Get cache statistics - single instance so direct reporting is appropriate
         cache_stats = manager.get_cache_stats()
         logger.info(f"\nCache statistics: {cache_stats}")
 
@@ -260,6 +300,9 @@ async def example_fetch_unavailable_data():
     # Create cache directory
     cache_dir = Path("./cache")
     cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Track cache statistics (single manager instance with multiple operations)
+    cache_stats = {"hits": 0, "misses": 0, "errors": 0}
 
     # A future date - this should be properly rejected by the DataSourceManager
     future_start_time = now + timedelta(days=1)
@@ -283,6 +326,11 @@ async def example_fetch_unavailable_data():
             interval=Interval.MINUTE_1,
         )
 
+        # Update stats after first operation
+        current_stats = manager.get_cache_stats()
+        for key in current_stats:
+            cache_stats[key] += current_stats[key]
+
         # Display results - should be an empty DataFrame with the correct structure
         logger.info(f"Future data request result: {len(future_df)} rows")
         logger.info(
@@ -298,7 +346,15 @@ async def example_fetch_unavailable_data():
             interval=Interval.MINUTE_1,
         )
 
+        # Update stats after second operation
+        current_stats = manager.get_cache_stats()
+        for key in current_stats:
+            cache_stats[key] = current_stats[
+                key
+            ]  # Reset to latest since these are cumulative
+
         logger.info(f"Invalid symbol result: {len(invalid_df)} rows")
+        logger.info(f"\nFinal cache statistics: {cache_stats}")
 
 
 async def create_dsm_example(
@@ -363,7 +419,11 @@ async def create_dsm_example(
 
 
 async def example_different_market_types():
-    """Example function demonstrating data retrieval across different market types and intervals."""
+    """Example function demonstrating data retrieval across different market types and intervals.
+
+    This example implements proper cache statistics aggregation across multiple DataSourceManager
+    instances as described in docs/cache_diagnostics/multi_manager_stats_integrity.md.
+    """
     # Log current time for reference
     now = datetime.now(timezone.utc)
     logger.info(f"Current time: {now.isoformat()}")
@@ -399,6 +459,13 @@ async def example_different_market_types():
     # Create 1s window for high-frequency data (shorter time range)
     short_end_time = start_time + timedelta(minutes=10)
 
+    # Track cache statistics for each market type
+    market_stats = {
+        MarketType.SPOT: {"hits": 0, "misses": 0, "errors": 0},
+        MarketType.FUTURES_USDT: {"hits": 0, "misses": 0, "errors": 0},
+        MarketType.FUTURES_COIN: {"hits": 0, "misses": 0, "errors": 0},
+    }
+
     # Example 1: SPOT market with 1-second BTCUSDT data
     # SPOT market supports 1-second data
     async with DataSourceManager(
@@ -423,6 +490,11 @@ async def example_different_market_types():
             logger.info(f"\nSample SPOT BTCUSDT {Interval.SECOND_1.value} data:")
             print(df.head(3).to_string())
 
+        # Update market stats
+        stats = manager.get_cache_stats()
+        for key in stats:
+            market_stats[MarketType.SPOT][key] += stats[key]
+
     # Example 2: SPOT market with 15-minute ETHUSDT data
     # All markets support 15-minute data
     async with DataSourceManager(
@@ -446,6 +518,11 @@ async def example_different_market_types():
         if not df.empty:
             logger.info(f"\nSample SPOT ETHUSDT {Interval.MINUTE_15.value} data:")
             print(df.head(3).to_string())
+
+        # Update market stats
+        stats = manager.get_cache_stats()
+        for key in stats:
+            market_stats[MarketType.SPOT][key] += stats[key]
 
     # Example 3: USDT-margined futures (UM) with 1-minute BTCUSDT data
     # Futures markets support 1-minute data
@@ -475,6 +552,11 @@ async def example_different_market_types():
             )
             print(df.head(3).to_string())
 
+        # Update market stats
+        stats = manager.get_cache_stats()
+        for key in stats:
+            market_stats[MarketType.FUTURES_USDT][key] += stats[key]
+
     # Example 4: Coin-margined futures (CM) with 3-minute BTCUSD data
     # Futures markets support 3-minute data
     async with DataSourceManager(
@@ -499,6 +581,11 @@ async def example_different_market_types():
             logger.info(f"\nSample FUTURES_COIN BTCUSD {Interval.MINUTE_3.value} data:")
             print(df.head(3).to_string())
 
+        # Update market stats
+        stats = manager.get_cache_stats()
+        for key in stats:
+            market_stats[MarketType.FUTURES_COIN][key] += stats[key]
+
     # Display cache statistics for all markets
     logger.info("\nCache statistics by market type:")
     for market_type, market_name in [
@@ -506,13 +593,7 @@ async def example_different_market_types():
         (MarketType.FUTURES_USDT, "FUTURES_USDT (UM)"),
         (MarketType.FUTURES_COIN, "FUTURES_COIN (CM)"),
     ]:
-        async with DataSourceManager(
-            market_type=market_type,
-            cache_dir=cache_dir,
-            use_cache=True,
-        ) as manager:
-            cache_stats = manager.get_cache_stats()
-            logger.info(f"  {market_name}: {cache_stats}")
+        logger.info(f"  {market_name}: {market_stats[market_type]}")
 
 
 async def main():

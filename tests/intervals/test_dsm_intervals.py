@@ -172,7 +172,13 @@ async def test_dsm_spot_intervals(dsm: DataSourceManager, interval: Interval, ca
     2. The data has the correct format and structure
     3. Time boundaries are properly aligned
     """
-    caplog.set_level("INFO")
+    # Set log level with try/except to handle pytest-asyncio compatibility issues
+    try:
+        caplog.set_level("INFO")
+    except KeyError:
+        # This can happen when running with pytest-asyncio and using -n1 or -nX
+        # due to interaction with pytest-xdist. Continue test without setting log level.
+        pass
 
     # Find available data
     reference_time, found_data = await find_available_data(
@@ -295,7 +301,13 @@ async def test_dsm_futures_intervals(
 
     This test covers both USDT-margined (UM) and Coin-margined (CM) futures.
     """
-    caplog.set_level("INFO")
+    # Set log level with try/except to handle pytest-asyncio compatibility issues
+    try:
+        caplog.set_level("INFO")
+    except KeyError:
+        # This can happen when running with pytest-asyncio and using -n1 or -nX
+        # due to interaction with pytest-xdist. Continue test without setting log level.
+        pass
 
     # Override the DSM market type to match the test case
     dsm._market_type = market_type
@@ -406,14 +418,20 @@ async def test_dsm_futures_intervals(
 async def test_dsm_interval_data_consistency(
     dsm: DataSourceManager, interval: Interval, caplog
 ):
-    """Test data consistency across all market types for common intervals.
+    """Test that data consistency is maintained when querying with different intervals.
 
-    This test verifies that for common intervals (1m, 1h, 1d):
-    1. Data can be retrieved from all market types
-    2. The data structure is consistent across market types
-    3. Metadata (e.g., column names, types) is consistent
+    This test verifies that the DataSourceManager:
+    1. Returns consistent data when querying with different intervals
+    2. Properly handles interval boundaries and alignments
+    3. Respects time window constraints
     """
-    caplog.set_level("INFO")
+    # Set log level with try/except to handle pytest-asyncio compatibility issues
+    try:
+        caplog.set_level("INFO")
+    except KeyError:
+        # This can happen when running with pytest-asyncio and using -n1 or -nX
+        # due to interaction with pytest-xdist. Continue test without setting log level.
+        pass
 
     results = {}
 
@@ -540,14 +558,19 @@ async def test_dsm_interval_data_consistency(
 async def test_dsm_metadata_consistency(
     dsm: DataSourceManager, interval: Interval, expected_field: str, caplog
 ):
-    """Test metadata consistency for different intervals.
+    """Test that metadata is consistently included in DataSourceManager results.
 
-    This test verifies that regardless of the interval:
-    1. The index name is consistent
-    2. The essential columns have consistent data types
-    3. The interval-specific metadata is correctly handled
+    This test verifies that the DataSourceManager:
+    1. Consistently includes expected metadata fields
+    2. Maintains proper value types and ranges for metadata
     """
-    caplog.set_level("INFO")
+    # Set log level with try/except to handle pytest-asyncio compatibility issues
+    try:
+        caplog.set_level("INFO")
+    except KeyError:
+        # This can happen when running with pytest-asyncio and using -n1 or -nX
+        # due to interaction with pytest-xdist. Continue test without setting log level.
+        pass
 
     # Use SPOT market for simplicity
     market_type = MarketType.SPOT
