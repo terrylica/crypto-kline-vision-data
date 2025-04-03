@@ -36,7 +36,6 @@ warnings.filterwarnings("ignore", message=".*SSLKEYLOGFILE.*")
 AIOHTTP_AVAILABLE = False
 CURL_CFFI_AVAILABLE = False
 CURL_CFFI_ASYNC_AVAILABLE = False  # New flag for async API
-HTTPX_AVAILABLE = False
 
 # Try to import curl_cffi - our recommended client
 try:
@@ -56,25 +55,6 @@ try:
 except ImportError:
     print("curl_cffi not available. Install with: pip install curl-cffi")
     print("Some benchmark features will be limited.")
-
-# Try to #import httpx
-try:
-    # import httpx
-
-    HTTPX_AVAILABLE = True
-except ImportError:
-    print("httpx not available. Install with: pip install httpx")
-    print("Some benchmark features will be limited.")
-
-# Try to #import aiohttp - made optional
-try:
-    # In Python 3.10+, Mapping and Sequence have been moved to collections.abc
-    # import aiohttp
-
-    AIOHTTP_AVAILABLE = True
-except ImportError:
-    print("aiohttp not available or incompatible with your Python version.")
-    print("This is not critical as curl_cffi and httpx are the recommended clients.")
 
 # Command-line arguments
 parser = argparse.ArgumentParser(
@@ -319,16 +299,10 @@ def check_latest_date_download_first(
 def download_multiple_files_concurrent(
     urls, output_dir, max_concurrent=50, timeout=3.0
 ):
-    """Download multiple files concurrently using curl_cffi (recommended approach).
-
-    This method dynamically adjusts concurrency based on batch size:
-    - Small batches (1-10 files): concurrency 10
-    - Medium batches (11-50 files): concurrency 50 (optimal)
-    - Large batches (50+ files): concurrency 100
-    """
-    if not (CURL_CFFI_AVAILABLE or HTTPX_AVAILABLE):
+    """Download multiple files concurrently using curl_cffi with ThreadPoolExecutor."""
+    if not CURL_CFFI_AVAILABLE:
         print(
-            "Neither curl_cffi nor httpx is available. Falling back to command-line curl."
+            "curl_cffi is required for optimal downloads. Falling back to curl command."
         )
         return download_with_curl_command_concurrent(
             urls, output_dir, max_concurrent, timeout
@@ -341,10 +315,8 @@ def download_multiple_files_concurrent(
     # Dynamically adjust concurrency based on batch size
     adjusted_concurrency = max_concurrent
     if file_count <= 10:
-        # Small batch optimization
         adjusted_concurrency = min(10, max_concurrent)
     elif file_count <= 50:
-        # Medium batch optimization (optimal concurrency)
         adjusted_concurrency = min(50, max_concurrent)
     else:
         # Large batch optimization
@@ -362,23 +334,11 @@ def download_multiple_files_concurrent(
                 success, _, elapsed = download_first_curl_cffi(
                     url, output_path, timeout
                 )
-            elif HTTPX_AVAILABLE:
-                # Fallback to httpx if curl_cffi is not available
-                start_time = time.time()
-                with httpx.Client(timeout=timeout) as client:
-                    response = client.get(url)
-                    if response.status_code == 200:
-                        with open(output_path, "wb") as f:
-                            f.write(response.content)
-                        elapsed = time.time() - start_time
-                        success = True
-                    else:
-                        success = False
-                        elapsed = time.time() - start_time
             else:
-                # Should not reach here due to the check at the beginning
-                success = False
-                elapsed = 0
+                # Fallback to curl command if curl_cffi is not available
+                success, _, elapsed = download_with_curl_command(
+                    url, output_path, timeout
+                )
 
             if success:
                 return output_path, elapsed
@@ -472,169 +432,24 @@ def download_with_curl_command_concurrent(
     return successful_downloads, total_time
 
 
-def download_with_httpx(urls, output_dir, max_concurrent=50, timeout=3.0):
-    """Download multiple files using httpx with ThreadPoolExecutor.
-
-    Alternative implementation using httpx instead of curl_cffi.
-    """
-    if not HTTPX_AVAILABLE:
-        print(
-            "httpx is required for this download method. Falling back to curl command."
-        )
-        return download_with_curl_command_concurrent(
-            urls, output_dir, max_concurrent, timeout
-        )
-
-    os.makedirs(output_dir, exist_ok=True)
-    successful_downloads = []
-    file_count = len(urls)
-
-    # Dynamically adjust concurrency based on batch size
-    adjusted_concurrency = max_concurrent
-    if file_count <= 10:
-        adjusted_concurrency = min(10, max_concurrent)
-    elif file_count <= 50:
-        adjusted_concurrency = min(50, max_concurrent)
-    else:
-        adjusted_concurrency = min(100, max_concurrent)
-
-    if adjusted_concurrency != max_concurrent and args.verbose:
-        print(f"Adjusting concurrency to {adjusted_concurrency} for {file_count} files")
-
-    def download_single_file(url):
-        try:
-            filename = os.path.basename(url)
-            output_path = os.path.join(output_dir, filename)
-
-            start_time = time.time()
-            with httpx.Client(timeout=timeout) as client:
-                response = client.get(url)
-                if response.status_code == 200:
-                    with open(output_path, "wb") as f:
-                        f.write(response.content)
-                    elapsed = time.time() - start_time
-                    return output_path, elapsed
-            return None, 0
-        except Exception as e:
-            if args.verbose:
-                print(f"Error downloading {url}: {e}")
-            return None, 0
-
-    start_time = time.time()
-
-    with ThreadPoolExecutor(max_workers=adjusted_concurrency) as executor:
-        future_to_url = {
-            executor.submit(download_single_file, url): url for url in urls
-        }
-
-        for future in as_completed(future_to_url):
-            url = future_to_url[future]
-            try:
-                result, elapsed = future.result()
-                if result:
-                    successful_downloads.append(result)
-                    if args.verbose:
-                        print(
-                            f"Downloaded {os.path.basename(url)} in {fmt_time(elapsed)}"
-                        )
-            except Exception as e:
-                if args.verbose:
-                    print(f"Error processing {url}: {e}")
-
-    total_time = time.time() - start_time
-    return successful_downloads, total_time
-
-
-async def download_multiple_files_async(
-    urls, output_dir, max_concurrent=50, timeout=3.0
-):
-    """Download multiple files using curl_cffi's AsyncSession with connection pooling.
-
-    This implementation uses curl_cffi's native async API with proper connection pooling
-    which should provide better performance than the synchronous version with threads.
-    """
-    if not CURL_CFFI_ASYNC_AVAILABLE:
-        print(
-            "curl_cffi AsyncSession not available. Falling back to synchronous version."
-        )
-        successful, total_time = download_multiple_files_concurrent(
-            urls, output_dir, max_concurrent, timeout
-        )
-        return successful, total_time
-
-    os.makedirs(output_dir, exist_ok=True)
-    successful_downloads = []
-    file_count = len(urls)
-
-    # Dynamically adjust concurrency based on batch size
-    adjusted_concurrency = max_concurrent
-    if file_count <= 10:
-        adjusted_concurrency = min(10, max_concurrent)
-    elif file_count <= 50:
-        adjusted_concurrency = min(50, max_concurrent)
-    else:
-        adjusted_concurrency = min(100, max_concurrent)
-
-    if adjusted_concurrency != max_concurrent and args.verbose:
-        print(f"Adjusting concurrency to {adjusted_concurrency} for {file_count} files")
-
-    start_time = time.time()
-
-    # Use semaphore to limit concurrency
-    sem = asyncio.Semaphore(adjusted_concurrency)
-
-    async def download_single_file(url):
-        async with sem:
-            try:
-                filename = os.path.basename(url)
-                output_path = os.path.join(output_dir, filename)
-
-                # Use the async curl_cffi function
-                success, content, elapsed = await download_first_curl_cffi_async(
-                    url, output_path, timeout
-                )
-
-                if success:
-                    if args.verbose:
-                        print(f"Downloaded {filename} in {fmt_time(elapsed)}")
-                    return output_path
-                return None
-            except Exception as e:
-                if args.verbose:
-                    print(f"Error downloading {url}: {e}")
-                return None
-
-    # Create tasks for all URLs
-    tasks = [download_single_file(url) for url in urls]
-
-    # Gather results
-    results = await asyncio.gather(*tasks)
-
-    # Filter successful downloads
-    successful_downloads = [path for path in results if path]
-
-    total_time = time.time() - start_time
-    return successful_downloads, total_time
-
-
 # -------------------------- LEGACY APPROACH IMPLEMENTATIONS --------------------------
 
 
-async def check_url_with_httpx(url, timeout):
-    """Traditional HEAD-based URL checking with httpx."""
-    if not HTTPX_AVAILABLE:
+async def check_url_with_curl_cffi_async(url, timeout):
+    """HEAD-based URL checking with curl_cffi async."""
+    if not CURL_CFFI_ASYNC_AVAILABLE:
         return await check_url_with_curl(url, timeout)
 
     start_time = time.time()
     success = False
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.head(url, timeout=timeout)
+        async with AsyncSession() as session:
+            response = await session.head(url, timeout=timeout)
             success = response.status_code == 200
     except Exception as e:
         if args.verbose:
-            print(f"httpx error: {e}")
+            print(f"curl_cffi async error: {e}")
 
     elapsed = time.time() - start_time
     return success, elapsed
@@ -712,8 +527,8 @@ async def check_latest_date_traditional(
         if args.verbose:
             print(f"Checking {date} using {client}...")
 
-        if client == "httpx":
-            success, elapsed = await check_url_with_httpx(url, timeout)
+        if client == "curl_cffi_async" and CURL_CFFI_ASYNC_AVAILABLE:
+            success, elapsed = await check_url_with_curl_cffi_async(url, timeout)
         else:  # curl_cffi or fallback to curl
             success, elapsed = check_url_curl_cffi(url, timeout)
 
@@ -785,7 +600,7 @@ async def download_with_aws_cli(url, output_path, timeout=30.0):
 async def benchmark_aws_vs_http(
     market_type, symbol, interval, concurrent_levels, timeout=3.0
 ):
-    """Benchmark AWS CLI against HTTP clients (curl_cffi, curl_cffi async, and httpx)."""
+    """Benchmark AWS CLI against HTTP clients (curl_cffi and curl_cffi async)."""
     print("\n" + "=" * 80)
     print("BENCHMARKING AWS CLI vs HTTP CLIENTS")
     print("=" * 80)
@@ -793,10 +608,10 @@ async def benchmark_aws_vs_http(
     print(f"Concurrency levels: {concurrent_levels}, Timeout: {timeout}s")
     print("-" * 80)
 
-    # Verify at least one HTTP client is available
-    if not (CURL_CFFI_AVAILABLE or HTTPX_AVAILABLE):
+    # Verify that curl_cffi is available
+    if not CURL_CFFI_AVAILABLE:
         print(
-            "Warning: Neither curl_cffi nor httpx is available. Will fallback to command-line curl."
+            "Warning: curl_cffi is not available. Will fallback to command-line curl."
         )
 
     # Get URLs for test files
@@ -868,7 +683,7 @@ async def benchmark_aws_vs_http(
                 # Define an async wrapper function
                 async def run_async_download():
                     nonlocal successful
-                    successful, _ = await download_multiple_files_async(
+                    successful, _ = await download_multiple_files_concurrent(
                         urls, output_dir, concurrency, timeout
                     )
 
@@ -887,28 +702,6 @@ async def benchmark_aws_vs_http(
                 )
             else:
                 print("  curl_cffi async not available, skipping")
-
-        # Test httpx if available
-        if HTTPX_AVAILABLE:
-            print("\nBenchmarking httpx...")
-            with get_output_dir() as output_dir:
-                start_time = time.time()
-                successful, _ = download_with_httpx(
-                    urls, output_dir, concurrency, timeout
-                )
-                httpx_time = time.time() - start_time
-
-                concurrency_results["httpx"] = {
-                    "time": httpx_time,
-                    "success_rate": len(successful) / len(urls) * 100,
-                    "files": len(successful),
-                }
-
-                print(
-                    f"  httpx completed in {fmt_time(httpx_time)} ({len(successful)}/{len(urls)} files)"
-                )
-        else:
-            print("  httpx not available, skipping")
 
         # Test command-line curl (always available)
         print("\nBenchmarking command-line curl...")
@@ -1059,8 +852,6 @@ def demo_best_practice(market_type, symbol, interval, days_back, timeout):
         # Recommend the best HTTP client
         if CURL_CFFI_AVAILABLE:
             print("  * Use curl_cffi with download-first approach (fastest)")
-        elif HTTPX_AVAILABLE:
-            print("  * Use httpx with download-first approach (good alternative)")
         else:
             print("  * Use command-line curl with download-first approach (fallback)")
 
@@ -1074,13 +865,11 @@ def demo_best_practice(market_type, symbol, interval, days_back, timeout):
         if market_type == "spot" and actual_interval == "1s":
             print("\nFor spot data with 1s granularity:")
             print("  * curl_cffi achieves ~25 MB/s throughput at concurrency 50")
-            print("  * httpx achieves ~22 MB/s throughput at concurrency 50")
             print("  * AWS CLI achieves ~15 MB/s throughput at concurrency 50")
 
         elif market_type != "spot" and actual_interval == "1m":
             print("\nFor futures data with 1m granularity:")
             print("  * curl_cffi achieves ~20 MB/s throughput at concurrency 50")
-            print("  * httpx achieves ~18 MB/s throughput at concurrency 50")
             print("  * AWS CLI achieves ~12 MB/s throughput at concurrency 50")
 
         # AWS CLI comparison
@@ -1103,7 +892,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 
-# Try to import curl_cffi (preferred) or httpx as fallback
+# Try to import curl_cffi
 try:
     import curl_cffi.requests as curl_requests
     from curl_cffi.requests import AsyncSession
@@ -1117,13 +906,6 @@ except ImportError:
     except ImportError:
         curl_cffi_available = False
         curl_cffi_async_available = False
-        
-        # Try httpx as fallback
-        try:
-            #import httpx
-            httpx_available = True
-        except ImportError:
-            httpx_available = False
 
 def get_latest_data(symbol, interval, market="spot", max_days_back=5, output_dir="downloads"):
     """Get the latest available data file using download-first approach.
@@ -1167,11 +949,6 @@ def get_latest_data(symbol, interval, market="spot", max_days_back=5, output_dir
             if curl_cffi_available:
                 # Best option: Use curl_cffi
                 response = curl_requests.get(url, timeout=3.0)
-                success = response.status_code == 200
-                content = response.content
-            elif httpx_available:
-                # Good alternative: Use httpx
-                response = httpx.get(url, timeout=3.0)
                 success = response.status_code == 200
                 content = response.content
             else:
@@ -1290,11 +1067,6 @@ def download_multiple_files(url_list, output_dir="downloads", max_concurrent=50)
                 response = curl_requests.get(url, timeout=3.0)
                 success = response.status_code == 200
                 content = response.content
-            elif httpx_available:
-                # Good alternative: Use httpx
-                response = httpx.get(url, timeout=3.0)
-                success = response.status_code == 200
-                content = response.content
             else:
                 # Fallback: Use subprocess with curl command
                 result = subprocess.run(
@@ -1402,13 +1174,11 @@ if __name__ == "__main__":
     # Check if required libraries are available
     print("\nChecking for available libraries...")
     curl_available = CURL_CFFI_AVAILABLE
-    httpx_available = HTTPX_AVAILABLE
 
     print(f"curl_cffi: {'Available' if curl_available else 'Not available'}")
-    print(f"httpx:     {'Available' if httpx_available else 'Not available'}")
 
-    if not (curl_available or httpx_available):
-        print("Warning: Neither curl_cffi nor httpx is available.")
+    if not curl_available:
+        print("Warning: curl_cffi is not available.")
         print("Will use command-line curl as fallback for all operations.")
 
     # Print banner
