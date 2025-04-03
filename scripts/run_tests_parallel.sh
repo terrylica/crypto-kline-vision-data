@@ -56,6 +56,8 @@
 #                       analysis. Forces sequential mode for accurate results.
 #   -g, --profile-svg:  Generate SVG visualizations of the profile (requires graphviz).
 #                       Must be used with -p/--profile option.
+#   -c, --clear:        Clear the screen after selecting a test folder in interactive mode.
+#                       This is useful for starting with a clean output from the test execution.
 #
 # ARGUMENTS:
 #   test_path: (Optional) Path to a specific test file or directory.
@@ -153,7 +155,15 @@
 #   This script is provided as is, without warranty. Use it at your own risk.
 
 # Source the enhanced error extraction script for better asyncio error reporting
-source "$(dirname "$0")/enhanced_extract_errors.sh"
+if [[ -f "$(dirname "$0")/enhanced_extract_errors.sh" ]]; then
+  source "$(dirname "$0")/enhanced_extract_errors.sh"
+else
+  # Define a simple fallback function if the enhanced error extraction script doesn't exist
+  enhanced_extract_errors() {
+    echo "Using simple error extraction (enhanced_extract_errors.sh not found)"
+    extract_errors "$1"
+  }
+fi
 
 set -e
 
@@ -199,6 +209,7 @@ show_help() {
     echo -e "  ${GREEN}-a, --analyze-log FILE${NC}: Analyze an existing log file for errors and warnings"
     echo -e "  ${GREEN}-p, --profile${NC}    : Enable profiling and save .prof files"
     echo -e "  ${GREEN}-g, --profile-svg${NC}: Generate SVG visual profiles (requires graphviz)"
+    echo -e "  ${GREEN}-c, --clear${NC}      : Clear screen after test selection"
     echo -e "  ${GREEN}-h, --help${NC}        : Show this detailed help"
     echo -e ""
     echo -e "${YELLOW}Arguments:${NC}"
@@ -535,6 +546,7 @@ ANALYZE_LOG_FILE=""
 SEQUENTIAL=false
 PROFILE=false
 PROFILE_SVG=false
+CLEAR_AFTER_SELECTION=false
 PYTEST_OPTIONS=()  # New array to collect pytest options
 
 # Parse options
@@ -567,6 +579,10 @@ while [[ $# -gt 0 && "$1" == -* ]]; do
       ;;
     -g|--profile-svg)
       PROFILE_SVG=true
+      shift
+      ;;
+    -c|--clear)
+      CLEAR_AFTER_SELECTION=true
       shift
       ;;
     -h|--help)
@@ -628,6 +644,11 @@ if $INTERACTIVE; then
       echo "Invalid selection. Please try again."
     fi
   done
+  
+  # Clear the screen if requested
+  if $CLEAR_AFTER_SELECTION; then
+    clear
+  fi
   
   LOG_LEVEL=${1:-INFO}
   shift 1 2>/dev/null || shift $# 2>/dev/null || true
