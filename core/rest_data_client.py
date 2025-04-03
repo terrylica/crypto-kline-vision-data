@@ -7,14 +7,17 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import numpy as np
+import time
 
 # Import curl_cffi for better performance
 from curl_cffi.requests import AsyncSession
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.market_constraints import (
     Interval,
     MarketType,
+    ChartType,
+    get_endpoint_url,
 )
 from utils.time_utils import (
     get_bar_close_time,
@@ -31,9 +34,9 @@ from utils.config import (
     CANONICAL_INDEX_NAME,
     create_empty_dataframe,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+    API_TIMEOUT,
 )
-
-logger = get_logger(__name__, "INFO", show_path=False)
+from utils.validation_utils import validate_date_range_for_api
 
 
 def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
@@ -152,6 +155,7 @@ class RestDataClient:
         max_concurrent: int = 50,
         retry_count: int = 5,
         client: Optional[AsyncSession] = None,
+        fetch_timeout: float = API_TIMEOUT,  # Use standardized API_TIMEOUT from config
     ):
         """Initialize the RestDataClient.
 
@@ -160,16 +164,16 @@ class RestDataClient:
             max_concurrent: Maximum concurrent API requests
             retry_count: Number of retries for failed requests
             client: Optional existing client session (curl_cffi AsyncSession)
+            fetch_timeout: Timeout in seconds for API fetch operations (default: from config)
         """
         self.market_type = market_type
         self.CHUNK_SIZE = 1000  # Maximum number of records per API request
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._retry_count = retry_count
+        self._fetch_timeout = min(fetch_timeout, 5.0)  # Cap at 5 seconds per guidelines
 
         # Get endpoints from market_constraints
-        from utils.market_constraints import get_endpoint_url
-
-        self._base_url = get_endpoint_url(market_type)
+        self._base_url = get_endpoint_url(market_type, ChartType.KLINES)
         # Use multiple API endpoints for rotation
         self._endpoints = [
             self._base_url,
@@ -296,129 +300,222 @@ class RestDataClient:
         self,
         symbol: str,
         interval: Interval,
-        chunk_start: int,
-        chunk_end: int,
+        start_ms: int,
+        end_ms: int,
         semaphore: asyncio.Semaphore,
-        retry_count: int = 0,
     ) -> Tuple[List[List[Any]], str]:
-        """Fetch a chunk of klines data with retry logic and semaphore control.
-
-        This method implements boundary-aware time chunking with the Binance REST API.
-        The API handles interval alignment where startTime is rounded up and
-        endTime is rounded down to interval boundaries.
+        """Fetch a chunk of data using semaphore for concurrency control.
 
         Args:
-            symbol: Trading pair symbol
+            symbol: The trading pair symbol
             interval: Time interval
-            chunk_start: Start time in milliseconds
-            chunk_end: End time in milliseconds
-            semaphore: Semaphore for concurrency control
-            retry_count: Current retry count
+            start_ms: Start time in milliseconds
+            end_ms: End time in milliseconds
+            semaphore: Semaphore for controlling concurrency
 
         Returns:
-            Tuple of (klines data, endpoint URL)
+            Tuple of (klines data, endpoint used)
+        """
+        try:
+            async with semaphore:
+                # Get market-specific parameters
+                formatted_symbol = symbol
+                if (
+                    self.market_type == MarketType.FUTURES_COIN
+                    and "_PERP" not in symbol
+                ):
+                    formatted_symbol = f"{symbol}_PERP"
+
+                # Handle case where FUTURES_USDT might need slightly more aggressive retry
+                retry_count = self._retry_count
+                if self.market_type in (
+                    MarketType.FUTURES_USDT,
+                    MarketType.FUTURES_COIN,
+                    MarketType.FUTURES,
+                ):
+                    retry_count += 2  # Add extra retries for futures markets
+
+                # Determine the limit to use (different for different market types)
+                limit = self.CHUNK_SIZE
+                if self.market_type in (
+                    MarketType.FUTURES_USDT,
+                    MarketType.FUTURES_COIN,
+                    MarketType.FUTURES,
+                ):
+                    limit = 1500  # Futures markets support 1500 records per request
+
+                # Prepare parameters
+                params = {
+                    "symbol": formatted_symbol,
+                    "interval": interval.value,
+                    "startTime": start_ms,
+                    "endTime": end_ms,
+                    "limit": limit,
+                }
+
+                # Try to fetch with rotation and retry logic
+                return await self._fetch_chunk_with_rotation(
+                    params, retry_count=retry_count
+                )
+        except Exception as e:
+            logger.error(f"Error fetching chunk: {str(e)}")
+            raise
+
+    async def _fetch_chunk_with_rotation(
+        self,
+        params: Dict[str, Any],
+        retry_count: int = 0,
+        current_attempt: int = 0,
+    ) -> Tuple[List[List[Any]], str]:
+        """Fetch a chunk of data with endpoint rotation and retry logic.
+
+        Args:
+            params: API parameters to use
+            retry_count: Maximum number of retries
+            current_attempt: Current retry attempt
+
+        Returns:
+            Tuple of (klines data, endpoint used)
         """
         # Get the current endpoint with rotation
         async with self._endpoint_lock:
             endpoint_index = self._endpoint_index
             endpoint = self._endpoints[endpoint_index]
 
-        # Prepare request parameters
-        params = {
-            "symbol": symbol,
-            "interval": interval.value,
-            "startTime": chunk_start,
-            "endTime": chunk_end,
-            "limit": self.CHUNK_SIZE,
-        }
+        try:
+            # Add detailed logging including symbol and interval for easier debugging
+            symbol = params.get("symbol", "UNKNOWN")
+            interval = params.get("interval", "UNKNOWN")
+            start_time = (
+                datetime.fromtimestamp(
+                    params.get("startTime", 0) / 1000, tz=timezone.utc
+                )
+                if "startTime" in params
+                else "UNKNOWN"
+            )
+            end_time = (
+                datetime.fromtimestamp(params.get("endTime", 0) / 1000, tz=timezone.utc)
+                if "endTime" in params
+                else "UNKNOWN"
+            )
 
-        # Use semaphore to limit concurrent requests
-        async with semaphore:
-            try:
+            logger.debug(
+                f"Fetching {symbol} {interval} chunk (attempt {current_attempt+1}/{retry_count+1}) "
+                f"from {endpoint}: {start_time} to {end_time}"
+            )
+
+            # Record start time for timing
+            fetch_start_time = time.monotonic()
+
+            # Make the API request using curl_cffi
+            response = await self._client.get(endpoint, params=params)
+
+            # Calculate elapsed time
+            elapsed = time.monotonic() - fetch_start_time
+            logger.debug(
+                f"Request completed in {elapsed:.2f}s with status {response.status_code}"
+            )
+
+            # Handle response
+            if response.status_code >= 400:
+                # Handle rate limiting specifically
+                if response.status_code in (418, 429):
+                    retry_after = int(response.headers.get("Retry-After", 1))
+                    logger.warning(
+                        f"{symbol} {interval}: Rate limited by API. "
+                        f"Retry after {retry_after}s (attempt {current_attempt+1}/{retry_count+1})"
+                    )
+                    await asyncio.sleep(retry_after)
+
+                    # Rotate to next endpoint
+                    async with self._endpoint_lock:
+                        self._endpoint_index = (self._endpoint_index + 1) % len(
+                            self._endpoints
+                        )
+
+                    # Try again with next endpoint
+                    return await self._fetch_chunk_with_rotation(
+                        params, retry_count, current_attempt
+                    )
+
+                # Handle other errors
+                logger.error(
+                    f"{symbol} {interval}: API error {response.status_code}: {response.text}"
+                )
+                if current_attempt < retry_count:
+                    # Increment retry counter
+                    wait_time = min(2**current_attempt, 30)  # Cap at 30 seconds
+                    logger.warning(
+                        f"{symbol} {interval}: Error fetching chunk: API error {response.status_code}. "
+                        f"Retry {current_attempt+1}/{retry_count} in {wait_time}s"
+                    )
+                    await asyncio.sleep(wait_time)
+
+                    # Rotate to next endpoint
+                    async with self._endpoint_lock:
+                        self._endpoint_index = (self._endpoint_index + 1) % len(
+                            self._endpoints
+                        )
+
+                    # Try again with next attempt
+                    return await self._fetch_chunk_with_rotation(
+                        params, retry_count, current_attempt + 1
+                    )
+
+                raise Exception(f"API error {response.status_code}: {response.text}")
+
+            # Parse response
+            data = response.json()
+
+            # Validate response format
+            if not isinstance(data, list):
+                logger.error(
+                    f"{symbol} {interval}: Unexpected API response format: {type(data)}"
+                )
+                raise ValueError(f"Unexpected API response format: {type(data)}")
+
+            # Log first and last timestamps if data is available
+            if data and len(data) > 0:
+                first_ts = datetime.fromtimestamp(data[0][0] / 1000, tz=timezone.utc)
+                last_ts = datetime.fromtimestamp(data[-1][0] / 1000, tz=timezone.utc)
                 logger.debug(
-                    f"Fetching chunk from {endpoint}: {chunk_start} to {chunk_end}"
+                    f"{symbol} {interval}: Retrieved {len(data)} records "
+                    f"from {first_ts} to {last_ts} in {elapsed:.2f}s"
+                )
+            else:
+                logger.debug(
+                    f"{symbol} {interval}: Retrieved empty chunk (no records) in {elapsed:.2f}s"
                 )
 
-                # Make API request using curl_cffi
-                response = await self._client.get(endpoint, params=params)
+            return data, endpoint
 
-                # Handle response
-                if response.status_code >= 400:
-                    # Handle rate limiting
-                    if response.status_code in (418, 429):
-                        retry_after = int(response.headers.get("Retry-After", 1))
-                        logger.warning(
-                            f"Rate limited by API. Retry after {retry_after}s"
-                        )
-                        await asyncio.sleep(retry_after)
-                        # Try with a different endpoint
-                        async with self._endpoint_lock:
-                            self._endpoint_index = (self._endpoint_index + 1) % len(
-                                self._endpoints
-                            )
-
-                        return await self._fetch_chunk_with_semaphore(
-                            symbol,
-                            interval,
-                            chunk_start,
-                            chunk_end,
-                            semaphore,
-                            retry_count,
-                        )
-
-                    # Handle other errors
-                    logger.error(f"API error {response.status_code}: {response.text}")
-                    raise Exception(
-                        f"API error {response.status_code}: {response.text}"
-                    )
-
-                # Parse response
-                data = response.json()
-
-                # Validate response format
-                if not isinstance(data, list):
-                    logger.error(f"Unexpected API response format: {type(data)}")
-                    raise ValueError(f"Unexpected API response format: {type(data)}")
-
-                # Log first and last timestamps if data is available
-                if data and len(data) > 0:
-                    first_ts = datetime.fromtimestamp(
-                        data[0][0] / 1000, tz=timezone.utc
-                    )
-                    last_ts = datetime.fromtimestamp(
-                        data[-1][0] / 1000, tz=timezone.utc
-                    )
-                    logger.debug(
-                        f"Retrieved {len(data)} records from {first_ts} to {last_ts}"
-                    )
-                else:
-                    logger.debug(f"Retrieved empty chunk (no records)")
-
-                return data, endpoint
-
-            except Exception as e:
-                if retry_count >= self._retry_count:
-                    logger.error(f"All {self._retry_count} retries failed: {str(e)}")
-                    raise
-
-                # Increment retry counter and wait with exponential backoff
-                retry_count += 1
-                wait_time = min(2**retry_count, 60)  # Cap at 60 seconds
+        except Exception as e:
+            # Retry logic for general exceptions (network errors, etc.)
+            if current_attempt < retry_count:
+                wait_time = min(2**current_attempt, 30)  # Cap at 30 seconds
                 logger.warning(
-                    f"Error fetching chunk: {str(e)}. Retry {retry_count}/{self._retry_count} in {wait_time}s"
+                    f"Error fetching chunk for {params.get('symbol', 'UNKNOWN')} {params.get('interval', 'UNKNOWN')}: {str(e)}. "
+                    f"Retry {current_attempt+1}/{retry_count} in {wait_time}s"
                 )
                 await asyncio.sleep(wait_time)
 
-                # Try with a different endpoint
+                # Rotate to next endpoint
                 async with self._endpoint_lock:
                     self._endpoint_index = (self._endpoint_index + 1) % len(
                         self._endpoints
                     )
 
-                # Retry
-                return await self._fetch_chunk_with_semaphore(
-                    symbol, interval, chunk_start, chunk_end, semaphore, retry_count
+                # Try again with next attempt
+                return await self._fetch_chunk_with_rotation(
+                    params, retry_count, current_attempt + 1
                 )
+
+            # All retries exhausted
+            logger.error(
+                f"All {retry_count} retries failed for {params.get('symbol', 'UNKNOWN')} "
+                f"{params.get('interval', 'UNKNOWN')}: {str(e)}"
+            )
+            raise
 
     def _validate_request_params(
         self, symbol: str, interval: Interval, start_time: datetime, end_time: datetime
@@ -467,11 +564,6 @@ class RestDataClient:
         where startTime is rounded up and endTime is rounded down to interval
         boundaries.
 
-        The chunk calculation is optimized for each interval type to ensure:
-        1. Efficient retrieval of data with minimal API calls
-        2. Respect for the 1000 record limit per API call
-        3. Appropriate chunk sizes for different interval durations
-
         Args:
             start_ms: Start time in milliseconds
             end_ms: End time in milliseconds
@@ -489,67 +581,22 @@ class RestDataClient:
         # Calculate records per chunk - API max is 1000
         records_per_chunk = self.CHUNK_SIZE  # default 1000
 
-        # Calculate optimal chunk duration based on interval type
-        # We want to retrieve records_per_chunk records in each API call
-        # while considering practical limitations for different intervals
-
-        # For very small intervals (1s, 1m), we need to limit chunk size to avoid
-        # excessive time ranges in a single request
-        if interval == Interval.SECOND_1:
-            # For 1s: max ~16 minutes per chunk (1000 records)
-            chunk_ms = min(
-                records_per_chunk * interval_ms, 1000 * 1000
-            )  # Max 1000 seconds
-            logger.debug(
-                f"Using 1s interval chunk size: {chunk_ms/1000:.1f}s for {interval.value}"
-            )
-
-        elif interval == Interval.MINUTE_1:
-            # For 1m: max ~16 hours per chunk (1000 records)
-            chunk_ms = min(
-                records_per_chunk * interval_ms, 1000 * 60 * 1000
-            )  # Max 1000 minutes
-            logger.debug(
-                f"Using 1m interval chunk size: {chunk_ms/(60*1000):.1f}m for {interval.value}"
-            )
-
-        elif interval in (
-            Interval.MINUTE_3,
-            Interval.MINUTE_5,
-            Interval.MINUTE_15,
-            Interval.MINUTE_30,
+        # For futures markets, use 1500 as the chunk size
+        if self.market_type in (
+            MarketType.FUTURES_USDT,
+            MarketType.FUTURES_COIN,
+            MarketType.FUTURES,
         ):
-            # For other minute intervals: cap at 7 days per chunk
-            chunk_ms = min(
-                records_per_chunk * interval_ms, 7 * 24 * 60 * 60 * 1000
-            )  # Max 7 days
-            logger.debug(
-                f"Using minute interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
-            )
+            records_per_chunk = 1500  # Futures markets support 1500 records per request
 
-        elif interval in (
-            Interval.HOUR_1,
-            Interval.HOUR_2,
-            Interval.HOUR_4,
-            Interval.HOUR_6,
-            Interval.HOUR_8,
-            Interval.HOUR_12,
-        ):
-            # For hour intervals: cap at 30 days per chunk
-            chunk_ms = min(
-                records_per_chunk * interval_ms, 30 * 24 * 60 * 60 * 1000
-            )  # Max 30 days
-            logger.debug(
-                f"Using hour interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
-            )
+        # Calculate chunk duration based on interval - simple approach
+        # The chunk size is determined by the maximum number of records (1000 or 1500)
+        # multiplied by the interval duration
+        chunk_ms = records_per_chunk * interval_ms
 
-        else:
-            # For day/week/month intervals: use full chunk capacity
-            # These intervals are large enough that we're unlikely to hit API limits
-            chunk_ms = records_per_chunk * interval_ms
-            logger.debug(
-                f"Using full interval chunk size: {chunk_ms/(24*60*60*1000):.1f}d for {interval.value}"
-            )
+        logger.debug(
+            f"Using chunk size: {chunk_ms/(24*60*60*1000):.4f}d ({records_per_chunk} records) for {interval.value}"
+        )
 
         # Process chunks with proper boundary alignment
         while current_start < end_ms:
@@ -725,16 +772,56 @@ class RestDataClient:
             self._client = self._create_optimized_client()
             self._client_is_external = False
 
-        # Test connectivity to Binance API before proceeding
-        api_status = await test_connectivity(
-            self._client,
-            url=self._base_url,  # Use our base API URL for the test
-            timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,
-        )
+        # Validate date range to prevent requesting future data
+        is_valid, error_message = validate_date_range_for_api(start_time, end_time)
+        if not is_valid:
+            logger.warning(f"Invalid date range: {error_message}")
+            return self.create_empty_dataframe(), {
+                "error": "invalid_date_range",
+                "error_message": error_message,
+                "chunks": 0,
+                "total_records": 0,
+            }
+
+        # Handle symbol formatting for FUTURES_COIN market type
+        formatted_symbol = symbol
+        if self.market_type == MarketType.FUTURES_COIN and "_PERP" not in symbol:
+            # Append _PERP suffix for coin-margined futures
+            formatted_symbol = f"{symbol}_PERP"
+            logger.debug(f"Adjusted symbol for FUTURES_COIN market: {formatted_symbol}")
+
+        # Test connectivity to Binance API with actual endpoint we'll use
+        # Use the klines endpoint with actual parameters for a more accurate test
+        # Get the properly constructed URL using get_endpoint_url with ChartType.KLINES
+        test_url = f"{get_endpoint_url(self.market_type, ChartType.KLINES)}?symbol={formatted_symbol}&interval={interval.value}&limit=1"
+
+        logger.debug(f"Testing connectivity to {test_url}")
+
+        try:
+            api_status = await asyncio.wait_for(
+                test_connectivity(
+                    self._client,
+                    url=test_url,
+                    timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,
+                    retry_count=3,  # Increase retry count for more reliability
+                ),
+                timeout=self._fetch_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Connectivity test timed out after {self._fetch_timeout}s for {test_url}"
+            )
+            return self.create_empty_dataframe(), {
+                "error": "connectivity_timeout",
+                "chunks": 0,
+                "total_records": 0,
+            }
 
         if not api_status:
-            logger.error(f"Cannot connect to Binance API at {self._base_url}")
-            return self.create_empty_dataframe(), {"error": "connectivity_failed"}
+            logger.error(f"Cannot connect to Binance API at {test_url}")
+            # Even if connectivity test fails, try to proceed with the actual data fetch
+            # as the test might be failing due to environment restrictions but actual
+            # data retrieval might work
 
         # Ensure timezone awareness
         if start_time.tzinfo is None:
@@ -744,12 +831,6 @@ class RestDataClient:
 
         # Validate request parameters
         self._validate_request_params(symbol, interval, start_time, end_time)
-
-        # Handle symbol formatting for FUTURES_COIN market type
-        if self.market_type == MarketType.FUTURES_COIN and "_PERP" not in symbol:
-            # Append _PERP suffix for coin-margined futures
-            symbol = f"{symbol}_PERP"
-            logger.debug(f"Adjusted symbol for FUTURES_COIN market: {symbol}")
 
         # Align boundaries to match API behavior
         # This ensures proper time slicing and avoids rounding issues
@@ -762,11 +843,17 @@ class RestDataClient:
         end_ms = int(aligned_end.timestamp() * 1000)
 
         # Reset stats for this fetch
-        self.stats = {"total_records": 0, "chunks_processed": 0, "chunks_failed": 0}
+        self.stats = {
+            "total_records": 0,
+            "chunks_processed": 0,
+            "chunks_failed": 0,
+            "chunks": 0,
+        }
 
         # Calculate chunk boundaries
         chunks = self._calculate_chunks(start_ms, end_ms, interval)
         num_chunks = len(chunks)
+        self.stats["chunks"] = num_chunks
 
         logger.info(
             f"Fetching {symbol} {interval.value} data from "
@@ -780,18 +867,31 @@ class RestDataClient:
         # Limit semaphore to optimal concurrency
         sem = asyncio.Semaphore(optimal_concurrency)
 
-        # Create tasks for all chunks
+        # Create tasks for all chunks with timeout
         tasks = []
         for chunk_start, chunk_end in chunks:
             task = asyncio.create_task(
-                self._fetch_chunk_with_semaphore(
-                    symbol, interval, chunk_start, chunk_end, sem
+                asyncio.wait_for(
+                    self._fetch_chunk_with_semaphore(
+                        symbol, interval, chunk_start, chunk_end, sem
+                    ),
+                    timeout=self._fetch_timeout,
                 )
             )
             tasks.append(task)
 
         # Wait for all tasks to complete
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout fetching data for {symbol} {interval.value}")
+            return self.create_empty_dataframe(), {
+                "error": "fetch_timeout",
+                "chunks": num_chunks,
+                "chunks_processed": self.stats["chunks_processed"],
+                "chunks_failed": self.stats["chunks_failed"],
+                "total_records": 0,
+            }
 
         # Process results
         successful_results = []

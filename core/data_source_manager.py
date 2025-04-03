@@ -9,7 +9,7 @@ from pathlib import Path
 import warnings
 import asyncio
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
     enforce_utc_timezone,
@@ -27,8 +27,7 @@ from utils.config import (
 from core.rest_data_client import RestDataClient
 from core.vision_data_client import VisionDataClient
 from core.cache_manager import UnifiedCacheManager
-
-logger = get_logger(__name__, "INFO", show_path=False)
+from utils.network_utils import safely_close_client
 
 
 class DataSource(Enum):
@@ -152,13 +151,13 @@ class DataSourceManager:
         Returns:
             String representation for Vision API
         """
-        if market_type == MarketType.SPOT:
+        if market_type.name == MarketType.SPOT.name:
             return "spot"
-        elif market_type == MarketType.FUTURES_USDT:
+        elif market_type.name == MarketType.FUTURES_USDT.name:
             return "futures_usdt"
-        elif market_type == MarketType.FUTURES_COIN:
+        elif market_type.name == MarketType.FUTURES_COIN.name:
             return "futures_coin"
-        elif market_type == MarketType.FUTURES:
+        elif market_type.name == MarketType.FUTURES.name:
             return "futures_usdt"  # Default to USDT-margined for legacy type
         else:
             raise ValueError(f"Unsupported market type: {market_type}")
@@ -276,35 +275,51 @@ class DataSourceManager:
     def _should_use_vision_api(
         self, start_time: datetime, end_time: datetime, interval: Interval
     ) -> bool:
-        """Determine if Vision API should be used based on request parameters.
+        """Determine if Vision API should be used based on time range and interval.
 
         Args:
-            start_time: Start time of data request
-            end_time: End time of data request
+            start_time: Start time
+            end_time: End time
             interval: Time interval
 
         Returns:
-            True if Vision API should be used, False otherwise
+            True if Vision API should be used, False for REST API
         """
-        now = datetime.now(timezone.utc)
-        estimated_points = self._estimate_data_points(start_time, end_time, interval)
+        # Compare enum names rather than objects to avoid issues in parallel testing
+        # where enum objects might be different instances due to module reloading
 
-        # Log decision factors
-        logger.info(f"Data source selection factors:")
-        logger.info(f"- Current time: {now}")
-        logger.info(f"- Request time range: {start_time} to {end_time}")
-        logger.info(f"- Estimated data points: {estimated_points}")
+        # Use REST API for small intervals like 1s that Vision doesn't support
+        if interval.name == Interval.SECOND_1.name:
+            logger.debug("Using REST API for 1s data (Vision API doesn't support it)")
+            return False
 
-        # Rule 1: Always use Vision API for large requests
-        if estimated_points > self.REST_CHUNK_SIZE * self.REST_MAX_CHUNKS:
-            logger.info("Using Vision API: Large data request")
+        # Always use Vision for large time ranges to avoid multiple chunked API calls
+        time_range = end_time - start_time
+        data_points = self._estimate_data_points(start_time, end_time, interval)
+
+        if data_points > self.REST_CHUNK_SIZE * self.REST_MAX_CHUNKS:
+            logger.debug(
+                f"Using Vision API due to large data request ({data_points} points, "
+                f"exceeding REST max of {self.REST_CHUNK_SIZE * self.REST_MAX_CHUNKS})"
+            )
             return True
 
-        # Rule 2: Try Vision API first for all other cases
-        logger.info(
-            "Using Vision API: Default choice (will fall back to REST if unavailable)"
+        # Use Vision API for historical data beyond the delay threshold
+        # Ensure consistent timezone for comparison
+        now = datetime.now(timezone.utc)
+        vision_threshold = now - timedelta(hours=self.VISION_DATA_DELAY_HOURS)
+
+        if end_time < vision_threshold:
+            logger.debug(
+                f"Using Vision API for historical data older than {self.VISION_DATA_DELAY_HOURS} hours"
+            )
+            return True
+
+        # Default to REST API for recent data
+        logger.debug(
+            f"Using REST API for recent data within {self.VISION_DATA_DELAY_HOURS} hours"
         )
-        return True
+        return False
 
     def _format_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Format DataFrame to ensure consistent structure and data types.
@@ -458,7 +473,25 @@ class DataSourceManager:
         # Validate inputs
         if not symbol:
             raise ValueError("Symbol must be provided")
-        if not isinstance(interval, Interval):
+
+        # Convert interval to proper Enum if needed
+        if isinstance(interval, str):
+            try:
+                # Find matching enum by value
+                interval = next(i for i in Interval if i.value == interval)
+            except StopIteration:
+                raise ValueError(f"Invalid interval: {interval}")
+        elif hasattr(interval, "value"):
+            # It's an enum-like object, check if value matches any valid interval
+            try:
+                # Check if the value matches a valid interval value
+                if interval.value not in [i.value for i in Interval]:
+                    raise ValueError(f"Invalid interval value: {interval.value}")
+                # Get the canonical interval enum by value
+                interval = next(i for i in Interval if i.value == interval.value)
+            except (AttributeError, StopIteration):
+                raise ValueError(f"Invalid interval: {interval}")
+        else:
             raise ValueError(f"Invalid interval: {interval}")
 
         # Standardize using utils
@@ -590,11 +623,30 @@ class DataSourceManager:
 
                 # Properly cleanup vision client
                 await self.vision_client.__aexit__(exc_type, exc_val, exc_tb)
+
+                # Clean up any direct client connections
+                if (
+                    hasattr(self.vision_client, "_client")
+                    and self.vision_client._client
+                ):
+                    await safely_close_client(self.vision_client._client)
+                    self.vision_client._client = None
         except Exception as e:
             logger.warning(f"Failed to restore vision client cache settings: {e}")
 
+            # Clean up any direct client connections
+            if hasattr(self.vision_client, "_client") and self.vision_client._client:
+                await safely_close_client(self.vision_client._client)
+                self.vision_client._client = None
+
         if self.rest_client:
+            # Close the REST client
             await self.rest_client.__aexit__(exc_type, exc_val, exc_tb)
+
+            # Clean up any direct client connections
+            if hasattr(self.rest_client, "_client") and self.rest_client._client:
+                await safely_close_client(self.rest_client._client)
+                self.rest_client._client = None
 
     def _ensure_vision_client(self, symbol: str, interval: str) -> None:
         """Ensure a VisionDataClient is available for the current operation.

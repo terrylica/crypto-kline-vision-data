@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, Any, Sequence
 import pandas as pd
 import pyarrow as pa
+import filelock
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.cache_validator import (
     CacheKeyManager,
     safely_read_arrow_file_async,
@@ -22,8 +23,6 @@ from utils.time_utils import (
     get_interval_floor,
 )
 from utils.market_constraints import Interval
-
-logger = get_logger(__name__, "INFO", show_path=False)
 
 
 class UnifiedCacheManager:
@@ -230,65 +229,77 @@ class UnifiedCacheManager:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Cache path: {cache_path}")
 
-        # Convert to Arrow table - Handling reset_index carefully
-        try:
-            logger.debug("Converting DataFrame to Arrow table")
+        # Create a lock file path for file locking
+        lock_file = str(cache_path) + ".lock"
+        checksum = ""
+        record_count = 0
 
-            # Check if the index name conflicts with a column name
-            if df.index.name is not None and df.index.name in df.columns:
+        # Use file lock to prevent race conditions during parallel access
+        with filelock.FileLock(lock_file, timeout=10):
+            # Convert to Arrow table - Handling reset_index carefully
+            try:
+                logger.debug("Converting DataFrame to Arrow table")
+
+                # Check if the index name conflicts with a column name
+                if df.index.name is not None and df.index.name in df.columns:
+                    logger.debug(
+                        f"Index name '{df.index.name}' conflicts with column, renaming index before reset"
+                    )
+                    df.index.name = f"{df.index.name}_idx"
+
+                # Reset index with a temporary name if it has no name
+                if df.index.name is None:
+                    logger.debug("Index has no name, using temporary name for reset")
+                    df.index.name = "temp_index"
+
+                # Reset index and check for column conflicts
+                reset_df = df.reset_index()
                 logger.debug(
-                    f"Index name '{df.index.name}' conflicts with column, renaming index before reset"
+                    f"After reset_index, columns are: {reset_df.columns.tolist()}"
                 )
-                df.index.name = f"{df.index.name}_idx"
 
-            # Reset index with a temporary name if it has no name
-            if df.index.name is None:
-                logger.debug("Index has no name, using temporary name for reset")
-                df.index.name = "temp_index"
+                table = pa.Table.from_pandas(reset_df)
 
-            # Reset index and check for column conflicts
-            reset_df = df.reset_index()
-            logger.debug(f"After reset_index, columns are: {reset_df.columns.tolist()}")
+                # Save to Arrow file
+                with pa.OSFile(str(cache_path), "wb") as sink:
+                    with pa.ipc.new_file(sink, table.schema) as writer:
+                        writer.write_table(table)
 
-            table = pa.Table.from_pandas(reset_df)
+                logger.debug(f"Successfully wrote data to {cache_path}")
+            except Exception as e:
+                logger.error(f"Error saving cache file: {e}")
+                raise
 
-            # Save to Arrow file
-            with pa.OSFile(str(cache_path), "wb") as sink:
-                with pa.ipc.new_file(sink, table.schema) as writer:
-                    writer.write_table(table)
+            # Calculate checksum and record count
+            checksum = calculate_checksum(cache_path)
+            record_count = len(df)
 
-            logger.debug(f"Successfully wrote data to {cache_path}")
-        except Exception as e:
-            logger.error(f"Error saving cache file: {e}")
-            raise
-
-        # Calculate checksum and record count
-        checksum = calculate_checksum(cache_path)
-        record_count = len(df)
-
-        # Update metadata
-        cache_key = self.get_cache_key(symbol, interval, date)
-        self.metadata[cache_key] = {
-            "symbol": symbol,
-            "interval": interval,
-            "year_month_day": date.strftime("%Y%m%d"),
-            "date": date.strftime("%Y-%m-%d"),
-            "checksum": checksum,
-            "record_count": record_count,
-            "path": str(cache_path),
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-        }
+            # Update metadata
+            cache_key = self.get_cache_key(symbol, interval, date)
+            self.metadata[cache_key] = {
+                "symbol": symbol,
+                "interval": interval,
+                "year_month_day": date.strftime("%Y%m%d"),
+                "date": date.strftime("%Y-%m-%d"),
+                "checksum": checksum,
+                "record_count": record_count,
+                "path": str(cache_path),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
 
         # Log metadata before saving
         logger.debug(f"Updating metadata for key: {cache_key}")
         logger.debug(f"Metadata content: {self.metadata[cache_key]}")
 
-        try:
-            self._save_metadata()
-            logger.debug("Successfully saved metadata")
-        except Exception as e:
-            logger.error(f"Error saving metadata: {e}")
-            raise
+        # Use file lock for the metadata file too
+        metadata_lock_file = str(self.metadata_dir / "cache_index.json") + ".lock"
+        with filelock.FileLock(metadata_lock_file, timeout=10):
+            try:
+                self._save_metadata()
+                logger.debug("Successfully saved metadata")
+            except Exception as e:
+                logger.error(f"Error saving metadata: {e}")
+                raise
 
         logger.info(f"Cached {record_count} records to {cache_path}")
         return checksum, record_count
@@ -336,7 +347,11 @@ class UnifiedCacheManager:
         logger.debug(f"Looking for cache at: {cache_path}")
 
         cache_key = self.get_cache_key(symbol, interval, date)
-        cache_info = self.metadata.get(cache_key)
+
+        # Use filelock for metadata access
+        metadata_lock_file = str(self.metadata_dir / "cache_index.json") + ".lock"
+        with filelock.FileLock(metadata_lock_file, timeout=5):
+            cache_info = self.metadata.get(cache_key)
 
         if not cache_info:
             return None
@@ -349,8 +364,14 @@ class UnifiedCacheManager:
             logger.warning(f"Cache checksum mismatch: {cache_path}")
             return None
 
-        # Use the async version of the safe reader for Arrow files for better performance
-        df = await safely_read_arrow_file_async(cache_path, columns)
+        # Create a lock file path for file locking
+        lock_file = str(cache_path) + ".lock"
+
+        # Use a shorter timeout for reading to avoid test hangs
+        with filelock.FileLock(lock_file, timeout=5):
+            # Use the async version of the safe reader for Arrow files for better performance
+            df = await safely_read_arrow_file_async(cache_path, columns)
+
         if df is None:
             return None
 

@@ -187,8 +187,8 @@ def get_vision_url(
         market_path = market_type.vision_api_path
     else:
         # Handle string inputs for backward compatibility
-        # Normalize market_type
-        market_type = market_type.lower()
+        # Ensure market_type is a string before calling .lower()
+        market_type_str = str(market_type).lower()
 
         # Map market types to URL paths
         market_path_mapping = {
@@ -197,16 +197,20 @@ def get_vision_url(
             "futures_coin": "futures/cm",
         }
 
-        if market_type not in market_path_mapping:
+        if market_type_str not in market_path_mapping:
             raise ValueError(f"Invalid market type: {market_type}")
 
-        market_path = market_path_mapping[market_type]
+        market_path = market_path_mapping[market_type_str]
 
     # Adjust symbol for coin-margined futures (CM)
     adjusted_symbol = symbol
-    if (
-        isinstance(market_type, MarketType) and market_type == MarketType.FUTURES_COIN
-    ) or (isinstance(market_type, str) and market_type.lower() == "futures_coin"):
+    # Compare by name rather than direct instance comparison to handle module reloading
+    if isinstance(market_type, MarketType):
+        is_futures_coin = market_type.name == "FUTURES_COIN"
+    else:
+        is_futures_coin = str(market_type).lower() == "futures_coin"
+
+    if is_futures_coin:
         # Add _PERP suffix if not already present
         if not symbol.endswith("_PERP"):
             adjusted_symbol = f"{symbol}_PERP"

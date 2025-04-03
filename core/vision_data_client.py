@@ -24,7 +24,7 @@ from typing import Optional, Sequence, TypeVar, Generic, Union
 import pandas as pd
 import warnings
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.validation_utils import validate_dataframe
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
@@ -46,8 +46,6 @@ from core.vision_constraints import (
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
-
-logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 class VisionDataClient(Generic[T]):
