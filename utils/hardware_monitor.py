@@ -14,10 +14,8 @@ from typing import Optional, List, Dict, Any, Coroutine
 # Import curl_cffi for HTTP client implementation
 from curl_cffi.requests import AsyncSession
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.network_utils import create_client, safely_close_client
-
-logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 @dataclass

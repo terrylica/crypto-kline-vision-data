@@ -45,10 +45,8 @@ from utils.config import (
     DEFAULT_ACCEPT_HEADER,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
 )
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 
-# Configure module logger
-logger = get_logger(__name__, "INFO", show_path=False)
 
 # ----- HTTP Client Factory Functions -----
 
@@ -948,6 +946,46 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                 )
                                 return pd.DataFrame()
 
+                    # Convert close_time to datetime64[ns] as well
+                    if "close_time" in df.columns and not df.empty:
+                        try:
+                            # Check the timestamp digits to determine format
+                            logger.info(
+                                f"{log_prefix} Converting close_time column to datetime64"
+                            )
+                            timestamp_val = df["close_time"].astype(float)
+                            sample_ts = (
+                                timestamp_val.iloc[0] if not timestamp_val.empty else 0
+                            )
+                            digits = len(str(int(sample_ts)))
+
+                            # Handle different timestamp formats
+                            if digits > 13:  # Microseconds (16 digits)
+                                logger.info(
+                                    f"{log_prefix} Detected microsecond timestamps for close_time ({digits} digits)"
+                                )
+                                # Convert to datetime64[ns]
+                                df["close_time"] = pd.to_datetime(
+                                    df["close_time"], unit="us", utc=True
+                                )
+                            else:  # Standard millisecond format (13 digits)
+                                logger.info(
+                                    f"{log_prefix} Detected millisecond timestamps for close_time ({digits} digits)"
+                                )
+                                df["close_time"] = pd.to_datetime(
+                                    df["close_time"], unit="ms", utc=True
+                                )
+
+                            # Ensure it has the right type
+                            df["close_time"] = df["close_time"].tz_localize(None)
+                            logger.info(
+                                f"{log_prefix} close_time dtype: {df['close_time'].dtype}"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"{log_prefix} Error converting close_time to datetime: {str(e)}"
+                            )
+
                     # Final check on DataFrame
                     if df.empty:
                         logger.warning(
@@ -1264,7 +1302,7 @@ def try_unblock_task(task):
 
 
 async def test_connectivity(
-    client: AsyncSession,
+    client: Optional[AsyncSession] = None,
     url: str = "https://data.binance.vision/",
     timeout: float = 10.0,
     retry_count: int = 2,
@@ -1275,7 +1313,7 @@ async def test_connectivity(
     making API requests, helping to diagnose network issues early.
 
     Args:
-        client: HTTP client to use for the test
+        client: HTTP client to use for the test. If None, a new client will be created.
         url: URL to test connectivity to
         timeout: Request timeout in seconds
         retry_count: Number of retry attempts
@@ -1283,27 +1321,40 @@ async def test_connectivity(
     Returns:
         True if connection succeeds, False otherwise
     """
-    for attempt in range(retry_count + 1):
-        try:
-            logger.debug(
-                f"Testing connectivity to {url} (attempt {attempt+1}/{retry_count+1})"
-            )
-            response = await client.get(url, timeout=timeout)
+    # Create a client if not provided
+    should_close_client = False
+    if client is None:
+        client = create_client(timeout=timeout)
+        should_close_client = True
 
-            if response.status_code < 400:
-                logger.debug(f"Connectivity test successful: {response.status_code}")
-                return True
+    try:
+        for attempt in range(retry_count + 1):
+            try:
+                logger.debug(
+                    f"Testing connectivity to {url} (attempt {attempt+1}/{retry_count+1})"
+                )
+                response = await client.get(url, timeout=timeout)
 
-            logger.warning(
-                f"Connectivity test failed with status code: {response.status_code}"
-            )
+                if response.status_code < 400:
+                    logger.debug(
+                        f"Connectivity test successful: {response.status_code}"
+                    )
+                    return True
 
-            if attempt < retry_count:
-                await asyncio.sleep(2**attempt)  # Exponential backoff
-        except Exception as e:
-            logger.warning(f"Connectivity test failed with error: {str(e)}")
+                logger.warning(
+                    f"Connectivity test failed with status code: {response.status_code}"
+                )
 
-            if attempt < retry_count:
-                await asyncio.sleep(2**attempt)  # Exponential backoff
+                if attempt < retry_count:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+            except Exception as e:
+                logger.warning(f"Connectivity test failed with error: {str(e)}")
 
-    return False
+                if attempt < retry_count:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+
+        return False
+    finally:
+        # Close the client if we created it
+        if should_close_client:
+            await client.close()

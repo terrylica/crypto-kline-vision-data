@@ -64,7 +64,7 @@ OUTPUT_DTYPES: Final[Dict[str, str]] = {
     "low": "float64",
     "close": "float64",
     "volume": "float64",
-    "close_time": "int64",
+    "close_time": "datetime64[ns]",
     "quote_asset_volume": "float64",
     "number_of_trades": "int64",
     "taker_buy_base_asset_volume": "float64",
@@ -106,7 +106,7 @@ TIMESTAMP_UNIT: Final[str] = "us"  # Microseconds for timestamps
 CLOSE_TIME_ADJUSTMENT: Final[int] = 999  # Microseconds to add to close_time
 
 # HTTP Client configuration
-DEFAULT_USER_AGENT: Final[str] = "RestDataClient/2.0"
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 DEFAULT_ACCEPT_HEADER: Final[str] = "application/json"
 DEFAULT_HTTP_TIMEOUT_SECONDS: Final[float] = (
     3.0  # Standardized timeout for all HTTP requests

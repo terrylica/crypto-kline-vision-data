@@ -19,10 +19,9 @@ import pandas as pd
 
 from utils.market_constraints import Interval as MarketInterval
 from utils.deprecation_rules import TimeUnit
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 
 # Configure module logger
-logger = get_logger(__name__, "INFO", show_path=False)
 
 
 def enforce_utc_timezone(dt: datetime) -> datetime:

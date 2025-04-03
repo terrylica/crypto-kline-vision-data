@@ -38,10 +38,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 from functools import lru_cache
 import pandas as pd
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from .market_constraints import Interval as MarketInterval
-
-logger = get_logger(__name__, "DEBUG", show_path=False)
 
 
 class IntervalParseError(ValueError):

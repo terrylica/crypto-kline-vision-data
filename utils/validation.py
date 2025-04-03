@@ -7,7 +7,7 @@ import re
 import pandas as pd
 import numpy as np
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.market_constraints import Interval
 from utils.api_boundary_validator import ApiBoundaryValidator
 
@@ -32,7 +32,6 @@ INTERVAL_PATTERN = re.compile(
     r"^(1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M)$"
 )  # Valid intervals
 
-logger = get_logger(__name__, "INFO", show_path=False)
 
 from utils.config import (
     CANONICAL_INDEX_NAME,
@@ -460,6 +459,37 @@ class DataFrameValidator:
 
         logger.debug(f"Final DataFrame timezone: {formatted_df.index.tz}")
         logger.debug(f"Is timezone.utc? {formatted_df.index.tz is timezone.utc}")
+
+        # Special handling for close_time if it exists - must be datetime64[ns]
+        if "close_time" in formatted_df.columns:
+            if not pd.api.types.is_datetime64_dtype(formatted_df["close_time"]):
+                # Convert close_time to datetime if it's not already
+                if pd.api.types.is_numeric_dtype(formatted_df["close_time"]):
+                    # If it's a numeric type, convert from timestamp
+                    formatted_df["close_time"] = pd.to_datetime(
+                        formatted_df["close_time"], unit="us", utc=True
+                    )
+                else:
+                    # Otherwise try standard conversion
+                    formatted_df["close_time"] = pd.to_datetime(
+                        formatted_df["close_time"], utc=True
+                    )
+
+            # Instead of using astype, which fails when converting from tz-aware to tz-naive,
+            # we'll convert the timestamps properly preserving timezone information
+            if (
+                hasattr(formatted_df["close_time"].dtype, "tz")
+                and formatted_df["close_time"].dtype.tz is not None
+            ):
+                # Convert to UTC first if it has timezone info
+                formatted_df["close_time"] = formatted_df["close_time"].dt.tz_convert(
+                    "UTC"
+                )
+                # Then either keep as is or convert to timezone-naive if needed for compatibility
+                # formatted_df["close_time"] = formatted_df["close_time"].dt.tz_localize(None)
+            else:
+                # If it's already timezone-naive, ensure it's the right dtype
+                formatted_df["close_time"] = pd.to_datetime(formatted_df["close_time"])
 
         # Convert columns to specified dtypes
         for col, dtype in output_dtypes.items():

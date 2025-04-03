@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.market_constraints import MarketType, Interval
 from utils.time_utils import enforce_utc_timezone
 
@@ -49,7 +49,6 @@ INTERVAL_PATTERN = re.compile(
     r"^(1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M)$"
 )  # Valid intervals
 
-logger = get_logger(__name__, "INFO", show_path=False)
 
 # Import configuration constants
 from utils.config import (
@@ -774,7 +773,6 @@ class ApiBoundaryValidator:
             binance_client: Initialized BinanceClient for making API calls
         """
         self.client = binance_client
-        self.logger = get_logger(__name__, "INFO", show_path=False)
 
     async def is_valid_time_range(
         self,
@@ -1321,3 +1319,34 @@ def validate_dataframe_time_boundaries(
         raise ValueError(
             f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}"
         )
+
+
+def validate_date_range_for_api(
+    start_time: datetime, end_time: datetime, max_future_seconds: int = 0
+) -> Tuple[bool, str]:
+    """Validate a date range for API requests to prevent requesting future data.
+
+    Args:
+        start_time: The start time for the request
+        end_time: The end time for the request
+        max_future_seconds: Maximum number of seconds allowed in the future (default: 0)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    now = datetime.now(timezone.utc)
+    allowed_future = now + timedelta(seconds=max_future_seconds)
+
+    if start_time > allowed_future:
+        return False, f"Start time {start_time.isoformat()} is in the future"
+
+    if end_time > allowed_future:
+        return False, f"End time {end_time.isoformat()} is in the future"
+
+    if start_time > end_time:
+        return (
+            False,
+            f"Start time {start_time.isoformat()} is after end time {end_time.isoformat()}",
+        )
+
+    return True, ""

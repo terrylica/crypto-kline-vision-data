@@ -16,15 +16,14 @@ import pandas as pd
 
 # Import curl_cffi for HTTP client implementation
 
-from utils.logger_setup import get_logger
-from utils.market_constraints import MarketType, Interval, get_endpoint_url
+from utils.logger_setup import logger
+from utils.market_constraints import MarketType, Interval, ChartType, get_endpoint_url
 from utils.time_utils import (
     enforce_utc_timezone,
     align_time_boundaries as time_utils_align_time_boundaries,
 )
 from utils.network_utils import create_client, safely_close_client
 
-logger = get_logger(__name__, "DEBUG", show_path=False)
 
 # Constants for API interaction
 MAX_RETRIES = 3
@@ -54,7 +53,7 @@ class ApiBoundaryValidator:
             market_type: The type of market to validate against (default: SPOT)
         """
         # Only SPOT is supported as per market_constraints.py
-        if market_type != MarketType.SPOT:
+        if market_type.name != MarketType.SPOT.name:
             raise ValueError(f"Unsupported market type: {market_type}")
 
         self.market_type = market_type
@@ -469,7 +468,7 @@ class ApiBoundaryValidator:
         }
 
         # Determine base URL based on market type
-        base_url = get_endpoint_url(self.market_type)
+        base_url = get_endpoint_url(self.market_type, ChartType.KLINES.endpoint)
 
         # Retry logic
         retries = 0

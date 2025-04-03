@@ -15,12 +15,11 @@ from dataclasses import dataclass
 import pandas as pd
 import pyarrow as pa
 
-from utils.logger_setup import get_logger
+from utils.logger_setup import logger
 from utils.validation import DataFrameValidator
 from utils.market_constraints import Interval
 from utils.api_boundary_validator import ApiBoundaryValidator
 
-logger = get_logger(__name__, "INFO", show_path=False)
 
 # Default symbol for tests
 TEST_SYMBOL = "BTCUSDT"
