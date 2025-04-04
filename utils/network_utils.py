@@ -682,14 +682,15 @@ class VisionDownloadManager:
             logger.error(f"Error downloading {url}: {str(e)}")
             return False
 
-    async def download_date(self, date: datetime) -> Optional[pd.DataFrame]:
+    async def download_date(self, date: datetime) -> Optional[List[List]]:
         """Download data for a specific date.
 
         Args:
             date: Target date
 
         Returns:
-            DataFrame with data or None if download failed
+            List of raw data rows if download successful, None otherwise.
+            The raw data needs to be processed by TimeseriesDataProcessor.
         """
         # Ensure date has proper timezone
         from utils.time_utils import enforce_utc_timezone
@@ -793,21 +794,23 @@ class VisionDownloadManager:
                 logger.info(f"[{debug_id}] Reading CSV data from {data_file}")
                 csv_start = time.time()
 
-                df = await read_csv_from_zip(data_file, log_prefix=f"[{debug_id}]")
+                raw_data = await read_csv_from_zip(
+                    data_file, log_prefix=f"[{debug_id}]"
+                )
 
                 logger.info(
                     f"[{debug_id}] CSV reading completed in {time.time() - csv_start:.2f}s"
                 )
 
-                # Process and return the data
-                if df.empty:
+                # Check if we got any data
+                if not raw_data:
                     logger.warning(f"[{debug_id}] Downloaded CSV is empty")
                     return None
 
-                # No need to rename index anymore since read_csv_from_zip already uses KLINE_COLUMNS
-                # which includes "open_time" as the timestamp column name
-
-                return df
+                logger.info(
+                    f"[{debug_id}] Successfully extracted {len(raw_data)} rows of raw data"
+                )
+                return raw_data
 
             except Exception as e:
                 logger.error(f"[{debug_id}] Error reading CSV data: {e}")
@@ -824,18 +827,22 @@ class VisionDownloadManager:
                 shutil.rmtree(temp_dir, ignore_errors=True)
             except Exception as e:
                 logger.error(f"[{debug_id}] Error cleaning up temp directory: {e}")
+                return None
 
 
-async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.DataFrame:
+async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> List[List]:
     """
-    Read a CSV file from a zip archive and return the data as a pandas DataFrame.
+    Read a CSV file from a zip archive and return the raw data as a list of lists.
+
+    This function extracts the raw data without processing it, allowing the caller
+    to apply consistent formatting using TimeseriesDataProcessor.
 
     Args:
         zip_file_path: Path to the zip file
         log_prefix: Prefix for log messages
 
     Returns:
-        pandas.DataFrame: The data from the CSV file
+        List[List]: The raw data from the CSV file as a list of rows
     """
     start_time = time.time()
 
@@ -846,270 +853,73 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
 
             if not file_list:
                 logger.warning(f"{log_prefix} Empty zip file: {zip_file_path}")
-                return pd.DataFrame()
+                return []
 
             csv_file = file_list[0]  # Assuming first file is the CSV
 
             with zip_file.open(csv_file) as file:
-                # Convert file-like object to bytes and then to StringIO for pandas
+                # Convert file-like object to bytes
                 file_content = file.read()
 
                 if len(file_content) == 0:
                     logger.warning(f"{log_prefix} CSV file is empty")
-                    return pd.DataFrame()
-
-                # Use KLINE_COLUMNS from config to ensure consistency with REST API
-                from utils.config import KLINE_COLUMNS
+                    return []
 
                 # Use StringIO for CSV parsing
                 import io
+                import csv
 
-                csv_buffer = io.BytesIO(file_content)
+                csv_buffer = io.StringIO(file_content.decode("utf-8"))
+                csv_reader = csv.reader(csv_buffer)
 
+                # Read the first line to check if it contains headers
                 try:
-                    # Read the first line to check if it contains headers
-                    first_line = csv_buffer.readline().decode("utf-8").strip()
-                    csv_buffer.seek(0)  # Reset buffer position after reading
-
-                    # Check if the first line contains headers (column names)
-                    contains_header = "open_time" in first_line.lower()
-
-                    if contains_header:
-                        logger.info(
-                            f"{log_prefix} CSV file contains headers, using header=0"
-                        )
-                        df = pd.read_csv(csv_buffer, header=0)
-                    else:
-                        logger.info(
-                            f"{log_prefix} CSV file has no headers, using supplied column names"
-                        )
-                        df = pd.read_csv(csv_buffer, header=None, names=KLINE_COLUMNS)
-
-                    # Log sample of raw data for debugging
-                    if not df.empty:
-                        logger.info(
-                            f"{log_prefix} Raw data sample (first row): {df.iloc[0].to_dict()}"
-                        )
-
-                    # Drop the 'ignore' column
-                    if "ignore" in df.columns:
-                        df = df.drop(columns=["ignore"])
-
-                    # Convert numeric columns first
-                    numeric_columns = [
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                        "volume",
-                        "close_time",
-                        "quote_asset_volume",
-                        "count",
-                        "taker_buy_volume",
-                        "taker_buy_quote_volume",
-                    ]
-
-                    for col in numeric_columns:
-                        if col in df.columns:
-                            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-                    # Convert open_time column (milliseconds since epoch) to datetime
-                    if "open_time" in df.columns and not df.empty:
-                        try:
-                            # Check the timestamp digits to determine format
-                            logger.info(
-                                f"{log_prefix} Converting open_time column to datetime"
-                            )
-                            timestamp_val = df["open_time"].astype(float)
-                            sample_ts = (
-                                timestamp_val.iloc[0] if not timestamp_val.empty else 0
-                            )
-                            digits = len(str(int(sample_ts)))
-
-                            # Handle different timestamp formats
-                            if digits > 13:  # Microseconds (16 digits)
-                                logger.info(
-                                    f"{log_prefix} Detected microsecond timestamps ({digits} digits)"
-                                )
-                                # Use direct microsecond conversion to avoid overflow
-                                df["open_time"] = pd.to_datetime(
-                                    df["open_time"], unit="us", utc=True
-                                )
-                            else:  # Standard millisecond format (13 digits)
-                                logger.info(
-                                    f"{log_prefix} Detected millisecond timestamps ({digits} digits)"
-                                )
-                                df["open_time"] = pd.to_datetime(
-                                    df["open_time"], unit="ms", utc=True
-                                )
-
-                            df = df.set_index("open_time")
-
-                            # Log sample after conversion
-                            if not df.empty:
-                                logger.info(
-                                    f"{log_prefix} Converted data sample: {df.iloc[0].to_dict()}"
-                                )
-                                logger.info(
-                                    f"{log_prefix} Index type: {type(df.index)}, timezone: {df.index.tz}"
-                                )
-                        except Exception as e:
-                            logger.error(
-                                f"{log_prefix} Error converting open_time: {str(e)}"
-                            )
-                            # Fallback to a more flexible approach
-                            try:
-                                # Try autodetecting the format based on the number of digits
-                                # First, make sure we're working with numeric data
-                                if pd.api.types.is_numeric_dtype(df["open_time"]):
-                                    timestamp_val = df["open_time"]
-                                else:
-                                    # If it's not numeric (e.g., it's already a datetime or string),
-                                    # try to convert it to numeric
-                                    timestamp_val = pd.to_numeric(
-                                        df["open_time"], errors="coerce"
-                                    )
-
-                                sample_ts = (
-                                    timestamp_val.iloc[0]
-                                    if not timestamp_val.empty
-                                    else 0
-                                )
-                                digits = len(str(int(sample_ts)))
-
-                                # Handle different timestamp formats
-                                if digits > 13:  # Microseconds (16 digits)
-                                    logger.info(
-                                        f"{log_prefix} Fallback: Detected microsecond timestamps ({digits} digits)"
-                                    )
-                                    # Use direct microsecond conversion for overflow safety
-                                    df["open_time"] = pd.to_datetime(
-                                        df["open_time"], unit="us", utc=True
-                                    )
-                                else:  # Standard millisecond format (13 digits)
-                                    logger.info(
-                                        f"{log_prefix} Fallback: Detected millisecond timestamps ({digits} digits)"
-                                    )
-                                    df["open_time"] = pd.to_datetime(
-                                        df["open_time"], unit="ms", utc=True
-                                    )
-
-                                df = df.set_index("open_time")
-                                logger.info(
-                                    f"{log_prefix} Fallback conversion successful"
-                                )
-                            except Exception as nested_e:
-                                logger.error(
-                                    f"{log_prefix} Fallback timestamp conversion failed: {str(nested_e)}"
-                                )
-
-                                # One last attempt - if open_time is already a string in ISO format
-                                try:
-                                    logger.info(
-                                        f"{log_prefix} Trying to parse open_time as ISO datetime string"
-                                    )
-                                    df["open_time"] = pd.to_datetime(
-                                        df["open_time"], utc=True
-                                    )
-                                    df = df.set_index("open_time")
-                                    logger.info(
-                                        f"{log_prefix} Successfully parsed open_time as datetime string"
-                                    )
-                                except Exception as iso_e:
-                                    logger.error(
-                                        f"{log_prefix} Failed to parse open_time as datetime string: {str(iso_e)}"
-                                    )
-                                    return pd.DataFrame()
-
-                    # Convert close_time to datetime64[ns] as well
-                    if "close_time" in df.columns and not df.empty:
-                        try:
-                            # Check the timestamp digits to determine format
-                            logger.info(
-                                f"{log_prefix} Converting close_time column to datetime64"
-                            )
-                            # First, make sure we're working with numeric data
-                            if pd.api.types.is_numeric_dtype(df["close_time"]):
-                                timestamp_val = df["close_time"]
-                            else:
-                                # If it's not numeric (e.g., it's already a datetime or string),
-                                # try to convert it to numeric
-                                timestamp_val = pd.to_numeric(
-                                    df["close_time"], errors="coerce"
-                                )
-
-                            sample_ts = (
-                                timestamp_val.iloc[0] if not timestamp_val.empty else 0
-                            )
-                            digits = len(str(int(sample_ts)))
-
-                            # Handle different timestamp formats
-                            if digits > 13:  # Microseconds (16 digits)
-                                logger.info(
-                                    f"{log_prefix} Detected microsecond timestamps for close_time ({digits} digits)"
-                                )
-                                # Convert to datetime64[ns]
-                                df["close_time"] = pd.to_datetime(
-                                    df["close_time"], unit="us", utc=True
-                                )
-                            else:  # Standard millisecond format (13 digits)
-                                logger.info(
-                                    f"{log_prefix} Detected millisecond timestamps for close_time ({digits} digits)"
-                                )
-                                df["close_time"] = pd.to_datetime(
-                                    df["close_time"], unit="ms", utc=True
-                                )
-
-                            # Ensure it has the right type
-                            df["close_time"] = df["close_time"].dt.tz_localize(None)
-                            logger.info(
-                                f"{log_prefix} close_time dtype: {df['close_time'].dtype}"
-                            )
-                        except Exception as e:
-                            logger.error(
-                                f"{log_prefix} Error converting close_time to datetime: {str(e)}"
-                            )
-                            # Fallback attempt - if close_time is already a string in ISO format
-                            try:
-                                logger.info(
-                                    f"{log_prefix} Trying to parse close_time as ISO datetime string"
-                                )
-                                df["close_time"] = pd.to_datetime(
-                                    df["close_time"], utc=True
-                                )
-                                # Ensure it has the right type
-                                df["close_time"] = df["close_time"].dt.tz_localize(None)
-                                logger.info(
-                                    f"{log_prefix} Successfully parsed close_time as datetime string"
-                                )
-                            except Exception as iso_e:
-                                logger.error(
-                                    f"{log_prefix} Failed to parse close_time as datetime string: {str(iso_e)}"
-                                )
-                                # Continue without close_time conversion since it's not critical
-
-                    # Final check on DataFrame
-                    if df.empty:
-                        logger.warning(
-                            f"{log_prefix} DataFrame is empty after processing"
-                        )
-                    else:
-                        logger.info(
-                            f"{log_prefix} Successfully processed CSV with {len(df)} rows"
-                        )
-
-                    logger.info(
-                        f"{log_prefix} CSV reading completed in {time.time() - start_time:.2f}s"
+                    first_line = next(csv_reader)
+                    # Check if the first line contains headers (likely column names)
+                    headers_detected = any(
+                        isinstance(val, str) and "time" in val.lower()
+                        for val in first_line
                     )
-                    return df
 
-                except Exception as e:
-                    logger.error(f"{log_prefix} Error processing data: {str(e)}")
-                    return pd.DataFrame()
+                    # Reset buffer and create a new reader
+                    csv_buffer.seek(0)
+                    csv_reader = csv.reader(csv_buffer)
+
+                    # Skip header row if detected
+                    if headers_detected:
+                        logger.info(
+                            f"{log_prefix} CSV headers detected, skipping first row"
+                        )
+                        next(csv_reader)
+                except StopIteration:
+                    logger.warning(f"{log_prefix} CSV file appears to be empty")
+                    return []
+
+                # Read all rows into a list of lists
+                raw_data = []
+                for row in csv_reader:
+                    # Convert string values to appropriate types
+                    processed_row = []
+                    for val in row:
+                        try:
+                            # Try to convert to numeric if possible
+                            if "." in val:
+                                processed_row.append(float(val))
+                            else:
+                                processed_row.append(int(val))
+                        except (ValueError, TypeError):
+                            # Keep as string if conversion fails
+                            processed_row.append(val)
+                    raw_data.append(processed_row)
+
+                logger.info(
+                    f"{log_prefix} Read {len(raw_data)} rows from CSV in {time.time() - start_time:.2f}s"
+                )
+                return raw_data
 
     except Exception as e:
-        logger.error(f"{log_prefix} Error reading zip file: {str(e)}")
-        return pd.DataFrame()
+        logger.error(f"{log_prefix} Error reading CSV data: {e}")
+        return []
 
 
 async def download_file(

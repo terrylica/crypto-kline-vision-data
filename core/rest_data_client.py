@@ -6,7 +6,6 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
-import numpy as np
 import time
 
 # Import curl_cffi for better performance
@@ -23,15 +22,14 @@ from utils.time_utils import (
     get_bar_close_time,
     get_interval_floor,
     is_bar_complete,
+    align_time_boundaries,
+    TimeseriesDataProcessor,
 )
 from utils.hardware_monitor import HardwareMonitor
 from utils.network_utils import create_client, safely_close_client, test_connectivity
 from utils.config import (
     KLINE_COLUMNS,
     standardize_column_names,
-    TIMESTAMP_UNIT,
-    CLOSE_TIME_ADJUSTMENT,
-    CANONICAL_INDEX_NAME,
     create_empty_dataframe,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     API_TIMEOUT,
@@ -42,101 +40,22 @@ from utils.validation_utils import validate_date_range_for_api
 def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
     """Process raw kline data into a DataFrame.
 
+    Uses the centralized TimeseriesDataProcessor to ensure consistent handling
+    of timestamp formats between REST and Vision APIs.
+
     Args:
         raw_data: List of kline data from Binance API
 
     Returns:
-        Processed DataFrame
+        Processed DataFrame with proper types and index
     """
-    if not raw_data:
-        return pd.DataFrame()
+    # Use the centralized processor with standardized column names
+    df = TimeseriesDataProcessor.process_kline_data(raw_data, KLINE_COLUMNS)
 
-    # Use centralized column definitions
-    df = pd.DataFrame(raw_data, columns=pd.Index(KLINE_COLUMNS))
-
-    # Add DEBUG logging for timestamp conversion
-    logger.debug("\n=== Timestamp Conversion Debug ===")
-    if len(raw_data) > 0:
-        logger.debug(f"Sample raw close_time: {raw_data[0][6]}")
-        logger.debug(f"Number of digits: {len(str(raw_data[0][6]))}")
-
-    # Convert timestamps with microsecond precision
-    for col in ["open_time", "close_time"]:
-        # Convert milliseconds to microseconds by multiplying by 1000
-        df[col] = df[col].astype(np.int64) * 1000
-        df[col] = pd.to_datetime(df[col], unit=TIMESTAMP_UNIT, utc=True)
-
-        # For close_time, add microseconds to match REST API behavior
-        if col == "close_time":
-            df[col] = df[col] + pd.Timedelta(microseconds=CLOSE_TIME_ADJUSTMENT)
-
-        if len(raw_data) > 0:
-            logger.debug(f"Converted {col}: {df[col].iloc[0]}")
-            logger.debug(f"{col} microseconds: {df[col].iloc[0].microsecond}")
-
-    # Convert numeric columns efficiently
-    numeric_cols = [
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "quote_asset_volume",
-        "taker_buy_volume",
-        "taker_buy_quote_volume",
-    ]
-    df[numeric_cols] = df[numeric_cols].astype(np.float64)
-    df["count"] = df["count"].astype(np.int32)
-
-    # Standardize column names using centralized function
+    # Apply standard column naming
     df = standardize_column_names(df)
 
-    # Check for duplicate timestamps and sort by open_time
-    if "open_time" in df.columns:
-        logger.debug(f"Shape before dropping duplicates: {df.shape}")
-
-        # First, sort by open_time to ensure chronological order
-        df = df.sort_values("open_time")
-
-        # Then check for duplicates and drop them if necessary
-        if df.duplicated(subset=["open_time"]).any():
-            duplicates_count = df.duplicated(subset=["open_time"]).sum()
-            logger.debug(
-                f"Found {duplicates_count} duplicate timestamps, keeping first occurrence"
-            )
-            df = df.drop_duplicates(subset=["open_time"], keep="first")
-
-        logger.debug(f"Shape after sorting and dropping duplicates: {df.shape}")
-        logger.debug(
-            f"open_time is monotonic: {df['open_time'].is_monotonic_increasing}"
-        )
-
-    # Save close_time and open_time before setting the index
-    close_time_values = None
-    open_time_values = None
-    if "close_time" in df.columns:
-        close_time_values = df["close_time"].copy()
-    if "open_time" in df.columns:
-        open_time_values = df["open_time"].copy()
-
-    # Set the index to open_time and ensure it has the canonical name
-    if "open_time" in df.columns:
-        df = df.set_index("open_time")
-        df.index.name = CANONICAL_INDEX_NAME
-
-    # Always ensure close_time column exists
-    if "close_time" not in df.columns:
-        if close_time_values is not None:
-            # Restore from saved values if available
-            df["close_time"] = close_time_values
-        else:
-            # Calculate close_time based on open_time if we don't have the original values
-            logger.debug("Calculating close_time from index values")
-            df["close_time"] = (
-                pd.Series(df.index.to_numpy(), index=df.index)
-                + pd.Timedelta(seconds=1)
-                - pd.Timedelta(microseconds=1)
-            )
+    # Perform any REST API-specific post-processing here if needed
 
     return df
 
@@ -714,31 +633,13 @@ class RestDataClient:
         Returns:
             Tuple of (aligned_start_time, aligned_end_time)
         """
-        # Get interval in seconds
-        interval_seconds = interval.to_seconds()
-
-        # Extract seconds since epoch for calculations
-        start_seconds = start_time.timestamp()
-        end_seconds = end_time.timestamp()
-
-        # Calculate floor of each timestamp to interval boundary
-        start_floor = int(start_seconds) - (int(start_seconds) % interval_seconds)
-        end_floor = int(end_seconds) - (int(end_seconds) % interval_seconds)
-
-        # Apply Binance API boundary rules:
-        # - startTime: Round UP to next interval boundary if not exactly on boundary
-        # - endTime: Round DOWN to previous interval boundary if not exactly on boundary
-        if start_seconds != start_floor:
-            aligned_start = datetime.fromtimestamp(
-                start_floor + interval_seconds, tz=timezone.utc
-            )
-        else:
-            aligned_start = datetime.fromtimestamp(start_floor, tz=timezone.utc)
-
-        aligned_end = datetime.fromtimestamp(end_floor, tz=timezone.utc)
+        # Use the unified implementation from time_utils
+        aligned_start, aligned_end = align_time_boundaries(
+            start_time, end_time, interval
+        )
 
         logger.debug(
-            f"Aligned boundaries: {start_time} -> {aligned_start}, {end_time} -> {aligned_end}"
+            f"REST client aligned boundaries: {start_time} -> {aligned_start}, {end_time} -> {aligned_end}"
         )
 
         return aligned_start, aligned_end

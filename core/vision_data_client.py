@@ -32,13 +32,14 @@ from utils.time_utils import (
     align_time_boundaries,
     enforce_utc_timezone,
     filter_dataframe_by_time,
+    TimeseriesDataProcessor,
 )
 from utils.network_utils import (
     create_client,
     VisionDownloadManager,
     safely_close_client,
 )
-from utils.config import create_empty_dataframe
+from utils.config import create_empty_dataframe, KLINE_COLUMNS, standardize_column_names
 from core.vision_constraints import (
     TimestampedDataFrame,
     MAX_CONCURRENT_DOWNLOADS,
@@ -217,8 +218,8 @@ class VisionDataClient(Generic[T]):
     ) -> TimestampedDataFrame:
         """Download data for the specified time range.
 
-        This method applies manual alignment to Vision API requests to match
-        REST API's natural boundary behavior.
+        This method applies alignment to Vision API requests to match
+        REST API's natural boundary behavior for consistent results across APIs.
 
         Args:
             start_time: Start time for data retrieval
@@ -232,12 +233,10 @@ class VisionDataClient(Generic[T]):
         start_time = enforce_utc_timezone(start_time)
         end_time = enforce_utc_timezone(end_time)
 
-        # Use align_time_boundaries directly from time_utils
+        # Use unified align_time_boundaries directly from time_utils
         aligned_start, aligned_end = align_time_boundaries(
             start_time, end_time, self.interval_obj
         )
-        start_time = aligned_start
-        end_time = aligned_end
 
         logger.debug(
             f"Vision API request with aligned boundaries: {aligned_start} -> {aligned_end} "
@@ -398,13 +397,25 @@ class VisionDataClient(Generic[T]):
 
                 # Directly attempt to download without pre-checking
                 # This is faster than checking if the file exists first
-                df = await self._download_manager.download_date(date)
+                raw_data = await self._download_manager.download_date(date)
 
-                if df is None or df.empty:
+                if raw_data is None or not raw_data:
                     logger.debug(f"No data for date: {date.strftime('%Y-%m-%d')}")
                     return None
 
-                return df
+                # Process the raw data using the centralized processor
+                df = TimeseriesDataProcessor.process_kline_data(raw_data, KLINE_COLUMNS)
+
+                # Apply standard column naming
+                df = standardize_column_names(df)
+
+                # Apply any Vision API-specific post-processing here if needed
+
+                # Ensure consistent DataFrame structure and convert to TimestampedDataFrame
+                df = TimeseriesDataProcessor.standardize_dataframe(df)
+
+                # Convert to TimestampedDataFrame for type safety
+                return TimestampedDataFrame(df)
 
             except Exception as e:
                 logger.error(

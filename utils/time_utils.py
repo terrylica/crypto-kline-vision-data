@@ -12,14 +12,40 @@ api_boundary_validator.py to ensure consistent behavior throughout the applicati
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Union
 import re
 
 import pandas as pd
+import numpy as np
 
 from utils.market_constraints import Interval as MarketInterval
 from utils.deprecation_rules import TimeUnit
 from utils.logger_setup import logger
+
+# Re-export the get_interval_micros function at the module level for direct import
+__all__ = [
+    "enforce_utc_timezone",
+    "validate_time_window",
+    "get_interval_micros",
+    "get_interval_seconds",
+    "get_interval_timedelta",
+    "get_smaller_units",
+    "get_interval_floor",
+    "get_interval_ceiling",
+    "get_bar_close_time",
+    "is_bar_complete",
+    "filter_dataframe_by_time",
+    "align_time_boundaries",
+    "estimate_record_count",
+    "vision_api_time_window_alignment",
+    "align_vision_api_to_rest",
+    "TimeseriesDataProcessor",
+]
+
+# Constants for timestamp format detection
+MILLISECOND_DIGITS = 13
+MICROSECOND_DIGITS = 16
+TIMESTAMP_UNIT = "us"  # Default unit for timestamp parsing
 
 # Configure module logger
 
@@ -271,9 +297,17 @@ def align_time_boundaries(
 ) -> Tuple[datetime, datetime]:
     """Align time boundaries according to Binance REST API behavior.
 
-    This method implements the exact boundary alignment behavior of the Binance REST API:
+    This is the unified implementation that correctly handles time boundaries for both
+    REST and Vision APIs, following the Liskov Substitution Principle.
+
+    Key Binance API boundary handling rules:
     - startTime: Rounds UP to the next interval boundary if not exactly on a boundary
     - endTime: Rounds DOWN to the previous interval boundary if not exactly on a boundary
+    - Both boundaries are treated as INCLUSIVE after alignment
+    - Microsecond/millisecond precision is ignored and rounded to interval boundaries
+
+    This implementation is mathematically precise and works for all interval types:
+    1s, 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M.
 
     Args:
         start_time: User-provided start time
@@ -281,12 +315,8 @@ def align_time_boundaries(
         interval: Data interval
 
     Returns:
-        Tuple of (aligned_start_time, aligned_end_time) mimicking Binance API behavior
+        Tuple of (aligned_start_time, aligned_end_time) with proper boundary handling
     """
-    logger.info(
-        f"Aligning time boundaries: {start_time} -> {end_time} for interval {interval}"
-    )
-
     # Ensure timezone awareness
     start_time = enforce_utc_timezone(start_time)
     end_time = enforce_utc_timezone(end_time)
@@ -320,8 +350,8 @@ def align_time_boundaries(
         aligned_end_microseconds / 1_000_000, tz=timezone.utc
     )
 
-    logger.info(
-        f"Aligned boundaries: {aligned_start} -> {aligned_end} for interval {interval}"
+    logger.debug(
+        f"Aligned boundaries: {start_time} -> {aligned_start}, {end_time} -> {aligned_end} (interval: {interval.value})"
     )
 
     return aligned_start, aligned_end
@@ -379,6 +409,11 @@ def estimate_record_count(
     return record_count
 
 
+# --------- DEPRECATION NOTICE ---------------
+# These functions are maintained for backward compatibility
+# but should be considered deprecated. Use align_time_boundaries instead.
+
+
 def vision_api_time_window_alignment(
     start_time: datetime,
     end_time: datetime,
@@ -386,8 +421,9 @@ def vision_api_time_window_alignment(
 ) -> Tuple[datetime, datetime]:
     """Align time window for Vision API to match REST API behavior.
 
-    This is specifically for Vision API and cache alignment to match REST API behavior.
-    DO NOT use for REST API calls - pass timestamps directly to REST API.
+    DEPRECATED: Use align_time_boundaries instead.
+
+    This is kept for backward compatibility but redirects to the unified implementation.
 
     Args:
         start_time: Start time
@@ -397,21 +433,10 @@ def vision_api_time_window_alignment(
     Returns:
         Tuple of aligned start and end times that match REST API behavior
     """
-    # Ensure using exact timezone.utc object using centralized utility
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Get floor times - always floor the start and end time to match REST API behavior
-    start_floor = get_interval_floor(start_time, interval)
-    end_floor = get_interval_floor(end_time, interval)
-
-    # For start time: ALWAYS use floor time (inclusive)
-    adjusted_start = start_floor
-
-    # For end time: Use floor time (inclusive boundary)
-    adjusted_end = end_floor
-
-    return adjusted_start, adjusted_end
+    logger.warning(
+        "vision_api_time_window_alignment is deprecated. Use align_time_boundaries instead."
+    )
+    return align_time_boundaries(start_time, end_time, interval)
 
 
 def align_vision_api_to_rest(
@@ -419,8 +444,9 @@ def align_vision_api_to_rest(
 ) -> Dict[str, Any]:
     """Apply alignment to Vision API requests that matches REST API's natural boundary behavior.
 
-    This function should be used ONLY for Vision API requests and cache operations
-    to ensure compatibility with REST API behavior.
+    DEPRECATED: Use align_time_boundaries instead.
+
+    This is kept for backward compatibility but uses the unified implementation internally.
 
     Args:
         start_time: Start time for the request
@@ -430,34 +456,19 @@ def align_vision_api_to_rest(
     Returns:
         Dictionary containing adjusted start/end times and metadata
     """
-    # First, ensure times are in UTC
+    logger.warning(
+        "align_vision_api_to_rest is deprecated. Use align_time_boundaries instead."
+    )
+
+    # Ensure times are in UTC
     start_time = enforce_utc_timezone(start_time)
     end_time = enforce_utc_timezone(end_time)
 
+    # Use the unified implementation
+    aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
+
     # Get interval in microseconds
     interval_micros = get_interval_micros(interval)
-
-    # Round start time DOWN to interval boundary
-    start_micros = int(start_time.timestamp() * 1_000_000)
-    aligned_start_micros = (start_micros // interval_micros) * interval_micros
-    aligned_start = datetime.fromtimestamp(
-        aligned_start_micros / 1_000_000, tz=timezone.utc
-    )
-
-    # Round end time DOWN to interval boundary
-    end_micros = int(end_time.timestamp() * 1_000_000)
-    aligned_end_micros = (end_micros // interval_micros) * interval_micros
-    aligned_end = datetime.fromtimestamp(
-        aligned_end_micros / 1_000_000, tz=timezone.utc
-    )
-
-    # If end time was exactly on a boundary, we don't want to exclude it
-    # So we only adjust if the original wasn't already aligned
-    if end_micros != aligned_end_micros and aligned_end < end_time:
-        # Add one interval to include the partial interval at the end
-        aligned_end = datetime.fromtimestamp(
-            (aligned_end_micros + interval_micros) / 1_000_000, tz=timezone.utc
-        )
 
     # Create result with metadata
     result = {
@@ -470,3 +481,207 @@ def align_vision_api_to_rest(
     }
 
     return result
+
+
+class TimeseriesDataProcessor:
+    """Unified processor for handling time series data with consistent timestamp handling.
+
+    This class centralizes the timestamp handling logic to ensure consistent
+    behavior across different APIs (REST, Vision) and different timestamp formats
+    (milliseconds vs microseconds).
+    """
+
+    @staticmethod
+    def detect_timestamp_unit(sample_ts: Union[int, str]) -> str:
+        """Detect timestamp unit based on number of digits.
+
+        Args:
+            sample_ts: Sample timestamp value
+
+        Returns:
+            "us" for microseconds (16 digits)
+            "ms" for milliseconds (13 digits)
+
+        Raises:
+            ValueError: If timestamp format is not recognized
+        """
+        digits = len(str(int(sample_ts)))
+
+        if digits == MICROSECOND_DIGITS:
+            return "us"
+        elif digits == MILLISECOND_DIGITS:
+            return "ms"
+        else:
+            raise ValueError(
+                f"Unrecognized timestamp format with {digits} digits. "
+                f"Expected {MILLISECOND_DIGITS} for milliseconds or "
+                f"{MICROSECOND_DIGITS} for microseconds."
+            )
+
+    @classmethod
+    def process_kline_data(
+        cls, raw_data: List[List], columns: List[str]
+    ) -> pd.DataFrame:
+        """Process raw kline data into a standardized DataFrame.
+
+        This method handles different timestamp formats consistently:
+        - Automatically detects millisecond (13 digits) vs microsecond (16 digits) precision
+        - Properly handles timezone awareness
+        - Normalizes numeric columns
+        - Removes duplicates and ensures chronological ordering
+
+        Args:
+            raw_data: List of kline data from an API
+            columns: Column names for the data
+
+        Returns:
+            Processed DataFrame with standardized index and columns
+        """
+        if not raw_data:
+            return pd.DataFrame()
+
+        # Use provided column definitions
+        df = pd.DataFrame(raw_data, columns=pd.Index(columns))
+
+        # Detect timestamp unit from the first row
+        timestamp_unit = TIMESTAMP_UNIT  # Default from config
+        timestamp_multiplier = 1000  # Default milliseconds to microseconds conversion
+
+        # Detect format based on open_time (first element in kline data)
+        if len(raw_data) > 0:
+            try:
+                sample_ts = raw_data[0][0]  # First element is open_time
+                logger.debug(f"Sample open_time: {sample_ts}")
+                logger.debug(f"Number of digits: {len(str(int(sample_ts)))}")
+
+                # Use the timestamp format detector
+                detected_unit = cls.detect_timestamp_unit(sample_ts)
+
+                if detected_unit == "us":
+                    # Already in microseconds, no conversion needed
+                    timestamp_unit = "us"
+                    timestamp_multiplier = 1
+                    logger.debug("Detected microsecond precision (16 digits)")
+                else:
+                    # Convert from milliseconds to microseconds
+                    timestamp_unit = "us"
+                    timestamp_multiplier = 1000
+                    logger.debug("Detected millisecond precision (13 digits)")
+
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Error detecting timestamp format: {e}")
+
+        # Convert timestamps with appropriate precision
+        for col in ["open_time", "close_time"]:
+            if col in df.columns:
+                # Convert to int64 first to ensure full precision
+                df[col] = df[col].astype(np.int64)
+
+                # Apply the detected multiplier
+                if timestamp_multiplier > 1:
+                    df[col] = df[col] * timestamp_multiplier
+
+                # Convert to datetime with the appropriate unit
+                df[col] = pd.to_datetime(df[col], unit=timestamp_unit, utc=True)
+
+                # For close_time, add adjustment to match API behavior
+                if col == "close_time":
+                    # Close time should be 1 microsecond before the next interval
+                    df[col] = df[col] + pd.Timedelta(microseconds=-1)
+
+                if len(raw_data) > 0:
+                    logger.debug(f"Converted {col}: {df[col].iloc[0]}")
+                    logger.debug(f"{col} microseconds: {df[col].iloc[0].microsecond}")
+
+        # Convert numeric columns efficiently
+        numeric_cols = [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "quote_asset_volume",
+            "taker_buy_volume",
+            "taker_buy_quote_volume",
+        ]
+
+        # Only convert columns that exist
+        numeric_cols = [col for col in numeric_cols if col in df.columns]
+        if numeric_cols:
+            df[numeric_cols] = df[numeric_cols].astype(np.float64)
+
+        # Convert count if it exists
+        if "count" in df.columns:
+            df["count"] = df["count"].astype(np.int32)
+
+        # Check for duplicate timestamps and sort by open_time
+        if "open_time" in df.columns:
+            logger.debug(f"Shape before sorting and deduplication: {df.shape}")
+
+            # First, sort by open_time to ensure chronological order
+            df = df.sort_values("open_time")
+
+            # Then check for duplicates and drop them if necessary
+            if df.duplicated(subset=["open_time"]).any():
+                duplicates_count = df.duplicated(subset=["open_time"]).sum()
+                logger.debug(
+                    f"Found {duplicates_count} duplicate timestamps, keeping first occurrence"
+                )
+                df = df.drop_duplicates(subset=["open_time"], keep="first")
+
+            # Set the index to open_time for consistent behavior
+            df = df.set_index("open_time")
+
+            # Ensure close_time exists (calculate it if not provided)
+            if "close_time" not in df.columns:
+                logger.debug("Calculating close_time from index values")
+                # Use 1 second by default for missing close times
+                df["close_time"] = (
+                    df.index + pd.Timedelta(seconds=1) - pd.Timedelta(microseconds=1)
+                )
+
+        logger.debug(f"Final DataFrame shape: {df.shape}")
+        return df
+
+    @classmethod
+    def standardize_dataframe(
+        cls, df: pd.DataFrame, canonical_index_name: str = "open_time"
+    ) -> pd.DataFrame:
+        """Standardize a DataFrame to ensure consistent structure.
+
+        Args:
+            df: DataFrame to standardize
+            canonical_index_name: Name to use for the index
+
+        Returns:
+            Standardized DataFrame
+        """
+        if df.empty:
+            return df
+
+        # Ensure index has the canonical name
+        if df.index.name != canonical_index_name:
+            df.index.name = canonical_index_name
+
+        # Ensure index is sorted
+        if not df.index.is_monotonic_increasing:
+            df = df.sort_index()
+
+        # Remove duplicates from index if any exist
+        if df.index.has_duplicates:
+            df = df[~df.index.duplicated(keep="first")]
+
+        # Ensure all datetimes are timezone-aware UTC
+        if isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.DatetimeIndex(
+                [enforce_utc_timezone(dt) for dt in df.index.to_pydatetime()],
+                name=df.index.name,
+            )
+
+        # Also fix close_time if it exists
+        if "close_time" in df.columns and isinstance(
+            df["close_time"].iloc[0], datetime
+        ):
+            df["close_time"] = df["close_time"].apply(enforce_utc_timezone)
+
+        return df

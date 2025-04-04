@@ -12,9 +12,10 @@ import asyncio
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
-    enforce_utc_timezone,
-    align_vision_api_to_rest,
     filter_dataframe_by_time,
+    enforce_utc_timezone,
+    align_time_boundaries,
+    validate_time_window,
 )
 from utils.validation import DataFrameValidator
 from utils.config import (
@@ -375,16 +376,13 @@ class DataSourceManager:
         # If Vision API is requested, try it first
         if use_vision:
             try:
-                # For Vision API, we need to manually align timestamps to match REST API behavior
-                aligned_boundaries = align_vision_api_to_rest(
+                # Get aligned boundaries once and reuse them
+                vision_start, vision_end = align_time_boundaries(
                     start_time, end_time, interval
                 )
-                vision_start = aligned_boundaries["adjusted_start"]
-                vision_end = aligned_boundaries["adjusted_end"]
 
                 logger.info(
-                    f"Using Vision API with aligned boundaries: {vision_start} -> {vision_end} "
-                    f"(to match REST API behavior)"
+                    f"Using Vision API with aligned boundaries: {vision_start} -> {vision_end}"
                 )
 
                 # Create Vision client if not exists
@@ -448,6 +446,32 @@ class DataSourceManager:
         )
         return self.rest_client.create_empty_dataframe()
 
+    def _get_aligned_cache_date(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Interval,
+        use_vision: bool,
+    ) -> datetime:
+        """Get aligned date for cache operations that's consistent across REST and Vision APIs.
+
+        Args:
+            start_time: Original start time
+            end_time: Original end time
+            interval: Time interval
+            use_vision: Whether Vision API is being used
+
+        Returns:
+            Aligned date for cache operations
+        """
+        if use_vision:
+            # For Vision API, get aligned start time
+            aligned_start, _ = align_time_boundaries(start_time, end_time, interval)
+            return aligned_start
+        else:
+            # For REST API, use original start time - the REST client will handle alignment
+            return start_time
+
     async def get_data(
         self,
         symbol: str,
@@ -470,45 +494,13 @@ class DataSourceManager:
         Returns:
             DataFrame with market data
         """
-        # Validate inputs
-        if not symbol:
-            raise ValueError("Symbol must be provided")
-
-        # Convert interval to proper Enum if needed
-        if isinstance(interval, str):
-            try:
-                # Find matching enum by value
-                interval = next(i for i in Interval if i.value == interval)
-            except StopIteration:
-                raise ValueError(f"Invalid interval: {interval}")
-        elif hasattr(interval, "value"):
-            # It's an enum-like object, check if value matches any valid interval
-            try:
-                # Check if the value matches a valid interval value
-                if interval.value not in [i.value for i in Interval]:
-                    raise ValueError(f"Invalid interval value: {interval.value}")
-                # Get the canonical interval enum by value
-                interval = next(i for i in Interval if i.value == interval.value)
-            except (AttributeError, StopIteration):
-                raise ValueError(f"Invalid interval: {interval}")
-        else:
-            raise ValueError(f"Invalid interval: {interval}")
-
-        # Standardize using utils
+        # Standardize input parameters
         symbol = symbol.upper()
-
-        # Ensure timestamps are UTC timezone-aware
         start_time = enforce_utc_timezone(start_time)
         end_time = enforce_utc_timezone(end_time)
 
-        # Validate time range including future date check
-        try:
-            from utils.validation_utils import validate_time_range
-
-            start_time, end_time = validate_time_range(start_time, end_time)
-        except ValueError as e:
-            logger.error(f"Invalid time range: {e}")
-            return self.rest_client.create_empty_dataframe()
+        # Validate time window
+        validate_time_window(start_time, end_time)
 
         # Log input parameters
         logger.info(
@@ -517,19 +509,9 @@ class DataSourceManager:
         )
 
         # Determine data source to use
-        use_vision = False
-
-        if enforce_source == DataSource.VISION:
-            use_vision = True
-            logger.info("Using Vision API (enforced)")
-        elif enforce_source == DataSource.REST:
-            use_vision = False
-            logger.info("Using REST API (enforced)")
-        else:  # AUTO: smart selection
-            use_vision = self._should_use_vision_api(start_time, end_time, interval)
-            logger.info(
-                f"Auto-selected source: {'Vision API' if use_vision else 'REST API'}"
-            )
+        use_vision = self._determine_data_source(
+            start_time, end_time, interval, enforce_source
+        )
 
         # Check if we can use cache
         is_valid = use_cache and self.cache_manager
@@ -538,18 +520,10 @@ class DataSourceManager:
         try:
             # Attempt to load from cache if enabled
             if is_valid:
-                # For cache operations, we need to align dates to match REST API behavior
-                # This ensures caching works consistently with both REST and Vision APIs
-                if use_vision:
-                    # For Vision API, use aligned timestamps for cache operations
-                    aligned_boundaries = align_vision_api_to_rest(
-                        start_time, end_time, interval
-                    )
-                    cache_date = aligned_boundaries["adjusted_start"]
-                else:
-                    # For REST API, use original start date for cache lookup
-                    # The REST API will handle its own boundary alignment
-                    cache_date = start_time
+                # Get the aligned cache date
+                cache_date = self._get_aligned_cache_date(
+                    start_time, end_time, interval, use_vision
+                )
 
                 cached_data = await self.cache_manager.load_from_cache(
                     symbol=symbol, interval=interval.value, date=cache_date
@@ -588,16 +562,10 @@ class DataSourceManager:
         # Cache if enabled and data is not empty
         if is_valid and not df.empty and self.cache_manager:
             try:
-                # For caching purposes, use properly aligned date that matches REST API behavior
-                if use_vision:
-                    # For Vision API, we need to manually align the date for caching
-                    aligned_boundaries = align_vision_api_to_rest(
-                        start_time, end_time, interval
-                    )
-                    cache_date = aligned_boundaries["adjusted_start"]
-                else:
-                    # For REST API, use original start date - the API already handled alignment
-                    cache_date = start_time
+                # Get the aligned cache date
+                cache_date = self._get_aligned_cache_date(
+                    start_time, end_time, interval, use_vision
+                )
 
                 await self.cache_manager.save_to_cache(
                     df, symbol, interval.value, cache_date
@@ -607,6 +575,39 @@ class DataSourceManager:
                 logger.error(f"Error caching data: {e}")
 
         return df
+
+    def _determine_data_source(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Interval,
+        enforce_source: DataSource,
+    ) -> bool:
+        """Determine which data source to use based on parameters and preferences.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+            interval: Time interval
+            enforce_source: User-enforced data source preference
+
+        Returns:
+            True if Vision API should be used, False for REST API
+        """
+        # Handle user-enforced source selection
+        if enforce_source == DataSource.VISION:
+            logger.info("Using Vision API (enforced)")
+            return True
+        elif enforce_source == DataSource.REST:
+            logger.info("Using REST API (enforced)")
+            return False
+
+        # AUTO: Apply smart selection logic
+        use_vision = self._should_use_vision_api(start_time, end_time, interval)
+        logger.info(
+            f"Auto-selected source: {'Vision API' if use_vision else 'REST API'}"
+        )
+        return use_vision
 
     async def __aenter__(self):
         """Async context manager entry."""

@@ -21,6 +21,7 @@ from utils.validation_utils import (
 from utils.time_utils import (
     enforce_utc_timezone,
     get_interval_floor,
+    align_time_boundaries,
 )
 from utils.market_constraints import Interval
 
@@ -156,6 +157,39 @@ class UnifiedCacheManager:
             # Fall back to original behavior if alignment fails
             return CacheKeyManager.get_cache_key(symbol, interval, date)
 
+    def _align_date_for_caching(self, date: datetime, interval: str) -> datetime:
+        """Align date to interval boundaries for consistent cache handling.
+
+        Args:
+            date: Original date to align
+            interval: Interval string
+
+        Returns:
+            Aligned date following REST API boundary rules
+        """
+        try:
+            # Ensure date has proper timezone
+            date = enforce_utc_timezone(date)
+
+            # Try to convert interval string to Interval enum
+            interval_enum = next(
+                (i for i in Interval if i.value == interval), Interval.SECOND_1
+            )
+
+            # Use unified time_utils to align date to match REST API behavior
+            date_end = date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            aligned_date, _ = align_time_boundaries(date, date_end, interval_enum)
+
+            logger.debug(
+                f"Aligned date for caching: {date.isoformat()} -> {aligned_date.isoformat()}"
+            )
+            return aligned_date
+
+        except Exception as e:
+            logger.warning(f"Error aligning date for cache operation: {e}")
+            # Return original date if alignment fails
+            return date
+
     async def save_to_cache(
         self, df: pd.DataFrame, symbol: str, interval: str, date: datetime
     ) -> Tuple[str, int]:
@@ -170,25 +204,8 @@ class UnifiedCacheManager:
         Returns:
             Tuple of (checksum, record_count)
         """
-        # Ensure date has proper timezone
-        date = enforce_utc_timezone(date)
-
-        # Align date to interval boundaries to match REST API behavior
-        try:
-            # Try to convert interval string to Interval enum
-            interval_enum = next(
-                (i for i in Interval if i.value == interval), Interval.SECOND_1
-            )
-
-            # Use time_utils to align date to match REST API behavior
-            aligned_date = get_interval_floor(date, interval_enum)
-
-            # Use aligned date for caching
-            date = aligned_date
-            logger.debug(f"Using aligned date for caching: {date.isoformat()}")
-        except Exception as e:
-            logger.warning(f"Error aligning date for cache save: {e}")
-            # Continue with original date if alignment fails
+        # Align date to interval boundaries
+        date = self._align_date_for_caching(date, interval)
 
         # Log input data for debugging
         logger.debug(
@@ -322,25 +339,8 @@ class UnifiedCacheManager:
         Returns:
             DataFrame if cache exists and is valid, None otherwise
         """
-        # Ensure date has proper timezone
-        date = enforce_utc_timezone(date)
-
-        # Align date to interval boundaries to match REST API behavior
-        try:
-            # Try to convert interval string to Interval enum
-            interval_enum = next(
-                (i for i in Interval if i.value == interval), Interval.SECOND_1
-            )
-
-            # Use time_utils to align date to match REST API behavior
-            aligned_date = get_interval_floor(date, interval_enum)
-
-            # Use aligned date for cache lookup
-            date = aligned_date
-            logger.debug(f"Using aligned date for cache lookup: {date.isoformat()}")
-        except Exception as e:
-            logger.warning(f"Error aligning date for cache load: {e}")
-            # Continue with original date if alignment fails
+        # Align date to interval boundaries
+        date = self._align_date_for_caching(date, interval)
 
         # Get cache path
         cache_path = self.get_cache_path(symbol, interval, date)
