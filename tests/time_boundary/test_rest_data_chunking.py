@@ -15,6 +15,7 @@ import pandas as pd
 import logging
 from datetime import datetime, timezone, timedelta
 import sys
+import asyncio
 
 from core.rest_data_client import RestDataClient
 from utils.market_constraints import (
@@ -27,6 +28,27 @@ logger = logging.getLogger(__name__)
 # Test configuration
 TEST_SYMBOL = "BTCUSDT"
 API_LIMIT = 1000  # Maximum records per request
+
+# Configure pytest-asyncio settings without global markers
+# Individual tests that need asyncio will be marked directly
+
+
+@pytest.fixture
+def caplog_maybe():
+    """Fixture to provide a safe caplog alternative that works with pytest-xdist."""
+
+    # Always use our dummy implementation to avoid issues with pytest-xdist
+    class DummyCaplog:
+        def __init__(self):
+            self.records = []
+
+        def set_level(self, level):
+            pass
+
+        def clear(self):
+            self.records = []
+
+    return DummyCaplog()
 
 
 @pytest.mark.parametrize(
@@ -50,13 +72,13 @@ API_LIMIT = 1000  # Maximum records per request
         pytest.param(Interval.MONTH_1, marks=pytest.mark.interval("1M")),
     ],
 )
-def test_calculate_chunks_all_intervals(interval, caplog):
+def test_calculate_chunks_all_intervals(interval, caplog_maybe):
     """Test the _calculate_chunks method with all intervals.
 
     This validates that the chunking strategy is appropriate for each
     interval type, respecting the 1000-record limit per API request.
     """
-    caplog.set_level("DEBUG")
+    caplog_maybe.set_level("DEBUG")
 
     # Create RestDataClient instance
     client = RestDataClient()
@@ -143,14 +165,16 @@ def test_calculate_chunks_all_intervals(interval, caplog):
         (Interval.DAY_1, 365, 1),  # 1d: 365 days < 1000, so 1 chunk
     ],
 )
-def test_chunk_count_optimization(interval, duration_days, expected_chunks, caplog):
+def test_chunk_count_optimization(
+    interval, duration_days, expected_chunks, caplog_maybe
+):
     """Test that the chunking strategy creates an optimal number of chunks.
 
     This test verifies that the algorithm creates the appropriate number of chunks
     based on the interval size and time duration, ensuring each chunk contains
     at most 1000 records.
     """
-    caplog.set_level("DEBUG")
+    caplog_maybe.set_level("DEBUG")
 
     # Create RestDataClient instance
     client = RestDataClient()
@@ -218,7 +242,7 @@ def test_chunk_count_optimization(interval, duration_days, expected_chunks, capl
 
 @pytest.mark.real
 @pytest.mark.asyncio
-async def test_time_boundary_alignment(api_session, caplog):
+async def test_time_boundary_alignment(api_session, caplog_maybe):
     """Test that time boundaries are correctly aligned to interval boundaries.
 
     This test verifies that the RestDataClient properly handles the Binance API's
@@ -226,84 +250,83 @@ async def test_time_boundary_alignment(api_session, caplog):
     - startTime is rounded up to the next interval boundary if not aligned
     - endTime is rounded down to the previous interval boundary if not aligned
     """
-    caplog.set_level("DEBUG")
+    caplog_maybe.set_level("DEBUG")
+    logger.info("Starting time boundary alignment test")
 
     # Create client
-    client = RestDataClient(client=api_session)
+    rest_client = RestDataClient(client=api_session)
 
-    # Use a small time range with non-aligned boundaries
-    # 10:00:30 to 10:05:30 (non-aligned 5-minute period)
-    reference_time = datetime.now(timezone.utc).replace(microsecond=0)
-    reference_time = reference_time.replace(second=30)  # Intentionally non-aligned
+    # Use timestamp that is slightly offset from interval boundary
+    # For 1m interval, this would be 12:07:30
+    now = datetime.now(timezone.utc)
+    start_time = now - timedelta(days=3)
+    start_time = start_time.replace(
+        hour=12, minute=7, second=30, microsecond=0
+    )  # 12:07:30
+    end_time = start_time + timedelta(minutes=5)  # 12:12:30
 
-    start_time = reference_time - timedelta(minutes=5)
-    end_time = reference_time
+    logger.info(f"Testing with unaligned timestamps: {start_time} to {end_time}")
 
-    # Use 1-minute interval
+    # Fetch data directly with the unaligned timestamps
     interval = Interval.MINUTE_1
 
-    # Fetch data with automatic alignment
     try:
-        df, stats = await client.fetch(
-            symbol=TEST_SYMBOL,
+        # When we call fetch, it will automatically handle alignment
+        df, stats = await rest_client.fetch(
+            symbol="BTCUSDT",
             interval=interval,
             start_time=start_time,
             end_time=end_time,
         )
 
-        # If we got data, verify alignment
-        if not df.empty:
+        # Since we're testing with 1m interval, and our start time is on the half-minute,
+        # we expect alignment to the next full minute (i.e., 12:08:00)
+        expected_start = start_time.replace(minute=8, second=0)
+        expected_end = end_time.replace(minute=12, second=0)
+
+        logger.info(f"Expected aligned boundaries: {expected_start} to {expected_end}")
+        logger.info(f"Fetch stats: {stats}")
+
+        if df.empty:
+            logger.warning(
+                "Retrieved empty DataFrame - alignment test partially skipped"
+            )
+        else:
+            logger.info(f"Retrieved {len(df)} records")
+            logger.info(f"Data range: {df.index[0]} to {df.index[-1]}")
+
+            # Check index boundaries
+            # First timestamp should match the aligned start_time (or later if no data at exact start)
+            # Last timestamp should be before or equal to aligned end_time
+            assert (
+                df.index[0] >= expected_start
+            ), f"First timestamp {df.index[0]} should be >= {expected_start}"
+            assert (
+                df.index[-1] <= expected_end
+            ), f"Last timestamp {df.index[-1]} should be <= {expected_end}"
+
             # Check that all timestamps are aligned to minute boundaries (second=0)
             all_aligned = all(ts.second == 0 for ts in df.index)
             assert all_aligned, "All timestamps should be aligned to minute boundaries"
 
-            # The adjusted start time should be aligned to the next minute
-            expected_start = start_time.replace(second=0) + timedelta(minutes=1)
-            actual_start = df.index.min()
-
-            # Allow for small differences in timezone/timestamp representation
-            start_diff = abs((actual_start - expected_start).total_seconds())
-            assert (
-                start_diff < 60
-            ), f"Start time alignment issue: {actual_start} vs {expected_start}"
-
-            # The adjusted end time should be aligned to the previous minute
-            expected_end = end_time.replace(second=0)
-            actual_end = df.index.max()
-
-            # Allow for small differences in timezone/timestamp representation
-            end_diff = abs((actual_end - expected_end).total_seconds())
-            assert (
-                end_diff < 60
-            ), f"End time alignment issue: {actual_end} vs {expected_end}"
-
-            logger.info(
-                f"Time boundary alignment verified: original range {start_time} - {end_time}, "
-                f"aligned to {df.index.min()} - {df.index.max()}"
-            )
-        else:
-            logger.warning(
-                "Retrieved empty DataFrame - alignment test partially skipped"
-            )
-
     except Exception as e:
-        if "API error" in str(e):
-            logger.warning(f"API error during alignment test - skipping: {e}")
-            pytest.skip(f"API returned an error: {e}")
-        else:
-            raise
+        logger.error(f"Error in boundary alignment test: {e}")
+        raise
+
+    finally:
+        logger.info("Test completed")
 
 
 @pytest.mark.real
-@pytest.mark.asyncio
-async def test_large_data_retrieval_with_chunking(api_session, caplog):
+@pytest.mark.asyncio(loop_scope="function")
+async def test_large_data_retrieval_with_chunking(api_session, caplog_maybe):
     """Test retrieval of large data sets requiring multiple chunks.
 
     This test verifies that the chunking and pagination strategy correctly
     fetches and combines data from multiple API calls into a single coherent
     dataset.
     """
-    caplog.set_level("DEBUG")
+    caplog_maybe.set_level("DEBUG")
 
     # Create client
     client = RestDataClient(client=api_session)
@@ -385,7 +408,7 @@ async def test_large_data_retrieval_with_chunking(api_session, caplog):
         pytest.param(Interval.DAY_1, marks=pytest.mark.interval("1d")),
     ],
 )
-async def test_multi_interval_data_consistency(interval, api_session, caplog):
+async def test_multi_interval_data_consistency(interval, api_session, caplog_maybe):
     """Test data consistency across different intervals.
 
     This test verifies that the same time range fetched with different
@@ -397,7 +420,7 @@ async def test_multi_interval_data_consistency(interval, api_session, caplog):
     This validates that our chunking strategy works properly across
     all interval types.
     """
-    caplog.set_level("DEBUG")
+    caplog_maybe.set_level("DEBUG")
 
     # Create client
     client = RestDataClient(client=api_session)

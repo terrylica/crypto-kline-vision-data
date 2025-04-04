@@ -21,6 +21,7 @@ import pytest
 import arrow
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+import asyncio
 from typing import (
     Dict,
     Any,
@@ -173,7 +174,7 @@ def log_validation_results(results: Dict[str, Any]) -> None:
 
 
 @pytest.mark.real
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="function")
 async def test_time_boundary_comprehensive(manager: DataSourceManager) -> None:
     """Comprehensive testing of time boundary handling."""
     all_results: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -290,7 +291,7 @@ async def test_time_boundary_comprehensive(manager: DataSourceManager) -> None:
 
 
 @pytest.mark.real
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="function")
 async def test_boundary_edge_cases(manager: DataSourceManager):
     """Test DataSourceManager behavior with various time boundary edge cases."""
     now = datetime.now(timezone.utc)
@@ -448,7 +449,8 @@ async def test_boundary_edge_cases(manager: DataSourceManager):
             raise
 
 
-@pytest.mark.asyncio
+@pytest.mark.real
+@pytest.mark.asyncio(loop_scope="function")
 async def test_year_boundary_data_consistency(manager: DataSourceManager) -> None:
     """Test data consistency across monthly boundaries."""
     logger.info("\n=== Testing data consistency across monthly boundaries ===")

@@ -24,7 +24,7 @@ import pandas as pd
 
 import asyncio
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, cast
 
 from core.rest_data_client import RestDataClient
 from utils.market_constraints import (
@@ -46,8 +46,41 @@ FIVE_MINUTES = timedelta(minutes=5)
 ONE_HOUR = timedelta(hours=1)
 ONE_DAY = timedelta(days=1)
 
-# Configure pytest-asyncio default event loop scope
-pytestmark = pytest.mark.asyncio(loop_scope="function")
+# Instead of using a global marker, individual tests requiring asyncio will be marked accordingly
+# Configure pytest-asyncio to use function scope for event loop
+# pytestmark = pytest.mark.asyncio(loop_scope="function")
+
+
+@pytest.fixture
+def caplog_maybe(request):
+    """Fixture to provide a safe caplog alternative that works with pytest-xdist."""
+
+    # Create a dummy caplog object if the real one is not available
+    class DummyCaplog:
+        """A dummy caplog implementation that doesn't raise KeyError."""
+
+        def __init__(self):
+            """Initialize with empty records."""
+            self.records = []
+            self.text = ""
+
+        def set_level(self, level, logger=None):
+            """Dummy implementation of set_level."""
+            pass
+
+        def clear(self):
+            """Clear logs."""
+            self.records = []
+            self.text = ""
+
+    try:
+        # Try to get the real caplog fixture
+        real_caplog = request.getfixturevalue("caplog")
+        return real_caplog
+    except:
+        # If caplog fixture isn't available, return our dummy implementation
+        logger.debug("Using dummy caplog implementation")
+        return DummyCaplog()
 
 
 # Fixtures
@@ -455,8 +488,16 @@ async def fetch_klines(
 
 
 @pytest.mark.real
-async def test_rest_data_integrity(api_session, reference_time: datetime, caplog):
-    """Test market data integrity with real API data."""
+@pytest.mark.asyncio(loop_scope="function")
+async def test_rest_data_integrity(api_session, reference_time: datetime, caplog_maybe):
+    """Test basic data integrity for REST API klines data.
+
+    This test verifies:
+    1. Data is in chronological order
+    2. No duplicate timestamps
+    3. No gaps in the data (for 1s interval)
+    4. Open time matches the candle start time
+    """
     start_time = reference_time - FIVE_MINUTES
     end_time = reference_time
 
@@ -510,8 +551,17 @@ async def test_rest_data_integrity(api_session, reference_time: datetime, caplog
 
 
 @pytest.mark.real
-async def test_rest_data_consistency(api_session, reference_time: datetime, caplog):
-    """Test consistency of market data structure between fetches."""
+@pytest.mark.asyncio(loop_scope="function")
+async def test_rest_data_consistency(
+    api_session, reference_time: datetime, caplog_maybe
+):
+    """Test data consistency across different API requests.
+
+    This test verifies:
+    1. Data from different time windows is consistent
+    2. Overlapping data is identical
+    3. Data structure remains consistent
+    """
     # Use historical data to avoid live data changes
     start_time = reference_time - timedelta(hours=1)
     end_time = start_time + timedelta(minutes=1)
@@ -583,13 +633,20 @@ async def test_rest_data_consistency(api_session, reference_time: datetime, capl
 
 
 @pytest.mark.real
+@pytest.mark.asyncio(loop_scope="function")
 async def test_api_limits_and_chunking(
     api_session,
     retriever: RestDataClient,
     reference_time: datetime,
-    caplog,
+    caplog_maybe,
 ):
-    """Test API limits and chunking behavior."""
+    """Test API limits and chunking behavior.
+
+    This test verifies:
+    1. API returns expected number of records
+    2. Retriever correctly handles chunking
+    3. Time windows are properly calculated
+    """
     # Request exactly the API limit
     start_time = reference_time - timedelta(minutes=API_LIMIT // 60)
     end_time = reference_time
@@ -657,10 +714,17 @@ async def test_api_limits_and_chunking(
 
 
 @pytest.mark.real
+@pytest.mark.asyncio(loop_scope="function")
 async def test_rest_data_retrieval(
-    retriever: RestDataClient, reference_time: datetime, caplog
+    retriever: RestDataClient, reference_time: datetime, caplog_maybe
 ):
-    """Test RestDataClient data retrieval functionality."""
+    """Test REST API data retrieval functionality.
+
+    This test verifies:
+    1. RestDataClient can retrieve data successfully
+    2. Data structure matches expectations
+    3. Time range is respected
+    """
     start_time = reference_time - FIVE_MINUTES
     end_time = reference_time
 
@@ -702,10 +766,17 @@ async def test_rest_data_retrieval(
 
 
 @pytest.mark.real
+@pytest.mark.asyncio(loop_scope="function")
 async def test_large_data_retrieval(
-    retriever: RestDataClient, reference_time: datetime, caplog
+    retriever: RestDataClient, reference_time: datetime, caplog_maybe
 ):
-    """Test retrieval of large data sets with automatic chunking."""
+    """Test retrieval of large data sets requiring chunking.
+
+    This test verifies:
+    1. RestDataClient correctly handles large data requests
+    2. Chunking works as expected
+    3. Data is consistent across chunks
+    """
     # Request 2 hours of data (requires multiple API calls)
     start_time = reference_time - timedelta(hours=2)
     end_time = reference_time
