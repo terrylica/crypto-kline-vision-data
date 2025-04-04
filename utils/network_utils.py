@@ -15,7 +15,7 @@ import time
 import tempfile
 import zipfile
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
     Dict,
@@ -308,9 +308,25 @@ class DownloadHandler:
 
             # Check status code
             if response.status_code != 200:
-                logger.error(
-                    f"Download failed with status code {response.status_code}: {response.text}"
-                )
+                # Use warning instead of error for 404 (Not Found) status
+                if response.status_code == 404:
+                    # File doesn't exist - this is often expected when checking for file existence
+                    # Extract filename from URL for more informative message
+                    from urllib.parse import urlparse
+
+                    path = urlparse(url).path
+                    filename = path.split("/")[-1] if "/" in path else path
+
+                    logger.warning(f"File not found (404): {filename}")
+                    if "NoSuchKey" in response.text:
+                        # This is a standard AWS S3 response for missing files
+                        logger.debug(f"AWS S3 NoSuchKey: {url}")
+                else:
+                    # For other non-200 status codes, still log as error
+                    logger.error(
+                        f"Download failed with status code {response.status_code}: {response.text}"
+                    )
+
                 return False
 
             # Get content and write to file
@@ -679,10 +695,25 @@ class VisionDownloadManager:
         from utils.time_utils import enforce_utc_timezone
         from urllib.parse import urlparse
 
+        # Import DataValidation to check if data is likely available
+        from utils.validation import DataValidation
+
         date = enforce_utc_timezone(date)
 
         # Add debugging timestamp
         debug_id = f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_{int(time.time())}"
+
+        # Check if data is likely available for the date before attempting download
+        is_available = DataValidation.is_data_likely_available(date)
+
+        if not is_available:
+            now = datetime.now(timezone.utc)
+            # This is a future date or very recent data, no need to log as error
+            logger.info(
+                f"[{debug_id}] Data for {date.strftime('%Y-%m-%d')} may not be available yet (current date: {now.strftime('%Y-%m-%d')})"
+            )
+            return None
+
         logger.info(
             f"[{debug_id}] Starting download for {self.symbol} {self.interval} on {date.strftime('%Y-%m-%d')}"
         )
@@ -715,13 +746,15 @@ class VisionDownloadManager:
             # Download data file first
             data_success = await self.download_file(data_url, data_file)
             if not data_success:
-                logger.error(f"[{debug_id}] Failed to download data file for {date}")
+                # Changed from ERROR to WARNING since this could be an expected condition for future dates
+                logger.warning(f"[{debug_id}] Failed to download data file for {date}")
                 return None
 
             # Then download checksum file
             checksum_success = await self.download_file(checksum_url, checksum_file)
             if not checksum_success:
-                logger.error(
+                # Changed from ERROR to WARNING
+                logger.warning(
                     f"[{debug_id}] Failed to download checksum file for {date}"
                 )
                 return None
@@ -740,7 +773,8 @@ class VisionDownloadManager:
                 )
 
                 if data_size == 0:
-                    logger.error(f"[{debug_id}] Downloaded data file is empty")
+                    # Changed from ERROR to WARNING
+                    logger.warning(f"[{debug_id}] Downloaded data file is empty")
                     return None
             except Exception as e:
                 logger.error(f"[{debug_id}] Error checking file sizes: {e}")
@@ -830,10 +864,26 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                 # Use StringIO for CSV parsing
                 import io
 
+                csv_buffer = io.BytesIO(file_content)
+
                 try:
-                    df = pd.read_csv(
-                        io.BytesIO(file_content), header=None, names=KLINE_COLUMNS
-                    )
+                    # Read the first line to check if it contains headers
+                    first_line = csv_buffer.readline().decode("utf-8").strip()
+                    csv_buffer.seek(0)  # Reset buffer position after reading
+
+                    # Check if the first line contains headers (column names)
+                    contains_header = "open_time" in first_line.lower()
+
+                    if contains_header:
+                        logger.info(
+                            f"{log_prefix} CSV file contains headers, using header=0"
+                        )
+                        df = pd.read_csv(csv_buffer, header=0)
+                    else:
+                        logger.info(
+                            f"{log_prefix} CSV file has no headers, using supplied column names"
+                        )
+                        df = pd.read_csv(csv_buffer, header=None, names=KLINE_COLUMNS)
 
                     # Log sample of raw data for debugging
                     if not df.empty:
@@ -854,9 +904,9 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                         "volume",
                         "close_time",
                         "quote_asset_volume",
-                        "number_of_trades",
-                        "taker_buy_base_asset_volume",
-                        "taker_buy_quote_asset_volume",
+                        "count",
+                        "taker_buy_volume",
+                        "taker_buy_quote_volume",
                     ]
 
                     for col in numeric_columns:
@@ -910,7 +960,16 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                             # Fallback to a more flexible approach
                             try:
                                 # Try autodetecting the format based on the number of digits
-                                timestamp_val = df["open_time"].astype(float)
+                                # First, make sure we're working with numeric data
+                                if pd.api.types.is_numeric_dtype(df["open_time"]):
+                                    timestamp_val = df["open_time"]
+                                else:
+                                    # If it's not numeric (e.g., it's already a datetime or string),
+                                    # try to convert it to numeric
+                                    timestamp_val = pd.to_numeric(
+                                        df["open_time"], errors="coerce"
+                                    )
+
                                 sample_ts = (
                                     timestamp_val.iloc[0]
                                     if not timestamp_val.empty
@@ -918,33 +977,49 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                 )
                                 digits = len(str(int(sample_ts)))
 
-                                # Handle timestamp format based on number of digits
+                                # Handle different timestamp formats
                                 if digits > 13:  # Microseconds (16 digits)
-                                    # Use unit parameter directly to prevent overflow
                                     logger.info(
-                                        f"{log_prefix} Using direct microsecond conversion for {digits} digits"
+                                        f"{log_prefix} Fallback: Detected microsecond timestamps ({digits} digits)"
                                     )
+                                    # Use direct microsecond conversion for overflow safety
                                     df["open_time"] = pd.to_datetime(
                                         df["open_time"], unit="us", utc=True
                                     )
-                                elif digits > 10:  # Milliseconds (13 digits)
+                                else:  # Standard millisecond format (13 digits)
+                                    logger.info(
+                                        f"{log_prefix} Fallback: Detected millisecond timestamps ({digits} digits)"
+                                    )
                                     df["open_time"] = pd.to_datetime(
                                         df["open_time"], unit="ms", utc=True
-                                    )
-                                else:  # Seconds (10 digits)
-                                    df["open_time"] = pd.to_datetime(
-                                        df["open_time"], unit="s", utc=True
                                     )
 
                                 df = df.set_index("open_time")
                                 logger.info(
-                                    f"{log_prefix} Fallback timestamp conversion succeeded with {digits} digits"
+                                    f"{log_prefix} Fallback conversion successful"
                                 )
                             except Exception as nested_e:
                                 logger.error(
                                     f"{log_prefix} Fallback timestamp conversion failed: {str(nested_e)}"
                                 )
-                                return pd.DataFrame()
+
+                                # One last attempt - if open_time is already a string in ISO format
+                                try:
+                                    logger.info(
+                                        f"{log_prefix} Trying to parse open_time as ISO datetime string"
+                                    )
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], utc=True
+                                    )
+                                    df = df.set_index("open_time")
+                                    logger.info(
+                                        f"{log_prefix} Successfully parsed open_time as datetime string"
+                                    )
+                                except Exception as iso_e:
+                                    logger.error(
+                                        f"{log_prefix} Failed to parse open_time as datetime string: {str(iso_e)}"
+                                    )
+                                    return pd.DataFrame()
 
                     # Convert close_time to datetime64[ns] as well
                     if "close_time" in df.columns and not df.empty:
@@ -953,7 +1028,16 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                             logger.info(
                                 f"{log_prefix} Converting close_time column to datetime64"
                             )
-                            timestamp_val = df["close_time"].astype(float)
+                            # First, make sure we're working with numeric data
+                            if pd.api.types.is_numeric_dtype(df["close_time"]):
+                                timestamp_val = df["close_time"]
+                            else:
+                                # If it's not numeric (e.g., it's already a datetime or string),
+                                # try to convert it to numeric
+                                timestamp_val = pd.to_numeric(
+                                    df["close_time"], errors="coerce"
+                                )
+
                             sample_ts = (
                                 timestamp_val.iloc[0] if not timestamp_val.empty else 0
                             )
@@ -977,7 +1061,7 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                                 )
 
                             # Ensure it has the right type
-                            df["close_time"] = df["close_time"].tz_localize(None)
+                            df["close_time"] = df["close_time"].dt.tz_localize(None)
                             logger.info(
                                 f"{log_prefix} close_time dtype: {df['close_time'].dtype}"
                             )
@@ -985,6 +1069,24 @@ async def read_csv_from_zip(zip_file_path: str, log_prefix: str = "") -> pd.Data
                             logger.error(
                                 f"{log_prefix} Error converting close_time to datetime: {str(e)}"
                             )
+                            # Fallback attempt - if close_time is already a string in ISO format
+                            try:
+                                logger.info(
+                                    f"{log_prefix} Trying to parse close_time as ISO datetime string"
+                                )
+                                df["close_time"] = pd.to_datetime(
+                                    df["close_time"], utc=True
+                                )
+                                # Ensure it has the right type
+                                df["close_time"] = df["close_time"].dt.tz_localize(None)
+                                logger.info(
+                                    f"{log_prefix} Successfully parsed close_time as datetime string"
+                                )
+                            except Exception as iso_e:
+                                logger.error(
+                                    f"{log_prefix} Failed to parse close_time as datetime string: {str(iso_e)}"
+                                )
+                                # Continue without close_time conversion since it's not critical
 
                     # Final check on DataFrame
                     if df.empty:
