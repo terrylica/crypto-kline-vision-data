@@ -11,7 +11,7 @@ from examples.logger_demo.test_modules import do_task_a, do_task_b
 
 # Configure the logging hierarchy with DEBUG threshold
 # Environment variable LOG_LEVEL overrides this configuration when present
-logger.setup(level="DEBUG")
+logger.setLevel("INFO")
 
 
 def main():
@@ -41,6 +41,6 @@ if __name__ == "__main__":
     print("1. Module-level import pattern:")
     print("   from utils.logger_setup import logger")
     print("\n2. Application entrypoint configuration:")
-    print('   logger.setup(level="DEBUG")  # Hierarchy threshold configuration')
+    print('   logger.setLevel("DEBUG")  # Hierarchy threshold configuration')
     print("\n3. Environment variable precedence:")
     print("   LOG_LEVEL=INFO python examples/logger_demo/main_example.py")

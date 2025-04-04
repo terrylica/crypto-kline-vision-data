@@ -71,13 +71,15 @@ Best Practices Demonstrated:
 
 import asyncio
 import signal
-import sys
+import sys, os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import traceback
 import pandas as pd
 
 from utils.logger_setup import logger
+
+logger.setLevel("ERROR")
 from utils.market_constraints import Interval, MarketType, is_interval_supported
 from core.data_source_manager import DataSourceManager, DataSource
 
@@ -89,9 +91,6 @@ async def example_fetch_recent_data():
     logger.debug("Starting example_fetch_recent_data function")
     logger.info(f"Current time: {now.isoformat()}")
     logger.info("Fetching recent Bitcoin data using the recommended approach")
-    logger.warning("This is a sample WARNING message")
-    logger.error("This is a sample ERROR message")
-    logger.critical("This is a sample CRITICAL message")
 
     # Create cache directory
     cache_dir = Path("./cache")
@@ -669,6 +668,16 @@ async def shutdown(sig, loop):
 
 
 if __name__ == "__main__":
+    # clear screen
+    os.system("cls" if os.name == "nt" else "clear")
+
+    # precisly find out what this script path and how this script is executed
+    logger.debug(f"This script path: {os.path.abspath(__file__)}")
+    logger.debug(f"This script is executed with: {sys.argv}")
+
+    logger.info(
+        f"Current UTC date time precision up to milliseconds: {datetime.now(timezone.utc).isoformat(timespec='milliseconds')}"
+    )
     # Set up signal handlers
     handle_signals()
 

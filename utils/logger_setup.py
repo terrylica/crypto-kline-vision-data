@@ -1,5 +1,6 @@
 import logging, os
 import inspect
+import warnings
 from colorlog import ColoredFormatter
 
 # Default log level from environment or INFO
@@ -170,8 +171,54 @@ class LoggerProxy:
         logger = get_logger()
         return getattr(logger, name)
 
+    def setLevel(self, level, configure_root=True):
+        """
+        Conventional style method to set logging level, matching standard Logger API.
+
+        Sets the level for the current module's logger and optionally
+        configures the root logger. Maintains proxy behavior and method chaining.
+
+        Parameters:
+            level (str or int): Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+                               or corresponding integer value.
+            configure_root (bool): When True (default), also configures the root logger
+                                  and propagates level setting to all loggers.
+
+        Returns:
+            LoggerProxy: Self reference for method chaining support.
+        """
+        # Check if environment variable takes precedence
+        env_level = os.environ.get("LOG_LEVEL")
+        if env_level:
+            level = env_level
+
+        # Normalize level format
+        if isinstance(level, str):
+            level_str = level.upper()
+        else:
+            level_str = level
+
+        # Configure the root logger if requested
+        if configure_root:
+            _setup_root_logger(level=level_str)
+
+        # Get caller's module name
+        frame = inspect.currentframe().f_back
+        module = inspect.getmodule(frame)
+        module_name = module.__name__ if module else "__main__"
+
+        # Set level for the specific module logger (already done for all if root configured)
+        # but ensure the specific module has the level set
+        logger = get_logger(module_name)
+        logger.setLevel(level_str)
+
+        # Return self for chaining
+        return self
+
     def setup(self, level=None):
         """
+        [DEPRECATED] Use setLevel() instead.
+
         Configure the logging hierarchy with specified level threshold.
 
         Establishes the root configuration and propagates settings to all loggers.
@@ -185,33 +232,18 @@ class LoggerProxy:
         Returns:
             LoggerProxy: Self reference for method chaining support.
         """
-        # Make sure we get the proper level, respecting env vars
-        env_level = os.environ.get("LOG_LEVEL")
-        if env_level:
-            # Environment variable takes precedence
-            level = env_level
-        elif level is None:
-            # Default if nothing is specified
-            level = DEFAULT_LEVEL
-
-        # Convert to proper level integer
-        level_str = level.upper() if isinstance(level, str) else level
-
-        # Configure the root logger
-        _setup_root_logger(level=level_str)
-
-        # Get caller's module name for specific logger updates
-        frame = inspect.currentframe().f_back
-        module = inspect.getmodule(frame)
-        module_name = module.__name__ if module else "__main__"
-
-        # Update the module's logger level
-        logging.getLogger(module_name).setLevel(
-            getattr(logging, level_str) if isinstance(level_str, str) else level
+        warnings.warn(
+            "setup() is deprecated, use setLevel() instead",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
-        # Return self for chaining
-        return self
+        # If no level is provided, use the default
+        if level is None:
+            level = DEFAULT_LEVEL
+
+        # Use the new setLevel method with root configuration
+        return self.setLevel(level, configure_root=True)
 
 
 # Create the auto-detecting logger proxy for conventional syntax
@@ -231,8 +263,25 @@ if __name__ == "__main__":
     logger.error("Error using conventional syntax")
     logger.critical("Critical using conventional syntax")
 
+    # Test the conventional setLevel method
+    print("\nTesting conventional logger.setLevel() method:")
+    logger.setLevel("WARNING")
+    logger.debug("This debug message should NOT appear")
+    logger.info("This info message should NOT appear")
+    logger.warning("This warning message SHOULD appear")
+
+    # Test deprecated setup method
+    print("\nTesting deprecated setup method (should show warning):")
+    logger.setup(level="INFO")
+    logger.debug("This debug message should NOT appear")
+    logger.info("This info message SHOULD appear")
+
     # Test method chaining with all levels
     print("\nTesting method chaining with all levels:")
     logger.debug("Debug chain").info("Info chain").warning("Warning chain").error(
         "Error chain"
     ).critical("Critical chain")
+
+    # Test method chaining with setLevel
+    print("\nTesting method chaining with setLevel:")
+    logger.setLevel("DEBUG").debug("This chained debug message SHOULD appear")

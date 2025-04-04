@@ -34,7 +34,7 @@ def process_data(dataset):
 from utils.logger_setup import logger
 
 # Configure logging hierarchy in application entrypoint
-logger.setup(level="INFO")  # Sets root logger level
+logger.setLevel("INFO")  # Sets root logger level
 
 def main():
     logger.info("Application initialization complete")
@@ -51,7 +51,7 @@ The logger implements a hierarchical configuration model where:
 1. The root logger level establishes the baseline filtering threshold
 2. All module-specific loggers inherit from this threshold
 3. Environment variables take precedence over programmatic configuration
-4. Runtime reconfiguration is possible via the `setup()` method
+4. Runtime reconfiguration is possible via the `setLevel()` method
 
 ### Logging Levels (Increasing Severity)
 
@@ -65,7 +65,7 @@ The logger implements a hierarchical configuration model where:
 
 ```python
 # Programmatic configuration
-logger.setup(level="DEBUG")
+logger.setLevel("DEBUG")
 
 # Environment variable configuration (higher precedence)
 # LOG_LEVEL=WARNING python your_application.py
@@ -77,7 +77,7 @@ The implementation supports the fluent interface pattern via method chaining:
 
 ```python
 # Configuration chaining
-logger.setup(level="INFO").info("Configuration complete")
+logger.setLevel("INFO").info("Configuration complete")
 
 # Sequential logging operations
 logger.info("Operation started").warning("Anomalies detected").error("Operation failed")
