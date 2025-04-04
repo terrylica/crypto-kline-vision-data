@@ -77,16 +77,29 @@ class VisionDataClient(Generic[T]):
         # Convert MarketType enum to string if needed
         market_type_str = market_type
         if isinstance(market_type, MarketType):
-            if market_type == MarketType.SPOT:
-                market_type_str = "spot"
-            elif market_type == MarketType.FUTURES_USDT:
-                market_type_str = "futures_usdt"
-            elif market_type == MarketType.FUTURES_COIN:
-                market_type_str = "futures_coin"
-            elif market_type == MarketType.FUTURES:
-                market_type_str = "futures_usdt"  # Default to USDT for legacy type
-            else:
-                raise ValueError(f"Unsupported market type: {market_type}")
+            try:
+                market_name = market_type.name
+                if market_name == "SPOT":
+                    market_type_str = "spot"
+                elif market_name == "FUTURES_USDT":
+                    market_type_str = "futures_usdt"
+                elif market_name == "FUTURES_COIN":
+                    market_type_str = "futures_coin"
+                elif market_name == "FUTURES":
+                    market_type_str = "futures_usdt"  # Default to USDT for legacy type
+                else:
+                    raise ValueError(f"Unsupported market type: {market_type}")
+            except (AttributeError, TypeError):
+                # Fallback to string representation for safer comparison
+                market_str = str(market_type).upper()
+                if "SPOT" in market_str:
+                    market_type_str = "spot"
+                elif "FUTURES_USDT" in market_str or "FUTURES" == market_str:
+                    market_type_str = "futures_usdt"
+                elif "FUTURES_COIN" in market_str:
+                    market_type_str = "futures_coin"
+                else:
+                    raise ValueError(f"Unsupported market type: {market_type}")
 
         # Parse interval string to Interval object
         try:

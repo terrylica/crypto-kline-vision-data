@@ -183,8 +183,8 @@ def log_dataframe_info(df: pd.DataFrame, source: str) -> None:
     logger.info(f"║   • 📈 Average Volume: {df['volume'].mean():,.2f}")
 
     # Check for trade count info using the standard column name
-    if "number_of_trades" in df.columns:
-        logger.info(f"║   • 🔄 Total Trades: {df['number_of_trades'].sum():,}")
+    if "count" in df.columns:
+        logger.info(f"║   • 🔄 Total Trades: {df['count'].sum():,}")
     else:
         logger.info(f"║   • 🔄 Total Trades: N/A (column not available)")
 
@@ -250,9 +250,9 @@ def validate_dataframe_structure(df: pd.DataFrame, allow_empty: bool = True) -> 
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",  # Using standardized name instead of "trades"
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",  # Using standardized name instead of "trades"
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
     }
 
     # Check for minimal required columns (OHLCV)
@@ -463,10 +463,8 @@ async def test_large_data_request(manager: DataSourceManager, now: arrow.Arrow) 
         logger.info(f"First record timestamp: {df.index[0]}")
         logger.info(f"Last record timestamp: {df.index[-1]}")
 
-        if "number_of_trades" in df.columns:
-            logger.info(
-                f"Number of trades in first record: {df['number_of_trades'].iloc[0]}"
-            )
+        if "count" in df.columns:
+            logger.info(f"Number of trades in first record: {df['count'].iloc[0]}")
         elif "trades" in df.columns:
             logger.info(f"Number of trades in first record: {df['trades'].iloc[0]}")
 
@@ -610,10 +608,8 @@ async def test_enforced_vision_api(
         logger.info(f"First record timestamp: {df.index[0]}")
         logger.info(f"Last record timestamp: {df.index[-1]}")
 
-        if "number_of_trades" in df.columns:
-            logger.info(
-                f"Number of trades in first record: {df['number_of_trades'].iloc[0]}"
-            )
+        if "count" in df.columns:
+            logger.info(f"Number of trades in first record: {df['count'].iloc[0]}")
         elif "trades" in df.columns:
             logger.info(f"Number of trades in first record: {df['trades'].iloc[0]}")
 

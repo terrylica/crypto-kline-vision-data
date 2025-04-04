@@ -82,11 +82,11 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
         "close",
         "volume",
         "quote_asset_volume",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
     ]
     df[numeric_cols] = df[numeric_cols].astype(np.float64)
-    df["number_of_trades"] = df["number_of_trades"].astype(np.int32)
+    df["count"] = df["count"].astype(np.int32)
 
     # Standardize column names using centralized function
     df = standardize_column_names(df)

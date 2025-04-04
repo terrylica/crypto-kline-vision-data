@@ -43,9 +43,9 @@ CACHE_SCHEMA: Final[Dict[str, pa.DataType]] = {
     "volume": pa.float64(),
     "close_time": pa.timestamp("ns", tz="UTC"),
     "quote_asset_volume": pa.float64(),
-    "number_of_trades": pa.int64(),
-    "taker_buy_base_asset_volume": pa.float64(),
-    "taker_buy_quote_asset_volume": pa.float64(),
+    "count": pa.int64(),
+    "taker_buy_volume": pa.float64(),
+    "taker_buy_quote_volume": pa.float64(),
 }
 
 # Constraint constants

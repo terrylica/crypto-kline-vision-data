@@ -51,9 +51,9 @@ KLINE_COLUMNS: Final[List[str]] = [
     "volume",  # Volume
     "close_time",  # Kline Close time
     "quote_asset_volume",  # Quote asset volume
-    "number_of_trades",  # Number of trades
-    "taker_buy_base_asset_volume",  # Taker buy base asset volume
-    "taker_buy_quote_asset_volume",  # Taker buy quote asset volume
+    "count",  # Number of trades
+    "taker_buy_volume",  # Taker buy base asset volume
+    "taker_buy_quote_volume",  # Taker buy quote asset volume
     "ignore",  # Unused field, ignore
 ]
 
@@ -66,9 +66,9 @@ OUTPUT_DTYPES: Final[Dict[str, str]] = {
     "volume": "float64",
     "close_time": "datetime64[ns]",
     "quote_asset_volume": "float64",
-    "number_of_trades": "int64",
-    "taker_buy_base_asset_volume": "float64",
-    "taker_buy_quote_asset_volume": "float64",
+    "count": "int64",
+    "taker_buy_volume": "float64",
+    "taker_buy_quote_volume": "float64",
 }
 
 # Mapping between various column name variants used in different APIs
@@ -77,14 +77,14 @@ COLUMN_NAME_MAPPING: Final[Dict[str, str]] = {
     # Quote volume variants
     "quote_volume": "quote_asset_volume",
     # Trade count variants
-    "trades": "number_of_trades",
+    "trades": "count",
     # Taker buy base volume variants
-    "taker_buy_base": "taker_buy_base_asset_volume",
-    "taker_buy_volume": "taker_buy_base_asset_volume",
-    "taker_buy_base_volume": "taker_buy_base_asset_volume",
+    "taker_buy_base": "taker_buy_volume",
+    "taker_buy_volume": "taker_buy_volume",
+    "taker_buy_base_volume": "taker_buy_volume",
     # Taker buy quote volume variants
-    "taker_buy_quote": "taker_buy_quote_asset_volume",
-    "taker_buy_quote_volume": "taker_buy_quote_asset_volume",
+    "taker_buy_quote": "taker_buy_quote_volume",
+    "taker_buy_quote_volume": "taker_buy_quote_volume",
 }
 
 # Default column order for standardized output
@@ -96,9 +96,9 @@ DEFAULT_COLUMN_ORDER: Final[List[str]] = [
     "volume",
     "close_time",
     "quote_asset_volume",
-    "number_of_trades",
-    "taker_buy_base_asset_volume",
-    "taker_buy_quote_asset_volume",
+    "count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume",
 ]
 
 # Timestamp configuration

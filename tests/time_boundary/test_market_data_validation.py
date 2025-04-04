@@ -165,9 +165,9 @@ def validate_rest_data_structure(df: pd.DataFrame) -> None:
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
     ]
 
     # Legacy column names for backward compatibility
@@ -194,7 +194,7 @@ def validate_rest_data_structure(df: pd.DataFrame) -> None:
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
+        "count",
         "taker_buy_base_volume",
         "taker_buy_quote_volume",
     ]
@@ -208,9 +208,9 @@ def validate_rest_data_structure(df: pd.DataFrame) -> None:
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
         "ignore",
     ]
 
@@ -292,16 +292,14 @@ def validate_rest_data_structure(df: pd.DataFrame) -> None:
             "int64",
             "float64",
         ], f"trades column has incorrect type: {df['trades'].dtype}"
-    elif "number_of_trades" in df.columns:
-        if df["number_of_trades"].dtype not in ["int32", "int64", "float64"]:
-            df["number_of_trades"] = pd.to_numeric(
-                df["number_of_trades"], errors="coerce"
-            ).astype("int64")
-        assert df["number_of_trades"].dtype in [
+    elif "count" in df.columns:
+        if df["count"].dtype not in ["int32", "int64", "float64"]:
+            df["count"] = pd.to_numeric(df["count"], errors="coerce").astype("int64")
+        assert df["count"].dtype in [
             "int32",
             "int64",
             "float64",
-        ], f"number_of_trades column has incorrect type: {df['number_of_trades'].dtype}"
+        ], f"count column has incorrect type: {df['count'].dtype}"
 
 
 def validate_time_integrity(
@@ -524,9 +522,9 @@ async def test_rest_data_integrity(api_session, reference_time: datetime, caplog
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
         "ignore",
     ]
     df = pd.DataFrame(data, columns=columns)
@@ -539,9 +537,7 @@ async def test_rest_data_integrity(api_session, reference_time: datetime, caplog
     for col in ["open", "high", "low", "close", "volume", "quote_asset_volume"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["number_of_trades"] = pd.to_numeric(
-        df["number_of_trades"], errors="coerce"
-    ).astype("int64")
+    df["count"] = pd.to_numeric(df["count"], errors="coerce").astype("int64")
 
     # Validate data
     validate_rest_data_structure(df)
@@ -593,9 +589,9 @@ async def test_rest_data_consistency(
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
         "ignore",
     ]
     df1 = pd.DataFrame(data1, columns=columns)
@@ -610,9 +606,7 @@ async def test_rest_data_consistency(
         for col in ["open", "high", "low", "close", "volume", "quote_asset_volume"]:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        df["number_of_trades"] = pd.to_numeric(
-            df["number_of_trades"], errors="coerce"
-        ).astype("int64")
+        df["count"] = pd.to_numeric(df["count"], errors="coerce").astype("int64")
 
     # Verify consistency
     assert len(df1) == len(df2), "Data length should be consistent between fetches"

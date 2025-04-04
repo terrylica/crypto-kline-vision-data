@@ -37,9 +37,9 @@ ALL_COLUMNS = [
     "close",
     "volume",
     "quote_asset_volume",
-    "number_of_trades",
-    "taker_buy_base_asset_volume",
-    "taker_buy_quote_asset_volume",
+    "count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume",
 ]
 
 # Regex Patterns
@@ -504,9 +504,9 @@ def validate_dataframe(df: pd.DataFrame) -> None:
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
     ]
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
@@ -535,9 +535,9 @@ def format_dataframe(
             "volume",
             "close_time",
             "quote_asset_volume",
-            "number_of_trades",
-            "taker_buy_base_asset_volume",
-            "taker_buy_quote_asset_volume",
+            "count",
+            "taker_buy_volume",
+            "taker_buy_quote_volume",
         ]
         empty_df = pd.DataFrame(columns=standard_columns)
         empty_df.index = pd.DatetimeIndex(
@@ -574,9 +574,9 @@ def format_dataframe(
         "volume",
         "close_time",
         "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
+        "count",
+        "taker_buy_volume",
+        "taker_buy_quote_volume",
     ]
     for column in standard_columns:
         if column not in formatted_df.columns:

@@ -349,9 +349,9 @@ class ApiBoundaryValidator:
                         "volume",
                         "close_time",
                         "quote_asset_volume",
-                        "number_of_trades",
-                        "taker_buy_base_asset_volume",
-                        "taker_buy_quote_asset_volume",
+                        "count",
+                        "taker_buy_volume",
+                        "taker_buy_quote_volume",
                     ]
                 )
                 empty_df["open_time"] = pd.to_datetime(
@@ -372,9 +372,9 @@ class ApiBoundaryValidator:
                     "volume",
                     "close_time",
                     "quote_asset_volume",
-                    "number_of_trades",
-                    "taker_buy_base_asset_volume",
-                    "taker_buy_quote_asset_volume",
+                    "count",
+                    "taker_buy_volume",
+                    "taker_buy_quote_volume",
                     "ignore",
                 ],
             )
@@ -392,9 +392,9 @@ class ApiBoundaryValidator:
                 "volume",
                 "close_time",
                 "quote_asset_volume",
-                "number_of_trades",
-                "taker_buy_base_asset_volume",
-                "taker_buy_quote_asset_volume",
+                "count",
+                "taker_buy_volume",
+                "taker_buy_quote_volume",
             ]
             for col in numeric_cols:
                 df[col] = pd.to_numeric(df[col])
@@ -421,9 +421,9 @@ class ApiBoundaryValidator:
                     "volume",
                     "close_time",
                     "quote_asset_volume",
-                    "number_of_trades",
-                    "taker_buy_base_asset_volume",
-                    "taker_buy_quote_asset_volume",
+                    "count",
+                    "taker_buy_volume",
+                    "taker_buy_quote_volume",
                 ]
             )
             empty_df.index.name = "open_time"

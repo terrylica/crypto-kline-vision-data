@@ -354,19 +354,11 @@ async def test_input_format_handling(
             "datetime64"
         ), "close_time must be datetime64 type (with or without timezone)"
 
-        # Check for either 'trades' or 'number_of_trades' column
-        trades_col = None
-        if "trades" in df.columns:
-            trades_col = "trades"
-        elif "number_of_trades" in df.columns:
-            trades_col = "number_of_trades"
-
-        assert (
-            trades_col is not None
-        ), "DataFrame should have either 'trades' or 'number_of_trades' column"
+        # Verify trades column
+        assert "trades" in df.columns, "DataFrame should have 'trades' column"
         # Convert to int64 if not already (handles both int32 and int64 cases)
-        df[trades_col] = df[trades_col].astype(np.int64)
-        assert df[trades_col].dtype == np.int64, f"{trades_col} should be int64"
+        df["trades"] = df["trades"].astype(np.int64)
+        assert df["trades"].dtype == np.int64, "trades should be int64"
 
         # Check if we have a reasonable number of records
         expected_minutes = 5  # Time range is 5 minutes
@@ -449,9 +441,7 @@ async def test_output_format_guarantees(
         assert any(
             "quote" in col.lower() for col in df.columns
         ), "Should have a quote volume column"
-        assert any(
-            "trade" in col.lower() for col in df.columns
-        ), "Should have a trades column"
+        assert "trades" in df.columns, "Should have trades column"
         assert any(
             "taker" in col.lower() and "buy" in col.lower() for col in df.columns
         ), "Should have taker buy columns"
@@ -682,15 +672,14 @@ async def test_data_point_relationships(
     quote_vol_col = (
         "quote_asset_volume" if "quote_asset_volume" in df.columns else "quote_volume"
     )
-    trades_col = "number_of_trades" if "number_of_trades" in df.columns else "trades"
     taker_buy_base_col = (
-        "taker_buy_base_asset_volume"
-        if "taker_buy_base_asset_volume" in df.columns
+        "taker_buy_volume"
+        if "taker_buy_volume" in df.columns
         else "taker_buy_base_volume"
     )
     taker_buy_quote_col = (
-        "taker_buy_quote_asset_volume"
-        if "taker_buy_quote_asset_volume" in df.columns
+        "taker_buy_quote_volume"
+        if "taker_buy_quote_volume" in df.columns
         else "taker_buy_quote_volume"
     )
 
@@ -712,11 +701,11 @@ async def test_data_point_relationships(
             f"Quote volume column not found. Available columns: {df.columns.tolist()}"
         )
 
-    # Check if trades column exists
-    if trades_col in df.columns:
+    # Check volume vs trades relationship
+    if "trades" in df.columns:
         assert (
-            df.loc[df[trades_col] > 0, "volume"] > 0
-        ).all(), f"Volume should be > 0 when {trades_col} > 0"
+            df.loc[df["trades"] > 0, "volume"] > 0
+        ).all(), "Volume should be > 0 when trades > 0"
     else:
         logger.warning(
             f"Trades column not found. Available columns: {df.columns.tolist()}"
