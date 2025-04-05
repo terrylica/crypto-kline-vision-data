@@ -6,7 +6,6 @@ from typing import Dict, Optional, Tuple
 from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
-import warnings
 import asyncio
 
 from utils.logger_setup import logger
@@ -15,9 +14,8 @@ from utils.time_utils import (
     filter_dataframe_by_time,
     enforce_utc_timezone,
     align_time_boundaries,
-    validate_time_window,
 )
-from utils.validation import DataFrameValidator
+from utils.validation import DataFrameValidator, DataValidation
 from utils.config import (
     OUTPUT_DTYPES,
     VISION_DATA_DELAY_HOURS,
@@ -78,7 +76,6 @@ class DataSourceManager:
         self,
         market_type: MarketType = MarketType.SPOT,
         rest_client: Optional[RestDataClient] = None,
-        vision_client: Optional[VisionDataClient] = None,
         cache_dir: Optional[Path] = None,
         use_cache: bool = True,
         max_concurrent: int = 50,
@@ -90,7 +87,6 @@ class DataSourceManager:
         Args:
             market_type: Type of market (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
             rest_client: Optional pre-configured REST client
-            vision_client: Optional pre-configured Vision client (deprecated, will be created internally if needed)
             cache_dir: Directory for caching data
             use_cache: Whether to use caching
             max_concurrent: Maximum concurrent API requests for REST client (default: 50)
@@ -112,27 +108,9 @@ class DataSourceManager:
         # Convert market_type to string for Vision API if needed
         self.market_type_str = self._get_market_type_str(market_type)
 
-        # Store original vision client cache settings
-        self._vision_original_cache = None
-
-        # Instead of requiring a VisionDataClient, we'll create it internally when needed
-        if vision_client:
-            # For backward compatibility only - emit a deprecation warning
-            warnings.warn(
-                "Passing a VisionDataClient externally is deprecated. "
-                "DataSourceManager will create its own VisionDataClient instance when needed.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self._vision_original_cache = {
-                "dir": vision_client.cache_dir,
-                "use_cache": vision_client.use_cache,
-            }
-            vision_client.use_cache = False
-            vision_client.cache_dir = None
-
-        self.vision_client = vision_client
-        self._vision_client_initialized = self.vision_client is not None
+        # Vision client will be created when needed
+        self.vision_client = None
+        self._vision_client_initialized = False
 
         # Initialize cache manager if caching is enabled
         self.use_cache = use_cache and cache_dir is not None
@@ -496,11 +474,15 @@ class DataSourceManager:
         """
         # Standardize input parameters
         symbol = symbol.upper()
-        start_time = enforce_utc_timezone(start_time)
-        end_time = enforce_utc_timezone(end_time)
 
-        # Validate time window
-        validate_time_window(start_time, end_time)
+        # Apply comprehensive time boundary validation
+        start_time, end_time, metadata = DataValidation.validate_query_time_boundaries(
+            start_time, end_time, handle_future_dates="error"
+        )
+
+        # Log any warnings from validation
+        for warning in metadata.get("warnings", []):
+            logger.warning(warning)
 
         # Log input parameters
         logger.info(
@@ -616,12 +598,7 @@ class DataSourceManager:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Cleanup resources and restore original cache settings."""
         try:
-            if self.vision_client and self._vision_original_cache:
-                # Restore original cache settings
-                self.vision_client.cache_dir = self._vision_original_cache["dir"]
-                self.vision_client.use_cache = self._vision_original_cache["use_cache"]
-                logger.debug("Restored original vision client cache settings")
-
+            if self.vision_client and self._vision_client_initialized:
                 # Properly cleanup vision client
                 await self.vision_client.__aexit__(exc_type, exc_val, exc_tb)
 

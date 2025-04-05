@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import TypeVar, NewType, Final, Optional, NamedTuple, Literal, Dict, Union
+from typing import TypeVar, NewType, Final, NamedTuple, Literal, Dict, Union
 from datetime import datetime, timedelta
 import pandas as pd
 from pathlib import Path
@@ -16,10 +16,7 @@ from utils.cache_validator import (
     CacheKeyManager,
 )
 from utils.time_utils import enforce_utc_timezone
-from utils.validation_utils import (
-    validate_time_range,
-    validate_dataframe_time_boundaries,
-)
+from utils.validation import DataValidation
 from utils.config import (
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
@@ -228,30 +225,43 @@ def get_vision_url(
 
 
 def is_data_likely_available(target_date: datetime) -> bool:
-    """Check if data is likely to be available from Binance Vision.
+    """Check if data is likely to be available for a given date.
 
     Args:
-        target_date: Date to check for data availability
+        target_date: Date to check availability for
 
     Returns:
-        True if data is likely available based on Binance Vision's constraints
+        True if data is likely available, False otherwise
     """
-    # Use centralized validation utility
-    return DataValidation.is_data_likely_available(target_date, CONSOLIDATION_DELAY)
+    # Ensure timezone-aware datetime
+    target_date = enforce_utc_timezone(target_date)
+    now = datetime.now(DEFAULT_TIMEZONE)
+
+    # Data is likely available if it's older than the consolidation delay
+    return (now - target_date) > CONSOLIDATION_DELAY
 
 
 def validate_data_availability(start_time: datetime, end_time: datetime) -> None:
-    """Validate if data should be available for the given time range.
+    """Validate that data is likely to be available for the requested time range.
 
     Args:
-        start_time: Start of time range
-        end_time: End of time range
+        start_time: Start time of the data
+        end_time: End time of the data
 
     Raises:
-        ValueError: If data is definitely not available for the time range
+        Warning if data within the buffer period is requested
     """
-    # Use centralized validation utility
-    DataValidation.validate_data_availability(start_time, end_time, CONSOLIDATION_DELAY)
+    start_time = enforce_utc_timezone(start_time)
+    end_time = enforce_utc_timezone(end_time)
+
+    now = datetime.now(DEFAULT_TIMEZONE)
+    cutoff = now - CONSOLIDATION_DELAY
+
+    if end_time > cutoff:
+        logging.warning(
+            f"Requested data includes recent time ({end_time}) that may not be fully consolidated. "
+            f"Data is typically available with a {CONSOLIDATION_DELAY} delay."
+        )
 
 
 class TimestampedDataFrame(pd.DataFrame):
@@ -331,20 +341,12 @@ def validate_cache_path(path: Path) -> CachePath:
     return CachePath(path)
 
 
-def validate_time_range(
-    start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
-) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Validate and normalize time range parameters."""
-    # Use centralized utility from validation_utils
-    return validate_time_range(start_time, end_time)
-
-
 def validate_time_boundaries(
     df: pd.DataFrame, start_time: datetime, end_time: datetime
 ) -> None:
     """Validate that DataFrame covers the requested time range."""
-    # Use centralized utility from validation_utils
-    validate_dataframe_time_boundaries(df, start_time, end_time)
+    # Use centralized utility from DataValidation
+    DataValidation.validate_dataframe_time_boundaries(df, start_time, end_time)
 
 
 def validate_symbol_format(symbol: str) -> None:

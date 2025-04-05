@@ -12,7 +12,7 @@ api_boundary_validator.py to ensure consistent behavior throughout the applicati
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple, List, Dict, Any, Union
+from typing import Optional, Tuple, List, Union
 import re
 
 import pandas as pd
@@ -37,8 +37,6 @@ __all__ = [
     "filter_dataframe_by_time",
     "align_time_boundaries",
     "estimate_record_count",
-    "vision_api_time_window_alignment",
-    "align_vision_api_to_rest",
     "TimeseriesDataProcessor",
 ]
 
@@ -51,18 +49,32 @@ TIMESTAMP_UNIT = "us"  # Default unit for timestamp parsing
 
 
 def enforce_utc_timezone(dt: datetime) -> datetime:
-    """Ensure datetime is in UTC timezone.
+    """Ensures datetime object is timezone-aware and in UTC.
+
+    This is a foundational utility method used by other validation methods
+    to normalize datetime objects. It handles both naive and timezone-aware
+    datetime objects, ensuring consistent timezone handling throughout the system.
 
     Args:
-        dt: Input datetime, potentially with or without timezone
+        dt: Input datetime, can be naive or timezone-aware
 
     Returns:
-        Datetime object guaranteed to have UTC timezone
+        UTC timezone-aware datetime
     """
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    # Create a new object to ensure we don't return the same instance
-    if dt.tzinfo == timezone.utc:
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        # If naive datetime, assume it's UTC
+        return datetime(
+            dt.year,
+            dt.month,
+            dt.day,
+            dt.hour,
+            dt.minute,
+            dt.second,
+            dt.microsecond,
+            tzinfo=timezone.utc,
+        )
+    elif dt.tzinfo == timezone.utc:
+        # If already in UTC, return a new copy to ensure it's a different object
         return datetime(
             dt.year,
             dt.month,
@@ -74,35 +86,6 @@ def enforce_utc_timezone(dt: datetime) -> datetime:
             tzinfo=timezone.utc,
         )
     return dt.astimezone(timezone.utc)
-
-
-def validate_time_window(start_time: datetime, end_time: datetime) -> None:
-    """Validate the time window for an API request.
-
-    Args:
-        start_time: Start time for data retrieval
-        end_time: End time for data retrieval
-
-    Raises:
-        ValueError: If start_time is after end_time or time window is invalid
-    """
-    # Ensure datetimes are timezone aware and in UTC
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Basic validation - start time must be before end time
-    if start_time >= end_time:
-        raise ValueError(
-            f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
-        )
-
-    # Check if time range is within reasonable limits
-    time_diff = end_time - start_time
-    if time_diff > timedelta(days=365):
-        raise ValueError(
-            f"Time range too large: {time_diff.days} days. "
-            "Consider breaking into smaller requests."
-        )
 
 
 def get_interval_micros(interval: MarketInterval) -> int:
@@ -407,80 +390,6 @@ def estimate_record_count(
     record_count = (time_diff_secs // interval_secs) + 1
 
     return record_count
-
-
-# --------- DEPRECATION NOTICE ---------------
-# These functions are maintained for backward compatibility
-# but should be considered deprecated. Use align_time_boundaries instead.
-
-
-def vision_api_time_window_alignment(
-    start_time: datetime,
-    end_time: datetime,
-    interval: MarketInterval,
-) -> Tuple[datetime, datetime]:
-    """Align time window for Vision API to match REST API behavior.
-
-    DEPRECATED: Use align_time_boundaries instead.
-
-    This is kept for backward compatibility but redirects to the unified implementation.
-
-    Args:
-        start_time: Start time
-        end_time: End time
-        interval: The interval specification
-
-    Returns:
-        Tuple of aligned start and end times that match REST API behavior
-    """
-    logger.warning(
-        "vision_api_time_window_alignment is deprecated. Use align_time_boundaries instead."
-    )
-    return align_time_boundaries(start_time, end_time, interval)
-
-
-def align_vision_api_to_rest(
-    start_time: datetime, end_time: datetime, interval: MarketInterval
-) -> Dict[str, Any]:
-    """Apply alignment to Vision API requests that matches REST API's natural boundary behavior.
-
-    DEPRECATED: Use align_time_boundaries instead.
-
-    This is kept for backward compatibility but uses the unified implementation internally.
-
-    Args:
-        start_time: Start time for the request
-        end_time: End time for the request
-        interval: The interval object representing data granularity
-
-    Returns:
-        Dictionary containing adjusted start/end times and metadata
-    """
-    logger.warning(
-        "align_vision_api_to_rest is deprecated. Use align_time_boundaries instead."
-    )
-
-    # Ensure times are in UTC
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Use the unified implementation
-    aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
-
-    # Get interval in microseconds
-    interval_micros = get_interval_micros(interval)
-
-    # Create result with metadata
-    result = {
-        "original_start": start_time,
-        "original_end": end_time,
-        "adjusted_start": aligned_start,
-        "adjusted_end": aligned_end,
-        "interval": interval,
-        "interval_micros": interval_micros,
-    }
-
-    return result
 
 
 class TimeseriesDataProcessor:

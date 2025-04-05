@@ -31,7 +31,6 @@ import sys
 # Import curl_cffi for HTTP client implementation
 from curl_cffi.requests import AsyncSession
 
-import pandas as pd
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -580,10 +579,10 @@ class VisionDownloadManager:
         Returns:
             URL for the checksum file
         """
-        # Import and use enforce_utc_timezone for consistent timezone handling
-        from utils.time_utils import enforce_utc_timezone
+        # Use DataValidation.enforce_utc_timestamp for consistent timezone handling
+        from utils.validation import DataValidation
 
-        date = enforce_utc_timezone(date)
+        date = DataValidation.enforce_utc_timestamp(date)
 
         # Import vision constraints here to avoid circular imports
         from core.vision_constraints import get_vision_url, FileType
@@ -601,10 +600,10 @@ class VisionDownloadManager:
         Returns:
             URL for the data file
         """
-        # Import and use enforce_utc_timezone for consistent timezone handling
-        from utils.time_utils import enforce_utc_timezone
+        # Use DataValidation.enforce_utc_timestamp for consistent timezone handling
+        from utils.validation import DataValidation
 
-        date = enforce_utc_timezone(date)
+        date = DataValidation.enforce_utc_timestamp(date)
 
         # Import vision constraints here to avoid circular imports
         from core.vision_constraints import get_vision_url, FileType
@@ -632,9 +631,7 @@ class VisionDownloadManager:
                 logger.debug(f"Raw checksum file content: '{content}'")
                 logger.debug(f"Expected checksum: '{expected}'")
 
-            from utils.validation_utils import (
-                calculate_checksum,
-            )
+            from utils.validation import DataValidation
 
             # Log file details
             logger.debug(f"Verifying checksum for file: {file_path}")
@@ -647,7 +644,7 @@ class VisionDownloadManager:
                 logger.debug(f"File header (hex): {header.hex()}")
 
             # Calculate checksum of the zip file directly
-            actual = calculate_checksum(file_path)
+            actual = DataValidation.calculate_checksum(file_path)
             logger.debug(f"Calculated checksum: '{actual}'")
 
             if actual != expected:
@@ -693,13 +690,10 @@ class VisionDownloadManager:
             The raw data needs to be processed by TimeseriesDataProcessor.
         """
         # Ensure date has proper timezone
-        from utils.time_utils import enforce_utc_timezone
+        from utils.validation import DataValidation
         from urllib.parse import urlparse
 
-        # Import DataValidation to check if data is likely available
-        from utils.validation import DataValidation
-
-        date = enforce_utc_timezone(date)
+        date = DataValidation.enforce_utc_timestamp(date)
 
         # Add debugging timestamp
         debug_id = f"{self.symbol}_{self.interval}_{date.strftime('%Y%m%d')}_{int(time.time())}"

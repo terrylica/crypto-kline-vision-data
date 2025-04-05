@@ -13,11 +13,7 @@ from utils.cache_validator import (
     CacheKeyManager,
     safely_read_arrow_file_async,
 )
-from utils.validation_utils import (
-    validate_dataframe,
-    calculate_checksum,
-    validate_file_with_checksum,
-)
+from utils.validation import DataValidation, DataFrameValidator
 from utils.time_utils import (
     enforce_utc_timezone,
     get_interval_floor,
@@ -230,7 +226,7 @@ class UnifiedCacheManager:
 
         # Validate DataFrame before caching
         try:
-            validate_dataframe(df)
+            DataFrameValidator.validate_dataframe(df)
         except ValueError as e:
             logger.warning(f"Invalid DataFrame, not caching: {e}")
             # Log more details about the DataFrame for debugging
@@ -288,7 +284,7 @@ class UnifiedCacheManager:
                 raise
 
             # Calculate checksum and record count
-            checksum = calculate_checksum(cache_path)
+            checksum = DataValidation.calculate_checksum(cache_path)
             record_count = len(df)
 
             # Update metadata
@@ -360,8 +356,10 @@ class UnifiedCacheManager:
             logger.warning(f"Cache file missing: {cache_path}")
             return None
 
-        if not validate_file_with_checksum(cache_path, cache_info["checksum"]):
-            logger.warning(f"Cache checksum mismatch: {cache_path}")
+        if not DataValidation.validate_file_with_checksum(
+            cache_path, cache_info["checksum"]
+        ):
+            logger.warning(f"Cache checksum verification failed for {cache_path}")
             return None
 
         # Create a lock file path for file locking
@@ -385,9 +383,9 @@ class UnifiedCacheManager:
 
         # Perform validation on loaded data
         try:
-            validate_dataframe(df)
+            DataFrameValidator.validate_dataframe(df)
         except ValueError as e:
-            logger.warning(f"Invalid cached data: {e}")
+            logger.error(f"DataFrame validation failed: {e}")
             return None
 
         logger.info(f"Loaded {len(df)} records from cache: {cache_path}")

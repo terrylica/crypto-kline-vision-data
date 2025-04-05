@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Centralized validation utilities for data integrity and constraints.
 
+DEPRECATED: This module is deprecated. Use utils.validation instead.
+
 This module consolidates validation logic from various modules including:
 - validation.py
 - api_boundary_validator.py
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, NamedTuple
 import re
 from dataclasses import dataclass
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -27,6 +30,15 @@ import numpy as np
 from utils.logger_setup import logger
 from utils.market_constraints import MarketType, Interval
 from utils.time_utils import enforce_utc_timezone
+from utils.validation import DataValidation
+
+# Show deprecation warning when module is imported
+warnings.warn(
+    "The validation_utils module is deprecated and will be removed in a future version. "
+    "Use utils.validation instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Column name constants
 OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
@@ -56,7 +68,6 @@ from utils.config import (
     MIN_VALID_FILE_SIZE,
     MAX_CACHE_AGE,
     OUTPUT_DTYPES,
-    MAX_TIME_RANGE,
 )
 
 # Default symbol for tests
@@ -100,32 +111,6 @@ class ValidationOptions:
 # ----- Basic Validation Functions -----
 
 
-def validate_time_window(
-    start_time: datetime, end_time: datetime, max_range: timedelta = MAX_TIME_RANGE
-) -> Tuple[datetime, datetime]:
-    """Validate time window against maximum allowed time range.
-
-    Args:
-        start_time: Start time
-        end_time: End time
-        max_range: Maximum allowed time range, defaults to MAX_TIME_RANGE from config
-
-    Returns:
-        Tuple of validated (start_time, end_time)
-
-    Raises:
-        ValueError: If time window exceeds maximum allowed range
-    """
-    # Ensure timezone-aware datetimes
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Validate time range
-    validate_time_range(start_time, end_time, max_range)
-
-    return start_time, end_time
-
-
 def validate_interval(
     interval: Union[str, Interval], market_type: Optional[Union[str, MarketType]] = None
 ) -> Interval:
@@ -141,6 +126,12 @@ def validate_interval(
     Raises:
         ValueError: If interval is invalid
     """
+    warnings.warn(
+        "validate_interval is deprecated. Use validation.DataValidation instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if isinstance(interval, Interval):
         return interval
 
@@ -212,6 +203,12 @@ def validate_symbol(symbol: str) -> str:
     Raises:
         ValueError: If symbol is invalid
     """
+    warnings.warn(
+        "validate_symbol is deprecated. Use validation.DataValidation instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if not isinstance(symbol, str):
         raise ValueError(f"Symbol must be a string, got {type(symbol)}")
 
@@ -256,62 +253,6 @@ def validate_symbol_format(symbol: str) -> str:
     return symbol
 
 
-def validate_time_range(
-    start_time: datetime, end_time: datetime, max_range: Optional[timedelta] = None
-) -> Tuple[datetime, datetime]:
-    """Validate time range parameters.
-
-    Args:
-        start_time: Start time
-        end_time: End time
-        max_range: Maximum allowed time range
-
-    Returns:
-        Tuple of (start_time, end_time) with normalized values
-
-    Raises:
-        ValueError: If time range is invalid
-    """
-    # Validate types
-    if not isinstance(start_time, datetime):
-        raise ValueError(
-            f"start_time must be a datetime object, got {type(start_time)}"
-        )
-    if not isinstance(end_time, datetime):
-        raise ValueError(f"end_time must be a datetime object, got {type(end_time)}")
-
-    # Ensure timezone-aware datetimes
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Check for future dates
-    now = datetime.now(timezone.utc)
-    if start_time > now:
-        raise ValueError(
-            f"Start time ({start_time}) cannot be in the future (current time: {now})"
-        )
-    if end_time > now:
-        raise ValueError(
-            f"End time ({end_time}) cannot be in the future (current time: {now})"
-        )
-
-    # Check range validity
-    if start_time >= end_time:
-        raise ValueError(
-            f"Start time must be before end time: {start_time} >= {end_time}"
-        )
-
-    # Check max range if specified
-    if max_range is not None:
-        actual_range = end_time - start_time
-        if actual_range > max_range:
-            raise ValueError(
-                f"Time range exceeds maximum allowed: {actual_range} > {max_range}"
-            )
-
-    return start_time, end_time
-
-
 def validate_dates(
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
@@ -320,46 +261,24 @@ def validate_dates(
     """Validate and normalize date parameters.
 
     Args:
-        start_time: Optional start time (defaults to 7 days before end_time)
-        end_time: Optional end time (defaults to current time)
-        relative_to: Optional reference time for relative calculations
+        start_time: Start time (default: now)
+        end_time: End time (default: start_time + 1 day)
+        relative_to: Reference time for relative dates (default: now)
 
     Returns:
-        Tuple of (start_time, end_time) with normalized values
+        Tuple of (normalized_start_time, normalized_end_time)
 
     Raises:
-        ValueError: If date parameters are invalid
+        ValueError: If dates are invalid
     """
-    # Check timezone awareness if dates are provided
-    if start_time is not None and start_time.tzinfo is None:
-        raise ValueError("start_time must be timezone-aware")
-    if end_time is not None and end_time.tzinfo is None:
-        raise ValueError("end_time must be timezone-aware")
-    if relative_to is not None and relative_to.tzinfo is None:
-        raise ValueError("relative_to must be timezone-aware")
+    warnings.warn(
+        "validate_dates is deprecated. Use validation.DataValidation.validate_dates instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    # Set default reference time
-    if relative_to is None:
-        relative_to = datetime.now(timezone.utc)
-    else:
-        relative_to = enforce_utc_timezone(relative_to)
-
-    # Set default end_time
-    if end_time is None:
-        end_time = relative_to
-    else:
-        end_time = enforce_utc_timezone(end_time)
-
-    # Set default start_time
-    if start_time is None:
-        start_time = end_time - timedelta(days=7)
-    else:
-        start_time = enforce_utc_timezone(start_time)
-
-    # Validate time range
-    validate_time_range(start_time, end_time)
-
-    return start_time, end_time
+    # Use the centralized validation method
+    return DataValidation.validate_dates(start_time, end_time, relative_to)
 
 
 def is_data_likely_available(timestamp: datetime, buffer_hours: int = 24) -> bool:
@@ -467,6 +386,12 @@ def validate_dataframe(df: pd.DataFrame) -> None:
     Raises:
         ValueError: If DataFrame structure is invalid
     """
+    warnings.warn(
+        "validate_dataframe is deprecated. Use validation.DataFrameValidator.validate_dataframe instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if df.empty:
         return
 
@@ -671,23 +596,15 @@ def validate_file_with_checksum(
     Returns:
         True if file passes all integrity checks, False otherwise
     """
-    # Check basic integrity first
-    integrity_result = validate_file_integrity(file_path, min_size, max_age)
-    if integrity_result is not None:
-        # Failed basic validation
-        return False
+    warnings.warn(
+        "validate_file_with_checksum is deprecated. Use validation.DataValidation.validate_file_with_checksum instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    # If checksum validation is requested, perform it
-    if expected_checksum:
-        try:
-            actual_checksum = calculate_checksum(file_path)
-            return actual_checksum == expected_checksum
-        except (IOError, OSError) as e:
-            logger.error(f"Error calculating checksum for {file_path}: {e}")
-            return False
-
-    # If no checksum validation requested or it passed
-    return True
+    return DataValidation.validate_file_with_checksum(
+        file_path, expected_checksum, min_size, max_age
+    )
 
 
 def validate_cache_integrity(
@@ -748,11 +665,13 @@ def calculate_checksum(file_path: Path) -> str:
     Returns:
         Hexadecimal string of the SHA-256 checksum
     """
-    hash_sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_sha256.update(chunk)
-    return hash_sha256.hexdigest()
+    warnings.warn(
+        "calculate_checksum is deprecated. Use validation.DataValidation.calculate_checksum instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    return DataValidation.calculate_checksum(file_path)
 
 
 # ----- API Validation -----
@@ -798,9 +717,9 @@ class ApiBoundaryValidator:
 
         # First validate basic time range constraints
         try:
-            validate_time_range(start_time, end_time)
+            DataValidation.validate_time_range(start_time, end_time)
         except ValueError as e:
-            self.logger.warning(f"Invalid time range: {e}")
+            logger.warning(f"Invalid time range: {e}")
             return False
 
         # Test the range by making a minimal API call
@@ -811,7 +730,7 @@ class ApiBoundaryValidator:
             )
             return len(api_data) > 0
         except Exception as e:
-            self.logger.warning(f"API call failed: {e}")
+            logger.warning(f"API call failed: {e}")
             return False
 
     async def get_api_boundaries(
@@ -1298,27 +1217,13 @@ def validate_dataframe_time_boundaries(
     Raises:
         ValueError: If DataFrame doesn't cover the time range
     """
-    if df.empty:
-        return  # Empty DataFrame cannot be validated against time boundaries
+    warnings.warn(
+        "validate_dataframe_time_boundaries is deprecated. Use validation.DataValidation.validate_dataframe_time_boundaries instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    # Ensure timezone-aware datetimes
-    start_time = enforce_utc_timezone(start_time)
-    end_time = enforce_utc_timezone(end_time)
-
-    # Get actual time range covered
-    actual_start = df.index.min()
-    actual_end = df.index.max()
-
-    # Check time boundaries (with small tolerance for floating point precision)
-    if actual_start > start_time + timedelta(microseconds=1000):
-        raise ValueError(
-            f"DataFrame starts at {actual_start}, which is after the requested start time {start_time}"
-        )
-
-    if actual_end < end_time - timedelta(microseconds=1000):
-        raise ValueError(
-            f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}"
-        )
+    return DataValidation.validate_dataframe_time_boundaries(df, start_time, end_time)
 
 
 def validate_date_range_for_api(
@@ -1334,19 +1239,12 @@ def validate_date_range_for_api(
     Returns:
         Tuple of (is_valid, error_message)
     """
-    now = datetime.now(timezone.utc)
-    allowed_future = now + timedelta(seconds=max_future_seconds)
+    warnings.warn(
+        "validate_date_range_for_api is deprecated. Use validation.DataValidation.validate_date_range_for_api instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    if start_time > allowed_future:
-        return False, f"Start time {start_time.isoformat()} is in the future"
-
-    if end_time > allowed_future:
-        return False, f"End time {end_time.isoformat()} is in the future"
-
-    if start_time > end_time:
-        return (
-            False,
-            f"Start time {start_time.isoformat()} is after end time {end_time.isoformat()}",
-        )
-
-    return True, ""
+    return DataValidation.validate_date_range_for_api(
+        start_time, end_time, max_future_seconds
+    )

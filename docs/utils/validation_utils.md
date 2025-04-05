@@ -1,6 +1,8 @@
-# Validation Utilities (validation_utils.py)
+# Validation Utilities (validation_utils.py) [DEPRECATED]
 
 This module provides centralized validation utilities for ensuring data integrity, including DataFrame validation, API boundary validation, and cache validation. These utilities help maintain consistency and reliability across the codebase.
+
+> **IMPORTANT**: This module is now deprecated. Please use the `utils.validation` module and its `DataValidation` and `DataFrameValidator` classes instead.
 
 ## Key Components
 
@@ -12,30 +14,10 @@ This module provides centralized validation utilities for ensuring data integrit
 
 ### Basic Validation Functions
 
-- **`validate_dates(start_time: datetime, end_time: datetime) -> None`**
-
+- **`validate_dates(start_time: datetime, end_time: datetime) -> None`** [DEPRECATED]
   - Validates that datetimes are in proper order and timezone-aware
   - Raises ValueError if validation fails
-
-- **`validate_time_window(start_time: datetime, end_time: datetime) -> None`**
-
-  - Validates time window against maximum allowed range
-  - Calls validate_dates first
-  - Raises ValueError if validation fails
-
-- **`validate_time_range(start_time: Optional[datetime], end_time: Optional[datetime]) -> tuple[Optional[datetime], Optional[datetime]]`**
-
-  - Normalizes and validates time range parameters
-  - Returns normalized start and end times
-
-- **`validate_interval(interval: str, market_type: str = "SPOT") -> None`**
-
-  - Validates that an interval string is valid for the specified market type
-  - Raises ValueError for invalid intervals
-
-- **`validate_symbol_format(symbol: str, market_type: str = "SPOT") -> None`**
-  - Validates trading pair symbol format
-  - Raises ValueError for invalid symbols
+  - **Now available as `DataValidation.validate_dates`**
 
 ### Data Availability Validation
 
@@ -50,16 +32,18 @@ This module provides centralized validation utilities for ensuring data integrit
 
 ### DataFrame Validation
 
-- **`validate_dataframe(df: pd.DataFrame) -> None`**
+- **`validate_dataframe(df: pd.DataFrame) -> None`** [DEPRECATED]
 
   - Validates DataFrame structure and integrity
   - Checks index type, timezone awareness, column presence, etc.
   - Raises ValueError if validation fails
+  - **Now available as `DataFrameValidator.validate_dataframe`**
 
-- **`format_dataframe(df: pd.DataFrame, output_dtypes: Dict[str, str] = OUTPUT_DTYPES) -> pd.DataFrame`**
+- **`format_dataframe(df: pd.DataFrame, output_dtypes: Dict[str, str] = OUTPUT_DTYPES) -> pd.DataFrame`** [DEPRECATED]
   - Formats DataFrame to ensure consistent structure
   - Handles index conversion, timezone standardization, etc.
   - Returns formatted DataFrame
+  - **Now available as `DataFrameValidator.format_dataframe`**
 
 ### File Validation
 
@@ -75,7 +59,7 @@ This module provides centralized validation utilities for ensuring data integrit
 
 ### API Validation
 
-#### ApiValidator Class
+#### ApiValidator Class [DEPRECATED]
 
 The `ApiValidator` class provides methods for validating data against Binance API behavior.
 
@@ -99,7 +83,7 @@ The `ApiValidator` class provides methods for validating data against Binance AP
 
 ### Comprehensive Data Validation
 
-#### DataValidator Class
+#### DataValidator Class [DEPRECATED]
 
 The `DataValidator` class provides comprehensive data validation including structure and API alignment.
 
@@ -119,69 +103,25 @@ The `DataValidator` class provides comprehensive data validation including struc
 ## Usage Examples
 
 ```python
-# Basic validation
-from utils.validation_utils import validate_symbol_format, validate_interval
+# Basic validation - USE UPDATED MODULES
+from utils.validation import DataValidation
 
-# Validate a trading pair symbol
-validate_symbol_format("BTCUSDT")  # Passes
-validate_symbol_format("btcusdt")  # Raises ValueError - should be uppercase
+# Validate a time window
+from datetime import datetime, timezone, timedelta
+start_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
+end_time = datetime(2023, 1, 2, tzinfo=timezone.utc)
+DataValidation.validate_time_window(start_time, end_time)
 
-# Validate an interval
-validate_interval("1m", "SPOT")  # Passes
-validate_interval("1s", "FUTURES")  # Raises ValueError - 1s not available for futures
-
-# DataFrame validation
+# DataFrame validation - USE UPDATED MODULES
 import pandas as pd
-from utils.validation_utils import validate_dataframe, format_dataframe
+from utils.validation import DataFrameValidator
 
 # Create a DataFrame
 df = pd.DataFrame(...)
 
 # Validate structure
-validate_dataframe(df)  # Raises ValueError if invalid
+DataFrameValidator.validate_dataframe(df)  # Raises ValueError if invalid
 
 # Format to ensure consistent structure
-formatted_df = format_dataframe(df)
-
-# API validation
-from datetime import datetime, timezone
-from utils.validation_utils import ApiValidator
-from utils.api_boundary_validator import ApiBoundaryValidator
-from utils.market_constraints import MarketType, Interval
-
-# Create validators
-api_boundary_validator = ApiBoundaryValidator(MarketType.SPOT)
-api_validator = ApiValidator(api_boundary_validator)
-
-# Check if time range is valid
-start_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
-end_time = datetime(2023, 1, 2, tzinfo=timezone.utc)
-interval = Interval.HOUR_1
-
-is_valid = await api_validator.validate_api_time_range(start_time, end_time, interval)
-
-# Get API-aligned boundaries
-boundaries = await api_validator.get_api_aligned_boundaries(start_time, end_time, interval)
-
-# Comprehensive data validation
-from utils.validation_utils import DataValidator, ValidationOptions
-
-# Create validator
-data_validator = DataValidator(api_validator)
-
-# Configure validation options
-options = ValidationOptions(
-    allow_empty=False,
-    start_time=start_time,
-    end_time=end_time,
-    interval=interval,
-    symbol="BTCUSDT"
-)
-
-# Validate data
-validation_error = await data_validator.validate_data(df, options)
-if validation_error is None:
-    print("Data is valid!")
-else:
-    print(f"Validation failed: {validation_error.message}")
+formatted_df = DataFrameValidator.format_dataframe(df)
 ```

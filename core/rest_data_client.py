@@ -34,7 +34,7 @@ from utils.config import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     API_TIMEOUT,
 )
-from utils.validation_utils import validate_date_range_for_api
+from utils.validation import DataValidation
 
 
 def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
@@ -681,16 +681,21 @@ class RestDataClient:
             self._client = self._create_optimized_client()
             self._client_is_external = False
 
-        # Validate date range to prevent requesting future data
-        is_valid, error_message = validate_date_range_for_api(start_time, end_time)
-        if not is_valid:
-            logger.warning(f"Invalid date range: {error_message}")
-            return self.create_empty_dataframe(), {
-                "error": "invalid_date_range",
-                "error_message": error_message,
-                "chunks": 0,
-                "total_records": 0,
-            }
+        # Comprehensive validation of time boundaries
+        try:
+            start_time, end_time, metadata = (
+                DataValidation.validate_query_time_boundaries(
+                    start_time, end_time, handle_future_dates="error"
+                )
+            )
+
+            # Log any warnings
+            for warning in metadata.get("warnings", []):
+                logger.warning(warning)
+
+        except ValueError as e:
+            logger.error(f"Invalid time boundaries: {str(e)}")
+            raise ValueError(f"Invalid time boundaries: {str(e)}")
 
         # Handle symbol formatting for FUTURES_COIN market type
         formatted_symbol = symbol
@@ -731,12 +736,6 @@ class RestDataClient:
             # Even if connectivity test fails, try to proceed with the actual data fetch
             # as the test might be failing due to environment restrictions but actual
             # data retrieval might work
-
-        # Ensure timezone awareness
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=timezone.utc)
-        if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
 
         # Validate request parameters
         self._validate_request_params(symbol, interval, start_time, end_time)

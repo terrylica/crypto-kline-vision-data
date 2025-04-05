@@ -4,8 +4,9 @@ This directory contains consolidated utility modules used throughout the codebas
 
 ## Overview
 
-- **time_utils.py**: Centralized time-related utilities, including date validation, timezone handling, interval calculations, and time boundary alignment.
-- **validation_utils.py**: Consolidated validation utilities for ensuring data integrity, including DataFrame validation, API boundary validation, and cache validation.
+- **time_utils.py**: Centralized time-related utilities, including timezone handling, interval calculations, and time boundary alignment.
+- **validation.py**: Core validation classes (DataValidation, DataFrameValidator) for ensuring data integrity and validation.
+- **validation_utils.py**: [DEPRECATED] Legacy validation utilities - use validation.py instead.
 - **network_utils.py**: Unified network functionality, including HTTP client creation, file downloads with retry logic, and standardized API request handling.
 - **deprecation_rules.py**: Provides utilities for handling and enforcing function deprecation.
 
@@ -29,30 +30,35 @@ Time-related utilities consolidated from:
 Key functions:
 
 - `enforce_utc_timezone`: Ensures datetime objects are timezone-aware and in UTC
-- `validate_time_window`: Validates time windows for market data operations
 - `get_interval_*`: Functions for interval calculations
 - `align_time_boundaries`: Aligns time boundaries based on interval
 
-## Validation Utilities (`validation_utils.py`)
+## Validation Modules (`validation.py`)
 
-Validation utilities consolidated from:
-
-- `api_boundary_validator.py`
-- `cache_validator.py`
-- `validation.py`
-- Other validation logic
-
-Key functions:
-
-- `validate_dataframe`: Validates DataFrame structure and integrity
-- `format_dataframe`: Formats DataFrames to ensure consistent structure
-- `validate_cache_integrity`: Validates cache file integrity
-- `calculate_checksum`: Calculates SHA-256 checksums for files
+Primary validation classes consolidating functionality from legacy validation modules:
 
 Key classes:
 
-- `ApiValidator`: For API-specific validations
-- `DataValidator`: For comprehensive data validations
+- `DataValidation`: Provides static methods for validating data integrity
+  - `validate_time_window`: Validates time windows for market data operations
+  - `validate_time_range`: Normalizes and validates time range parameters
+  - `validate_dates`: Validates that datetimes are proper and timezone-aware
+  - `validate_symbol_format`: Validates trading pair symbol format
+- `DataFrameValidator`: Provides static methods for validating and formatting DataFrames
+  - `validate_dataframe`: Validates DataFrame structure and integrity
+  - `format_dataframe`: Formats DataFrames to ensure consistent structure
+
+## Validation Utilities (`validation_utils.py`) [DEPRECATED]
+
+Legacy validation utilities that have been migrated to `validation.py`:
+
+- `validate_dataframe` → `DataFrameValidator.validate_dataframe`
+- `format_dataframe` → `DataFrameValidator.format_dataframe`
+- `validate_time_window` → `DataValidation.validate_time_window`
+- `validate_time_range` → `DataValidation.validate_time_range`
+- `validate_dates` → `DataValidation.validate_dates`
+- `ApiValidator` → Use direct API service modules
+- `DataValidator` → Use `DataFrameValidator` and service-specific validation
 
 ## Network Utilities (`network_utils.py`)
 
@@ -78,3 +84,39 @@ Key functions and classes:
 ## Migration Path
 
 The codebase is in the process of migrating to these consolidated utilities. The original functions remain available temporarily with deprecation warnings to ensure a smooth transition.
+
+## Migration from validation_utils.py
+
+We're gradually migrating away from `validation_utils.py` to the more modern class-based approach in `validation.py`. Here's our progress:
+
+### Completed Steps
+
+- Added deprecation warnings to all functions in `validation_utils.py`
+- Implemented equivalent functionality in `DataValidation` and `DataFrameValidator` classes
+- Fixed the duplicate `is_data_likely_available` method in `DataValidation`
+- Updated `rest_data_client.py` to use `DataValidation.enforce_utc_timestamp` instead of `enforce_utc_timezone`
+- Ensured backward compatibility during the transition period
+- Verified all tests pass with the new implementation
+
+### Remaining Work
+
+- Continue monitoring for direct usage of `validation_utils.py` in the codebase
+- Update any remaining code that imports directly from `validation_utils.py`
+- Update documentation references to point to `validation.py` instead
+- After a suitable deprecation period, remove `validation_utils.py` entirely
+
+### Migration Guide for Developers
+
+When migrating code from `validation_utils.py` to `validation.py`, use this mapping:
+
+| Old (validation_utils.py)                     | New (validation.py)                                   |
+| --------------------------------------------- | ----------------------------------------------------- |
+| `validate_dates()`                            | `DataValidation.validate_dates()`                     |
+| `validate_interval()`                         | `DataValidation.validate_interval()`                  |
+| `validate_symbol()`                           | `DataValidation.validate_symbol_format()`             |
+| `validate_dataframe()`                        | `DataFrameValidator.validate_dataframe()`             |
+| `format_dataframe()`                          | `DataFrameValidator.format_dataframe()`               |
+| `calculate_checksum()`                        | `DataValidation.calculate_checksum()`                 |
+| `is_data_likely_available()`                  | `DataValidation.is_data_likely_available()`           |
+| `validate_dataframe_time_boundaries()`        | `DataValidation.validate_dataframe_time_boundaries()` |
+| `enforce_utc_timezone()` (from time_utils.py) | `DataValidation.enforce_utc_timestamp()`              |

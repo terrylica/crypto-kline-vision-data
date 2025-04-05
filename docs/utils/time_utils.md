@@ -13,20 +13,9 @@ This module provides centralized time-related utilities for handling datetime ob
 ### Time Validation
 
 - **`validate_dates(start_time: datetime, end_time: datetime) -> None`**
-
   - Validates that start_time is before end_time
   - Ensures both datetimes are timezone-aware
   - Raises ValueError if validation fails
-
-- **`validate_time_window(start_time: datetime, end_time: datetime) -> None`**
-
-  - Validates the time window against maximum allowed range
-  - Calls validate_dates first
-  - Raises ValueError if time window is too large
-
-- **`validate_time_range(start_time: Optional[datetime], end_time: Optional[datetime]) -> tuple[Optional[datetime], Optional[datetime]]`**
-  - Normalizes and validates time range parameters
-  - Returns the normalized start and end times
 
 ### Interval Calculations
 
@@ -103,12 +92,12 @@ dt = datetime(2023, 1, 1, 12, 0, 0)  # Naive datetime
 dt_utc = enforce_utc_timezone(dt)  # Now timezone-aware
 
 # Time window validation
-from utils.time_utils import validate_time_window
+from utils.validation import DataValidation
 from datetime import datetime, timezone, timedelta
 
 start = datetime(2023, 1, 1, tzinfo=timezone.utc)
 end = start + timedelta(days=7)
-validate_time_window(start, end)  # Validates the time window
+DataValidation.validate_time_window(start, end)  # Validates the time window
 
 # Interval calculations
 from utils.time_utils import get_interval_floor, get_interval_ceiling

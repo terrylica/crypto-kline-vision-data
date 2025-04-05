@@ -2,7 +2,8 @@
 """Centralized validation utilities for data integrity and constraints."""
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, Tuple
+from pathlib import Path
 import re
 import pandas as pd
 import numpy as np
@@ -59,52 +60,97 @@ class DataValidation:
         self.api_boundary_validator = api_boundary_validator
 
     @staticmethod
-    def validate_dates(start_time: datetime, end_time: datetime) -> None:
-        """Validate date inputs.
+    def validate_dates(
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        relative_to: Optional[datetime] = None,
+    ) -> tuple[datetime, datetime]:
+        """Validate date inputs and normalize timezone information.
 
         Args:
-            start_time: Start time
-            end_time: End time
+            start_time: Start time (default: now)
+            end_time: End time (default: start_time + 1 day)
+            relative_to: Reference time for relative dates (default: now)
+
+        Returns:
+            Tuple of (normalized_start_time, normalized_end_time) with timezone-aware values
 
         Raises:
             ValueError: If start_time is after end_time
         """
-        if start_time >= end_time:
+        # Set default reference time
+        if relative_to is None:
+            relative_to = datetime.now(timezone.utc)
+        else:
+            relative_to = DataValidation.enforce_utc_timestamp(relative_to)
+
+        # Set default start time
+        if start_time is None:
+            start_time = relative_to
+
+        # Set default end time
+        if end_time is None:
+            end_time = start_time + timedelta(days=1)
+
+        # First ensure timezone awareness by normalizing to UTC if needed
+        if start_time.tzinfo is None or start_time.tzinfo.utcoffset(start_time) is None:
             raise ValueError(
-                f"Start time must be before end time: {start_time} >= {end_time}"
+                f"Start time ({start_time.isoformat()}) must be timezone-aware"
             )
 
-        # Enforce timezone awareness
-        if start_time.tzinfo is None or end_time.tzinfo is None:
-            raise ValueError("Start and end times must be timezone-aware")
+        if end_time.tzinfo is None or end_time.tzinfo.utcoffset(end_time) is None:
+            raise ValueError(
+                f"End time ({end_time.isoformat()}) must be timezone-aware"
+            )
+
+        # Then check time ordering
+        if start_time >= end_time:
+            raise ValueError(
+                f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
+            )
+
+        return start_time, end_time
 
     @staticmethod
-    def validate_time_window(start_time: datetime, end_time: datetime) -> None:
-        """Validate time window for market data.
+    def validate_time_window(
+        start_time: datetime, end_time: datetime
+    ) -> tuple[datetime, datetime]:
+        """Validate time window for market data and normalize timezones.
 
         Args:
             start_time: Start time
             end_time: End time
 
+        Returns:
+            Tuple of (normalized_start_time, normalized_end_time) with timezone-aware values
+
         Raises:
             ValueError: If time window exceeds maximum allowed
         """
-        # Ensure dates are valid first
-        DataValidation.validate_dates(start_time, end_time)
+        # Ensure dates are valid first and normalize timezones
+        start_time, end_time = DataValidation.validate_dates(start_time, end_time)
 
         # Ensure time range is not too large
         time_diff = end_time - start_time
         if time_diff > MAX_TIME_RANGE:
-            raise ValueError(f"Time range exceeds maximum allowed: {MAX_TIME_RANGE}")
+            raise ValueError(
+                f"Time range too large: {time_diff.days} days (exceeds maximum of {MAX_TIME_RANGE.days} days)"
+            )
 
         # REMOVED: validate_time_boundaries - No longer enforcing manual alignment for REST API calls
+
+        return start_time, end_time
 
     @staticmethod
     def enforce_utc_timestamp(dt: datetime) -> datetime:
         """Ensures datetime object is timezone aware and in UTC.
 
+        This is a foundational utility method used by other validation methods
+        to normalize datetime objects. It handles both naive and timezone-aware
+        datetime objects, ensuring consistent timezone handling throughout the system.
+
         Args:
-            dt: Input datetime
+            dt: Input datetime, can be naive or timezone-aware
 
         Returns:
             UTC timezone-aware datetime
@@ -127,14 +173,25 @@ class DataValidation:
             Tuple of (normalized start_time, normalized end_time)
 
         Raises:
-            ValueError: If end time is not after start time
+            ValueError: If end time is not after start time or dates are invalid
         """
         if start_time is not None:
             start_time = DataValidation.enforce_utc_timestamp(start_time)
         if end_time is not None:
             end_time = DataValidation.enforce_utc_timestamp(end_time)
-        if start_time and end_time and start_time >= end_time:
-            raise ValueError("End time must be after start time")
+
+        # Skip further validation if either date is None
+        if start_time is None or end_time is None:
+            return start_time, end_time
+
+        # Validate and normalize dates
+        start_time, end_time = DataValidation.validate_dates(start_time, end_time)
+
+        # Check for future dates and get normalized values
+        start_time, end_time = DataValidation.validate_future_dates(
+            start_time, end_time
+        )
+
         return start_time, end_time
 
     async def validate_api_time_range(
@@ -288,30 +345,35 @@ class DataValidation:
 
     @staticmethod
     def validate_data_availability(
-        start_time: datetime,
-        end_time: datetime,
-        consolidation_delay: timedelta = timedelta(hours=48),
-    ) -> None:
-        """Validate if data should be available for the given time range.
+        start_time: datetime, end_time: datetime, buffer_hours: int = 24
+    ) -> tuple[datetime, datetime]:
+        """Validate that data is likely to be available for the requested time range.
 
         Args:
-            start_time: Start of time range
-            end_time: End of time range
-            consolidation_delay: Delay after which data is considered available
+            start_time: Start time of the data
+            end_time: End time of the data
+            buffer_hours: Number of hours before now that data might not be available
+
+        Returns:
+            Tuple of (normalized_start_time, normalized_end_time)
 
         Raises:
-            ValidationError: If data may not be available for the entire time range
+            Warning if data within the buffer period is requested
         """
-        # Check if any portion of the time range is too recent
-        now = datetime.now(timezone.utc)
-        consolidation_threshold = now - consolidation_delay
+        # Ensure timezone-aware datetimes
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
 
-        if end_time > consolidation_threshold:
-            # Time range includes data that may not be fully consolidated
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=buffer_hours)
+
+        if end_time > cutoff:
             logger.warning(
-                f"Time range includes recent data that may not be fully consolidated. "
-                f"Data after {consolidation_threshold.isoformat()} may be incomplete."
+                f"Requested data includes recent time ({end_time}) that may not be fully consolidated. "
+                f"Data is typically available with a {buffer_hours} hour delay."
             )
+
+        return start_time, end_time
 
     @staticmethod
     def is_data_likely_available(
@@ -329,6 +391,275 @@ class DataValidation:
         now = datetime.now(timezone.utc)
         consolidation_threshold = now - consolidation_delay
         return target_date <= consolidation_threshold
+
+    @staticmethod
+    def validate_future_dates(
+        start_time: datetime, end_time: datetime
+    ) -> tuple[datetime, datetime]:
+        """Validate that dates are not in the future and normalize to UTC.
+
+        Args:
+            start_time: Start time to validate
+            end_time: End time to validate
+
+        Returns:
+            Tuple of (normalized_start_time, normalized_end_time)
+
+        Raises:
+            ValueError: If either start or end time is in the future
+        """
+        # Ensure dates are normalized to UTC
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
+
+        # Get current time in UTC
+        now = datetime.now(timezone.utc)
+
+        # Check for future dates
+        if start_time > now:
+            raise ValueError(
+                f"Start time ({start_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})"
+            )
+        if end_time > now:
+            raise ValueError(
+                f"End time ({end_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})"
+            )
+
+        return start_time, end_time
+
+    @staticmethod
+    def validate_query_time_boundaries(
+        start_time: datetime,
+        end_time: datetime,
+        max_future_seconds: int = 0,
+        reference_time: Optional[datetime] = None,
+        handle_future_dates: str = "error",
+    ) -> Tuple[datetime, datetime, Dict[str, Any]]:
+        """Comprehensive validation of time boundaries for data queries.
+
+        This method consolidates all temporal boundary validations into a single comprehensive
+        function that handles timezone normalization, sequential ordering, future date validation,
+        and enhanced error reporting. It serves as the primary entry point for all data query
+        time boundary validation.
+
+        Args:
+            start_time: Start time for data query
+            end_time: End time for data query
+            max_future_seconds: Maximum seconds allowed into the future (default: 0)
+            reference_time: Reference time for validation (default: current time)
+            handle_future_dates: How to handle future dates: "error" (raise exception),
+                                "truncate" (truncate to now), "allow" (allow future dates)
+
+        Returns:
+            Tuple of (normalized_start_time, normalized_end_time, metadata)
+            where metadata contains additional information about the validation:
+            - warnings: List of warning messages
+            - reference_time: The reference time used for validation
+            - is_truncated: Whether dates were truncated due to future dates
+            - original_start: Original start_time before normalization
+            - original_end: Original end_time before normalization
+
+        Raises:
+            ValueError: If validation fails based on the specified handling mode
+        """
+        metadata = {
+            "warnings": [],
+            "is_truncated": False,
+            "original_start": start_time,
+            "original_end": end_time,
+        }
+
+        # Ensure timezone awareness and normalize to UTC
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
+
+        # Set reference time if not provided
+        if reference_time is None:
+            reference_time = datetime.now(timezone.utc)
+        else:
+            reference_time = DataValidation.enforce_utc_timestamp(reference_time)
+
+        metadata["reference_time"] = reference_time
+
+        # Validate sequential ordering (start_time < end_time)
+        if start_time >= end_time:
+            raise ValueError(
+                f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
+            )
+
+        # Validate time window is not too large
+        time_diff = end_time - start_time
+        if time_diff > MAX_TIME_RANGE:
+            raise ValueError(
+                f"Time range too large: {time_diff.days} days (exceeds maximum of {MAX_TIME_RANGE.days} days)"
+            )
+
+        # Validate against future dates
+        allowed_future = reference_time + timedelta(seconds=max_future_seconds)
+
+        # Handle start time in future
+        if start_time > allowed_future:
+            message = f"Start time ({start_time.isoformat()}) is in the future (current time: {reference_time.isoformat()})"
+            if handle_future_dates == "error":
+                raise ValueError(message)
+            elif handle_future_dates == "truncate":
+                metadata["warnings"].append(message + " - truncated to current time")
+                metadata["is_truncated"] = True
+                start_time = reference_time
+            elif handle_future_dates == "allow":
+                metadata["warnings"].append(
+                    message + " - allowed but may return empty results"
+                )
+            else:
+                raise ValueError(
+                    f"Invalid handle_future_dates value: {handle_future_dates}"
+                )
+
+        # Handle end time in future
+        if end_time > allowed_future:
+            message = f"End time ({end_time.isoformat()}) is in the future (current time: {reference_time.isoformat()})"
+            if handle_future_dates == "error":
+                raise ValueError(message)
+            elif handle_future_dates == "truncate":
+                metadata["warnings"].append(message + " - truncated to current time")
+                metadata["is_truncated"] = True
+                end_time = reference_time
+            elif handle_future_dates == "allow":
+                metadata["warnings"].append(
+                    message + " - allowed but may return empty results"
+                )
+            else:
+                raise ValueError(
+                    f"Invalid handle_future_dates value: {handle_future_dates}"
+                )
+
+        # Re-validate sequential ordering after potential truncation
+        if start_time >= end_time:
+            raise ValueError(
+                f"After truncation, start time ({start_time.isoformat()}) must still be before end time ({end_time.isoformat()})"
+            )
+
+        # Add data availability warning if needed
+        if DataValidation.is_data_likely_available(end_time) is False:
+            metadata["warnings"].append(
+                f"Data for end time ({end_time.isoformat()}) may not be fully consolidated yet"
+            )
+
+        return start_time, end_time, metadata
+
+    @staticmethod
+    def validate_date_range_for_api(
+        start_time: datetime, end_time: datetime, max_future_seconds: int = 0
+    ) -> Tuple[bool, str]:
+        """Validate a date range for API requests to prevent requesting future data.
+
+        Args:
+            start_time: The start time for the request
+            end_time: The end time for the request
+            max_future_seconds: Maximum number of seconds allowed in the future (default: 0)
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        try:
+            _, _, metadata = DataValidation.validate_query_time_boundaries(
+                start_time, end_time, max_future_seconds, handle_future_dates="error"
+            )
+            return True, ""
+        except ValueError as e:
+            return False, str(e)
+
+    @staticmethod
+    def calculate_checksum(file_path: Path) -> str:
+        """Calculate SHA-256 checksum of a file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Hexadecimal string of the SHA-256 checksum
+        """
+        import hashlib
+
+        hash_sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        return hash_sha256.hexdigest()
+
+    @staticmethod
+    def validate_file_with_checksum(
+        file_path: Path,
+        expected_checksum: str = None,
+        min_size: int = MIN_VALID_FILE_SIZE,
+        max_age: timedelta = MAX_CACHE_AGE,
+    ) -> bool:
+        """Validate file integrity with optional checksum verification.
+
+        Args:
+            file_path: Path to the file
+            expected_checksum: Expected checksum to validate against
+            min_size: Minimum valid file size in bytes
+            max_age: Maximum valid file age
+
+        Returns:
+            True if file passes all integrity checks, False otherwise
+        """
+        # Check basic integrity first
+        integrity_result = DataFrameValidator.validate_cache_integrity(
+            file_path, min_size, max_age
+        )
+        if integrity_result is not None:
+            # Failed basic validation
+            return False
+
+        # If checksum validation is requested, perform it
+        if expected_checksum:
+            try:
+                actual_checksum = DataValidation.calculate_checksum(file_path)
+                return actual_checksum == expected_checksum
+            except (IOError, OSError) as e:
+                logger.error(f"Error calculating checksum for {file_path}: {e}")
+                return False
+
+        # If no checksum validation requested or it passed
+        return True
+
+    @staticmethod
+    def validate_dataframe_time_boundaries(
+        df: pd.DataFrame, start_time: datetime, end_time: datetime
+    ) -> None:
+        """Validate that DataFrame covers the requested time range.
+
+        Args:
+            df: DataFrame to validate
+            start_time: Start time boundary
+            end_time: End time boundary
+
+        Raises:
+            ValueError: If DataFrame doesn't cover the time range
+        """
+        if df.empty:
+            return  # Empty DataFrame cannot be validated against time boundaries
+
+        # Ensure timezone-aware datetimes
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
+
+        # Get actual time range covered
+        actual_start = df.index.min()
+        actual_end = df.index.max()
+
+        # Check time boundaries (with small tolerance for floating point precision)
+        if actual_start > start_time + timedelta(microseconds=1000):
+            raise ValueError(
+                f"DataFrame starts at {actual_start}, which is after the requested start time {start_time}"
+            )
+
+        if actual_end < end_time - timedelta(microseconds=1000):
+            raise ValueError(
+                f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}"
+            )
 
 
 class DataFrameValidator:

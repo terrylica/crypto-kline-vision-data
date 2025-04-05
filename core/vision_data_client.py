@@ -18,17 +18,14 @@ directly with this client.
 
 import asyncio
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional, Sequence, TypeVar, Generic, Union
 
 import pandas as pd
-import warnings
 
 from utils.logger_setup import logger
-from utils.validation_utils import validate_dataframe
+from utils.validation import DataFrameValidator, DataValidation
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
-    validate_time_window,
     align_time_boundaries,
     enforce_utc_timezone,
     filter_dataframe_by_time,
@@ -57,8 +54,6 @@ class VisionDataClient(Generic[T]):
         symbol: str,
         interval: str = "1s",
         market_type: Union[str, MarketType] = MarketType.SPOT,
-        cache_dir: Optional[Path] = None,
-        use_cache: bool = False,
         max_concurrent_downloads: Optional[int] = None,
     ):
         """Initialize Vision Data Client.
@@ -67,8 +62,6 @@ class VisionDataClient(Generic[T]):
             symbol: Trading symbol e.g. 'BTCUSDT'
             interval: Kline interval e.g. '1s', '1m'
             market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
-            cache_dir: Legacy parameter, no longer used (use DataSourceManager for caching)
-            use_cache: Legacy parameter, no longer used (use DataSourceManager for caching)
             max_concurrent_downloads: Maximum concurrent downloads
         """
         self.symbol = symbol.upper()
@@ -117,26 +110,6 @@ class VisionDataClient(Generic[T]):
                 f"Could not parse interval {interval}, using SECOND_1 as default: {e}"
             )
             self.interval_obj = Interval.SECOND_1
-
-        # Legacy parameters (no longer used)
-        self.use_cache = use_cache
-        self.cache_dir = cache_dir
-        self._current_mmap = None
-        self._current_mmap_path = None
-
-        # Emit deprecation warning if caching is enabled
-        if use_cache and cache_dir:
-            warnings.warn(
-                "Direct caching through VisionDataClient is deprecated. "
-                "Use DataSourceManager with caching enabled instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self.cache_manager = None
-            self.symbol_cache_dir = None
-        else:
-            self.cache_manager = None
-            self.symbol_cache_dir = None
 
         # Configure download concurrency
         self._max_concurrent_downloads = (
@@ -218,9 +191,6 @@ class VisionDataClient(Generic[T]):
     ) -> TimestampedDataFrame:
         """Download data for the specified time range.
 
-        This method applies alignment to Vision API requests to match
-        REST API's natural boundary behavior for consistent results across APIs.
-
         Args:
             start_time: Start time for data retrieval
             end_time: End time for data retrieval
@@ -229,9 +199,9 @@ class VisionDataClient(Generic[T]):
         Returns:
             DataFrame with market data
         """
-        # Use time_utils to enforce timezone
-        start_time = enforce_utc_timezone(start_time)
-        end_time = enforce_utc_timezone(end_time)
+        # Use DataValidation to enforce timezone
+        start_time = DataValidation.enforce_utc_timestamp(start_time)
+        end_time = DataValidation.enforce_utc_timestamp(end_time)
 
         # Use unified align_time_boundaries directly from time_utils
         aligned_start, aligned_end = align_time_boundaries(
@@ -294,46 +264,38 @@ class VisionDataClient(Generic[T]):
         end_time: datetime,
         columns: Optional[Sequence[str]] = None,
     ) -> TimestampedDataFrame:
-        """Fetch data directly from Binance Vision API.
+        """Fetch data for the specified time range.
 
         Args:
             start_time: Start time for data retrieval
             end_time: End time for data retrieval
-            columns: Optional list of specific columns to retrieve
+            columns: Optional list of columns to return
 
         Returns:
-            DataFrame containing requested data
+            DataFrame with market data
         """
-        # Validate and normalize time range
-        validate_time_window(start_time, end_time)
-
-        # Use align_time_boundaries directly from time_utils
-        aligned_start, aligned_end = align_time_boundaries(
-            start_time, end_time, self.interval_obj
-        )
-        start_time = aligned_start
-        end_time = aligned_end
-
-        logger.debug(
-            f"Fetching {self.symbol} {self.interval} data: "
-            f"{start_time.isoformat()} -> {end_time.isoformat()}"
-        )
-
-        # If caching is enabled, emit deprecation warning
-        if self.use_cache:
-            warnings.warn(
-                "Direct caching through VisionDataClient is deprecated. "
-                "Use DataSourceManager with caching enabled instead.",
-                DeprecationWarning,
-                stacklevel=2,
+        # Comprehensive validation of time boundaries
+        try:
+            start_time, end_time, metadata = (
+                DataValidation.validate_query_time_boundaries(
+                    start_time, end_time, handle_future_dates="error"
+                )
             )
+
+            # Log any warnings
+            for warning in metadata.get("warnings", []):
+                logger.warning(warning)
+
+        except ValueError as e:
+            logger.error(f"Invalid time boundaries: {str(e)}")
+            return TimestampedDataFrame(self._create_empty_dataframe())
 
         # Download data directly
         try:
             df = await self._download_data(start_time, end_time, columns=columns)
             if not df.empty:
                 # Validate data integrity
-                validate_dataframe(df)
+                DataFrameValidator.validate_dataframe(df)
                 # Filter DataFrame to ensure it's within the requested time boundaries
                 df = filter_dataframe_by_time(df, start_time, end_time)
                 logger.debug(f"Successfully fetched {len(df)} records")
@@ -359,10 +321,21 @@ class VisionDataClient(Generic[T]):
             end_time: End time for prefetch
             max_days: Maximum number of days to prefetch
         """
-        # Validate time range and enforce UTC timezone using time_utils
-        start_time = enforce_utc_timezone(start_time)
-        end_time = enforce_utc_timezone(end_time)
-        validate_time_window(start_time, end_time)
+        # Comprehensive validation of time boundaries
+        try:
+            start_time, end_time, metadata = (
+                DataValidation.validate_query_time_boundaries(
+                    start_time, end_time, handle_future_dates="truncate"
+                )
+            )
+
+            # Log any warnings
+            for warning in metadata.get("warnings", []):
+                logger.warning(warning)
+
+        except ValueError as e:
+            logger.error(f"Invalid time boundaries for prefetch: {str(e)}")
+            return
 
         # Limit prefetch to max_days
         limited_end = min(end_time, start_time + timedelta(days=max_days))
