@@ -129,28 +129,116 @@ class VisionDataClient(Generic[T]):
 
     async def __aenter__(self) -> "VisionDataClient":
         """Async context manager entry."""
+        # Proactively clean up any force_timeout tasks that might cause hanging
+        await self._cleanup_force_timeout_tasks()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Python 3.13 compatible direct cleanup without relying
-        on background tasks or event loop scheduling, preventing hanging issues.
+    async def _cleanup_force_timeout_tasks(self):
+        """Find and clean up any _force_timeout tasks that might cause hanging.
+
+        This is a proactive approach to prevent hanging issues caused by
+        lingering force_timeout tasks in curl_cffi AsyncCurl objects.
         """
-        # Use the centralized direct cleanup utility
-        client_is_external = getattr(self, "_client_is_external", False)
+        # Find all tasks that might be related to _force_timeout
+        force_timeout_tasks = []
+        for task in asyncio.all_tasks():
+            task_str = str(task)
+            # Look specifically for _force_timeout tasks
+            if "_force_timeout" in task_str and not task.done():
+                force_timeout_tasks.append(task)
 
-        # Handle memory-mapped file with specialized file handle cleanup
-        current_mmap = getattr(self, "_current_mmap", None)
-        self._current_mmap = None  # Immediately nullify reference
+        if force_timeout_tasks:
+            logger.warning(
+                f"Proactively cancelling {len(force_timeout_tasks)} _force_timeout tasks"
+            )
+            # Cancel all force_timeout tasks
+            for task in force_timeout_tasks:
+                task.cancel()
 
-        if current_mmap is not None:
-            await cleanup_file_handle(current_mmap)
+            # Wait for cancellation to complete with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*force_timeout_tasks, return_exceptions=True),
+                    timeout=0.5,  # Short timeout to avoid blocking
+                )
+                logger.debug(
+                    f"Successfully cancelled {len(force_timeout_tasks)} _force_timeout tasks"
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Timeout waiting for _force_timeout tasks to cancel, proceeding anyway"
+                )
 
-        # Clean up all other resources using the centralized pattern
+        # Also clean _timeout_handle if it exists on the client
+        if (
+            hasattr(self, "_client")
+            and self._client
+            and hasattr(self._client, "_timeout_handle")
+            and self._client._timeout_handle
+        ):
+            logger.debug("Pre-emptively cleaning _timeout_handle to prevent hanging")
+            try:
+                self._client._timeout_handle = None
+            except Exception as e:
+                logger.warning(f"Error pre-emptively clearing _timeout_handle: {e}")
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Python 3.13 compatible cleanup implementation.
+
+        This uses the direct resource cleanup pattern to guarantee immediate resource
+        release without relying on background tasks, preventing hanging during cleanup.
+        """
+        logger.debug("VisionDataClient starting __aexit__ cleanup")
+
+        # Pre-emptively clean up _curlm objects that might cause hanging
+        if hasattr(self, "_client") and self._client:
+            if hasattr(self._client, "_curlm") and self._client._curlm:
+                logger.debug("Pre-emptively cleaning _curlm object in _client")
+                try:
+                    # Set to None before cleanup to break circular references
+                    self._client._curlm = None
+                except Exception as e:
+                    logger.warning(f"Error pre-emptively clearing _curlm: {e}")
+
+        if hasattr(self, "_download_manager") and self._download_manager:
+            if (
+                hasattr(self._download_manager, "_client")
+                and self._download_manager._client
+            ):
+                if (
+                    hasattr(self._download_manager._client, "_curlm")
+                    and self._download_manager._client._curlm
+                ):
+                    logger.debug(
+                        "Pre-emptively cleaning _curlm object in _download_manager._client"
+                    )
+                    try:
+                        self._download_manager._client._curlm = None
+                    except Exception as e:
+                        logger.warning(
+                            f"Error pre-emptively clearing _download_manager._client._curlm: {e}"
+                        )
+
+        # For Python 3.13 compatibility, we need to specify the client as external
+        # if it's managed by the download manager
+        client_is_external = False
+        if hasattr(self, "_download_manager") and self._download_manager:
+            if (
+                hasattr(self._download_manager, "_client")
+                and self._download_manager._client
+                and self._download_manager._client is self._client
+            ):
+                # Client is managed by download manager, so we shouldn't close it twice
+                client_is_external = True
+
+        # Then proceed with normal resource cleanup
         await direct_resource_cleanup(
             self,
-            ("_download_manager", "download manager", False),
             ("_client", "HTTP client", client_is_external),
+            ("_download_manager", "download manager", False),
         )
+
+        logger.debug("VisionDataClient completed __aexit__ cleanup")
 
     def _create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty DataFrame with correct structure.

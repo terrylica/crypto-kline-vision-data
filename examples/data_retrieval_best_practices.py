@@ -239,6 +239,7 @@ async def example_fetch_recent_data():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,  # Enable caching through the unified cache manager
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
     ) as manager:
         # Store initial stats
         prev_stats = manager.get_cache_stats().copy()
@@ -366,6 +367,7 @@ async def example_fetch_historical_data():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
     ) as manager:
         try:
             # Store initial stats
@@ -506,6 +508,7 @@ async def example_fetch_same_day_minute_data():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,  # Enable caching
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
     ) as manager:
         # Store initial stats
         prev_stats = manager.get_cache_stats().copy()
@@ -587,6 +590,7 @@ async def example_fetch_unavailable_data():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
     ) as manager:
         try:
             # Try to fetch future data (this should fail with a ValueError)
@@ -696,6 +700,7 @@ async def create_dsm_example(
             market_type=market_type,
             cache_dir=cache_dir,
             use_cache=True,
+            use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
             max_concurrent=50,
             retry_count=3,
             max_concurrent_downloads=10,
@@ -798,6 +803,7 @@ async def example_different_market_types():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
         max_concurrent=50,
         retry_count=3,
         max_concurrent_downloads=10,
@@ -847,6 +853,7 @@ async def example_different_market_types():
         market_type=MarketType.SPOT,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
         max_concurrent=50,
         retry_count=3,
         max_concurrent_downloads=10,
@@ -896,6 +903,7 @@ async def example_different_market_types():
         market_type=MarketType.FUTURES_USDT,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
         max_concurrent=50,
         retry_count=3,
         max_concurrent_downloads=10,
@@ -945,6 +953,7 @@ async def example_different_market_types():
         market_type=MarketType.FUTURES_COIN,
         cache_dir=cache_dir,
         use_cache=True,
+        use_httpx=True,  # Use httpx instead of curl_cffi to avoid hanging issues
         max_concurrent=50,
         retry_count=3,
         max_concurrent_downloads=10,

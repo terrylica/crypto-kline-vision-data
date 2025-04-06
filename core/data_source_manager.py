@@ -100,62 +100,76 @@ class DataSourceManager:
         max_concurrent_downloads: Optional[int] = None,
         vision_client: Optional[VisionDataClient] = None,
         cache_expires_minutes: int = 60,
+        use_httpx: bool = False,  # New parameter to choose client type
     ):
-        """Initialize the data source manager.
+        """Initialize the DataSourceManager.
 
         Args:
-            market_type: Type of market (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
-            provider: Data provider (BINANCE, BYBIT, etc.)
-            chart_type: Type of chart data (KLINES, FUNDING_RATE, etc.)
-            rest_client: Optional pre-configured REST client (for backward compatibility)
-            cache_dir: Directory for caching data
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+            provider: Data provider (BINANCE)
+            chart_type: Chart type (KLINES, FUNDING_RATE)
+            rest_client: Optional external REST API client
+            cache_dir: Directory to store cache files (default: './cache')
             use_cache: Whether to use caching
-            max_concurrent: Maximum concurrent API requests for REST client (default: 50)
-            retry_count: Number of retries for failed REST API requests (default: 5)
-            max_concurrent_downloads: Maximum concurrent downloads for Vision API (default: None, uses client default)
-            vision_client: Optional existing VisionDataClient
-            cache_expires_minutes: Cache expiration time in minutes
+            max_concurrent: Maximum number of concurrent requests
+            retry_count: Number of retries for failed requests
+            max_concurrent_downloads: Maximum concurrent downloads for Vision API
+            vision_client: Optional external Vision API client
+            cache_expires_minutes: Cache expiration time in minutes (default: 60)
+            use_httpx: Whether to use httpx instead of curl_cffi for HTTP clients
         """
-        if cache_dir is None:
-            from utils.config import DEFAULT_CACHE_DIR
-
-            cache_dir = os.path.join(os.getcwd(), DEFAULT_CACHE_DIR)
-
-        # Set client attributes and track if they're external
-        self.vision_client = vision_client
-        self.rest_client = rest_client
-        self._vision_client_is_external = vision_client is not None
-        self._rest_client_is_external = rest_client is not None
-        self._vision_client_initialized = vision_client is not None
-
-        # Initialize internal state
-        self._data_client = None
-        self._data_client_initialized = False
-
-        # Store performance tuning parameters
-        self.max_concurrent = max_concurrent
-        self.retry_count = retry_count
-        self.max_concurrent_downloads = max_concurrent_downloads
-
-        # Store market configuration
+        # Store initialization settings
         self.market_type = market_type
         self.provider = provider
         self.chart_type = chart_type
+        self.max_concurrent = max_concurrent
+        self.retry_count = retry_count
+        self._use_httpx = use_httpx
 
-        # Convert market_type to string for Vision API if needed
-        self.market_type_str = self._get_market_type_str(market_type)
+        # Handle cache directory configuration
+        self._use_cache = use_cache
+        if cache_dir is None and use_cache:
+            cache_dir = Path("./cache")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        self._cache_dir = cache_dir
 
-        # Initialize cache manager if caching is enabled
-        self.use_cache = use_cache and cache_dir is not None
-        self.cache_manager = (
-            UnifiedCacheManager(cache_dir)
-            if (use_cache and cache_dir is not None)
-            else None
-        )
-        self._cache_stats = {"hits": 0, "misses": 0, "errors": 0}
+        # Initialize caching if enabled
+        if use_cache and cache_dir:
+            self._cache_manager = UnifiedCacheManager(
+                cache_dir=cache_dir,
+                create_dirs=True,
+            )
+            # Store these for later use in cache operations
+            self._cache_provider = provider
+            self._cache_chart_type = chart_type
+            self._cache_expiration_minutes = cache_expires_minutes
+        else:
+            self._cache_manager = None
+            self._cache_provider = None
+            self._cache_chart_type = None
+            self._cache_expiration_minutes = None
 
-        # Register client implementations with factory
+        # Client initialization
+        self._rest_client = rest_client
+        self._rest_client_is_external = rest_client is not None
+
+        self._vision_client = vision_client
+        self._vision_client_is_external = vision_client is not None
+
+        self._funding_rate_client = None
+        self._funding_rate_client_is_external = False
+
+        self._max_concurrent_downloads = max_concurrent_downloads
+
+        # Register available client implementations
         self._register_client_implementations()
+
+        # Cache statistics
+        self._stats = {"hits": 0, "misses": 0, "errors": 0}
+
+        logger.debug(
+            f"Initialized DataSourceManager for {market_type.name} using {'httpx' if use_httpx else 'curl_cffi'}"
+        )
 
     def _get_market_type_str(self, market_type: MarketType) -> str:
         """Convert MarketType enum to string representation for Vision API.
@@ -183,7 +197,7 @@ class DataSourceManager:
         Returns:
             Dictionary containing cache hits, misses, and errors
         """
-        return self._cache_stats.copy()
+        return self._stats.copy()
 
     async def validate_cache_integrity(
         self, symbol: str, interval: str, date: datetime
@@ -198,17 +212,37 @@ class DataSourceManager:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        if not self.cache_manager:
+        if not self._cache_manager:
             return False, "Cache manager not initialized"
 
         try:
             # Check if cache exists first
-            cache_key = self.cache_manager.get_cache_key(symbol, interval, date)
-            if cache_key not in self.cache_manager.metadata:
+            cache_key = self._cache_manager.get_cache_key(
+                symbol,
+                interval,
+                date,
+                provider=(
+                    self._cache_provider.name if self._cache_provider else "BINANCE"
+                ),
+                chart_type=(
+                    self._cache_chart_type.name if self._cache_chart_type else "KLINES"
+                ),
+            )
+            if cache_key not in self._cache_manager.metadata:
                 return False, "Cache miss"
 
             # Load data and verify format
-            df = await self.cache_manager.load_from_cache(symbol, interval, date)
+            df = await self._cache_manager.load_from_cache(
+                symbol,
+                interval,
+                date,
+                provider=(
+                    self._cache_provider.name if self._cache_provider else "BINANCE"
+                ),
+                chart_type=(
+                    self._cache_chart_type.name if self._cache_chart_type else "KLINES"
+                ),
+            )
             if df is None:
                 return False, "Failed to load cache data"
 
@@ -233,12 +267,22 @@ class DataSourceManager:
         Returns:
             True if repair successful, False otherwise
         """
-        if not self.cache_manager:
+        if not self._cache_manager:
             return False
 
         try:
             # Invalidate corrupted entry
-            self.cache_manager.invalidate_cache(symbol, interval, date)
+            self._cache_manager.invalidate_cache(
+                symbol,
+                interval,
+                date,
+                provider=(
+                    self._cache_provider.name if self._cache_provider else "BINANCE"
+                ),
+                chart_type=(
+                    self._cache_chart_type.name if self._cache_chart_type else "KLINES"
+                ),
+            )
 
             # Refetch and cache data
             df = await self._fetch_from_source(
@@ -254,7 +298,18 @@ class DataSourceManager:
                 logger.error(f"Cannot repair cache with invalid data: {e}")
                 return False
 
-            await self.cache_manager.save_to_cache(df, symbol, interval, date)
+            await self._cache_manager.save_to_cache(
+                df,
+                symbol,
+                interval,
+                date,
+                provider=(
+                    self._cache_provider.name if self._cache_provider else "BINANCE"
+                ),
+                chart_type=(
+                    self._cache_chart_type.name if self._cache_chart_type else "KLINES"
+                ),
+            )
 
             # Verify the repair was successful
             is_valid, error = await self.validate_cache_integrity(
@@ -439,7 +494,7 @@ class DataSourceManager:
                     try:
                         # Use the standard API timeout from config, not arbitrary values
                         vision_df = await asyncio.wait_for(
-                            self.vision_client.fetch(vision_start, vision_end),
+                            self._vision_client.fetch(vision_start, vision_end),
                             timeout=API_TIMEOUT
                             * 2,  # Vision API might take longer for downloads
                         )
@@ -479,19 +534,13 @@ class DataSourceManager:
                 )
 
                 # Ensure REST client is initialized
-                if not self.rest_client:
-                    logger.debug("Initializing REST client for fetch operation")
-                    self.rest_client = RestDataClient(
-                        market_type=self.market_type,
-                        max_concurrent=self.max_concurrent,
-                        retry_count=self.retry_count,
-                    )
+                await self._ensure_rest_client(symbol, interval)
 
                 # Fetch from REST API with proper timeout handling
                 try:
                     # Use the standard API timeout from config, not arbitrary values
                     rest_result = await asyncio.wait_for(
-                        self.rest_client.fetch(symbol, interval, start_time, end_time),
+                        self._rest_client.fetch(symbol, interval, start_time, end_time),
                         timeout=API_TIMEOUT,
                     )
                 except asyncio.TimeoutError:
@@ -616,7 +665,7 @@ class DataSourceManager:
             )
 
             # Check if we can use cache
-            is_valid = use_cache and self.cache_manager
+            is_valid = use_cache and self._cache_manager
             is_cache_hit = False
 
             # Cache key components
@@ -635,8 +684,30 @@ class DataSourceManager:
                         start_time, end_time, interval, use_vision
                     )
 
-                    cached_data = await self.cache_manager.load_from_cache(
-                        date=cache_date, **cache_components
+                    cached_data = await self._cache_manager.load_from_cache(
+                        date=cache_date,
+                        **{
+                            "symbol": symbol,
+                            "interval": interval.value,
+                            "provider": (
+                                provider.name
+                                if provider
+                                else (
+                                    self._cache_provider.name
+                                    if self._cache_provider
+                                    else "BINANCE"
+                                )
+                            ),
+                            "chart_type": (
+                                chart_type.name
+                                if chart_type
+                                else (
+                                    self._cache_chart_type.name
+                                    if self._cache_chart_type
+                                    else "KLINES"
+                                )
+                            ),
+                        },
                     )
 
                     if cached_data is not None:
@@ -647,7 +718,7 @@ class DataSourceManager:
                         )
 
                         if not filtered_data.empty:
-                            self._cache_stats["hits"] += 1
+                            self._stats["hits"] += 1
                             logger.info(
                                 f"Cache hit for {symbol} {self.chart_type.name} from {start_time}"
                             )
@@ -661,11 +732,11 @@ class DataSourceManager:
                             f"Cache miss for {symbol} {self.chart_type.name} from {start_time}"
                         )
 
-                    self._cache_stats["misses"] += 1
+                    self._stats["misses"] += 1
 
             except Exception as e:
                 logger.error(f"Cache error: {e}")
-                self._cache_stats["errors"] += 1
+                self._stats["errors"] += 1
                 # Continue with fetching from source
 
             # Fetch data from appropriate source
@@ -674,15 +745,36 @@ class DataSourceManager:
             )
 
             # Cache if enabled and data is not empty
-            if is_valid and not df.empty and self.cache_manager:
+            if is_valid and not df.empty and self._cache_manager:
                 try:
                     # Get the aligned cache date
                     cache_date = self._get_aligned_cache_date(
                         start_time, end_time, interval, use_vision
                     )
 
-                    await self.cache_manager.save_to_cache(
-                        df=df, date=cache_date, **cache_components
+                    await self._cache_manager.save_to_cache(
+                        df=df,
+                        date=cache_date,
+                        symbol=symbol,
+                        interval=interval.value,
+                        provider=(
+                            provider.name
+                            if provider
+                            else (
+                                self._cache_provider.name
+                                if self._cache_provider
+                                else "BINANCE"
+                            )
+                        ),
+                        chart_type=(
+                            chart_type.name
+                            if chart_type
+                            else (
+                                self._cache_chart_type.name
+                                if self._cache_chart_type
+                                else "KLINES"
+                            )
+                        ),
                     )
                     logger.info(
                         f"Cached {len(df)} records for {symbol} {self.chart_type.name}"
@@ -731,79 +823,162 @@ class DataSourceManager:
         return use_vision
 
     async def __aenter__(self):
-        """Async context manager entry."""
+        """Initialize resources when entering the context."""
+        logger.debug(f"Initializing DataSourceManager for {self.market_type.name}")
+
+        # Proactively clean up any force_timeout tasks that might cause hanging
+        await self._cleanup_force_timeout_tasks()
+
+        # Register available client implementations
+        self._register_client_implementations()
+
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Python 3.13 compatible direct cleanup without background tasks.
+    async def _cleanup_force_timeout_tasks(self):
+        """Find and clean up any _force_timeout tasks that might cause hanging.
 
-        This implementation guarantees immediate resource release without relying
-        on background tasks or event loop scheduling, preventing hanging issues.
+        This is a proactive approach to prevent hanging issues caused by
+        lingering force_timeout tasks in curl_cffi AsyncCurl objects.
         """
-        # Use the centralized direct cleanup utility
-        await direct_resource_cleanup(
-            self,
-            ("_data_client", "data client", False),
-            ("vision_client", "vision client", self._vision_client_is_external),
-            ("rest_client", "REST client", self._rest_client_is_external),
-        )
+        # Find all tasks that might be related to _force_timeout
+        force_timeout_tasks = []
+        for task in asyncio.all_tasks():
+            task_str = str(task)
+            # Look specifically for _force_timeout tasks
+            if "_force_timeout" in task_str and not task.done():
+                force_timeout_tasks.append(task)
 
-    def _ensure_vision_client(self, symbol: str, interval: str) -> None:
-        """Ensure a VisionDataClient is available for the current operation.
+        if force_timeout_tasks:
+            logger.warning(
+                f"Proactively cancelling {len(force_timeout_tasks)} _force_timeout tasks"
+            )
+            # Cancel all force_timeout tasks
+            for task in force_timeout_tasks:
+                task.cancel()
 
-        Lazily initializes the VisionDataClient when needed.
+            # Wait for cancellation to complete with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*force_timeout_tasks, return_exceptions=True),
+                    timeout=0.5,  # Short timeout to avoid blocking
+                )
+                logger.debug(
+                    f"Successfully cancelled {len(force_timeout_tasks)} _force_timeout tasks"
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Timeout waiting for _force_timeout tasks to cancel, proceeding anyway"
+                )
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Clean up resources when exiting the context."""
+        logger.debug("DataSourceManager starting __aexit__ cleanup")
+
+        # Pre-emptively break circular references that might cause hanging
+        if hasattr(self, "_rest_client") and self._rest_client:
+            client = self._rest_client
+            if hasattr(client, "_client") and client._client:
+                if hasattr(client._client, "_curlm") and client._client._curlm:
+                    logger.debug(
+                        "Pre-emptively cleaning _curlm reference in _rest_client"
+                    )
+                    client._client._curlm = None
+
+        if hasattr(self, "_vision_client") and self._vision_client:
+            client = self._vision_client
+            if hasattr(client, "_client") and client._client:
+                if hasattr(client._client, "_curlm") and client._client._curlm:
+                    logger.debug(
+                        "Pre-emptively cleaning _curlm reference in _vision_client"
+                    )
+                    client._client._curlm = None
+
+        # Initialize _funding_rate_client_is_external if it doesn't exist
+        if not hasattr(self, "_funding_rate_client_is_external"):
+            logger.debug(
+                "Initializing missing _funding_rate_client_is_external attribute"
+            )
+            self._funding_rate_client_is_external = True
+
+        # List of clients to clean up - only include attributes that actually exist
+        clients_to_cleanup = []
+
+        if hasattr(self, "_rest_client"):
+            clients_to_cleanup.append(
+                (
+                    "_rest_client",
+                    "REST client",
+                    getattr(self, "_rest_client_is_external", True),
+                )
+            )
+
+        if hasattr(self, "_vision_client"):
+            clients_to_cleanup.append(
+                (
+                    "_vision_client",
+                    "Vision client",
+                    getattr(self, "_vision_client_is_external", True),
+                )
+            )
+
+        if hasattr(self, "_cache_manager"):
+            clients_to_cleanup.append(("_cache_manager", "cache manager", False))
+
+        if hasattr(self, "_funding_rate_client"):
+            clients_to_cleanup.append(
+                (
+                    "_funding_rate_client",
+                    "funding rate client",
+                    self._funding_rate_client_is_external,
+                )
+            )
+
+        # Use direct resource cleanup pattern for consistent handling of resources
+        await direct_resource_cleanup(self, *clients_to_cleanup)
+
+        logger.debug("DataSourceManager completed __aexit__ cleanup")
+
+    async def _ensure_rest_client(self, symbol: str, interval: Interval) -> None:
+        """Ensure REST client is initialized.
 
         Args:
-            symbol: Trading pair symbol
+            symbol: Trading symbol
             interval: Time interval
         """
-        # Handle symbol formatting for FUTURES_COIN market type
-        if self.market_type == MarketType.FUTURES_COIN and "_PERP" not in symbol:
-            # Append _PERP suffix for coin-margined futures
-            symbol = f"{symbol}_PERP"
-            logger.debug(f"Adjusted symbol for FUTURES_COIN market: {symbol}")
-
-        if not self._vision_client_initialized:
-            logger.debug(
-                f"Initializing VisionDataClient for {symbol} with interval {interval}"
+        if self._rest_client is None:
+            logger.debug(f"Creating new REST client for {symbol} {interval.value}")
+            self._rest_client = RestDataClient(
+                market_type=self.market_type,
+                max_concurrent=self.max_concurrent,
+                retry_count=self.retry_count,
+                use_httpx=self._use_httpx,  # Use the client type specified at initialization
             )
-            self.vision_client = VisionDataClient(
+            self._rest_client_is_external = False
+
+    async def _ensure_vision_client(self, symbol: str, interval: str) -> None:
+        """Ensure Vision API client is initialized.
+
+        Args:
+            symbol: Trading symbol
+            interval: Time interval as string
+        """
+        if self._vision_client is None:
+            # For Vision API, use string interval format
+            logger.debug(f"Creating new Vision client for {symbol} {interval}")
+
+            # Convert MarketType to string for the VisionDataClient
+            if isinstance(self.market_type, MarketType):
+                market_type_str = self.market_type.name.lower()
+            else:
+                market_type_str = str(self.market_type).lower()
+
+            self._vision_client = VisionDataClient(
                 symbol=symbol,
                 interval=interval,
-                market_type=self.market_type,
-                max_concurrent_downloads=self.max_concurrent_downloads,
+                market_type=market_type_str,
+                max_concurrent_downloads=self._max_concurrent_downloads,
             )
-            self._vision_client_initialized = True
-        elif (
-            self.vision_client.symbol != symbol
-            or self.vision_client.interval != interval
-        ):
-            # If symbol or interval doesn't match, reinitialize
-            logger.debug(
-                f"Reinitializing VisionDataClient for {symbol} with interval {interval}"
-            )
-            # Clean up the old client first
-            try:
-                old_client = self.vision_client
-                self.vision_client = VisionDataClient(
-                    symbol=symbol,
-                    interval=interval,
-                    market_type=self.market_type,
-                    max_concurrent_downloads=self.max_concurrent_downloads,
-                )
-                # Properly close the old client
-                asyncio.create_task(old_client.__aexit__(None, None, None))
-            except Exception as e:
-                logger.warning(f"Error while reinitializing VisionDataClient: {e}")
-                # Create a new client anyway
-                self.vision_client = VisionDataClient(
-                    symbol=symbol,
-                    interval=interval,
-                    market_type=self.market_type,
-                    max_concurrent_downloads=self.max_concurrent_downloads,
-                )
-
-            self._vision_client_initialized = True
+            self._vision_client_is_external = False
 
     def _register_client_implementations(self):
         """Register all client implementations with the factory."""
@@ -847,45 +1022,41 @@ class DataSourceManager:
         if self.chart_type != ChartType.KLINES:
             try:
                 if (
-                    not self._data_client_initialized
+                    not self._rest_client_is_external
                     or (
-                        hasattr(self._data_client, "symbol")
-                        and self._data_client.symbol != symbol
+                        hasattr(self._rest_client, "symbol")
+                        and self._rest_client.symbol != symbol
                     )
                     or (
-                        hasattr(self._data_client, "interval")
-                        and self._data_client.interval != interval
+                        hasattr(self._rest_client, "interval")
+                        and self._rest_client.interval != interval
                     )
                 ):
                     # Create a new client
-                    self._data_client = DataClientFactory.create_data_client(
-                        provider=self.provider,
+                    self._rest_client = RestDataClient(
                         market_type=self.market_type,
-                        chart_type=self.chart_type,
-                        symbol=symbol,
-                        interval=interval,
                         max_concurrent=self.max_concurrent,
                         retry_count=self.retry_count,
-                        max_concurrent_downloads=self.max_concurrent_downloads,
-                        use_cache=False,  # We use our own caching
+                        use_httpx=self._use_httpx,  # Use the client type specified at initialization
                     )
-                    self._data_client_initialized = True
+                    self._rest_client_is_external = False
 
-                return self._data_client
+                return self._rest_client
             except Exception as e:
                 logger.error(f"Failed to create data client from factory: {e}")
                 # Fall back to legacy clients
 
         # For KLINES, we still use the legacy clients
         # Initialize REST client if needed
-        if not self.rest_client:
-            self.rest_client = RestDataClient(
+        if not self._rest_client:
+            self._rest_client = RestDataClient(
                 market_type=self.market_type,
                 max_concurrent=self.max_concurrent,
                 retry_count=self.retry_count,
+                use_httpx=self._use_httpx,  # Use the client type specified at initialization
             )
 
-        return self.rest_client
+        return self._rest_client
 
     def create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty DataFrame with the correct structure for the configured chart type.

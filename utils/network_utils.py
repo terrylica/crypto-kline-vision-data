@@ -27,6 +27,8 @@ from typing import (
 import os
 import json
 import sys
+import inspect
+import platform
 
 # Import curl_cffi for HTTP client implementation
 from curl_cffi.requests import AsyncSession
@@ -50,45 +52,113 @@ from utils.logger_setup import logger
 # ----- HTTP Client Factory Functions -----
 
 
-def create_client(
+def create_httpx_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
-    max_connections: Optional[int] = None,
+    max_connections: int = 50,
     headers: Optional[Dict[str, str]] = None,
     **kwargs: Any,
-) -> AsyncSession:
-    """Create a standardized curl_cffi HTTP client.
-
-    Provides a unified interface for creating HTTP clients
-    with consistent configuration options.
+) -> Any:
+    """Create an httpx AsyncClient as an alternative to curl_cffi.
 
     Args:
         timeout: Request timeout in seconds
         max_connections: Maximum number of connections
-        headers: Optional custom headers to include in all requests
-        **kwargs: Additional client-specific configuration options
+        headers: Optional headers to include in all requests
+        **kwargs: Additional keyword arguments to pass to AsyncClient
 
     Returns:
-        Configured curl_cffi AsyncSession with standard settings
+        httpx.AsyncClient: An initialized async HTTP client
     """
-    # Use default max connections if not specified
+    try:
+        import httpx
+        from httpx import AsyncClient, Limits, Timeout
+
+        # Set up timeout with separate connect and read timeouts
+        timeout_obj = Timeout(connect=min(timeout, 10.0), read=timeout, write=timeout)
+
+        # Set up connection limits
+        limits = Limits(
+            max_connections=max_connections,
+            max_keepalive_connections=max_connections // 2,
+        )
+
+        # Create default headers if none provided
+        if headers is None:
+            headers = {
+                "User-Agent": f"BinanceDataServices/0.1 Python/{platform.python_version()}",
+                "Accept": "application/json",
+            }
+
+        # Create the client
+        client = AsyncClient(
+            timeout=timeout_obj,
+            limits=limits,
+            headers=headers,
+            http2=True,  # Enable HTTP/2 for improved performance
+            follow_redirects=True,
+            **kwargs,
+        )
+
+        logger.debug(
+            f"Created httpx AsyncClient with timeout={timeout}s, max_connections={max_connections}"
+        )
+        return client
+
+    except ImportError:
+        logger.error(
+            "httpx is not installed. To use this function, install httpx: pip install httpx"
+        )
+        raise
+
+
+def create_client(
+    timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+    max_connections: Optional[int] = None,
+    headers: Optional[Dict[str, str]] = None,
+    use_httpx: bool = False,
+    **kwargs: Any,
+) -> Any:
+    """Create a client for making HTTP requests.
+
+    This function provides a unified interface for creating HTTP clients,
+    supporting both curl_cffi and httpx, with automatic fallback.
+
+    Args:
+        timeout: Request timeout in seconds
+        max_connections: Maximum number of connections
+        headers: Optional headers to include in all requests
+        use_httpx: Whether to prefer httpx over curl_cffi
+        **kwargs: Additional keyword arguments to pass to the client
+
+    Returns:
+        An initialized async HTTP client
+    """
     if max_connections is None:
-        max_connections = 50
+        max_connections = 50  # Default to 50 connections
 
-    # Merge default headers with custom headers
-    default_headers = {
-        "Accept": DEFAULT_ACCEPT_HEADER,
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
+    # Try to use httpx if requested
+    if use_httpx:
+        try:
+            return create_httpx_client(timeout, max_connections, headers, **kwargs)
+        except ImportError:
+            logger.warning("Failed to create httpx client, falling back to curl_cffi")
 
-    if headers:
-        default_headers.update(headers)
+    # Try curl_cffi
+    try:
+        return create_curl_cffi_client(timeout, max_connections, headers, **kwargs)
+    except ImportError:
+        logger.warning("curl_cffi not available, trying httpx instead")
 
-    return create_curl_cffi_client(
-        timeout=timeout,
-        max_connections=max_connections,
-        headers=default_headers,
-        **kwargs,
-    )
+        # Fall back to httpx
+        try:
+            return create_httpx_client(timeout, max_connections, headers, **kwargs)
+        except ImportError:
+            logger.error(
+                "Neither curl_cffi nor httpx is available. Please install one of these packages."
+            )
+            raise ImportError(
+                "No HTTP client library available. Please install curl_cffi or httpx."
+            )
 
 
 def create_curl_cffi_client(
@@ -1053,100 +1123,134 @@ async def download_file(
     return False
 
 
-async def safely_close_client(client: AsyncSession) -> None:
-    """Safely close curl_cffi AsyncSession with proper cleanup of background tasks.
-
-    The curl_cffi AsyncCurl implementation creates background tasks for timeout handling
-    that can cause "Task was destroyed but it is pending" warnings if not properly cleaned up.
-    This function ensures those tasks can complete before the client is fully closed.
+async def safely_close_client(client):
+    """Safely close a client with proper error handling and cleanup.
 
     Args:
-        client: curl_cffi AsyncSession to close
+        client: HTTP client to close
+
+    This attempts to close the client using multiple methods while preventing
+    exceptions from propagating.
     """
     if client is None:
         return
 
+    client_type = type(client).__name__
+    logger.debug(f"Safely closing client of type {client_type}")
+
+    # First, pre-emptively break any circular references
+    if hasattr(client, "_curlm") and client._curlm is not None:
+        logger.debug("Pre-emptively cleaning _curlm reference to prevent hanging")
+        client._curlm = None
+
+    # Also clear _timeout_handle if it exists
+    if hasattr(client, "_timeout_handle") and client._timeout_handle is not None:
+        logger.debug("Pre-emptively cleaning _timeout_handle to prevent hanging")
+        client._timeout_handle = None
+
+    # Cancel any force_timeout tasks
+    await _cancel_force_timeout_tasks()
+
+    # Then try different closing methods with error handling
     try:
-        # First verify the client has a close method
-        if not hasattr(client, "close"):
-            logger.warning("Client doesn't have a close method, skipping cleanup")
-            return
+        # Try aclose() method (used by curl_cffi.AsyncSession)
+        if hasattr(client, "aclose") and inspect.iscoroutinefunction(client.aclose):
+            try:
+                logger.debug("Closing client with aclose()")
+                await asyncio.wait_for(client.aclose(), timeout=2.0)
+                logger.debug("Successfully closed client with aclose()")
+                return
+            except asyncio.TimeoutError:
+                logger.warning("Timeout while closing client with aclose()")
+            except Exception as e:
+                logger.warning(f"Exception during client.aclose(): {e}")
 
-        # Extract client information for better debugging
-        client_id = id(client)
-        logger.debug(f"Starting cleanup for curl_cffi client: {client_id}")
+        # Try close() method (used by some clients)
+        if hasattr(client, "close"):
+            if inspect.iscoroutinefunction(client.close):
+                try:
+                    logger.debug("Closing client with async close()")
+                    await asyncio.wait_for(client.close(), timeout=2.0)
+                    logger.debug("Successfully closed client with async close()")
+                    return
+                except asyncio.TimeoutError:
+                    logger.warning("Timeout while closing client with async close()")
+                except Exception as e:
+                    logger.warning(f"Exception during async client.close(): {e}")
+            else:
+                # Synchronous close
+                try:
+                    logger.debug("Closing client with sync close()")
+                    client.close()
+                    logger.debug("Successfully closed client with sync close()")
+                    return
+                except Exception as e:
+                    logger.warning(f"Exception during sync client.close(): {e}")
 
-        # Extract the curl instance if available
-        curl_instance = getattr(client, "curl", None)
+        # For httpx.AsyncClient, try __aexit__
+        if hasattr(client, "__aexit__"):
+            try:
+                logger.debug("Closing client with __aexit__()")
+                await client.__aexit__(None, None, None)
+                logger.debug("Successfully closed client with __aexit__()")
+                return
+            except Exception as e:
+                logger.warning(f"Exception during client.__aexit__(): {e}")
 
-        # Count async jobs before closing if possible
-        async_jobs_count = 0
-        if hasattr(curl_instance, "async_jobs"):
-            async_jobs_count = (
-                len(curl_instance.async_jobs) if curl_instance.async_jobs else 0
-            )
-            logger.debug(
-                f"Client {client_id} has {async_jobs_count} async jobs before closing"
-            )
-
-        # Close the client (this releases connection resources)
-        try:
-            await client.close()
-            logger.debug(f"Client {client_id} close() completed")
-        except Exception as e:
-            logger.warning(f"Error during client.close(): {e}")
-
-        # Run a series of cleanup passes with increasing aggressiveness
-        # The first pass is the most gentle
-        await _cleanup_all_async_curl_tasks(0.3)
-
-        # Check if we're in a test environment (detected by pytest being loaded)
-        # or if there were many async jobs that might need more cleanup
-        in_test = "pytest" in sys.modules
-        needs_aggressive_cleanup = in_test or async_jobs_count > 5
-
-        if needs_aggressive_cleanup:
-            # Second pass with longer timeout and more aggressive cancellation
-            logger.debug(f"Running second cleanup pass for client {client_id}")
-            await _cleanup_all_async_curl_tasks(0.5)
-
-            # Check if any tasks are still remaining
-            curl_tasks = [
-                t
-                for t in asyncio.all_tasks()
-                if "AsyncCurl._force_timeout" in str(t) and not t.done()
-            ]
-
-            # If tasks are still pending after two passes, get even more aggressive
-            if curl_tasks and in_test:
-                logger.debug(
-                    f"Running final aggressive cleanup for {len(curl_tasks)} stubborn tasks"
-                )
-                # Force garbage collection to break any circular references
-                import gc
-
-                gc.collect()
-
-                # Final cancellation attempt with long timeout
-                await _cleanup_all_async_curl_tasks(1.0)
-
-        logger.debug(f"Successfully closed AsyncSession client {client_id}")
-    except asyncio.CancelledError:
-        # Handle explicit task cancellation
-        logger.warning("Client close operation was cancelled")
+        logger.warning(
+            f"No suitable close method found for client of type {client_type}"
+        )
     except Exception as e:
-        logger.warning(f"Error closing AsyncSession: {str(e)}")
-        logger.debug(f"Close error details: {traceback.format_exc()}")
+        logger.error(f"Unexpected error during client cleanup: {e}")
+
+
+async def _cancel_force_timeout_tasks():
+    """Find and cancel any _force_timeout tasks that might be active.
+
+    This function helps prevent hanging by explicitly cancelling force_timeout
+    tasks created by curl_cffi that might keep the event loop active.
+
+    Returns:
+        int: Number of tasks cancelled
+    """
+    cancelled_count = 0
+    try:
+        # Find all force_timeout tasks
+        force_timeout_tasks = []
+        for task in asyncio.all_tasks():
+            task_str = str(task)
+            if "_force_timeout" in task_str and not task.done():
+                force_timeout_tasks.append(task)
+
+        # Cancel all found tasks
+        if force_timeout_tasks:
+            logger.debug(f"Cancelling {len(force_timeout_tasks)} force_timeout tasks")
+            for task in force_timeout_tasks:
+                task.cancel()
+            cancelled_count = len(force_timeout_tasks)
+
+            # Wait for cancellation to complete with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*force_timeout_tasks, return_exceptions=True),
+                    timeout=0.5,  # Short timeout to avoid blocking
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Timeout waiting for force_timeout tasks to cancel")
+
+    except Exception as e:
+        logger.warning(f"Error cancelling force_timeout tasks: {e}")
+
+    return cancelled_count
 
 
 async def _cleanup_all_async_curl_tasks(timeout_seconds: float = 0.5) -> None:
-    """Helper function to find and cancel all AsyncCurl tasks.
+    """Find and clean up all AsyncCurl related tasks to prevent hanging.
 
-    This is extracted to a separate function to avoid code duplication and
-    enable multiple cleanup passes if needed.
+    This is a more comprehensive cleanup that targets all curl_cffi related tasks.
 
     Args:
-        timeout_seconds: How long to wait for tasks to complete after cancellation
+        timeout_seconds: Maximum time to wait for tasks to cancel
     """
     # First pass: Identify and cancel all pending AsyncCurl._force_timeout tasks
     pending_force_timeout_tasks = []

@@ -76,49 +76,36 @@ class RestDataClient:
         market_type: MarketType = MarketType.SPOT,
         max_concurrent: int = 50,
         retry_count: int = 5,
-        client: Optional[AsyncSession] = None,
+        client: Optional[Any] = None,
         fetch_timeout: float = API_TIMEOUT,  # Use standardized API_TIMEOUT from config
+        use_httpx: bool = False,  # New parameter to use httpx instead of curl_cffi
     ):
-        """Initialize the RestDataClient.
+        """Initialize a REST API client for Binance data.
 
         Args:
-            market_type: Market type (spot, futures, etc.)
-            max_concurrent: Maximum concurrent API requests
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+            max_concurrent: Maximum number of concurrent requests
             retry_count: Number of retries for failed requests
-            client: Optional existing client session (curl_cffi AsyncSession)
-            fetch_timeout: Timeout in seconds for API fetch operations (default: from config)
+            client: Optional external HTTP client
+            fetch_timeout: Timeout for fetch operations
+            use_httpx: Whether to use httpx instead of curl_cffi
         """
         self.market_type = market_type
-        self.CHUNK_SIZE = 1000  # Maximum number of records per API request
-        self._semaphore = asyncio.Semaphore(max_concurrent)
-        self._retry_count = retry_count
-        self._fetch_timeout = min(fetch_timeout, 5.0)  # Cap at 5 seconds per guidelines
-
-        # Get endpoints from market_constraints
-        self._base_url = get_endpoint_url(market_type, ChartType.KLINES)
-        # Use multiple API endpoints for rotation
-        self._endpoints = [
-            self._base_url,
-            self._base_url.replace("api.", "api1."),
-            self._base_url.replace("api.", "api2."),
-            self._base_url.replace("api.", "api3."),
-        ]
-
-        # Initialize endpoint rotation attributes
-        self._endpoint_lock = asyncio.Lock()
-        self._endpoint_index = 0
-
-        # Initialize client
+        self.max_concurrent = max_concurrent
+        self.retry_count = retry_count
+        self.fetch_timeout = fetch_timeout
         self._client = client
         self._client_is_external = client is not None
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._use_httpx = use_httpx
 
-        # Initialize hardware monitor for resource optimization
-        self.hw_monitor = HardwareMonitor()
+        # Set up proper endpoint based on market type
+        self._endpoint = self._get_klines_endpoint()
 
-        # Log initialization
         logger.debug(
-            f"Initialized RestDataClient with market_type={market_type}, "
-            f"max_concurrent={max_concurrent}, retry_count={retry_count}"
+            f"Initialized RestDataClient with market_type={market_type.name}, "
+            f"max_concurrent={max_concurrent}, retry_count={retry_count}, "
+            f"use_httpx={use_httpx}"
         )
 
     def _get_klines_endpoint(self) -> str:
@@ -130,26 +117,87 @@ class RestDataClient:
         return get_endpoint_url(self.market_type, ChartType.KLINES)
 
     async def __aenter__(self):
-        """Async context manager entry."""
-        if not self._client:
-            # Create a client with default timeout
-            from utils.network_utils import create_client
+        """Initialize the client session when entering the context."""
+        # Proactively clean up any force_timeout tasks that might cause hanging
+        await self._cleanup_force_timeout_tasks()
 
-            self._client = create_client(timeout=DEFAULT_HTTP_TIMEOUT_SECONDS)
-            logger.debug("Created new HTTP client with default settings")
+        if self._client is None:
+            self._client = self._create_optimized_client()
+            self._client_is_external = False
+        else:
+            self._client_is_external = True
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Python 3.13 compatible direct cleanup without background tasks.
+    async def _cleanup_force_timeout_tasks(self):
+        """Find and clean up any _force_timeout tasks that might cause hanging.
 
-        This implementation guarantees immediate resource release without relying
-        on background tasks or event loop scheduling, preventing hanging issues.
+        This is a proactive approach to prevent hanging issues caused by
+        lingering force_timeout tasks in curl_cffi AsyncCurl objects.
         """
-        # Use the centralized direct cleanup utility
+        # Find all tasks that might be related to _force_timeout
+        force_timeout_tasks = []
+        for task in asyncio.all_tasks():
+            task_str = str(task)
+            # Look specifically for _force_timeout tasks
+            if "_force_timeout" in task_str and not task.done():
+                force_timeout_tasks.append(task)
+
+        if force_timeout_tasks:
+            logger.warning(
+                f"Proactively cancelling {len(force_timeout_tasks)} _force_timeout tasks"
+            )
+            # Cancel all force_timeout tasks
+            for task in force_timeout_tasks:
+                task.cancel()
+
+            # Wait for cancellation to complete with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*force_timeout_tasks, return_exceptions=True),
+                    timeout=0.5,  # Short timeout to avoid blocking
+                )
+                logger.debug(
+                    f"Successfully cancelled {len(force_timeout_tasks)} _force_timeout tasks"
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Timeout waiting for _force_timeout tasks to cancel, proceeding anyway"
+                )
+
+        # Also clean _timeout_handle if it exists on the client
+        if (
+            hasattr(self, "_client")
+            and self._client
+            and hasattr(self._client, "_timeout_handle")
+            and self._client._timeout_handle
+        ):
+            logger.debug("Pre-emptively cleaning _timeout_handle to prevent hanging")
+            try:
+                self._client._timeout_handle = None
+            except Exception as e:
+                logger.warning(f"Error pre-emptively clearing _timeout_handle: {e}")
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Clean up resources when exiting the context."""
+        logger.debug("RestDataClient starting __aexit__ cleanup")
+
+        # Pre-emptively clean up _curlm objects that might cause hanging
+        if hasattr(self, "_client") and self._client:
+            if hasattr(self._client, "_curlm") and self._client._curlm:
+                logger.debug("Pre-emptively cleaning _curlm object in _client")
+                try:
+                    # Set to None before cleanup to break circular references
+                    self._client._curlm = None
+                except Exception as e:
+                    logger.warning(f"Error pre-emptively clearing _curlm: {e}")
+
+        # Use direct resource cleanup for consistent management of resources
         await direct_resource_cleanup(
             self,
             ("_client", "HTTP client", self._client_is_external),
         )
+
+        logger.debug("RestDataClient completed __aexit__ cleanup")
 
     async def _fetch_chunk_with_endpoint(
         self, endpoint: str, params: Dict[str, Any], retry_count: int = 0
@@ -201,15 +249,15 @@ class RestDataClient:
             return data
 
         except Exception as e:
-            if retry_count >= self._retry_count:
-                logger.error(f"All {self._retry_count} retries failed: {str(e)}")
+            if retry_count >= self.retry_count:
+                logger.error(f"All {self.retry_count} retries failed: {str(e)}")
                 raise
 
             # Increment retry counter and wait with exponential backoff
             retry_count += 1
             wait_time = min(2**retry_count, 60)  # Cap at 60 seconds
             logger.warning(
-                f"Error fetching chunk: {str(e)}. Retry {retry_count}/{self._retry_count} in {wait_time}s"
+                f"Error fetching chunk: {str(e)}. Retry {retry_count}/{self.retry_count} in {wait_time}s"
             )
             await asyncio.sleep(wait_time)
 
@@ -257,7 +305,7 @@ class RestDataClient:
                     formatted_symbol = f"{symbol}_PERP"
 
                 # Handle case where FUTURES_USDT might need slightly more aggressive retry
-                retry_count = self._retry_count
+                retry_count = self.retry_count
                 if self.market_type in (
                     MarketType.FUTURES_USDT,
                     MarketType.FUTURES_COIN,
@@ -476,13 +524,28 @@ class RestDataClient:
         # Removed all alignment-specific validations
         # The Binance REST API will handle interval alignment according to its behavior
 
-    def _create_optimized_client(self) -> AsyncSession:
-        """Create an optimized client based on hardware capabilities."""
-        concurrency_info = self.hw_monitor.calculate_optimal_concurrency()
-        return create_client(
-            max_connections=concurrency_info["optimal_concurrency"],
-            timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,  # Using standard timeout
+    def _create_optimized_client(self) -> Any:
+        """Create an optimized HTTP client for data retrieval.
+
+        Returns:
+            An async HTTP client optimized for data retrieval
+        """
+        from utils.network_utils import create_client
+
+        # Create a client with optimized settings
+        client = create_client(
+            timeout=self.fetch_timeout,
+            max_connections=self.max_concurrent,
+            use_httpx=self._use_httpx,
+            # Set optimized options for data retrieval
+            impersonate="chrome",  # Use Chrome's TLS fingerprint
+            h2=True,  # Enable HTTP/2 if available
         )
+
+        logger.debug(
+            f"Created {'httpx' if self._use_httpx else 'curl_cffi'} client for data retrieval"
+        )
+        return client
 
     def _calculate_chunks(
         self, start_ms: int, end_ms: int, interval: Interval
@@ -722,11 +785,11 @@ class RestDataClient:
                     timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,
                     retry_count=3,  # Increase retry count for more reliability
                 ),
-                timeout=self._fetch_timeout,
+                timeout=self.fetch_timeout,
             )
         except asyncio.TimeoutError:
             logger.error(
-                f"Connectivity test timed out after {self._fetch_timeout}s for {test_url}"
+                f"Connectivity test timed out after {self.fetch_timeout}s for {test_url}"
             )
             return self.create_empty_dataframe(), {
                 "error": "connectivity_timeout",
@@ -786,7 +849,7 @@ class RestDataClient:
                     self._fetch_chunk_with_semaphore(
                         symbol, interval, chunk_start, chunk_end, sem
                     ),
-                    timeout=self._fetch_timeout,
+                    timeout=self.fetch_timeout,
                 )
             )
             tasks.append(task)
