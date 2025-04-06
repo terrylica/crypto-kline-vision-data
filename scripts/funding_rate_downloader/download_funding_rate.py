@@ -6,7 +6,6 @@ import asyncio
 from curl_cffi.requests import AsyncSession
 import os
 from datetime import datetime
-import json
 
 # No need to initialize logger with get_logger anymore
 

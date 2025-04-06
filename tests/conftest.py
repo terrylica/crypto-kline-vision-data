@@ -19,9 +19,6 @@ from utils.network_utils import safely_close_client
 from tests.utils.unified_logging import (
     UnifiedLogCapture,
     configure_root_logger_for_testing,
-    caplog_unified,
-    caplog_xdist_compatible,
-    assert_log_contains,
 )
 
 # Import fixtures to make them available to all tests

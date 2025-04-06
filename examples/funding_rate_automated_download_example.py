@@ -5,7 +5,6 @@ import asyncio
 import sys
 import os
 from pathlib import Path
-import argparse
 
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parent.parent

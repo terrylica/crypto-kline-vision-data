@@ -2,11 +2,9 @@
 """Tests for VisionDataClient validation behavior especially future date handling."""
 
 import pytest
-import asyncio
 from datetime import datetime, timezone, timedelta
 
 from core.vision_data_client import VisionDataClient
-from utils.logger_setup import logger
 from tests.utils.unified_logging import assert_log_contains
 
 

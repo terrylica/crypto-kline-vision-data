@@ -2,26 +2,29 @@
 """Data source manager that mediates between different data sources."""
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Tuple, Any, Union
+from typing import Dict, Optional, Tuple
 from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
 import asyncio
+import gc
+import os
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
 from utils.time_utils import (
     filter_dataframe_by_time,
-    enforce_utc_timezone,
     align_time_boundaries,
 )
 from utils.validation import DataFrameValidator, DataValidation
+from utils.async_cleanup import direct_resource_cleanup
 from utils.config import (
     OUTPUT_DTYPES,
     FUNDING_RATE_DTYPES,
     VISION_DATA_DELAY_HOURS,
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
+    API_TIMEOUT,
     standardize_column_names,
     create_empty_dataframe,
     create_empty_funding_rate_dataframe,
@@ -32,7 +35,6 @@ from core.binance_funding_rate_client import BinanceFundingRateClient
 from core.cache_manager import UnifiedCacheManager
 from core.data_client_factory import DataClientFactory
 from core.data_client_interface import DataClientInterface
-from utils.network_utils import safely_close_client
 
 
 class DataSource(Enum):
@@ -96,12 +98,14 @@ class DataSourceManager:
         max_concurrent: int = 50,
         retry_count: int = 5,
         max_concurrent_downloads: Optional[int] = None,
+        vision_client: Optional[VisionDataClient] = None,
+        cache_expires_minutes: int = 60,
     ):
         """Initialize the data source manager.
 
         Args:
             market_type: Type of market (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
-            provider: Data provider (BINANCE, TRADESTATION, etc.)
+            provider: Data provider (BINANCE, BYBIT, etc.)
             chart_type: Type of chart data (KLINES, FUNDING_RATE, etc.)
             rest_client: Optional pre-configured REST client (for backward compatibility)
             cache_dir: Directory for caching data
@@ -109,7 +113,25 @@ class DataSourceManager:
             max_concurrent: Maximum concurrent API requests for REST client (default: 50)
             retry_count: Number of retries for failed REST API requests (default: 5)
             max_concurrent_downloads: Maximum concurrent downloads for Vision API (default: None, uses client default)
+            vision_client: Optional existing VisionDataClient
+            cache_expires_minutes: Cache expiration time in minutes
         """
+        if cache_dir is None:
+            from utils.config import DEFAULT_CACHE_DIR
+
+            cache_dir = os.path.join(os.getcwd(), DEFAULT_CACHE_DIR)
+
+        # Set client attributes and track if they're external
+        self.vision_client = vision_client
+        self.rest_client = rest_client
+        self._vision_client_is_external = vision_client is not None
+        self._rest_client_is_external = rest_client is not None
+        self._vision_client_initialized = vision_client is not None
+
+        # Initialize internal state
+        self._data_client = None
+        self._data_client_initialized = False
+
         # Store performance tuning parameters
         self.max_concurrent = max_concurrent
         self.retry_count = retry_count
@@ -119,15 +141,6 @@ class DataSourceManager:
         self.market_type = market_type
         self.provider = provider
         self.chart_type = chart_type
-
-        # Legacy clients (to be phased out)
-        self.rest_client = rest_client
-        self.vision_client = None
-        self._vision_client_initialized = False
-
-        # Data client from factory (new architecture)
-        self._data_client = None
-        self._data_client_initialized = False
 
         # Convert market_type to string for Vision API if needed
         self.market_type_str = self._get_market_type_str(market_type)
@@ -379,8 +392,17 @@ class DataSourceManager:
             if self.chart_type != ChartType.KLINES:
                 client = await self._get_data_client(symbol, interval)
 
-                # Fetch data using the client
-                result_df = await client.fetch(start_time, end_time)
+                # Fetch data using the client with proper timeout handling
+                try:
+                    # Use the standard API timeout from config, not arbitrary values
+                    result_df = await asyncio.wait_for(
+                        client.fetch(start_time, end_time), timeout=API_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        f"Timeout after {API_TIMEOUT}s while fetching data for {symbol}"
+                    )
+                    return self.create_empty_dataframe()
 
                 # Validate the data
                 if not result_df.empty:
@@ -413,25 +435,39 @@ class DataSourceManager:
                     # Create Vision client if not exists
                     self._ensure_vision_client(symbol, interval.value)
 
-                    # Fetch from Vision API with aligned boundaries
-                    vision_df = await self.vision_client.fetch(vision_start, vision_end)
-
-                    # Check if we got valid data
-                    if not vision_df.empty:
-                        # Filter result to exact requested time range if needed
-                        result_df = filter_dataframe_by_time(
-                            vision_df, start_time, end_time
+                    # Fetch from Vision API with aligned boundaries and proper timeout
+                    try:
+                        # Use the standard API timeout from config, not arbitrary values
+                        vision_df = await asyncio.wait_for(
+                            self.vision_client.fetch(vision_start, vision_end),
+                            timeout=API_TIMEOUT
+                            * 2,  # Vision API might take longer for downloads
                         )
-
-                        # If we have data, return it
-                        if not result_df.empty:
-                            logger.info(
-                                f"Successfully retrieved {len(result_df)} records from Vision API"
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            f"Vision API timeout after {API_TIMEOUT * 2}s, falling back to REST API"
+                        )
+                        use_vision = False  # Fall back to REST API
+                        # Continue to REST API fallback below
+                    else:
+                        # Check if we got valid data
+                        if not vision_df.empty:
+                            # Filter result to exact requested time range if needed
+                            result_df = filter_dataframe_by_time(
+                                vision_df, start_time, end_time
                             )
-                            return result_df
 
-                    # If we get here, Vision API failed or returned empty results
-                    logger.info("Vision API returned no data, falling back to REST API")
+                            # If we have data, return it
+                            if not result_df.empty:
+                                logger.info(
+                                    f"Successfully retrieved {len(result_df)} records from Vision API"
+                                )
+                                return result_df
+
+                        # If we get here, Vision API failed or returned empty results
+                        logger.info(
+                            "Vision API returned no data, falling back to REST API"
+                        )
 
                 except Exception as e:
                     logger.warning(f"Vision API error, falling back to REST API: {e}")
@@ -442,10 +478,27 @@ class DataSourceManager:
                     f"Using REST API with original boundaries: {start_time} -> {end_time}"
                 )
 
-                # Fetch from REST API - returns tuple of (DataFrame, stats)
-                rest_result = await self.rest_client.fetch(
-                    symbol, interval, start_time, end_time
-                )
+                # Ensure REST client is initialized
+                if not self.rest_client:
+                    logger.debug("Initializing REST client for fetch operation")
+                    self.rest_client = RestDataClient(
+                        market_type=self.market_type,
+                        max_concurrent=self.max_concurrent,
+                        retry_count=self.retry_count,
+                    )
+
+                # Fetch from REST API with proper timeout handling
+                try:
+                    # Use the standard API timeout from config, not arbitrary values
+                    rest_result = await asyncio.wait_for(
+                        self.rest_client.fetch(symbol, interval, start_time, end_time),
+                        timeout=API_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        f"REST API timeout after {API_TIMEOUT}s while fetching data for {symbol}"
+                    )
+                    return self.create_empty_dataframe()
 
                 # Unpack the tuple - RestDataClient.fetch returns (df, stats)
                 rest_df, stats = rest_result
@@ -682,46 +735,18 @@ class DataSourceManager:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Cleanup resources and restore original cache settings."""
-        try:
-            # Clean up data client if initialized
-            if self._data_client and self._data_client_initialized:
-                try:
-                    await self._data_client.__aexit__(exc_type, exc_val, exc_tb)
-                    self._data_client = None
-                    self._data_client_initialized = False
-                except Exception as e:
-                    logger.warning(f"Failed to clean up data client: {e}")
+        """Python 3.13 compatible direct cleanup without background tasks.
 
-            # Clean up vision client (legacy)
-            if self.vision_client and self._vision_client_initialized:
-                # Properly cleanup vision client
-                await self.vision_client.__aexit__(exc_type, exc_val, exc_tb)
-
-                # Clean up any direct client connections
-                if (
-                    hasattr(self.vision_client, "_client")
-                    and self.vision_client._client
-                ):
-                    await safely_close_client(self.vision_client._client)
-                    self.vision_client._client = None
-        except Exception as e:
-            logger.warning(f"Failed to restore vision client cache settings: {e}")
-
-            # Clean up any direct client connections
-            if hasattr(self.vision_client, "_client") and self.vision_client._client:
-                await safely_close_client(self.vision_client._client)
-                self.vision_client._client = None
-
-        # Clean up rest client (legacy)
-        if self.rest_client:
-            # Close the REST client
-            await self.rest_client.__aexit__(exc_type, exc_val, exc_tb)
-
-            # Clean up any direct client connections
-            if hasattr(self.rest_client, "_client") and self.rest_client._client:
-                await safely_close_client(self.rest_client._client)
-                self.rest_client._client = None
+        This implementation guarantees immediate resource release without relying
+        on background tasks or event loop scheduling, preventing hanging issues.
+        """
+        # Use the centralized direct cleanup utility
+        await direct_resource_cleanup(
+            self,
+            ("_data_client", "data client", False),
+            ("vision_client", "vision client", self._vision_client_is_external),
+            ("rest_client", "REST client", self._rest_client_is_external),
+        )
 
     def _ensure_vision_client(self, symbol: str, interval: str) -> None:
         """Ensure a VisionDataClient is available for the current operation.
@@ -746,7 +771,6 @@ class DataSourceManager:
                 symbol=symbol,
                 interval=interval,
                 market_type=self.market_type,
-                use_cache=False,  # We use our own caching
                 max_concurrent_downloads=self.max_concurrent_downloads,
             )
             self._vision_client_initialized = True
@@ -765,7 +789,6 @@ class DataSourceManager:
                     symbol=symbol,
                     interval=interval,
                     market_type=self.market_type,
-                    use_cache=False,  # We use our own caching
                     max_concurrent_downloads=self.max_concurrent_downloads,
                 )
                 # Properly close the old client
@@ -777,7 +800,6 @@ class DataSourceManager:
                     symbol=symbol,
                     interval=interval,
                     market_type=self.market_type,
-                    use_cache=False,  # We use our own caching
                     max_concurrent_downloads=self.max_concurrent_downloads,
                 )
 

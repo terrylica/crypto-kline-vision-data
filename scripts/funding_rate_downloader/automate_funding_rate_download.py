@@ -6,7 +6,6 @@ import asyncio
 from curl_cffi.requests import AsyncSession
 import os
 from datetime import datetime
-import json
 import argparse
 import time
 from typing import List, Dict, Any, Optional

@@ -6,7 +6,7 @@ import pandas as pd
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Optional, Tuple, Union
 
 from curl_cffi.requests import AsyncSession
 
@@ -16,7 +16,6 @@ from utils.time_utils import filter_dataframe_by_time, enforce_utc_timezone
 from utils.network_utils import create_client, safely_close_client
 from utils.config import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
-    FUNDING_RATE_COLUMNS,
     FUNDING_RATE_DTYPES,
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,

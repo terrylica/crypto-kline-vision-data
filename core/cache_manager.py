@@ -3,26 +3,12 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any, Sequence
+from typing import Dict, Optional, Any
 import pandas as pd
-import pyarrow as pa
-import filelock
 import os
 import asyncio
-import re
 
 from utils.logger_setup import logger
-from utils.cache_validator import (
-    CacheKeyManager,
-    safely_read_arrow_file_async,
-)
-from utils.validation import DataValidation, DataFrameValidator
-from utils.time_utils import (
-    enforce_utc_timezone,
-    get_interval_floor,
-    align_time_boundaries,
-)
-from utils.market_constraints import Interval, MarketType
 
 
 class UnifiedCacheManager:

@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, Optional, Tuple, Any, List, Union
+from typing import Optional, Tuple, Union
 import pandas as pd
 
 from utils.market_constraints import MarketType, ChartType, Interval, DataProvider
@@ -16,31 +16,26 @@ class DataClientInterface(ABC):
     @abstractmethod
     def provider(self) -> DataProvider:
         """Get the data provider for this client."""
-        pass
 
     @property
     @abstractmethod
     def market_type(self) -> MarketType:
         """Get the market type for this client."""
-        pass
 
     @property
     @abstractmethod
     def chart_type(self) -> ChartType:
         """Get the chart type for this client."""
-        pass
 
     @property
     @abstractmethod
     def symbol(self) -> str:
         """Get the trading symbol for this client."""
-        pass
 
     @property
     @abstractmethod
     def interval(self) -> Union[str, Interval]:
         """Get the interval for this client."""
-        pass
 
     @abstractmethod
     async def fetch(
@@ -59,7 +54,6 @@ class DataClientInterface(ABC):
         Returns:
             DataFrame with market data
         """
-        pass
 
     @abstractmethod
     async def is_data_available(self, start_time: datetime, end_time: datetime) -> bool:
@@ -72,7 +66,6 @@ class DataClientInterface(ABC):
         Returns:
             True if data is available, False otherwise
         """
-        pass
 
     @abstractmethod
     def create_empty_dataframe(self) -> pd.DataFrame:
@@ -81,7 +74,6 @@ class DataClientInterface(ABC):
         Returns:
             Empty DataFrame with correct columns and types
         """
-        pass
 
     @abstractmethod
     async def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
@@ -93,14 +85,11 @@ class DataClientInterface(ABC):
         Returns:
             Tuple of (is_valid, error_message)
         """
-        pass
 
     @abstractmethod
     async def __aenter__(self):
         """Async context manager entry."""
-        pass
 
     @abstractmethod
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
-        pass

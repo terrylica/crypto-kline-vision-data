@@ -16,7 +16,6 @@ It provides a unified interface for validating:
 - Symbol and interval formats
 """
 
-import hashlib
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, NamedTuple

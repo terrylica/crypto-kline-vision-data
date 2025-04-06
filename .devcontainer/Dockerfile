@@ -6,6 +6,9 @@ RUN conda config --set channel_priority strict
 RUN conda install -y python=3.13
 # RUN conda install -y -c conda-forge "ta-lib=0.5.1"
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y ripgrep
+
 # Install Python dependencies
 RUN pip3 install pandas curl_cffi tenacity colorlog psutil arrow pyarrow>=19.0.1 filelock
 

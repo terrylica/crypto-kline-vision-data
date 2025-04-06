@@ -13,7 +13,6 @@ from utils.market_constraints import (
 )
 from core.data_client_interface import DataClientInterface
 from core.rest_data_client import RestDataClient
-from core.vision_data_client import VisionDataClient
 from core.binance_funding_rate_client import BinanceFundingRateClient
 
 

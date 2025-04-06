@@ -78,11 +78,10 @@ Best Practices Demonstrated:
 
 import asyncio
 import signal
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import traceback
 import pandas as pd
+import argparse
 
 from utils.logger_setup import logger
 
@@ -94,6 +93,7 @@ logger.use_rich(True)
 logger.show_filename(True)
 from utils.market_constraints import Interval, MarketType, is_interval_supported
 from core.data_source_manager import DataSourceManager, DataSource
+from utils.config import create_empty_dataframe
 
 
 def determine_data_source(manager, prev_stats, current_stats, enforce_source=None):
@@ -345,10 +345,17 @@ async def example_fetch_historical_data():
     # Define historical time range relative to current time
     # Use a date 3 months in the past to ensure Vision API has the data
     end_time = now - timedelta(days=90)
-    start_time = end_time - timedelta(days=1)
+    start_time = end_time - timedelta(
+        hours=8
+    )  # Reduce to 8 hours instead of full day to speed up testing
 
     logger.info(
         f"Historical time range: [yellow]{start_time}[/yellow] to [yellow]{end_time}[/yellow]"
+    )
+
+    # Create a progress indicator
+    logger.info(
+        "[bold]Starting historical data download - this may take a minute...[/bold]"
     )
 
     # Track cache statistics (single manager instance)
@@ -360,95 +367,111 @@ async def example_fetch_historical_data():
         cache_dir=cache_dir,
         use_cache=True,
     ) as manager:
-        # Store initial stats
-        prev_stats = manager.get_cache_stats().copy()
-
-        # For historical data, Vision API will automatically be selected
-        # but we enforce it here to demonstrate the capability
-        df = await manager.get_data(
-            symbol="BTCUSDT",
-            start_time=start_time,
-            end_time=end_time,
-            interval=Interval.SECOND_1,
-            enforce_source=DataSource.VISION,  # Enforce Vision API
-        )
-
-        # Update stats after first operation
-        current_stats = manager.get_cache_stats()
-        for key in current_stats:
-            cache_stats[key] += current_stats[key]
-
-        # Determine data source with enforced source information
-        data_source = determine_data_source(
-            manager, prev_stats, current_stats, DataSource.VISION
-        )
-
-        # Display results with rich formatting
-        logger.info(
-            format_dataframe_section(
-                df,
-                "BTCUSDT 1-second historical data",
-                format_data_source(data_source),
-                (start_time, end_time),
-            )
-        )
-
-        # Display a sample of the data
-        if not df.empty:
-            logger.info(df.head().to_string())
-            # Use multicolor separator after dataframe display
-            logger.info(
-                "[bright_magenta]━━[/bright_magenta][bright_cyan]━━[/bright_cyan]" * 20
-            )
-            logger.info(
-                f"\n[bold bright_green]🔍 Cache Statistics:[/bold bright_green] [bright_cyan]{cache_stats}[/bright_cyan]"
-            )
-        else:
-            logger.info(
-                "[yellow]No data retrieved. Attempting with 1-minute data instead.[/yellow]"
-            )
-
-            # Store stats before second operation
+        try:
+            # Store initial stats
             prev_stats = manager.get_cache_stats().copy()
 
-            # Try with 1-minute data which might be more available
-            df_minute = await manager.get_data(
+            # For historical data, Vision API will automatically be selected
+            # but we enforce it here to demonstrate the capability
+            df = await manager.get_data(
                 symbol="BTCUSDT",
                 start_time=start_time,
                 end_time=end_time,
-                interval=Interval.MINUTE_1,
+                interval=Interval.SECOND_1,
+                enforce_source=DataSource.VISION,  # Enforce Vision API
             )
 
-            # Update stats after second operation
+            # Update stats after first operation
             current_stats = manager.get_cache_stats()
             for key in current_stats:
-                cache_stats[key] = current_stats[
-                    key
-                ]  # Reset to latest since these are cumulative
+                cache_stats[key] += current_stats[key]
 
-            # Determine data source for 1-minute data
-            data_source = determine_data_source(manager, prev_stats, current_stats)
+            # Determine data source with enforced source information
+            data_source = determine_data_source(
+                manager, prev_stats, current_stats, DataSource.VISION
+            )
 
-            # Display 1-minute results with rich formatting
+            # Display results with rich formatting
             logger.info(
                 format_dataframe_section(
-                    df_minute,
-                    "BTCUSDT 1-minute historical data (fallback)",
+                    df,
+                    "BTCUSDT 1-second historical data",
                     format_data_source(data_source),
                     (start_time, end_time),
                 )
             )
 
-            if not df_minute.empty:
-                logger.info(df_minute.head().to_string())
+            # Display a sample of the data
+            if not df.empty:
+                logger.info(df.head().to_string())
                 # Use multicolor separator after dataframe display
                 logger.info(
                     "[bright_magenta]━━[/bright_magenta][bright_cyan]━━[/bright_cyan]"
                     * 20
                 )
                 logger.info(
-                    f"\n[bold bright_green]🔍 Final Cache Statistics:[/bold bright_green] [bright_cyan]{cache_stats}[/bright_cyan]"
+                    f"\n[bold bright_green]🔍 Cache Statistics:[/bold bright_green] [bright_cyan]{cache_stats}[/bright_cyan]"
                 )
+
+                # Explicitly mark completion to show progress
+                logger.info(
+                    "[bold green]✓ Historical data download complete[/bold green]"
+                )
+            else:
+                logger.info(
+                    "[yellow]No data retrieved. Attempting with 1-minute data instead.[/yellow]"
+                )
+
+                # Store stats before second operation
+                prev_stats = manager.get_cache_stats().copy()
+
+                # Try with 1-minute data which might be more available
+                df_minute = await manager.get_data(
+                    symbol="BTCUSDT",
+                    start_time=start_time,
+                    end_time=end_time,
+                    interval=Interval.MINUTE_1,
+                )
+
+                # Update stats after second operation
+                current_stats = manager.get_cache_stats()
+                for key in current_stats:
+                    cache_stats[key] = current_stats[
+                        key
+                    ]  # Reset to latest since these are cumulative
+
+                # Determine data source for 1-minute data
+                data_source = determine_data_source(manager, prev_stats, current_stats)
+
+                # Display 1-minute results with rich formatting
+                logger.info(
+                    format_dataframe_section(
+                        df_minute,
+                        "BTCUSDT 1-minute historical data (fallback)",
+                        format_data_source(data_source),
+                        (start_time, end_time),
+                    )
+                )
+
+                if not df_minute.empty:
+                    logger.info(df_minute.head().to_string())
+                    # Use multicolor separator after dataframe display
+                    logger.info(
+                        "[bright_magenta]━━[/bright_magenta][bright_cyan]━━[/bright_cyan]"
+                        * 20
+                    )
+                    logger.info(
+                        f"\n[bold bright_green]🔍 Final Cache Statistics:[/bold bright_green] [bright_cyan]{cache_stats}[/bright_cyan]"
+                    )
+
+                    # Explicitly mark completion to show progress
+                    logger.info(
+                        "[bold green]✓ Historical data download complete[/bold green]"
+                    )
+
+        except Exception as e:
+            logger.error(f"[bold red]Error fetching historical data: {e}[/bold red]")
+            return  # Exit the function to prevent further processing
 
 
 async def example_fetch_same_day_minute_data():
@@ -585,7 +608,7 @@ async def example_fetch_unavailable_data():
                 f"[bold green]✓ Correctly rejected future dates:[/bold green] {e}"
             )
             # Create empty DataFrame with proper structure for demonstrating the result
-            future_df = manager.rest_client.create_empty_dataframe()
+            future_df = create_empty_dataframe()
             # Update stats to record the error
             cache_stats["errors"] += 1
 
@@ -600,19 +623,27 @@ async def example_fetch_unavailable_data():
             "\n[bold yellow]Attempting to fetch data for a non-existent symbol:[/bold yellow]"
         )
         try:
-            invalid_df = await manager.get_data(
-                symbol="INVALIDCOIN",
-                start_time=now - timedelta(days=1),
-                end_time=now - timedelta(hours=1),
-                interval=Interval.MINUTE_1,
-            )
+            # Ensure manager is valid before proceeding
+            if manager is None:
+                logger.error(
+                    "[bold red]DataSourceManager is not initialized[/bold red]"
+                )
+                # Use the imported function directly
+                invalid_df = create_empty_dataframe()
+            else:
+                invalid_df = await manager.get_data(
+                    symbol="INVALIDCOIN",
+                    start_time=now - timedelta(days=1),
+                    end_time=now - timedelta(hours=1),
+                    interval=Interval.MINUTE_1,
+                )
 
-            # Update stats after second operation
-            current_stats = manager.get_cache_stats()
-            for key in current_stats:
-                cache_stats[key] = current_stats[
-                    key
-                ]  # Reset to latest since these are cumulative
+                # Update stats after second operation
+                current_stats = manager.get_cache_stats()
+                for key in current_stats:
+                    cache_stats[key] = current_stats[
+                        key
+                    ]  # Reset to latest since these are cumulative
 
             logger.info(
                 f"[bold]Invalid symbol result:[/bold] [red]{len(invalid_df)} rows[/red]"
@@ -621,7 +652,8 @@ async def example_fetch_unavailable_data():
             logger.info(
                 f"[bold]Invalid symbol resulted in error:[/bold] [red]{e}[/red]"
             )
-            invalid_df = manager.rest_client.create_empty_dataframe()
+            # Use the imported create_empty_dataframe function directly for safety
+            invalid_df = create_empty_dataframe()
             cache_stats["errors"] += 1
 
         logger.info(
@@ -970,76 +1002,6 @@ async def example_different_market_types():
         )
 
 
-async def main():
-    """Run the example functions."""
-    # Log the current time at the start of execution with enhanced formatting
-    now = datetime.now(timezone.utc)
-    # Create a colorful script title banner
-    title_banner = "\n".join(
-        [
-            "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
-            "[bold bright_cyan on black]                 BINANCE DATA RETRIEVAL EXAMPLES                [/bold bright_cyan on black]",
-            "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
-        ]
-    )
-    logger.info(title_banner)
-    logger.info(
-        f"[bold bright_green]🚀 Script starting at:[/bold bright_green] [bright_yellow]{now.isoformat()}[/bright_yellow]"
-    )
-
-    # Check if a specific example function was requested
-    if len(sys.argv) > 1:
-        example_name = sys.argv[1]
-        example_map = {
-            "example_fetch_recent_data": example_fetch_recent_data,
-            "example_fetch_historical_data": example_fetch_historical_data,
-            "example_fetch_same_day_minute_data": example_fetch_same_day_minute_data,
-            "example_fetch_unavailable_data": example_fetch_unavailable_data,
-            "example_different_market_types": example_different_market_types,
-        }
-
-        if example_name in example_map:
-            try:
-                logger.info(
-                    f"[bold]Running example:[/bold] [cyan]{example_name}[/cyan]"
-                )
-                await example_map[example_name]()
-                return
-            except KeyboardInterrupt:
-                logger.info(
-                    "[yellow]Received keyboard interrupt, shutting down gracefully...[/yellow]"
-                )
-            except Exception as e:
-                logger.error(
-                    f"[bold red]Error in example {example_name}: {e}[/bold red]"
-                )
-                logger.debug(f"[red]Error details: {traceback.format_exc()}[/red]")
-                sys.exit(1)
-        else:
-            logger.error(f"[bold red]Unknown example: {example_name}[/bold red]")
-            logger.info(
-                f"[green]Available examples:[/green] [cyan]{', '.join(example_map.keys())}[/cyan]"
-            )
-            sys.exit(1)
-
-    # If no specific example is requested, run all examples
-    try:
-        # Run all example functions
-        await example_fetch_recent_data()
-        await example_fetch_historical_data()
-        await example_fetch_same_day_minute_data()
-        await example_fetch_unavailable_data()
-        await example_different_market_types()
-    except KeyboardInterrupt:
-        logger.info(
-            "[yellow]Received keyboard interrupt, shutting down gracefully...[/yellow]"
-        )
-    except Exception as e:
-        logger.error(f"[bold red]Unexpected error: {e}[/bold red]")
-        logger.debug(f"[red]Main function error: {traceback.format_exc()}[/red]")
-        sys.exit(1)
-
-
 def handle_signals():
     """Set up signal handlers for graceful shutdown."""
     loop = asyncio.get_event_loop()
@@ -1064,6 +1026,25 @@ async def shutdown(sig, loop):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Run data retrieval examples.")
+    parser.add_argument(
+        "--example",
+        choices=[
+            "recent",
+            "historical",
+            "same_day",
+            "unavailable",
+            "different_market_types",
+            "all",
+        ],
+        default="all",
+        help="Specify which example to run (default: all)",
+    )
+
+    args = parser.parse_args()
 
     logger.warning(
         f"[bold yellow]Current UTC date time precision up to milliseconds:[/bold yellow] [cyan]{datetime.now(timezone.utc).isoformat(timespec='milliseconds')}[/cyan]"
@@ -1071,5 +1052,49 @@ if __name__ == "__main__":
     # Set up signal handlers
     handle_signals()
 
-    # Run the main function
-    asyncio.run(main())
+    async def run_examples():
+        """Run the selected examples."""
+        # Log the current time at the start of execution with enhanced formatting
+        now = datetime.now(timezone.utc)
+        # Create a colorful script title banner
+        title_banner = "\n".join(
+            [
+                "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
+                "[bold bright_cyan on black]                 BINANCE DATA RETRIEVAL EXAMPLES                [/bold bright_cyan on black]",
+                "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
+            ]
+        )
+        logger.info(title_banner)
+        logger.info(
+            f"[bold bright_green]🚀 Script starting at:[/bold bright_green] [bright_yellow]{now.isoformat()}[/bright_yellow]"
+        )
+
+        example_map = {
+            "recent": example_fetch_recent_data,
+            "historical": example_fetch_historical_data,
+            "same_day": example_fetch_same_day_minute_data,
+            "unavailable": example_fetch_unavailable_data,
+            "different_market_types": example_different_market_types,
+        }
+
+        if args.example == "all":
+            for name, func in example_map.items():
+                try:
+                    logger.info(f"[bold]Running example:[/bold] [cyan]{name}[/cyan]")
+                    await func()
+                except Exception as e:
+                    logger.error(f"[bold red]Error in example {name}: {e}[/bold red]")
+        else:
+            try:
+                func = example_map[args.example]
+                logger.info(
+                    f"[bold]Running example:[/bold] [cyan]{args.example}[/cyan]"
+                )
+                await func()
+            except Exception as e:
+                logger.error(
+                    f"[bold red]Error in example {args.example}: {e}[/bold red]"
+                )
+
+    # Run the examples
+    asyncio.run(run_examples())

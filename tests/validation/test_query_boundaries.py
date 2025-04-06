@@ -7,7 +7,6 @@ import json
 
 from utils.validation import DataValidation
 from utils.logger_setup import logger
-from tests.utils.unified_logging import assert_log_contains
 
 
 def test_normal_date_range(caplog_unified):

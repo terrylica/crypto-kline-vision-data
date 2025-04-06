@@ -37,6 +37,14 @@ API_TIMEOUT: Final = 3.0  # Seconds - standardized based on benchmarks
 API_MAX_RETRIES: Final = 3
 API_RETRY_DELAY: Final = 1  # Seconds
 
+# Resource cleanup timeouts
+RESOURCE_CLEANUP_TIMEOUT: Final = 0.1  # Seconds - for generic async resource cleanup
+HTTP_CLIENT_CLEANUP_TIMEOUT: Final = (
+    0.2  # Seconds - for HTTP client cleanup (curl_cffi)
+)
+FILE_CLEANUP_TIMEOUT: Final = 0.3  # Seconds - for file handle cleanup
+ENABLE_FORCED_GC: Final = True  # Whether to force garbage collection after cleanup
+
 # Canonical column names
 CANONICAL_CLOSE_TIME: Final[str] = "close_time"
 

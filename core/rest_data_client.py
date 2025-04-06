@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any
 import pandas as pd
 import time
+import gc
+import contextlib
 
 # Import curl_cffi for better performance
 from curl_cffi.requests import AsyncSession
@@ -27,6 +29,7 @@ from utils.time_utils import (
 )
 from utils.hardware_monitor import HardwareMonitor
 from utils.network_utils import create_client, safely_close_client, test_connectivity
+from utils.async_cleanup import direct_resource_cleanup
 from utils.config import (
     KLINE_COLUMNS,
     standardize_column_names,
@@ -137,16 +140,16 @@ class RestDataClient:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit method."""
-        # Only close client if we created it internally
-        if self._client and not self._client_is_external:
-            try:
-                await safely_close_client(self._client)
-                logger.debug("RestDataClient closed HTTP client")
-            except Exception as e:
-                logger.warning(f"Error closing RestDataClient HTTP client: {str(e)}")
-            finally:
-                self._client = None
+        """Python 3.13 compatible direct cleanup without background tasks.
+
+        This implementation guarantees immediate resource release without relying
+        on background tasks or event loop scheduling, preventing hanging issues.
+        """
+        # Use the centralized direct cleanup utility
+        await direct_resource_cleanup(
+            self,
+            ("_client", "HTTP client", self._client_is_external),
+        )
 
     async def _fetch_chunk_with_endpoint(
         self, endpoint: str, params: Dict[str, Any], retry_count: int = 0

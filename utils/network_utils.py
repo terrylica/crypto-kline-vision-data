@@ -570,6 +570,52 @@ class VisionDownloadManager:
             client, max_retries=5, min_wait=4, max_wait=60, timeout=3.0
         )
 
+    async def _cleanup_resources(self) -> None:
+        """Properly clean up all resources used by the download manager.
+
+        This ensures all HTTP connections and background tasks are properly cleaned up,
+        preventing resource leaks and hanging tasks.
+        """
+        cleanup_errors = []
+
+        # Clean up the download handler if it exists
+        if hasattr(self, "download_handler"):
+            try:
+                # Close the download handler's client if it's different from self.client
+                if (
+                    hasattr(self.download_handler, "client")
+                    and self.download_handler.client is not None
+                    and self.download_handler.client is not self.client
+                ):
+                    logger.debug(
+                        f"Cleaning up download handler's client for {self.symbol}"
+                    )
+                    await safely_close_client(self.download_handler.client)
+            except Exception as e:
+                error_msg = f"Error cleaning up download handler: {str(e)}"
+                logger.warning(error_msg)
+                cleanup_errors.append(error_msg)
+
+        # Clean up any pending background tasks
+        try:
+            # Give background tasks a chance to complete
+            await asyncio.sleep(0.1)
+
+            # Run task cleanup to ensure no lingering download tasks
+            await _cleanup_all_async_curl_tasks(0.5)
+        except Exception as e:
+            error_msg = f"Error cleaning up background tasks: {str(e)}"
+            logger.warning(error_msg)
+            cleanup_errors.append(error_msg)
+
+        # Log any cleanup errors
+        if cleanup_errors:
+            logger.warning(
+                f"Encountered {len(cleanup_errors)} errors during VisionDownloadManager cleanup"
+            )
+            for i, error in enumerate(cleanup_errors, 1):
+                logger.debug(f"Cleanup error {i}: {error}")
+
     def _get_checksum_url(self, date: datetime) -> str:
         """Get checksum URL for a specific date.
 

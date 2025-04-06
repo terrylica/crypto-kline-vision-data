@@ -140,7 +140,7 @@ def generate_detailed_failure_summary(test_path):
                     type_match = error_type_pattern.search(line)
                     if type_match:
                         error_type = type_match.group(1)
-                        message_match = re.search(f"{error_type}:\s+(.*)", line)
+                        message_match = re.search(rf"{error_type}:\s+(.*)", line)
                         if message_match:
                             error_message = message_match.group(1)
 

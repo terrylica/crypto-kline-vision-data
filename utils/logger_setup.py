@@ -2,7 +2,6 @@ import logging, os
 import inspect
 from colorlog import ColoredFormatter
 import traceback
-import sys
 
 try:
     from rich.console import Console

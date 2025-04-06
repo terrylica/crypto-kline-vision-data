@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""VisionDataClient provides direct access to Binance Vision API for historical data.
+r"""VisionDataClient provides direct access to Binance Vision API for historical data.
 
 This module implements a client for retrieving historical market data from the
 Binance Vision API. It provides functions for fetching, validating, and processing data.
@@ -19,6 +19,7 @@ directly with this client.
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Sequence, TypeVar, Generic, Union
+import gc
 
 import pandas as pd
 
@@ -27,16 +28,15 @@ from utils.validation import DataFrameValidator, DataValidation
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
     align_time_boundaries,
-    enforce_utc_timezone,
     filter_dataframe_by_time,
     TimeseriesDataProcessor,
 )
 from utils.network_utils import (
     create_client,
     VisionDownloadManager,
-    safely_close_client,
 )
 from utils.config import create_empty_dataframe, KLINE_COLUMNS, standardize_column_names
+from utils.async_cleanup import direct_resource_cleanup, cleanup_file_handle
 from core.vision_constraints import (
     TimestampedDataFrame,
     MAX_CONCURRENT_DOWNLOADS,
@@ -131,33 +131,26 @@ class VisionDataClient(Generic[T]):
         """Async context manager entry."""
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: Optional[type],
-        exc_val: Optional[Exception],
-        exc_tb: Optional[object],
-    ) -> None:
-        """Async context manager exit."""
-        # Clean up memory map resources if they exist
-        if hasattr(self, "_current_mmap") and self._current_mmap is not None:
-            try:
-                logger.debug("Closing memory map resources")
-                self._current_mmap.close()
-            except Exception as e:
-                logger.warning(f"Error closing memory map: {str(e)}")
-            finally:
-                self._current_mmap = None
-                self._current_mmap_path = None
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Python 3.13 compatible direct cleanup without relying
+        on background tasks or event loop scheduling, preventing hanging issues.
+        """
+        # Use the centralized direct cleanup utility
+        client_is_external = getattr(self, "_client_is_external", False)
 
-        # Close HTTP client using the standardized safely_close_client function
-        if hasattr(self, "_client") and self._client is not None:
-            try:
-                logger.debug("Closing VisionDataClient HTTP client")
-                await safely_close_client(self._client)
-            except Exception as e:
-                logger.warning(f"Error closing VisionDataClient HTTP client: {str(e)}")
-            finally:
-                self._client = None
+        # Handle memory-mapped file with specialized file handle cleanup
+        current_mmap = getattr(self, "_current_mmap", None)
+        self._current_mmap = None  # Immediately nullify reference
+
+        if current_mmap is not None:
+            await cleanup_file_handle(current_mmap)
+
+        # Clean up all other resources using the centralized pattern
+        await direct_resource_cleanup(
+            self,
+            ("_download_manager", "download manager", False),
+            ("_client", "HTTP client", client_is_external),
+        )
 
     def _create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty DataFrame with correct structure.
