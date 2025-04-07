@@ -106,3 +106,68 @@ The revised architecture offers several improvements:
 4. **Optimized Performance**: Provider-specific optimizations without interface changes
 
 By using a factory pattern with abstract interfaces, the DSM isolates clients from the specifics of data retrieval while maintaining a consistent, predictable interface.
+
+## Centralized Timeout Handling
+
+The system implements a robust centralized timeout handling architecture to ensure reliability in network operations:
+
+```diagram
+┌─────────────────┐      ┌─────────────────────┐      ┌─────────────────────────┐
+│                 │      │                     │      │                         │
+│ MAX_TIMEOUT     │─────▶│ Data Client         │─────▶│ Timeout Logger         │
+│ in config.py    │      │ (Vision/REST)       │      │ in logger_setup.py     │
+│                 │      │                     │      │                         │
+└─────────────────┘      └─────────────────────┘      └─────────────────────────┘
+                                   │                              │
+                                   ▼                              ▼
+                        ┌─────────────────────┐      ┌─────────────────────────┐
+                        │                     │      │                         │
+                        │ Task Cancellation   │      │ Timeout Log File        │
+                        │ & Resource Cleanup  │      │ in logs/timeout_incidents│
+                        │                     │      │                         │
+                        └─────────────────────┘      └─────────────────────────┘
+```
+
+### Timeout Configuration
+
+A centralized timeout constant `MAX_TIMEOUT` in `utils/config.py` provides a system-wide maximum timeout value (currently 9.0 seconds).
+
+### Client-Specific Implementation
+
+Both REST and Vision data clients implement consistent timeout handling patterns:
+
+1. **Task Creation**: Operations are wrapped in explicit asyncio tasks for proper cancellation
+2. **Timeout Application**: `asyncio.wait_for()` applies the timeout constraint
+3. **Exception Handling**: Specialized handling for `asyncio.TimeoutError`
+4. **Task Cancellation**: Explicit cancellation of running tasks when timeouts occur
+5. **Resource Cleanup**: Dedicated cleanup methods ensure no resource leaks
+6. **Detailed Logging**: Context-rich logging of timeout incidents
+
+### Timeout Logging
+
+The system logs timeout incidents with detailed context:
+
+```
+2025-04-06 21:15:28,342 [TIMEOUT] Operation 'REST API fetch for BTCUSDT 1m' timed out after 9.0s
+Details: {
+  "symbol": "BTCUSDT",
+  "interval": "1m",
+  "market_type": "SPOT",
+  "start_time": "2025-03-07 21:15:28.342120+00:00",
+  "end_time": "2025-04-06 21:15:28.342120+00:00",
+  "chunks": 5,
+  "elapsed": "9.02s",
+  "completed_chunks": 3
+}
+```
+
+Timeout logs are stored in a dedicated directory (`logs/timeout_incidents/`) for easy monitoring and analysis.
+
+### Benefits
+
+This centralized approach ensures:
+
+1. **Consistency**: Uniform timeout behavior across all components
+2. **Reliability**: Proper resource cleanup prevents leaks and hanging
+3. **Observability**: Detailed logs enable performance optimization
+4. **Configurability**: Single point of adjustment for timeout settings

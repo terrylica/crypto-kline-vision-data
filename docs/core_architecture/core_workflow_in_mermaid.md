@@ -116,20 +116,51 @@ graph TD
     D -->|Network Error| E[Apply Retry with Backoff]
     D -->|Validation Error| F[Try Alternative Source]
     D -->|Data Missing| G[Try Alternative Source]
-    D -->|Other Error| H[Propagate Error]
+    D -->|Timeout| H[Log Timeout & Clean Resources]
+    D -->|Other Error| I[Propagate Error]
 
-    E --> I{Max Retries Reached?}
-    I -->|No| B
-    I -->|Yes| J[Try Alternative Source]
+    E --> J{Max Retries Reached?}
+    J -->|No| B
+    J -->|Yes| K[Try Alternative Source]
 
-    F --> K{Alternative Available?}
-    G --> K
-    J --> K
+    F --> L{Alternative Available?}
+    G --> L
+    K --> L
+    H --> L
 
-    K -->|Yes| L[Try Alternative Source]
-    K -->|No| M[Propagate Error]
+    L -->|Yes| M[Try Alternative Source]
+    L -->|No| N[Propagate Error]
 
-    L --> N{Try Source}
-    N -->|Success| O[Return Data]
-    N -->|Failure| M
+    M --> O{Try Source}
+    O -->|Success| P[Return Data]
+    O -->|Failure| N
+```
+
+## Timeout Handling Flow
+
+```mermaid
+graph TD
+    A[Client Data Fetch Operation] --> B[Set MAX_TIMEOUT Constraint]
+    B --> C[Create Task for Operation]
+    C --> D[Wait with Timeout]
+
+    D -->|Success| E[Return Data]
+    D -->|Timeout| F[Log Timeout Event]
+
+    F --> G[Log to Console]
+    F --> H[Write to Dedicated Log File]
+
+    F --> I[Cancel Running Task]
+    I --> J[Clean Up Resources]
+    J --> K[Return Empty DataFrame]
+
+    subgraph Timeout Logging Process
+        G
+        H
+    end
+
+    subgraph Resource Cleanup Process
+        I
+        J
+    end
 ```

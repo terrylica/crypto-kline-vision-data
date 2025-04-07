@@ -227,9 +227,16 @@ Key features:
    - Failed chunks are tracked separately from successful ones
 
 4. **Accurate Time Boundary Handling**
+
    - Implements the exact same boundary alignment behavior as the Binance API
    - Ensures consistent data retrieval regardless of timestamp precision
    - Provides clear logging of boundary adjustments for transparency
+
+5. **Resilience to Data Changes**
+
+   - Even if data changes during retrieval, chunks capture consistent snapshots
+   - New records don't affect previously retrieved chunks
+   - No risk of duplicate or missing records if data changes during pagination
 
 ## Comparative Advantages Over Traditional Pagination
 
@@ -284,6 +291,65 @@ The client automatically:
 2. Calculates optimal chunks based on the 1-hour interval
 3. Executes concurrent requests for all chunks
 4. Combines results into a single DataFrame
+
+## Timeout Handling in REST API Pagination
+
+The `RestDataClient` implements a robust timeout handling system integrated with the chunking pagination approach:
+
+```python
+async def fetch(self, symbol, interval, start_time, end_time):
+    # Set up timeout for the overall fetch operation
+    effective_timeout = min(MAX_TIMEOUT, self.fetch_timeout * 2)
+
+    # Create a task for the chunked fetch operation
+    all_chunks_task = asyncio.create_task(self._fetch_all_chunks(...))
+
+    try:
+        # Wait for the task with timeout
+        results = await asyncio.wait_for(all_chunks_task, timeout=effective_timeout)
+        # Process results...
+
+    except asyncio.TimeoutError:
+        # Log timeout with detailed context
+        logger.log_timeout(
+            operation=f"REST API fetch for {symbol} {interval.value}",
+            timeout_value=effective_timeout,
+            details={...}
+        )
+
+        # Cancel the task and clean up resources
+        if not all_chunks_task.done():
+            all_chunks_task.cancel()
+
+        await self._cleanup_force_timeout_tasks()
+        # Return appropriate fallback response
+```
+
+Key elements of the timeout handling implementation:
+
+1. **Centralized Timeout Configuration**
+
+   - Uses `MAX_TIMEOUT` constant from `utils/config.py` for consistency
+   - Sets an effective timeout based on operation complexity
+
+2. **Task-Based Execution**
+
+   - Creates explicit async tasks for all operations
+   - Enables proper cancellation when timeouts occur
+   - Prevents resource leaks through explicit task tracking
+
+3. **Resource Cleanup**
+
+   - Implements dedicated cleanup method for hanging tasks
+   - Ensures client sessions are properly closed
+   - Prevents memory leaks and connection pool exhaustion
+
+4. **Centralized Timeout Logging**
+   - Records timeout incidents in a dedicated log file
+   - Captures detailed context for debugging
+   - Enables timeout pattern analysis
+
+This timeout handling approach ensures that even with complex multi-chunk operations, the system maintains clean behavior and avoids resource exhaustion when network operations exceed expected timeframes.
 
 ## Conclusion
 
