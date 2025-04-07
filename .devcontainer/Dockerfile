@@ -10,7 +10,7 @@ RUN conda install -y python=3.10
 RUN apt-get update && apt-get install -y ripgrep
 
 # Install Python dependencies
-RUN pip3 install curl_cffi pandas tenacity colorlog psutil arrow pyarrow>=19.0.1 filelock
+RUN pip3 install curl_cffi httpx pandas tenacity colorlog psutil arrow pyarrow>=19.0.1 filelock
 
 # Install Python dependencies for development
 RUN pip3 install twine pytest pytest-asyncio pytest-cov pytest-xdist pytest-profiling pylint autoflake

@@ -9,6 +9,9 @@ import pandas as pd
 import time
 import gc
 import contextlib
+import os
+import math
+import logging
 
 # Import curl_cffi for better performance
 from curl_cffi.requests import AsyncSession
@@ -36,6 +39,7 @@ from utils.config import (
     create_empty_dataframe,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     API_TIMEOUT,
+    REST_CHUNK_SIZE,
 )
 from utils.validation import DataValidation
 
@@ -71,6 +75,9 @@ class RestDataClient:
     better performance.
     """
 
+    # Constants for chunk sizing
+    CHUNK_SIZE = 1000  # Default chunk size (max records per request for most endpoints)
+
     def __init__(
         self,
         market_type: MarketType = MarketType.SPOT,
@@ -99,8 +106,15 @@ class RestDataClient:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._use_httpx = use_httpx
 
+        # Initialize hardware monitor
+        self.hw_monitor = HardwareMonitor()
+
         # Set up proper endpoint based on market type
         self._endpoint = self._get_klines_endpoint()
+        # Initialize endpoint rotation variables
+        self._endpoints = [self._endpoint]  # List with just the main endpoint for now
+        self._endpoint_index = 0
+        self._endpoint_lock = asyncio.Lock()
 
         logger.debug(
             f"Initialized RestDataClient with market_type={market_type.name}, "
@@ -181,21 +195,54 @@ class RestDataClient:
         """Clean up resources when exiting the context."""
         logger.debug("RestDataClient starting __aexit__ cleanup")
 
-        # Pre-emptively clean up _curlm objects that might cause hanging
+        # STEP 1: Pre-emptively clean up problematic objects that might cause hanging
         if hasattr(self, "_client") and self._client:
+            # Clean up _curlm which causes circular references
             if hasattr(self._client, "_curlm") and self._client._curlm:
                 logger.debug("Pre-emptively cleaning _curlm object in _client")
                 try:
-                    # Set to None before cleanup to break circular references
                     self._client._curlm = None
                 except Exception as e:
                     logger.warning(f"Error pre-emptively clearing _curlm: {e}")
 
-        # Use direct resource cleanup for consistent management of resources
+            # Clean up _asynccurl which can also cause issues
+            if hasattr(self._client, "_asynccurl") and self._client._asynccurl:
+                logger.debug("Pre-emptively cleaning _asynccurl object in _client")
+                try:
+                    self._client._asynccurl = None
+                except Exception as e:
+                    logger.warning(f"Error pre-emptively clearing _asynccurl: {e}")
+
+            # Clean up _timeout_handle which can cause hanging
+            if (
+                hasattr(self._client, "_timeout_handle")
+                and self._client._timeout_handle
+            ):
+                logger.debug("Pre-emptively cleaning _timeout_handle in _client")
+                try:
+                    self._client._timeout_handle = None
+                except Exception as e:
+                    logger.warning(f"Error pre-emptively clearing _timeout_handle: {e}")
+
+        # STEP 2: Cancel any force_timeout tasks that might be hanging
+        try:
+            from utils.async_cleanup import cleanup_all_force_timeout_tasks
+
+            await cleanup_all_force_timeout_tasks()
+        except Exception as e:
+            logger.warning(f"Error during force_timeout task cleanup: {e}")
+
+        # STEP 3: Use direct resource cleanup for consistent management of resources
         await direct_resource_cleanup(
             self,
             ("_client", "HTTP client", self._client_is_external),
         )
+
+        # STEP 4: Force garbage collection to help with circular references
+        try:
+            gc.collect()
+        except Exception as e:
+            logger.warning(f"Error during garbage collection: {e}")
 
         logger.debug("RestDataClient completed __aexit__ cleanup")
 

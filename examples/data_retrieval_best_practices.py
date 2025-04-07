@@ -82,6 +82,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import pandas as pd
 import argparse
+import gc
+from utils.async_cleanup import cleanup_all_force_timeout_tasks
 
 from utils.logger_setup import logger
 
@@ -1011,6 +1013,166 @@ async def example_different_market_types():
         )
 
 
+async def emergency_cleanup():
+    """Perform emergency cleanup to prevent hanging."""
+    from utils.logger_setup import logger
+
+    logger.info("Running emergency cleanup to prevent hanging...")
+
+    # Cancel any _force_timeout tasks
+    tasks_cancelled = await cleanup_all_force_timeout_tasks()
+    if tasks_cancelled > 0:
+        logger.info(f"Cancelled {tasks_cancelled} hanging _force_timeout tasks")
+
+    # Fix curl references in memory
+    for _ in range(3):  # Multiple rounds of GC can help with nested references
+        gc.collect()
+
+    logger.info("Emergency cleanup complete")
+
+
+async def verify_cache_simple():
+    """Very simple function to verify cache reading functionality by bypassing complex save operations."""
+
+    try:
+        # Log current time for reference
+        now = datetime.now(timezone.utc)
+        logger.debug("Starting verify_cache_simple function")
+        logger.info(format_header("Simple Cache Read Verification Test"))
+
+        # Create cache directory
+        cache_dir = Path("./cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Define time range
+        end_time = now - timedelta(hours=12)  # 12 hours ago
+        start_time = end_time - timedelta(
+            minutes=30
+        )  # 30 minute window before end time
+
+        logger.info(
+            f"Time range: [yellow]{start_time}[/yellow] to [yellow]{end_time}[/yellow]"
+        )
+
+        # Check if we have any cache files already
+        logger.info("[bold]Checking cache directory before test:[/bold]")
+        if cache_dir.exists():
+            cache_files = list(cache_dir.glob("**/*.arrow"))
+            logger.info(f"Found {len(cache_files)} cache files")
+            for file in cache_files[:3]:  # Show up to 3 files
+                logger.info(f"  - {file}")
+
+        # First try to fetch data normally (this might create cache entry)
+        symbol = "BTCUSDT"
+        interval = Interval.MINUTE_1
+
+        logger.info(
+            "\n[bold bright_green]1. First data fetch (may create cache entry)[/bold bright_green]"
+        )
+
+        # Run emergency cleanup first before creating any clients
+        await emergency_cleanup()
+
+        async with DataSourceManager(
+            market_type=MarketType.SPOT,
+            cache_dir=cache_dir,
+            use_cache=True,
+        ) as manager:
+            # Get initial stats
+            initial_stats = manager.get_cache_stats()
+            logger.info(
+                f"Initial cache stats: [bold yellow]{initial_stats}[/bold yellow]"
+            )
+
+            # Fetch data
+            df1 = await manager.get_data(
+                symbol=symbol,
+                start_time=start_time,
+                end_time=end_time,
+                interval=interval,
+            )
+
+            # Get stats after fetch
+            after_first_stats = manager.get_cache_stats()
+            logger.info(
+                f"Stats after first fetch: [bold yellow]{after_first_stats}[/bold yellow]"
+            )
+
+            # Check for data
+            if df1 is not None and not df1.empty:
+                logger.info(f"First fetch returned {len(df1)} rows of data")
+            else:
+                logger.info("First fetch returned no data")
+
+        # Run emergency cleanup after first client
+        await emergency_cleanup()
+
+        # Check if cache files were created
+        logger.info("\n[bold]Checking cache directory after first fetch:[/bold]")
+        cache_files_after = list(cache_dir.glob("**/*.arrow"))
+        logger.info(f"Found {len(cache_files_after)} cache files")
+        for file in cache_files_after[:3]:  # Show up to 3 files
+            logger.info(f"  - {file}")
+
+        # Second fetch in a new manager instance - should use cache if available
+        logger.info(
+            "\n[bold bright_green]2. Second fetch (should hit cache if available)[/bold bright_green]"
+        )
+
+        async with DataSourceManager(
+            market_type=MarketType.SPOT,
+            cache_dir=cache_dir,
+            use_cache=True,
+        ) as manager:
+            # Get initial stats
+            initial_stats = manager.get_cache_stats()
+            logger.info(
+                f"Initial cache stats: [bold yellow]{initial_stats}[/bold yellow]"
+            )
+
+            # Fetch same data again
+            df2 = await manager.get_data(
+                symbol=symbol,
+                start_time=start_time,
+                end_time=end_time,
+                interval=interval,
+            )
+
+            # Get stats after fetch
+            after_second_stats = manager.get_cache_stats()
+            logger.info(
+                f"Stats after second fetch: [bold yellow]{after_second_stats}[/bold yellow]"
+            )
+
+            # Check for cache hit
+            if after_second_stats["hits"] > initial_stats["hits"]:
+                logger.info(
+                    "[bold bright_green]✅ CACHE HIT: Hit count increased[/bold bright_green]"
+                )
+            else:
+                logger.info(
+                    "[bold bright_red]❌ CACHE MISS: Hit count did not increase[/bold bright_red]"
+                )
+
+            # Check for data
+            if df2 is not None and not df2.empty:
+                logger.info(f"Second fetch returned {len(df2)} rows of data")
+            else:
+                logger.info("Second fetch returned no data")
+
+        # Final cleanup to prevent hanging
+        await emergency_cleanup()
+
+        # Final summary of results
+        logger.info("\n[bold]Cache verification test complete[/bold]")
+
+    finally:
+        # Always ensure we clean up no matter what
+        logger.info("Running final cleanup")
+        await emergency_cleanup()
+        gc.collect()
+
+
 def handle_signals():
     """Set up signal handlers for graceful shutdown."""
     loop = asyncio.get_event_loop()
@@ -1034,76 +1196,76 @@ async def shutdown(sig, loop):
     loop.stop()
 
 
-if __name__ == "__main__":
-    import argparse
-
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description="Run data retrieval examples.")
+async def main():
+    """Main entry point for the example script."""
+    parser = argparse.ArgumentParser(description="Data retrieval examples")
     parser.add_argument(
         "--example",
+        type=str,
         choices=[
-            "recent",
-            "historical",
-            "same_day",
-            "unavailable",
+            "recent_data",
+            "historical_data",
+            "same_day_data",
+            "unavailable_data",
             "different_market_types",
+            "verify_cache_direct",
+            "verify_cache_simple",
             "all",
         ],
-        default="all",
-        help="Specify which example to run (default: all)",
+        required=True,
+        help="Example to run",
     )
-
     args = parser.parse_args()
 
-    logger.warning(
-        f"[bold yellow]Current UTC date time precision up to milliseconds:[/bold yellow] [cyan]{datetime.now(timezone.utc).isoformat(timespec='milliseconds')}[/cyan]"
-    )
-    # Set up signal handlers
-    handle_signals()
+    if args.example == "all":
+        logger.info(format_header("Running All Examples"))
 
-    async def run_examples():
-        """Run the selected examples."""
-        # Log the current time at the start of execution with enhanced formatting
-        now = datetime.now(timezone.utc)
-        # Create a colorful script title banner
-        title_banner = "\n".join(
-            [
-                "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
-                "[bold bright_cyan on black]                 BINANCE DATA RETRIEVAL EXAMPLES                [/bold bright_cyan on black]",
-                "[bright_magenta]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bright_magenta]",
-            ]
-        )
-        logger.info(title_banner)
-        logger.info(
-            f"[bold bright_green]🚀 Script starting at:[/bold bright_green] [bright_yellow]{now.isoformat()}[/bright_yellow]"
-        )
+        examples = [
+            ("recent_data", example_fetch_recent_data),
+            ("historical_data", example_fetch_historical_data),
+            ("same_day_data", example_fetch_same_day_minute_data),
+            ("unavailable_data", example_fetch_unavailable_data),
+            ("different_market_types", example_different_market_types),
+            ("verify_cache_simple", verify_cache_simple),
+        ]
 
-        example_map = {
-            "recent": example_fetch_recent_data,
-            "historical": example_fetch_historical_data,
-            "same_day": example_fetch_same_day_minute_data,
-            "unavailable": example_fetch_unavailable_data,
-            "different_market_types": example_different_market_types,
-        }
-
-        if args.example == "all":
-            for name, func in example_map.items():
-                try:
-                    logger.info(f"[bold]Running example:[/bold] [cyan]{name}[/cyan]")
-                    await func()
-                except Exception as e:
-                    logger.error(f"[bold red]Error in example {name}: {e}[/bold red]")
-        else:
+        for name, func in examples:
             try:
-                func = example_map[args.example]
                 logger.info(
-                    f"[bold]Running example:[/bold] [cyan]{args.example}[/cyan]"
+                    f"\n\n[bold bright_magenta]Running example: {name}[/bold bright_magenta]"
                 )
                 await func()
+                # Run cleanup after each example to prevent hanging
+                await emergency_cleanup()
+                # Small delay to ensure cleanup completes
+                await asyncio.sleep(1)
             except Exception as e:
-                logger.error(
-                    f"[bold red]Error in example {args.example}: {e}[/bold red]"
-                )
+                logger.error(f"[bold red]Error in example {name}: {e}[/bold red]")
+                # Run cleanup even if example fails
+                await emergency_cleanup()
 
-    # Run the examples
-    asyncio.run(run_examples())
+        logger.info(format_header("All Examples Completed"))
+        return
+
+    match args.example:
+        case "recent_data":
+            await example_fetch_recent_data()
+        case "historical_data":
+            await example_fetch_historical_data()
+        case "same_day_data":
+            await example_fetch_same_day_minute_data()
+        case "unavailable_data":
+            await example_fetch_unavailable_data()
+        case "different_market_types":
+            await example_different_market_types()
+        case "verify_cache_direct":
+            # Use the same function since verify_cache_is_working doesn't exist
+            await verify_cache_simple()
+        case "verify_cache_simple":
+            await verify_cache_simple()
+        case _:
+            logger.error(f"Unknown example: {args.example}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

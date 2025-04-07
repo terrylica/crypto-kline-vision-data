@@ -73,8 +73,11 @@ def create_httpx_client(
         import httpx
         from httpx import AsyncClient, Limits, Timeout
 
-        # Set up timeout with separate connect and read timeouts
-        timeout_obj = Timeout(connect=min(timeout, 10.0), read=timeout, write=timeout)
+        # Set up timeout with all required parameters defined
+        # The error was "httpx.Timeout must either include a default, or set all four parameters explicitly"
+        timeout_obj = Timeout(
+            connect=min(timeout, 10.0), read=timeout, write=timeout, pool=timeout
+        )
 
         # Set up connection limits
         limits = Limits(
@@ -185,6 +188,14 @@ def create_curl_cffi_client(
 
     if headers:
         client_headers.update(headers)
+
+    # Remove any incompatible kwargs that might be passed from httpx configuration
+    if "http2" in kwargs:
+        del kwargs["http2"]
+    if "follow_redirects" in kwargs:
+        del kwargs["follow_redirects"]
+    if "h2" in kwargs:
+        del kwargs["h2"]
 
     client_kwargs = {
         "timeout": timeout,
