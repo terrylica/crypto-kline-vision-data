@@ -40,7 +40,6 @@ from utils.config import (
     MIN_VALID_FILE_SIZE,
     MAX_CACHE_AGE,
     OUTPUT_DTYPES,
-    MAX_TIME_RANGE,
 )
 
 
@@ -129,13 +128,6 @@ class DataValidation:
         """
         # Ensure dates are valid first and normalize timezones
         start_time, end_time = DataValidation.validate_dates(start_time, end_time)
-
-        # Ensure time range is not too large
-        time_diff = end_time - start_time
-        if time_diff > MAX_TIME_RANGE:
-            raise ValueError(
-                f"Time range too large: {time_diff.days} days (exceeds maximum of {MAX_TIME_RANGE.days} days)"
-            )
 
         # REMOVED: validate_time_boundaries - No longer enforcing manual alignment for REST API calls
 
@@ -576,27 +568,19 @@ class DataValidation:
         handle_future_dates: str = "error",
         interval: Optional[Union[str, Interval]] = None,
     ) -> Tuple[datetime, datetime, Dict[str, Any]]:
-        """Comprehensive validation of time boundaries for data queries.
-
-        This method consolidates all temporal boundary validations into a single comprehensive
-        function that handles timezone normalization, sequential ordering, future date validation,
-        and enhanced error reporting. It serves as the primary entry point for all data query
-        time boundary validation.
+        """Comprehensive validation of query time boundaries.
 
         Args:
-            start_time: Start time for data query
-            end_time: End time for data query
-            max_future_seconds: Maximum seconds allowed into the future (default: 0)
-            reference_time: Reference time for validation (default: current time)
-            handle_future_dates: How to handle future dates: "error" (raise exception),
-                                "truncate" (truncate to now), "allow" (allow future dates)
-            interval: Optional interval for more precise data availability checks
+            start_time: Start time for the query
+            end_time: End time for the query
+            max_future_seconds: Maximum number of seconds allowed in the future (default: 0)
+            reference_time: Reference time to use for future date checks (default: now)
+            handle_future_dates: How to handle future dates ("error", "truncate", "allow")
+            interval: Optional interval for data availability checks
 
         Returns:
-            Tuple of (normalized_start_time, normalized_end_time, metadata)
-            where metadata contains additional information about the validation:
+            Tuple of (start_time, end_time, metadata) where metadata includes:
             - warnings: List of warning messages
-            - reference_time: The reference time used for validation
             - is_truncated: Whether dates were truncated due to future dates
             - original_start: Original start_time before normalization
             - original_end: Original end_time before normalization
@@ -627,13 +611,6 @@ class DataValidation:
         if start_time >= end_time:
             raise ValueError(
                 f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
-            )
-
-        # Validate time window is not too large
-        time_diff = end_time - start_time
-        if time_diff > MAX_TIME_RANGE:
-            raise ValueError(
-                f"Time range too large: {time_diff.days} days (exceeds maximum of {MAX_TIME_RANGE.days} days)"
             )
 
         # Validate against future dates

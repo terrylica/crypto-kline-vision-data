@@ -21,8 +21,6 @@ VISION_DATA_DELAY_HOURS: Final = 48
 
 # Time constraints
 CONSOLIDATION_DELAY: Final = timedelta(hours=48)
-MAX_TIME_RANGE: Final = timedelta(days=30)  # Maximum time range for single request
-MAX_HISTORICAL_DAYS: Final = 1000  # Maximum days back for historical data
 INCOMPLETE_BAR_THRESHOLD: Final = timedelta(
     minutes=5
 )  # Time after which bars are considered complete

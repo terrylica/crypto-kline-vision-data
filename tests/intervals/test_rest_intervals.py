@@ -376,13 +376,13 @@ async def test_rest_chunking_effectiveness(
         api_client, market_type=MarketType.SPOT, symbol=SPOT_SYMBOL, interval=interval
     )
 
-    # Define reasonable time windows that don't exceed MAX_TIME_RANGE (30 days)
+    # Define reasonable time windows for testing
     if interval.name == Interval.MINUTE_1.name:
         time_window = timedelta(days=1)  # 1440 records, should need chunking
     elif interval.name == Interval.HOUR_1.name:
         time_window = timedelta(days=14)  # 336 records, should need chunking
     else:  # DAY_1
-        time_window = timedelta(days=28)  # 28 records, should be under the 30-day limit
+        time_window = timedelta(days=28)  # 28 records
 
     # Define test boundaries
     end_time = reference_time
@@ -425,8 +425,8 @@ async def test_rest_chunking_effectiveness(
             # If data is small, it should use a single chunk
             assert stats1["chunks"] >= 1, "Should use at least one chunk"
     except ValueError as e:
-        if "time range too large" in str(e).lower() or "future" in str(e).lower():
-            pytest.skip(f"Skipping test due to validation constraint: {str(e)}")
+        if "future" in str(e).lower():
+            pytest.skip(f"Skipping test due to future date constraint: {str(e)}")
         else:
             raise
 

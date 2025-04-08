@@ -102,3 +102,4 @@ prof/
 tmp/
 .autoflake_backup
 cache_test/
+scripts/binance_vision_api_aws_s3/reports/*.csv

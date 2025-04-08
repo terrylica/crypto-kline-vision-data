@@ -66,13 +66,6 @@ class TestTimeUtils:
         with pytest.raises(ValueError, match="Start time .* must be before end time"):
             DataValidation.validate_time_window(start, end)
 
-    def test_validate_time_window_too_large(self):
-        """Test validate_time_window with range too large."""
-        start = datetime(2023, 1, 1, tzinfo=timezone.utc)
-        end = datetime(2024, 2, 1, tzinfo=timezone.utc)  # More than 1 year
-        with pytest.raises(ValueError, match="Time range too large"):
-            DataValidation.validate_time_window(start, end)
-
     def test_get_interval_micros(self):
         """Test get_interval_micros function."""
         # Test with different intervals
