@@ -7,12 +7,11 @@ operations that are taking too long or hanging indefinitely.
 import asyncio
 import contextlib
 import functools
-import inspect
 import sys
 import threading
 import time
 import traceback
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Callable, Optional, TypeVar
 
 from utils.logger_setup import logger
 from utils.config import MAX_TIMEOUT
@@ -162,7 +161,6 @@ async def diagnose_hanging_operation(operation_name: str, detailed: bool = False
         await diagnose_hanging_operation("metadata save")
     """
     import gc
-    import os
     import psutil
 
     logger.warning(

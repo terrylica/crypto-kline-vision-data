@@ -12,9 +12,6 @@ By consolidating these utilities, we ensure consistent network behavior across t
 import asyncio
 import logging
 import time
-import tempfile
-import zipfile
-import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
@@ -26,7 +23,6 @@ from typing import (
 )
 import os
 import json
-import sys
 import inspect
 import platform
 import gc
@@ -71,7 +67,6 @@ def create_httpx_client(
         httpx.AsyncClient: An initialized async HTTP client
     """
     try:
-        import httpx
         from httpx import AsyncClient, Limits, Timeout
 
         # Log the kwargs being passed to identify issues

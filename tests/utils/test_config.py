@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Test the config module functionality."""
 
-import pytest
 import pandas as pd
 from datetime import timezone
 

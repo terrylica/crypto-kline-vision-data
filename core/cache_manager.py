@@ -13,7 +13,6 @@ import psutil
 
 from utils.logger_setup import logger
 from utils.config import MAX_TIMEOUT
-from utils.timeout import timeout
 
 
 class UnifiedCacheManager:

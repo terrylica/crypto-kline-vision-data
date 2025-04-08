@@ -13,9 +13,8 @@ import gc
 
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import MarketType, Interval
-from utils.logger_setup import logger, log_timeout
+from utils.logger_setup import logger
 from tests.utils.unified_logging import (
-    assert_log_contains,
     configure_root_logger_for_testing,
 )
 

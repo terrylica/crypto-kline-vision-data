@@ -19,7 +19,6 @@ from utils.config import (
     FUNDING_RATE_DTYPES,
     CANONICAL_INDEX_NAME,
     DEFAULT_TIMEZONE,
-    create_empty_funding_rate_dataframe,
     create_empty_dataframe,
 )
 from core.data_client_interface import DataClientInterface

@@ -35,7 +35,6 @@ from utils.time_utils import (
 from utils.network_utils import (
     create_client,
     VisionDownloadManager,
-    safely_close_client,
 )
 from utils.config import (
     create_empty_dataframe,
@@ -43,7 +42,6 @@ from utils.config import (
     standardize_column_names,
     MAX_TIMEOUT,
 )
-from utils.async_cleanup import direct_resource_cleanup, cleanup_file_handle
 from core.vision_constraints import (
     TimestampedDataFrame,
     MAX_CONCURRENT_DOWNLOADS,

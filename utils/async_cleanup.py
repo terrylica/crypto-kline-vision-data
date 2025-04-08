@@ -72,7 +72,7 @@ await close_resource_with_timeout(
 
 import asyncio
 import gc
-from typing import Any, Callable, Optional, TypeVar, Union, Tuple
+from typing import Any, TypeVar, Union, Tuple
 import inspect
 import sys
 
@@ -81,7 +81,6 @@ from utils.config import (
     RESOURCE_CLEANUP_TIMEOUT,
     HTTP_CLIENT_CLEANUP_TIMEOUT,
     FILE_CLEANUP_TIMEOUT,
-    ENABLE_FORCED_GC,
 )
 
 logger.setLevel("DEBUG")

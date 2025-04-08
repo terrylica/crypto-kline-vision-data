@@ -4,24 +4,19 @@
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Tuple, Any
 import pandas as pd
 import time
 import gc
-import contextlib
-import os
 import math
-import logging
 
 # Import curl_cffi for better performance
-from curl_cffi.requests import AsyncSession
 
 from utils.logger_setup import logger
 from utils.market_constraints import (
     Interval,
     MarketType,
     ChartType,
-    get_endpoint_url,
 )
 from utils.time_utils import (
     get_bar_close_time,
@@ -31,15 +26,12 @@ from utils.time_utils import (
     TimeseriesDataProcessor,
 )
 from utils.hardware_monitor import HardwareMonitor
-from utils.network_utils import create_client, safely_close_client, test_connectivity
 from utils.async_cleanup import direct_resource_cleanup
 from utils.config import (
     KLINE_COLUMNS,
     standardize_column_names,
     create_empty_dataframe,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
-    API_TIMEOUT,
-    REST_CHUNK_SIZE,
     MAX_TIMEOUT,
 )
 from utils.validation import DataValidation

@@ -2,16 +2,14 @@
 """Data source manager that mediates between different data sources."""
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Tuple, Any, List, Union, TypeVar, Type
+from typing import Dict, Optional, Tuple, TypeVar, Type
 from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
 import asyncio
 import gc
 import os
-from dataclasses import dataclass, field
-import math
-import random
+from dataclasses import dataclass
 import inspect
 import traceback
 import time
@@ -30,7 +28,6 @@ from utils.config import (
     VISION_DATA_DELAY_HOURS,
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
-    API_TIMEOUT,
     standardize_column_names,
     create_empty_dataframe,
     create_empty_funding_rate_dataframe,

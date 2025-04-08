@@ -8,12 +8,9 @@ import asyncio
 import os
 import pytest
 from datetime import datetime, timedelta, timezone
-import gc
-import tempfile
 
 from core.rest_data_client import RestDataClient
 from utils.market_constraints import MarketType, Interval
-from utils.config import MAX_TIMEOUT
 from utils.logger_setup import logger, set_timeout_log_file
 
 

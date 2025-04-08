@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 import asyncio
-import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import MarketType, Interval
-from utils.logger_setup import logger
 
 
 async def test_timeout():

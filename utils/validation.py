@@ -6,7 +6,6 @@ from typing import Dict, Optional, Union, Any, Tuple
 from pathlib import Path
 import re
 import pandas as pd
-import numpy as np
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval
