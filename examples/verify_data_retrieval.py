@@ -31,7 +31,7 @@ from rich import print
 
 # Set up logging for the verification script
 # logger.setup_root(level="DEBUG", show_filename=True)
-logger.setup_root(level="ERROR", show_filename=True)
+logger.setup_root(level="WARNING", show_filename=True)
 logger.info("Logger configured for data retrieval verification")
 
 

@@ -194,7 +194,7 @@ class RestDataClient:
             except Exception as e:
                 logger.error(f"Error closing client during force cleanup: {e}")
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Clean up resources when exiting the context."""
         logger.debug("RestDataClient starting __aexit__ cleanup")
 

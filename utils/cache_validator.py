@@ -66,9 +66,9 @@ class SafeMemoryMap:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[Exception],
-        exc_tb: Optional[object],
+        _exc_type: Optional[type],
+        _exc_val: Optional[Exception],
+        _exc_tb: Optional[object],
     ) -> None:
         """Exit context manager and clean up resources."""
         if self._mmap is not None:
@@ -679,14 +679,14 @@ class VisionCacheManager:
     async def save_to_cache(
         df: pd.DataFrame,
         cache_path: Path,
-        date_or_unused: Any = None,
+        _date_or_unused: Any = None,
     ) -> tuple[str, int]:
         """Save data to cache in Arrow format.
 
         Args:
             df: DataFrame to cache
             cache_path: Path to cache file
-            date_or_unused: Optional date parameter (kept for backward compatibility)
+            _date_or_unused: Optional date parameter (kept for backward compatibility)
 
         Returns:
             Tuple of (checksum, record count)

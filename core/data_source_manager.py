@@ -1497,7 +1497,7 @@ class DataSourceManager:
         logger.debug("[ProgressIndicator] DataSourceManager: Initialization complete")
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Clean up resources when exiting the context."""
         logger.debug(
             "[ProgressIndicator] DataSourceManager: Starting __aexit__ cleanup"

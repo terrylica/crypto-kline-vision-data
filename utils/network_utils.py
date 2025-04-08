@@ -356,7 +356,7 @@ class DownloadHandler:
             self._client_is_external = False
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Exit async context manager."""
         if self.client and not self._client_is_external:
             await safely_close_client(self.client)
@@ -380,9 +380,9 @@ class DownloadHandler:
         url: str,
         local_path: Path,
         timeout: float = 60.0,
-        verify_ssl: bool = True,
+        _verify_ssl: bool = True,
         expected_size: Optional[int] = None,
-        stall_timeout: int = 30,
+        _stall_timeout: int = 30,
     ) -> bool:
         """Download a file with retry logic, progress tracking and validation.
 
@@ -390,9 +390,9 @@ class DownloadHandler:
             url: URL to download
             local_path: Local path to save the file
             timeout: Download timeout in seconds
-            verify_ssl: Whether to verify SSL certificates
+            _verify_ssl: Whether to verify SSL certificates (unused)
             expected_size: Expected file size for validation
-            stall_timeout: Time in seconds before considering download stalled
+            _stall_timeout: Time in seconds before considering download stalled (unused)
 
         Returns:
             True on success, False on failure

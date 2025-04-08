@@ -69,13 +69,14 @@ The fallback mechanism (if Vision API fails, try REST API) is already implemente
        self, start_time: datetime, end_time: datetime, interval: Interval
    ) -> bool:
        """Determine if Vision API should be used based on time range and interval."""
-       # Use REST API for 1s intervals in non-SPOT markets (Vision API doesn't support it)
+       # Enforce minimum interval for non-SPOT markets
        if interval.name == Interval.SECOND_1.name and self.market_type != MarketType.SPOT:
-           logger.debug("Using REST API for 1s data in non-SPOT markets (Vision API doesn't support it)")
-           return False
+           raise ValueError(
+               "1s intervals are not supported for non-SPOT markets. "
+               "Please use a minimum interval of 1m."
+           )
 
        # Always prefer Vision API for all data retrievals regardless of size
-       # REST API will only be used if Vision API fails or for recent data not yet in Vision
        logger.debug(
            f"Using Vision API as preferred source for data retrieval (FCP: Cache → Vision → REST)"
        )
@@ -83,11 +84,11 @@ The fallback mechanism (if Vision API fails, try REST API) is already implemente
    ```
 
 2. This simplified logic:
-   - Corrects the inaccurate handling of 1s intervals, only rejecting them for non-SPOT markets
-   - Removes the arbitrary historical data threshold (`VISION_DATA_DELAY_HOURS`)
-   - Always prefers Vision API as the primary source after cache
-   - Maintains the fallback mechanism where REST API is used if Vision API fails
-   - Supports the Failover Composition Priority (FCP) approach
+   - Enforces a minimum interval of 1m for non-SPOT markets, rejecting requests for 1s intervals.
+   - Removes the arbitrary historical data threshold (`VISION_DATA_DELAY_HOURS`).
+   - Always prefers Vision API as the primary source after cache.
+   - Maintains the fallback mechanism where REST API is used if Vision API fails.
+   - Supports the Failover Composition Priority (FCP) approach.
 
 ### 2. Design Updated Data Flow with Failover Composition Priority (FCP)
 
