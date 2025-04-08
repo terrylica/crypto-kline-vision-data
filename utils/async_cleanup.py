@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
-"""Utilities for safe cleanup of async resources in Python 3.13+.
-
-This module provides utilities for handling resource cleanup in a way that's compatible
-with Python 3.13's stricter handling of coroutines and avoids "coroutine never awaited"
-warnings, hanging during cleanup, and resource leaks.
+"""Utilities for safe cleanup of async resources.
 
 Key features:
 - Timeout protection for all cleanup operations
-- Error handling that prevents exceptions from propagating
+- Error handling to prevent exceptions from propagating
 - Specialized handling for HTTP clients like curl_cffi.AsyncSession
 - Support for both async and sync cleanup methods
 - Garbage collection forcing to help with circular references
@@ -175,102 +171,12 @@ async def cleanup_client(
     )
 
     try:
-        # Check for curl_cffi AsyncSession and handle special cases
-        if client_type == "AsyncSession" and hasattr(client, "_asynccurl"):
-            logger.debug("Detected curl_cffi AsyncSession, using targeted cleanup")
-
-            # First try to clean up the asynccurl object directly
-            if hasattr(client._asynccurl, "close") and callable(
-                client._asynccurl.close
-            ):
-                try:
-                    client._asynccurl.close()
-                    logger.debug("Closed curl_cffi client via _asynccurl.close()")
-                except Exception as e:
-                    logger.warning(f"Error closing _asynccurl: {e}")
-
-            # Clear the Session's attributes to break circular references
-            # For C-pointer attributes, we use delattr instead of setting to None
-            for attr in ["_asynccurl", "_curlm", "_timeout_handle"]:
-                if hasattr(client, attr):
-                    try:
-                        # Use delattr for C-pointer attributes to avoid type errors
-                        delattr(client, attr)
-                        logger.debug(f"Deleted client.{attr} attribute")
-                    except Exception as e:
-                        logger.debug(f"Error deleting client.{attr} attribute: {e}")
-
-            # Session doesn't have aclose but has close
-            if hasattr(client, "close") and callable(client.close):
-                if inspect.iscoroutinefunction(client.close):
-                    try:
-                        await asyncio.shield(
-                            asyncio.wait_for(client.close(), timeout=timeout)
-                        )
-                        logger.debug("Closed curl_cffi client with async close()")
-                    except Exception as e:
-                        logger.warning(f"Error during client.close(): {e}")
-                else:
-                    try:
-                        client.close()
-                        logger.debug("Closed curl_cffi client with sync close()")
-                    except Exception as e:
-                        logger.warning(f"Error during client.close(): {e}")
-
-            return
-
-        # Try direct aclose if available
-        if hasattr(client, "aclose") and callable(client.aclose):
-            logger.debug(f"Found aclose() method on client (type: {client_type})")
-            try:
-                await asyncio.shield(asyncio.wait_for(client.aclose(), timeout=timeout))
-                logger.debug("Directly closed HTTP client with aclose()")
-                return
-            except asyncio.TimeoutError:
-                logger.warning(f"HTTP client aclose() timed out after {timeout}s")
-            except asyncio.CancelledError:
-                logger.warning("HTTP client aclose() was cancelled")
-            except Exception as e:
-                logger.warning(f"Error during client.aclose(): {e}")
-
-        # Try regular close method
-        if hasattr(client, "close") and callable(client.close):
-            logger.debug(f"Found close() method on client (type: {client_type})")
-            if inspect.iscoroutinefunction(client.close):
-                try:
-                    await asyncio.shield(
-                        asyncio.wait_for(client.close(), timeout=timeout)
-                    )
-                    logger.debug("Closed HTTP client with async close()")
-                    return
-                except Exception as e:
-                    logger.warning(f"Error during async client.close(): {e}")
-            else:
-                try:
-                    client.close()
-                    logger.debug("Closed HTTP client with sync close()")
-                    return
-                except Exception as e:
-                    logger.warning(f"Error during sync client.close(): {e}")
-
-        # Use our utility if available as a last resort
-        logger.debug(f"Trying safely_close_client as fallback (type: {client_type})")
+        # Simplified implementation: Use safely_close_client directly with timeout protection
+        from utils.network_utils import safely_close_client
+        
         try:
-            from utils.network_utils import safely_close_client
-
-            # Check if the client has a _curlm attribute that might be causing issues
-            if hasattr(client, "_curlm"):
-                logger.debug("Client has _curlm attribute, setting to None first")
-                client._curlm = None
-
-            await asyncio.shield(
-                asyncio.wait_for(safely_close_client(client), timeout=timeout)
-            )
-            logger.debug("Safely closed HTTP client with safely_close_client()")
-        except ImportError:
-            logger.warning(
-                "Could not import safely_close_client from utils.network_utils"
-            )
+            await asyncio.shield(asyncio.wait_for(safely_close_client(client), timeout=timeout))
+            logger.debug(f"Successfully closed HTTP client (type: {client_type}) using safely_close_client")
         except asyncio.TimeoutError:
             logger.warning(f"safely_close_client() timed out after {timeout}s")
         except asyncio.CancelledError:
@@ -282,28 +188,6 @@ async def cleanup_client(
         logger.debug(f"HTTP client cleanup timed out or was cancelled: {str(e)}")
     except Exception as e:
         logger.warning(f"Error closing HTTP client: {str(e)}")
-    finally:
-        # Last resort measure: clean up attributes to help garbage collection
-        if client_type == "AsyncSession":
-            # Modified approach: Use delattr for C-pointer attributes, set to None for others
-            c_pointer_attributes = ["_curlm", "_timeout_handle", "_asynccurl"]
-            
-            for attr_name in dir(client):
-                if not attr_name.startswith("__") and hasattr(client, attr_name):
-                    try:
-                        # Use delattr for C-pointer attributes to avoid type errors
-                        if attr_name in c_pointer_attributes:
-                            # Use delattr for C-pointer attributes to avoid type errors with None
-                            if hasattr(client, attr_name):
-                                delattr(client, attr_name)
-                                logger.debug(f"Deleted {attr_name} attribute during final cleanup")
-                        else:
-                            # For non-pointer attributes, we can set to None
-                            setattr(client, attr_name, None)
-                    except Exception as e:
-                        # Just log at debug level as this is last-resort cleanup
-                        logger.debug(f"Error during attribute cleanup for {attr_name}: {e}")
-        logger.debug(f"Completed cleanup attempt for HTTP client (type: {client_type})")
 
 
 async def cleanup_file_handle(
