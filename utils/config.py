@@ -12,7 +12,6 @@ import pandas as pd
 
 # Time-related constants
 DEFAULT_TIMEZONE: Final = timezone.utc
-CANONICAL_TIMEZONE: Final = timezone.utc
 CANONICAL_INDEX_NAME: Final = "open_time"
 TIMESTAMP_PRECISION: Final = "us"  # Microsecond precision
 
