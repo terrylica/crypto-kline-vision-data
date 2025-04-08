@@ -1,5 +1,70 @@
 # Core Workflow in Mermaid
 
+## Refactored Data Source Selection Flow
+
+```mermaid
+flowchart TD
+    %% Main application flow
+    A[Application] --> B[DataSourceManager.get_data]
+    B --> C[Check Cache]
+
+    %% Cache handling
+    C -->|Full Hit| D[Return Cached Data]
+    C -->|Miss/Partial| E[Identify Missing Ranges]
+
+    %% Process each missing range
+    E --> F[For Each Missing Range]
+
+    %% Vision API attempt
+    F --> G[Try Vision API]
+    G -->|Success| H[Process Vision Data]
+    G -->|Failure| I[Try REST API]
+
+    %% REST API fallback with chunking
+    I -->|Success| J[Process REST Data]
+    I -->|Failure| K[Handle Error]
+
+    %% Data merging from all sources
+    H --> L[Merge Data Sources]
+    J --> L
+    D --> L
+
+    %% Final steps
+    L --> M[Cache Merged Result]
+    M --> N[Return Unified DataFrame]
+
+    %% Visual grouping for FCP concept
+    subgraph FCP["Failover Composition Priority (FCP)"]
+        direction TB
+        P1[1. Cache]
+        P2[2. Vision API]
+        P3[3. REST API w/Chunking]
+    end
+
+    %% Connect FCP concept to flow
+    FCP -.-> F
+
+    %% LSP compliance
+    subgraph LSP["LSP Compliance"]
+        direction TB
+        L1["Same DataFrame Format"]
+        L2["Source-Independent Behavior"]
+        L3["Unified Type System"]
+    end
+
+    %% Connect LSP to merge step
+    LSP -.-> L
+
+    %% Key improvements
+    subgraph IMP["Key Improvements"]
+        direction TB
+        I1["1s in SPOT Markets"]
+        I2["Multi-Source Composition"]
+        I3["Smart Chunking"]
+        I4["Seamless Fallbacks"]
+    end
+```
+
 ## Data Retrieval Flow
 
 ```mermaid
