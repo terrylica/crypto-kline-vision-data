@@ -540,5 +540,6 @@ This refactoring will enhance the DataSourceManager to intelligently retrieve da
 The result will be a more resilient system that optimizes data retrieval while providing a consistent interface to users.
 
 ### Cleanup Tasks
+
 - **Remove `VISION_DATA_DELAY_HOURS`**: This constant is no longer needed due to the FCP approach. Ensure it is removed from `utils/config.py` and any related logic in `core/data_source_manager.py` is updated.
 - **Update Documentation**: Ensure all Markdown documentation referencing `VISION_DATA_DELAY_HOURS` is updated to reflect the FCP approach.
