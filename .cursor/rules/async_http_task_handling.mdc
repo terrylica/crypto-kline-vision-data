@@ -50,17 +50,13 @@ alwaysApply: false
            pass  # Expected
    ```
 
-4. **Event-Based Cancellation & Propagation**
-   - Use asyncio.Event() or similar mechanisms for structured cancellation
-   - Enables pausing, resuming, and clean coordination between tasks
+4. **Event-Based Cancellation**
+   - Use asyncio.Event() for structured cancellation
    - Ensures parent task cancellation propagates cleanly to subtasks
    - 🧩 Recommended over timeout-based logic or signal traps
    ```python
-   # Create events for control
+   # Create event for cancellation
    self.cancel_event = asyncio.Event()
-   self.pause_event = asyncio.Event()
-   self.resume_event = asyncio.Event()
-   self.resume_event.set()  # Set initially to allow execution
    
    # Check for cancellation
    if self.cancel_event.is_set() or asyncio.current_task().cancelled():
@@ -140,7 +136,22 @@ alwaysApply: false
 
 ## 🔻 Tier 3 – Least Important (Fallback Only)
 
-10. **Timeout-Based Cancellation**
+10. **Event-Based Pause and Resume**
+    - Use asyncio.Event() for pausing and resuming tasks
+    - ⚠️ Avoid as primary control due to added complexity
+    - Only implement when explicitly requested by project users
+    ```python
+    # Create events for pause and resume
+    self.pause_event = asyncio.Event()
+    self.resume_event = asyncio.Event()
+    self.resume_event.set()  # Set initially to allow execution
+    
+    # Check for pause
+    if self.pause_event.is_set():
+        await self.resume_event.wait()
+    ```
+
+11. **Timeout-Based Cancellation**
     - Use when external service latency must be bounded
     - ⚠️ Avoid as primary control due to tuning difficulty
     - Only implement when explicitly requested by project users
@@ -155,7 +166,7 @@ alwaysApply: false
         return True  # Completed
     ```
 
-11. **Concurrency: Use Concurrent Tasks Appropriately**
+12. **Concurrency: Use Concurrent Tasks Appropriately**
     - Valuable for parallel work, but adds failure complexity
     - ⚖️ Manage carefully, especially with shared resources
     - Handle individual task cancellation within the concurrent operation
