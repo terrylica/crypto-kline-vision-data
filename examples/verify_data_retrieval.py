@@ -10,8 +10,10 @@ Tests multiple scenarios:
 """
 
 import asyncio
-import contextlib
 import time
+import logging
+import warnings
+import contextlib
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import pandas as pd
@@ -20,6 +22,14 @@ from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import MarketType, Interval
 from utils.logger_setup import logger
 from utils.async_cleanup import cancel_and_wait
+from utils.error_handling import (
+    capture_warnings,
+    with_timeout_handling,
+    safe_execute_verification,
+    execute_with_task_cleanup,
+    display_df_summary,
+    cleanup_tasks,
+)
 from rich import print
 
 # Set up logging for the verification script
@@ -27,41 +37,28 @@ logger.setup_root(level="WARNING", show_filename=True)
 
 
 @contextlib.contextmanager
-def capture_warnings():
-    """Context manager to capture warnings while preserving normal logging."""
-    warnings = []
-    original_warning_fn = logger.warning
-    original_debug_fn = logger.debug
+def suppress_consolidation_warnings():
+    """Context manager to suppress specific consolidation warnings during verification tests.
 
-    def warning_capture(*args, **kwargs):
-        message = args[0] if args else kwargs.get("msg", "")
-        warnings.append(message)
+    This temporarily filters out warnings about unconsolidated data that are expected
+    during verification testing.
+    """
+    # Store original log levels to restore later
+    original_levels = {}
+    for logger_name in ["core.rest_data_client", "core.data_source_manager"]:
+        logger_instance = logging.getLogger(logger_name)
+        original_levels[logger_name] = logger_instance.level
 
-        # For curl_cffi task warnings, use debug level instead to reduce noise
-        if "_force_timeout" in message or "curl_cffi" in message:
-            return original_debug_fn(*args, **kwargs)
-        else:
-            return original_warning_fn(*args, **kwargs)
+    # Temporarily increase log level for specific loggers to hide consolidation warnings
+    for logger_name in ["core.rest_data_client", "core.data_source_manager"]:
+        logging.getLogger(logger_name).setLevel(logging.ERROR)
 
     try:
-        logger.warning = warning_capture
-        yield warnings
+        yield
     finally:
-        logger.warning = original_warning_fn
-
-
-def display_df_summary(df, label="DataFrame"):
-    """Display just the first and last record of a DataFrame."""
-    if df.empty:
-        print(f"{label}: Empty DataFrame")
-        return
-
-    print(f"{label} Summary ({len(df)} records):")
-    print(f"First record ({df.index[0]}):")
-    print(df.iloc[0:1])
-    print("...")
-    print(f"Last record ({df.index[-1]}):")
-    print(df.iloc[-1:])
+        # Restore original log levels
+        for logger_name, level in original_levels.items():
+            logging.getLogger(logger_name).setLevel(level)
 
 
 async def with_manager(func, *args, **kwargs):
@@ -85,26 +82,17 @@ async def get_data_with_timeout(
     manager, symbol, start_time, end_time, interval, timeout=30, source=DataSource.REST
 ):
     """Get data with timeout protection, handling errors consistently."""
-    try:
-        start_op = time.time()
-        df = await asyncio.wait_for(
-            manager.get_data(
-                symbol=symbol,
-                start_time=start_time,
-                end_time=end_time,
-                interval=interval,
-                enforce_source=source,
-            ),
-            timeout=timeout,
-        )
-        elapsed = time.time() - start_op
-        return df, elapsed
-    except asyncio.TimeoutError:
-        logger.error(f"Timeout retrieving data for {symbol}")
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving data for {symbol}: {str(e)}")
-        raise
+    result, elapsed = await with_timeout_handling(
+        manager.get_data,
+        timeout,
+        f"data retrieval for {symbol}",
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        enforce_source=source,
+    )
+    return result, elapsed
 
 
 async def fetch_data_for_verification(manager, symbol, start_time, end_time, interval):
@@ -112,35 +100,28 @@ async def fetch_data_for_verification(manager, symbol, start_time, end_time, int
     try:
         logger.info(f"Starting concurrent fetch for {symbol}")
 
-        # Create a task for the data retrieval
-        start_op = time.time()
-        data_task = asyncio.create_task(
-            manager.get_data(
-                symbol=symbol,
-                start_time=start_time,
-                end_time=end_time,
-                interval=interval,
-                enforce_source=DataSource.REST,
-            )
+        # Use the task execution utility with proper cleanup
+        df = await execute_with_task_cleanup(
+            manager.get_data,
+            timeout=30,
+            operation_name=f"concurrent fetch for {symbol}",
+            symbol=symbol,
+            start_time=start_time,
+            end_time=end_time,
+            interval=interval,
+            enforce_source=DataSource.REST,
         )
 
-        # Wait for the task with timeout protection
-        df = await asyncio.wait_for(data_task, timeout=30)
-        elapsed = time.time() - start_op
+        if df is None:
+            return (0, symbol, None)
 
         if df.empty:
             logger.debug(f"No data retrieved for {symbol} in concurrent operation")
             return (0, symbol, None)
 
-        logger.info(
-            f"Successfully retrieved {len(df)} records for {symbol} in {elapsed:.2f}s"
-        )
+        logger.info(f"Successfully retrieved {len(df)} records for {symbol}")
         return (len(df), symbol, df)
 
-    except asyncio.TimeoutError:
-        logger.error(f"Timeout in concurrent fetch for {symbol}")
-        # No need to cancel here as the task will be cancelled by the caller
-        raise
     except Exception as e:
         logger.error(f"Error in concurrent fetch for {symbol}: {str(e)}")
         raise
@@ -167,100 +148,121 @@ async def _verify_concurrent_data_retrieval(manager):
                 )
             )
 
-    try:
-        # Run tasks concurrently with timeout protection
-        start_op = time.time()
-        results = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=True),
-            timeout=60,  # Overall timeout for all tasks
-        )
-        elapsed = time.time() - start_op
+    # Using our context manager to suppress consolidation warnings during concurrent tests
+    with suppress_consolidation_warnings():
+        try:
+            # Run tasks concurrently with timeout protection
+            start_op = time.time()
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=60,  # Overall timeout for all tasks
+            )
+            elapsed = time.time() - start_op
 
-        # Analyze results
-        total_operations = len(results)
-        success_count = sum(1 for r in results if isinstance(r, tuple) and r[0] > 0)
-        empty_count = sum(1 for r in results if isinstance(r, tuple) and r[0] == 0)
-        error_count = sum(1 for r in results if isinstance(r, Exception))
+            # Analyze results
+            total_operations = len(results)
+            success_count = sum(1 for r in results if isinstance(r, tuple) and r[0] > 0)
+            empty_count = sum(1 for r in results if isinstance(r, tuple) and r[0] == 0)
+            error_count = sum(1 for r in results if isinstance(r, Exception))
 
-        # Check for timeout errors
-        timeout_errors = sum(
-            1
-            for r in results
-            if isinstance(r, Exception) and "timeout" in str(r).lower()
-        )
-        if timeout_errors > 0:
-            logger.warning(f"Found {timeout_errors} timeout errors")
+            # Check for timeout errors
+            timeout_errors = sum(
+                1
+                for r in results
+                if isinstance(r, Exception) and "timeout" in str(r).lower()
+            )
+            if timeout_errors > 0:
+                logger.warning(f"Found {timeout_errors} timeout errors")
 
-        # Print only the first successful result as an example
-        for result in results:
-            if isinstance(result, tuple) and result[0] > 0:
-                df_data = result[2]
-                if df_data is not None and isinstance(df_data, pd.DataFrame):
-                    symbol = result[1]
-                    print(f"\n===== CONCURRENT DATA RETRIEVAL EXAMPLE ({symbol}) =====")
-                    print(
-                        f"Data Source: {DataSource.REST.name}, Records: {len(df_data)}"
-                    )
-                    print(
-                        f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}"
-                    )
-                    display_df_summary(df_data, f"{symbol} Data")
-                    print(
-                        f"Summary: {success_count}/{total_operations} successful operations, {error_count} errors"
-                    )
-                    print("=" * 50)
-                    break  # Only show one example
+            # Print only the first successful result as an example
+            for result in results:
+                if isinstance(result, tuple) and result[0] > 0:
+                    df_data = result[2]
+                    if df_data is not None and isinstance(df_data, pd.DataFrame):
+                        symbol = result[1]
+                        print(
+                            f"\n===== CONCURRENT DATA RETRIEVAL EXAMPLE ({symbol}) ====="
+                        )
+                        print(
+                            f"Data Source: {DataSource.REST.name}, Records: {len(df_data)}"
+                        )
+                        print(
+                            f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}"
+                        )
+                        display_df_summary(df_data, f"{symbol} Data")
+                        print(
+                            f"Summary: {success_count}/{total_operations} successful operations, {error_count} errors"
+                        )
+                        print("=" * 50)
+                        break  # Only show one example
 
-        return success_count
-    except asyncio.TimeoutError:
-        # Clean up any remaining tasks safely
-        logger.warning("Timeout during concurrent data retrieval, cleaning up tasks...")
-        for task in tasks:
-            if not task.done():
-                await cancel_and_wait(task)
-        return 0
-    except Exception as e:
-        logger.error(f"Error in concurrent verification: {str(e)}")
-        # Clean up any remaining tasks safely
-        for task in tasks:
-            if not task.done():
-                await cancel_and_wait(task)
-        return 0
+            return success_count
+        except asyncio.TimeoutError:
+            # Clean up any remaining tasks safely
+            logger.warning(
+                "Timeout during concurrent data retrieval, cleaning up tasks..."
+            )
+            await cleanup_tasks(tasks)
+            return 0
+        except Exception as e:
+            logger.error(f"Error in concurrent verification: {str(e)}")
+            # Clean up any remaining tasks safely
+            await cleanup_tasks(tasks)
+            return 0
 
 
 async def _verify_extended_historical_data(manager):
     """Verify retrieval of extended historical data."""
     logger.info("===== VERIFYING EXTENDED HISTORICAL DATA RETRIEVAL =====")
+    print("===== VERIFYING EXTENDED HISTORICAL DATA RETRIEVAL =====")
 
-    # Define historical time range (3 days ago to now)
-    end_time = datetime.now(timezone.utc)
-    start_time = end_time - timedelta(days=3)
+    # Specify exact dates with precise, odd-second granularity
+    # Format: datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
+    start_time = datetime(
+        2025, 1, 1, 12, 34, 57, 123456, tzinfo=timezone.utc
+    )  # 12:34:57.123456 on Jan 1, 2025
+    end_time = datetime(
+        2025, 1, 3, 15, 27, 39, 987654, tzinfo=timezone.utc
+    )  # 15:27:39.987654 on Jan 3, 2025
+
+    # Specify the trading symbol and interval
+    symbol = "BTCUSDT"
+    interval = Interval.SECOND_1  # Using 1-second interval
+
+    print(
+        f"Requesting data for {symbol} from {start_time.isoformat()} to {end_time.isoformat()} with {interval.value} interval"
+    )
 
     try:
+        print("Starting data retrieval with timeout...")
         df, elapsed = await get_data_with_timeout(
-            manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1, timeout=60
+            manager, symbol, start_time, end_time, interval, timeout=60
+        )
+        print(
+            f"Data retrieval complete in {elapsed:.2f}s, got {len(df) if df is not None else 'None'} records"
         )
 
-        if df.empty:
-            logger.warning("No historical data retrieved")
+        if df is None or df.empty:
+            logger.warning(f"No historical data retrieved for {symbol}")
+            print(f"Warning: No historical data retrieved for {symbol}")
             return False
 
         # Print the DataFrame summary
         print("\n===== EXTENDED HISTORICAL DATA RETRIEVAL =====")
-        print(f"Symbol: BTCUSDT, Interval: {Interval.HOUR_1.value}")
+        print(f"Symbol: {symbol}, Interval: {interval.value}")
         print(f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}")
         print(f"Retrieval Time: {elapsed:.2f}s, Records: {len(df)}")
 
-        if not df.empty:
-            data_range = f"{df.index.min()} to {df.index.max()}"
-            print(f"Data Range: {data_range}")
-            display_df_summary(df, "Historical Data")
+        data_range = f"{df.index.min()} to {df.index.max()}"
+        print(f"Data Range: {data_range}")
+        display_df_summary(df, "Historical Data")
 
         print("=" * 50)
         return True
 
-    except Exception:
-        # Error already logged in get_data_with_timeout
+    except Exception as e:
+        logger.error(f"Error in extended historical data verification: {str(e)}")
+        print(f"Error in extended historical data verification: {str(e)}")
         return False
 
 
@@ -279,7 +281,7 @@ async def _verify_very_recent_hourly_data(manager):
                 manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1
             )
 
-        if len(df) == 0:
+        if df is None or len(df) == 0:
             logger.warning("No recent hourly data retrieved")
             return False
 
@@ -298,9 +300,8 @@ async def _verify_very_recent_hourly_data(manager):
             f"Warnings: {len([w for w in warnings_detected if 'may not be fully consolidated' in w])}"
         )
 
-        if not df.empty:
-            print(f"Data Range: {df.index.min()} to {df.index.max()}")
-            display_df_summary(df, "Recent Hourly Data")
+        print(f"Data Range: {df.index.min()} to {df.index.max()}")
+        display_df_summary(df, "Recent Hourly Data")
 
         print("=" * 50)
         return True
@@ -321,23 +322,14 @@ async def _verify_partial_hour_data(manager):
     # End time is current time (current hour will not be fully consolidated)
     end_time = current_time
 
-    # Create a task for data retrieval that we can safely cancel if needed
-    data_task = None
-
     try:
         # Use warning capture context manager
         with capture_warnings() as warnings_detected:
-            # Create and start the data retrieval task
-            data_task = asyncio.create_task(
-                get_data_with_timeout(
-                    manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1
-                )
+            df, elapsed = await get_data_with_timeout(
+                manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1, timeout=30
             )
 
-            # Wait for the task with timeout
-            df, _ = await asyncio.wait_for(data_task, timeout=30)
-
-        if len(df) == 0:
+        if df is None or len(df) == 0:
             logger.warning("No partial hour data retrieved at all")
             return False
 
@@ -377,30 +369,20 @@ async def _verify_partial_hour_data(manager):
             if len(warnings_detected) > 0:
                 print("Sample warning: " + next(iter(warnings_detected)))
 
-        if not df.empty:
-            print(f"Data Range: {df.index.min()} to {df.index.max()}")
+        print(f"Data Range: {df.index.min()} to {df.index.max()}")
 
-            # Show the most recent available data point
-            print("\nMost recent available data:")
-            print(df.iloc[-1:])
+        # Show the most recent available data point
+        print("\nMost recent available data:")
+        print(df.iloc[-1:])
 
-            # Show complete data summary
-            display_df_summary(df, "Partial Hour Dataset")
+        # Show complete data summary
+        display_df_summary(df, "Partial Hour Dataset")
 
         print("=" * 50)
         return True
 
-    except asyncio.TimeoutError:
-        logger.error("Timeout retrieving partial data")
-        if data_task and not data_task.done():
-            # Use the safer cancel_and_wait utility instead of just task.cancel()
-            await cancel_and_wait(data_task)
-        return False
     except Exception as e:
         logger.error(f"Error retrieving partial data: {str(e)}")
-        if data_task and not data_task.done():
-            # Use the safer cancel_and_wait utility
-            await cancel_and_wait(data_task)
         return False
 
 
@@ -408,7 +390,10 @@ async def _verify_partial_hour_data(manager):
 verify_concurrent_data_retrieval = lambda: with_manager(
     _verify_concurrent_data_retrieval
 )
+
+# Fix the extended historical data function to return a callable function
 verify_extended_historical_data = lambda: with_manager(_verify_extended_historical_data)
+
 verify_very_recent_hourly_data = lambda: with_manager(_verify_very_recent_hourly_data)
 verify_partial_hour_data = lambda: with_manager(_verify_partial_hour_data)
 
@@ -416,6 +401,7 @@ verify_partial_hour_data = lambda: with_manager(_verify_partial_hour_data)
 async def main():
     """Run all verification tests."""
     logger.info("===== STARTING DATA RETRIEVAL VERIFICATION =====")
+    print("STARTING DATA RETRIEVAL VERIFICATION")
 
     # Ensure logs directory exists
     Path("logs/timeout_incidents").mkdir(parents=True, exist_ok=True)
@@ -425,25 +411,19 @@ async def main():
     logger.info(f"Starting with {tasks_at_start} active tasks")
 
     # Run all tests sequentially but with consolidated error handling
-    verification_tests = [
-        ("concurrent data retrieval", verify_concurrent_data_retrieval),
-        ("extended historical data", verify_extended_historical_data),
-        ("recent hourly data", verify_very_recent_hourly_data),
-        ("partial hour data", verify_partial_hour_data),
-    ]
+    # Wrap the entire verification process in our custom context manager to suppress warnings
+    with suppress_consolidation_warnings():
+        verification_tests = [
+            ("concurrent data retrieval", verify_concurrent_data_retrieval),
+            ("extended historical data", verify_extended_historical_data),
+            ("recent hourly data", verify_very_recent_hourly_data),
+            ("partial hour data", verify_partial_hour_data),
+        ]
 
-    for name, test_func in verification_tests:
-        try:
-            logger.info(f"Running {name} verification")
-            await test_func()
-        except Exception as e:
-            logger.error(f"Error during {name} verification: {str(e)}")
-
-        # Check for leaked tasks after each test
-        tasks_after_test = len(asyncio.all_tasks())
-        logger.info(
-            f"After {name}: {tasks_after_test} active tasks (started with {tasks_at_start})"
-        )
+        for name, test_func in verification_tests:
+            print(f"Starting test: {name}")
+            result = await safe_execute_verification(test_func, name)
+            print(f"Completed test: {name}, result: {result}")
 
     # Check for task leakage at the end
     tasks_at_end = len(asyncio.all_tasks())
@@ -451,10 +431,15 @@ async def main():
         logger.warning(
             f"Task leakage detected: {tasks_at_end - tasks_at_start} more tasks at end than at start"
         )
+        print(
+            f"Task leakage detected: {tasks_at_end - tasks_at_start} more tasks at end than at start"
+        )
     else:
         logger.info(f"No task leakage detected. Tasks at end: {tasks_at_end}")
+        print(f"No task leakage detected. Tasks at end: {tasks_at_end}")
 
     logger.info("===== DATA RETRIEVAL VERIFICATION COMPLETE =====")
+    print("DATA RETRIEVAL VERIFICATION COMPLETE")
 
 
 if __name__ == "__main__":
