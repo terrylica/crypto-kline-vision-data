@@ -33,6 +33,14 @@ check_dependencies() {
     if ! command -v bc &> /dev/null; then
         echo "Required dependency 'bc' is not installed."
         
+        # If auto install not enabled, prompt the user
+        if [[ "$AUTO_INSTALL_DEPS" != "true" ]]; then
+            read -p "Would you like to automatically install the missing dependencies? (y/n): " install_deps
+            if [[ "$install_deps" =~ ^[Yy]$ ]]; then
+                AUTO_INSTALL_DEPS=true
+            fi
+        fi
+        
         # Try to install bc
         if [[ "$AUTO_INSTALL_DEPS" == "true" ]]; then
             echo "Attempting to install bc..."
@@ -68,7 +76,7 @@ check_dependencies() {
             echo "Successfully installed bc."
         else
             echo "ERROR: The 'bc' command is required for performance calculations."
-            echo "Please install bc or run with --auto-install-deps to attempt automatic installation."
+            echo "Please install bc manually or run with --auto-install-deps to attempt automatic installation."
             exit 1
         fi
     fi
@@ -76,7 +84,14 @@ check_dependencies() {
     # Check for AWS CLI
     if ! command -v aws &> /dev/null; then
         echo "WARNING: AWS CLI not found. The script may not work correctly."
-        echo "Please install AWS CLI or run with --auto-install-deps to attempt automatic installation."
+        
+        # If auto install not enabled, prompt the user
+        if [[ "$AUTO_INSTALL_DEPS" != "true" ]]; then
+            read -p "Would you like to automatically install AWS CLI? (y/n): " install_aws
+            if [[ "$install_aws" =~ ^[Yy]$ ]]; then
+                AUTO_INSTALL_DEPS=true
+            fi
+        fi
         
         if [[ "$AUTO_INSTALL_DEPS" == "true" ]]; then
             echo "Attempting to install AWS CLI..."
@@ -96,6 +111,15 @@ check_dependencies() {
                 echo "WARNING: Could not install AWS CLI automatically."
                 echo "The script will try to continue, but may fail later."
             fi
+            
+            # Check if AWS CLI is now available
+            if command -v aws &> /dev/null; then
+                echo "Successfully installed AWS CLI."
+            else
+                echo "WARNING: AWS CLI installation failed. The script will try to continue, but may fail."
+            fi
+        else
+            echo "Continuing without AWS CLI. Some features may not work correctly."
         fi
     fi
     
