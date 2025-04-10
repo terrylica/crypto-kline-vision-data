@@ -25,11 +25,8 @@ import importlib
 import shutil
 import os
 import argparse
-from examples.simple_data_retrieval import (
-    EventBasedFetcher,
-    ConcurrentFetcher,
-    MAX_SINGLE_OPERATION_TIMEOUT,
-)
+from datetime import datetime, timezone, timedelta
+import pandas as pd
 from utils.market_constraints import Interval  # Import for Interval
 from utils.async_cleanup import cancel_and_wait  # Import for better cancellation
 from utils.config import (
@@ -40,11 +37,25 @@ from utils.config import (
     AGGRESSIVE_TASK_CLEANUP_TIMEOUT,
 )
 
+# Import task management utilities
+from utils.task_management import (
+    wait_with_cancellation,
+    cleanup_lingering_tasks,
+    propagate_cancellation,
+    TaskTracker,
+)
+
 # Configure logger
 logger.setup_root(level="INFO", show_filename=True)
 
 # Enable caching globally
 FeatureFlags.update(ENABLE_CACHE=True)
+
+# Reset the cancellation flag at the start
+cancellation_requested = False
+
+# Define a constant for MAX_SINGLE_OPERATION_TIMEOUT locally
+MAX_SINGLE_OPERATION_TIMEOUT = 15  # 15 seconds for single operations
 
 
 def enable_debug_logging():
@@ -74,17 +85,9 @@ def clear_caches():
     except Exception as e:
         logger.error(f"Error creating cache directory: {str(e)}")
 
-    # Force reload of the module to clear any static caches
-    if "examples.simple_data_retrieval" in sys.modules:
-        importlib.reload(sys.modules["examples.simple_data_retrieval"])
-
     # Force garbage collection
     gc.collect()
     logger.info("Caches cleared")
-
-
-# Global flag to track cancellation requests
-cancellation_requested = False
 
 
 # Event-based wait alternative to asyncio.wait_for (recommended in MDC)
@@ -343,18 +346,158 @@ async def cleanup_lingering_tasks():
             logger.info("All tasks successfully cancelled on first attempt")
 
 
-class DelayedEventBasedFetcher(EventBasedFetcher):
+class BaseEventFetcher:
     """
-    A subclass of EventBasedFetcher that introduces an artificial delay in fetching,
+    Base class for fetchers with event-based completion signaling.
+    This provides the basic functionality for the demonstration.
+    """
+
+    def __init__(
+        self,
+        symbol,
+        interval,
+        days_back=1,
+        use_cache=True,
+        fallback_timeout=MAX_SINGLE_OPERATION_TIMEOUT,
+    ):
+        """
+        Initialize the event-based fetcher.
+
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            interval: Time interval for the data
+            days_back: Number of days to go back from current time
+            use_cache: Whether to use the caching system
+            fallback_timeout: Fallback timeout in seconds (only used if events fail)
+        """
+        self.symbol = symbol
+        self.interval = interval
+        self.days_back = days_back
+        self.use_cache = use_cache
+        self.fallback_timeout = fallback_timeout
+
+        # Calculate time range
+        self.end_time = datetime.now(timezone.utc)
+        self.start_time = self.end_time - timedelta(days=days_back)
+
+        # Event to signal completion
+        self.completion_event = asyncio.Event()
+
+        # Container for results and errors
+        self.result = None
+        self.error = None
+
+        # Progress tracking
+        self.progress = {
+            "stage": "initializing",
+            "chunks_total": 0,
+            "chunks_completed": 0,
+            "records": 0,
+        }
+
+        # Safety fallback timeout - still have this as a fallback
+        self.safety_timeout = fallback_timeout
+
+        # Keep track of tasks for proper cleanup
+        self.tasks = set()
+
+    async def _fetch_impl(self):
+        """
+        Base implementation of the fetch operation.
+        In this base class, this just simulates a successful fetch operation.
+        """
+        self.progress["stage"] = "simulated_fetch"
+
+        try:
+            logger.debug(f"Starting simulated fetch for {self.symbol}")
+            # Simulate some work
+            await asyncio.sleep(0.5)
+
+            # Create a simple DataFrame as a result
+            dates = pd.date_range(self.start_time, self.end_time, periods=10)
+            df = pd.DataFrame(
+                {
+                    "open": [100.0] * 10,
+                    "high": [105.0] * 10,
+                    "low": [95.0] * 10,
+                    "close": [102.0] * 10,
+                    "volume": [1000.0] * 10,
+                },
+                index=dates,
+            )
+
+            self.progress["stage"] = "completed"
+            self.progress["records"] = len(df)
+
+            return df
+
+        except asyncio.CancelledError:
+            self.progress["stage"] = "cancelled"
+            logger.warning(f"Simulated fetch for {self.symbol} was cancelled")
+            raise
+
+        except Exception as e:
+            self.progress["stage"] = "error"
+            logger.error(f"Error in simulated fetch for {self.symbol}: {str(e)}")
+            self.error = e
+            return None
+
+    async def fetch(self):
+        """
+        Execute the fetch operation with completion tracking.
+
+        Returns:
+            DataFrame with simulated data
+        """
+        logger.info(f"Fetching data for {self.symbol}")
+
+        # Start the fetch task
+        fetch_task = asyncio.create_task(self._fetch_impl())
+        self.tasks.add(fetch_task)
+        fetch_task.add_done_callback(lambda t: self.tasks.discard(t))
+
+        try:
+            # Use wait_with_cancellation instead of asyncio.wait
+            success = await wait_with_cancellation(
+                fetch_task,
+                completion_event=self.completion_event,
+                timeout=self.fallback_timeout,
+            )
+
+            if not success:
+                if not fetch_task.done():
+                    logger.warning(f"Cancelling fetch task for {self.symbol}")
+                    await cancel_and_wait(fetch_task, timeout=TASK_CANCEL_WAIT_TIMEOUT)
+                return None
+
+            # Get result if task completed successfully
+            if fetch_task.done() and not fetch_task.cancelled():
+                self.result = fetch_task.result()
+                return self.result
+
+            return None
+
+        except asyncio.CancelledError:
+            logger.warning(f"Fetch operation for {self.symbol} was cancelled")
+            # Re-raise to ensure proper cancellation
+            raise
+
+        finally:
+            # Ensure completion event is set
+            if not self.completion_event.is_set():
+                self.completion_event.set()
+
+
+class DelayedEventBasedFetcher(BaseEventFetcher):
+    """
+    A subclass of BaseEventFetcher that introduces an artificial delay in fetching,
     and checks for cancellation requests during the delay.
     """
 
     def __init__(self, symbol, interval, days_back=1, fallback_timeout=None):
         # Ensure we have a default timeout value
         if fallback_timeout is None:
-            fallback_timeout = (
-                MAX_SINGLE_OPERATION_TIMEOUT  # Use the constant from parent class
-            )
+            fallback_timeout = MAX_SINGLE_OPERATION_TIMEOUT
 
         # Init parent class with explicit cache enabled
         super().__init__(
@@ -367,6 +510,9 @@ class DelayedEventBasedFetcher(EventBasedFetcher):
 
         # Add cancel event for event-based cancellation (MDC Tier 1 practice)
         self.cancel_event = asyncio.Event()
+
+        # Initialize task tracker (MDC Tier 1 practice)
+        self.task_tracker = TaskTracker()
 
         # Improve progress tracking (MDC Tier 2 practice)
         self.progress.update(
@@ -461,8 +607,7 @@ class DelayedEventBasedFetcher(EventBasedFetcher):
             fetch_task = asyncio.create_task(super().fetch())
 
             # Track task (MDC Tier 1 practice)
-            self.tasks.add(fetch_task)
-            fetch_task.add_done_callback(lambda t: self.tasks.discard(t))
+            self.task_tracker.add(fetch_task)
 
             # Use event-based waiting instead of timeouts (MDC Tier 1)
             success = await wait_with_cancellation(
@@ -534,8 +679,7 @@ class EventControlledFetcher(DelayedEventBasedFetcher):
 
         # Create and track task (MDC Tier 1)
         fetch_task = asyncio.create_task(super().fetch())
-        self.tasks.add(fetch_task)
-        fetch_task.add_done_callback(lambda t: self.tasks.discard(t))
+        self.task_tracker.add(fetch_task)
 
         try:
             # Control loop that monitors events and manages the task
@@ -597,241 +741,12 @@ class EventControlledFetcher(DelayedEventBasedFetcher):
                 self.completion_event.set()
 
 
-async def demonstrate_manual_cancellation():
-    """
-    Demonstrates how to manually cancel a fetch task after letting it
-    run for a short period of time.
-    """
-    print("\n" + "=" * 70)
-    print("DEMONSTRATING MANUAL CANCELLATION")
-    print("=" * 70)
-    print("This demonstrates explicitly cancelling a task by calling .cancel() on it.")
-    print(
-        "The fetcher will show how it handles the cancellation and cleans up resources."
-    )
-
-    # Clear caches before this demonstration (clean slate)
-    clear_caches()
-
-    # Track tasks for leak detection (MDC Tier 2)
-    tasks_before = len(asyncio.all_tasks())
-    logger.info(f"Manual cancellation demo starting with {tasks_before} tasks")
-
-    symbol = "BTCUSDT"
-    interval = Interval.HOUR_1
-    fetcher = DelayedEventBasedFetcher(symbol, interval, days_back=1)
-
-    # Start the fetch but don't await it yet
-    fetch_task = asyncio.create_task(fetcher.fetch())
-    logger.debug(f"Created fetch task {id(fetch_task)} for {symbol}")
-
-    # Add the task to our tracking set
-    fetcher.tasks.add(fetch_task)
-
-    # Use a custom callback that logs task status changes
-    def task_status_callback(t):
-        logger.debug(
-            f"Task {id(t)} for {symbol} completed with status: done={t.done()}, cancelled={t.cancelled()}"
-        )
-        fetcher.tasks.discard(t)
-
-    fetch_task.add_done_callback(task_status_callback)
-
-    try:
-        # Let it run for 2 seconds
-        print(f"Letting fetch task run for 2 seconds before cancellation...")
-        await asyncio.sleep(2)
-
-        # Check if it's still running
-        if not fetch_task.done():
-            print(f"🛑 Manually cancelling fetch task for {symbol}...")
-            logger.debug(
-                f"Initiating cancellation for task {id(fetch_task)} for {symbol}"
-            )
-            # Use cancel_and_wait instead of just cancel()
-            await cancel_and_wait(fetch_task, timeout=TASK_CANCEL_WAIT_TIMEOUT)
-
-            print(
-                f"✓ Task cancellation status: {'Cancelled' if fetch_task.cancelled() else 'Not cancelled'}"
-            )
-        else:
-            print(f"Task already completed before we could cancel it")
-
-    except Exception as e:
-        logger.error(f"Error during manual cancellation demonstration: {str(e)}")
-        print(f"Error: {str(e)}")
-    finally:
-        # Ensure completion event is set
-        if not fetcher.completion_event.is_set():
-            fetcher.completion_event.set()
-
-        # Clean up any lingering tasks - CRITICAL FIX: Create a copy of the set to avoid "Set changed size during iteration" error
-        tasks_to_cleanup = list(fetcher.tasks)
-        logger.debug(
-            f"Cleaning up {len(tasks_to_cleanup)} lingering tasks in fetcher for {symbol}"
-        )
-        for task in tasks_to_cleanup:
-            if not task.done():
-                logger.debug(f"Cancelling lingering task {id(task)} in fetcher")
-                await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
-
-        # Run cleanup to prevent task leakage
-        await cleanup_lingering_tasks()
-
-        # Check for task leakage (MDC Tier 2)
-        tasks_after = len(asyncio.all_tasks())
-        if tasks_after > tasks_before:
-            logger.warning(
-                f"Task leakage detected in manual cancellation demo: {tasks_after - tasks_before} more tasks"
-            )
-        else:
-            logger.info(f"No task leakage in manual cancellation demo")
-
-    print(f"Manual cancellation demonstration complete")
-
-
-async def demonstrate_timeout_cancellation():
-    """
-    Demonstrates cancellation due to timeout when a fetch operation
-    takes too long to complete.
-    """
-    print("\n" + "=" * 70)
-    print("DEMONSTRATING TIMEOUT CANCELLATION")
-    print("=" * 70)
-    print("This demonstrates how tasks can be cancelled due to a timeout.")
-    print("We'll set a very short timeout that's shorter than our artificial delay.")
-
-    # Clear caches before this demonstration (clean slate)
-    clear_caches()
-
-    # Track tasks for leak detection (MDC Tier 2)
-    tasks_before = len(asyncio.all_tasks())
-    logger.info(f"Timeout cancellation demo starting with {tasks_before} tasks")
-
-    symbol = "ETHUSDT"
-    interval = Interval.HOUR_1
-
-    # Create a fetcher with a very short timeout to ensure it times out
-    fetcher = DelayedEventBasedFetcher(symbol, interval, days_back=1)
-
-    # The artificial delay is longer than this timeout, so it should timeout
-    very_short_timeout = 1.5  # seconds
-
-    print(f"Starting fetch with a {very_short_timeout}s timeout (should fail)")
-
-    # Create a task to track
-    fetch_task = asyncio.create_task(fetcher.fetch())
-    logger.debug(f"Created fetch task {id(fetch_task)} for {symbol}")
-
-    fetcher.tasks.add(fetch_task)
-
-    # Use a custom callback that logs task status changes
-    def task_status_callback(t):
-        logger.debug(
-            f"Task {id(t)} for {symbol} completed with status: done={t.done()}, cancelled={t.cancelled()}"
-        )
-        fetcher.tasks.discard(t)
-
-    fetch_task.add_done_callback(task_status_callback)
-
-    # Flag to track if timeout occurred
-    timeout_occurred = False
-
-    try:
-        # Create a timeout event and timer task
-        timeout_event = asyncio.Event()
-
-        # Create a task for the timeout
-        async def timeout_timer():
-            nonlocal timeout_occurred
-            await asyncio.sleep(very_short_timeout)
-            if not fetch_task.done():
-                logger.info(
-                    f"Timeout reached after {very_short_timeout}s, triggering cancellation"
-                )
-                timeout_occurred = True
-                timeout_event.set()
-                fetcher.cancel_event.set()  # Signal fetcher to cancel
-
-        timer_task = asyncio.create_task(timeout_timer())
-        logger.debug(f"Created timer task {id(timer_task)} for timeout")
-
-        # Wait for completion using event-based method (MDC Tier 1 practice)
-        result = await wait_with_cancellation(
-            fetch_task,
-            completion_event=fetcher.completion_event,
-            cancel_event=timeout_event,
-            timeout=very_short_timeout,
-        )
-
-        # Cancel the timer task regardless of outcome
-        if not timer_task.done():
-            logger.debug(f"Cancelling timer task {id(timer_task)}")
-            await cancel_and_wait(timer_task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
-
-        # Check if timeout occurred - this is determined by our timer rather than the result of wait_with_cancellation
-        if timeout_occurred:
-            print(f"✓ Task timed out as expected after {very_short_timeout}s")
-            # Make sure to cancel the task after timeout
-            if not fetch_task.done():
-                logger.debug(f"Cancelling fetch task {id(fetch_task)} after timeout")
-                await cancel_and_wait(
-                    fetch_task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT
-                )
-        else:
-            # Safely get result, handling potential CancelledError
-            task_result = None
-            if fetch_task.done() and not fetch_task.cancelled():
-                try:
-                    task_result = fetch_task.result()
-                    print(
-                        f"Unexpectedly completed without timeout: {task_result is not None}"
-                    )
-                except asyncio.CancelledError:
-                    # This should not happen, but handle it just in case
-                    print(f"Task completed but was cancelled")
-            else:
-                print(f"Task did not complete normally")
-
-    except Exception as e:
-        logger.error(f"Unexpected error during timeout demonstration: {str(e)}")
-        print(f"Unexpected error: {str(e)}")
-    finally:
-        # Ensure completion event is set
-        if not fetcher.completion_event.is_set():
-            fetcher.completion_event.set()
-
-        # Clean up any lingering tasks - Make a copy to avoid "Set changed size during iteration"
-        tasks_to_cleanup = list(fetcher.tasks)
-        logger.debug(
-            f"Cleaning up {len(tasks_to_cleanup)} lingering tasks in fetcher for {symbol}"
-        )
-        for task in tasks_to_cleanup:
-            if not task.done():
-                logger.debug(f"Cancelling lingering task {id(task)} in fetcher")
-                await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
-
-        # Run cleanup to prevent task leakage
-        await cleanup_lingering_tasks()
-
-        # Check for task leakage (MDC Tier 2)
-        tasks_after = len(asyncio.all_tasks())
-        if tasks_after > tasks_before:
-            logger.warning(
-                f"Task leakage detected in timeout cancellation demo: {tasks_after - tasks_before} more tasks"
-            )
-        else:
-            logger.info(f"No task leakage in timeout cancellation demo")
-
-    print(f"Timeout cancellation demonstration complete")
-
-
 class DelayedConcurrentFetcher:
     """A simple concurrent fetcher implementation that uses our delayed fetcher"""
 
     def __init__(self):
         self.fetchers = []
-        self.tasks = set()
+        self.task_tracker = TaskTracker()  # Use TaskTracker instead of raw set
         self.all_complete_event = asyncio.Event()
         self.cancel_event = asyncio.Event()  # Add global cancel event (MDC Tier 1)
 
@@ -866,26 +781,18 @@ class DelayedConcurrentFetcher:
 
                 # Link cancellation events (MDC Tier 1 practice - propagate cancellation)
                 # When self.cancel_event is set, it will trigger cancellation in each fetcher
-                async def propagate_cancellation(f=fetcher):
-                    await self.cancel_event.wait()
-                    if not f.cancel_event.is_set():
-                        logger.info(
-                            f"Propagating cancellation to fetcher for {f.symbol}"
-                        )
-                        f.cancel_event.set()
-
-                # Start the propagation task
-                propagation_task = asyncio.create_task(propagate_cancellation())
-                self.tasks.add(propagation_task)
-                propagation_task.add_done_callback(lambda t: self.tasks.discard(t))
+                # Use the propagate_cancellation utility for this
+                propagation_task = asyncio.create_task(
+                    propagate_cancellation(self.cancel_event, [fetcher.cancel_event])
+                )
+                self.task_tracker.add(propagation_task)
 
                 # Create task for this fetcher
                 task = asyncio.create_task(fetcher.fetch())
                 fetch_tasks.append((symbol, task))
 
-                # Add to tracking set (MDC Tier 1 practice)
-                self.tasks.add(task)
-                task.add_done_callback(lambda t: self.tasks.discard(t))
+                # Add to task tracker (MDC Tier 1 practice)
+                self.task_tracker.add(task)
 
             # Update progress
             self.progress["stage"] = "fetchers_started"
@@ -982,10 +889,8 @@ class DelayedConcurrentFetcher:
                 ):
                     fetcher.completion_event.set()
 
-            # Cancel all pending tasks (MDC Tier 1)
-            for symbol, task in fetch_tasks:
-                if not task.done():
-                    await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+            # Cancel all pending tasks using task_tracker (MDC Tier 1)
+            await self.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
 
             # Raise to properly handle cancellation (MDC Tier 1)
             raise
@@ -997,10 +902,8 @@ class DelayedConcurrentFetcher:
             # Set cancellation event to make sure propagation tasks complete
             self.cancel_event.set()
 
-            # Clean up any lingering tasks (MDC Tier 1)
-            for task in self.tasks:
-                if not task.done():
-                    await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+            # Clean up any lingering tasks using task_tracker (MDC Tier 1)
+            await self.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
 
             # Final stats for logging
             self.progress["stage"] = "cleanup_complete"
@@ -1010,85 +913,67 @@ class DelayedConcurrentFetcher:
             )
 
 
-async def demonstrate_concurrent_cancellation():
+async def demonstrate_manual_cancellation():
     """
-    Demonstrates cancellation in a concurrent fetcher that is handling
-    multiple delayed fetchers at once.
+    Demonstrates how to manually cancel a fetch task after letting it
+    run for a short period of time.
     """
     print("\n" + "=" * 70)
-    print("DEMONSTRATING CONCURRENT CANCELLATION")
+    print("DEMONSTRATING MANUAL CANCELLATION")
     print("=" * 70)
+    print("This demonstrates explicitly cancelling a task by calling .cancel() on it.")
     print(
-        "This demonstrates how cancellation propagates through concurrent operations."
+        "The fetcher will show how it handles the cancellation and cleans up resources."
     )
-    print("We'll start multiple fetchers and then cancel the main task.")
 
     # Clear caches before this demonstration (clean slate)
     clear_caches()
 
     # Track tasks for leak detection (MDC Tier 2)
     tasks_before = len(asyncio.all_tasks())
-    logger.info(f"Concurrent cancellation demo starting with {tasks_before} tasks")
+    logger.info(f"Manual cancellation demo starting with {tasks_before} tasks")
 
-    # Create a concurrent fetcher
-    concurrent_fetcher = DelayedConcurrentFetcher()
+    symbol = "BTCUSDT"
+    interval = Interval.HOUR_1
+    fetcher = DelayedEventBasedFetcher(symbol, interval, days_back=1)
 
-    # Define multiple requests
-    requests = [
-        {"symbol": "BTCUSDT", "interval": Interval.HOUR_1},
-        {"symbol": "ETHUSDT", "interval": Interval.HOUR_1},
-        {"symbol": "BNBUSDT", "interval": Interval.HOUR_1},
-    ]
+    # Start the fetch but don't await it yet
+    fetch_task = asyncio.create_task(fetcher.fetch())
+    logger.debug(f"Created fetch task {id(fetch_task)} for {symbol}")
 
-    # Start fetch task but don't await it yet
-    fetch_task = asyncio.create_task(concurrent_fetcher.fetch_multiple(requests))
-    logger.debug(f"Created concurrent fetch task {id(fetch_task)}")
+    # Track the task using TaskTracker
+    fetcher.task_tracker.add(fetch_task)
 
     try:
-        # Let it run for 1.5 seconds
-        print(f"Letting concurrent fetch run for 1.5 seconds...")
-        await asyncio.sleep(1.5)
+        # Let it run for 2 seconds
+        print(f"Letting fetch task run for 2 seconds before cancellation...")
+        await asyncio.sleep(2)
 
-        # Then cancel it
-        print(f"🛑 Cancelling all concurrent fetch operations...")
-        logger.debug(
-            f"Initiating cancellation for concurrent fetch task {id(fetch_task)}"
-        )
-        # Use cancel_and_wait instead of just cancel()
-        await cancel_and_wait(fetch_task, timeout=TASK_CANCEL_WAIT_TIMEOUT)
+        # Check if it's still running
+        if not fetch_task.done():
+            print(f"🛑 Manually cancelling fetch task for {symbol}...")
+            logger.debug(
+                f"Initiating cancellation for task {id(fetch_task)} for {symbol}"
+            )
+            # Use cancel_and_wait instead of just cancel()
+            await cancel_and_wait(fetch_task, timeout=TASK_CANCEL_WAIT_TIMEOUT)
 
-        print(
-            f"✓ Concurrent task cancellation status: {'Cancelled' if fetch_task.cancelled() else 'Not cancelled'}"
-        )
+            print(
+                f"✓ Task cancellation status: {'Cancelled' if fetch_task.cancelled() else 'Not cancelled'}"
+            )
+        else:
+            print(f"Task already completed before we could cancel it")
 
     except Exception as e:
-        logger.error(f"Error during concurrent cancellation demonstration: {str(e)}")
+        logger.error(f"Error during manual cancellation demonstration: {str(e)}")
         print(f"Error: {str(e)}")
     finally:
-        # Clean up any lingering tasks - Make a copy to avoid "Set changed size during iteration"
-        tasks_to_cleanup = list(concurrent_fetcher.tasks)
-        logger.debug(
-            f"Cleaning up {len(tasks_to_cleanup)} lingering tasks in concurrent fetcher"
-        )
-        for task in tasks_to_cleanup:
-            if not task.done():
-                logger.debug(
-                    f"Cancelling lingering task {id(task)} in concurrent fetcher"
-                )
-                await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+        # Ensure completion event is set
+        if not fetcher.completion_event.is_set():
+            fetcher.completion_event.set()
 
-        # Clean up fetchers
-        for fetcher in concurrent_fetcher.fetchers:
-            if not fetcher.cancel_event.is_set():
-                logger.debug(f"Setting cancel event for fetcher {fetcher.symbol}")
-                fetcher.cancel_event.set()
-
-            if (
-                hasattr(fetcher, "completion_event")
-                and not fetcher.completion_event.is_set()
-            ):
-                logger.debug(f"Setting completion event for fetcher {fetcher.symbol}")
-                fetcher.completion_event.set()
+        # Clean up any lingering tasks using task tracker
+        await fetcher.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
 
         # Run cleanup to prevent task leakage
         await cleanup_lingering_tasks()
@@ -1097,12 +982,129 @@ async def demonstrate_concurrent_cancellation():
         tasks_after = len(asyncio.all_tasks())
         if tasks_after > tasks_before:
             logger.warning(
-                f"Task leakage detected in concurrent cancellation demo: {tasks_after - tasks_before} more tasks"
+                f"Task leakage detected in manual cancellation demo: {tasks_after - tasks_before} more tasks"
             )
         else:
-            logger.info(f"No task leakage in concurrent cancellation demo")
+            logger.info(f"No task leakage in manual cancellation demo")
 
-    print(f"Concurrent cancellation demonstration complete")
+    print(f"Manual cancellation demonstration complete")
+
+
+async def demonstrate_timeout_cancellation():
+    """
+    Demonstrates cancellation due to timeout when a fetch operation
+    takes too long to complete.
+    """
+    print("\n" + "=" * 70)
+    print("DEMONSTRATING TIMEOUT CANCELLATION")
+    print("=" * 70)
+    print("This demonstrates how tasks can be cancelled due to a timeout.")
+    print("We'll set a very short timeout that's shorter than our artificial delay.")
+
+    # Clear caches before this demonstration (clean slate)
+    clear_caches()
+
+    # Track tasks for leak detection (MDC Tier 2)
+    tasks_before = len(asyncio.all_tasks())
+    logger.info(f"Timeout cancellation demo starting with {tasks_before} tasks")
+
+    symbol = "ETHUSDT"
+    interval = Interval.HOUR_1
+
+    # Create a fetcher with a very short timeout to ensure it times out
+    fetcher = DelayedEventBasedFetcher(symbol, interval, days_back=1)
+
+    # The artificial delay is longer than this timeout, so it should timeout
+    very_short_timeout = 1.5  # seconds
+
+    print(f"Starting fetch with a {very_short_timeout}s timeout (should fail)")
+
+    # Create a task to track
+    fetch_task = asyncio.create_task(fetcher.fetch())
+    logger.debug(f"Created fetch task {id(fetch_task)} for {symbol}")
+
+    # Add task to tracker
+    fetcher.task_tracker.add(fetch_task)
+
+    # Flag to track if timeout occurred
+    timeout_occurred = False
+
+    try:
+        # Create a timeout event and timer task
+        timeout_event = asyncio.Event()
+
+        # Create a task for the timeout
+        async def timeout_timer():
+            nonlocal timeout_occurred
+            await asyncio.sleep(very_short_timeout)
+            if not fetch_task.done():
+                logger.info(
+                    f"Timeout reached after {very_short_timeout}s, triggering cancellation"
+                )
+                timeout_occurred = True
+                timeout_event.set()
+                fetcher.cancel_event.set()  # Signal fetcher to cancel
+
+        timer_task = asyncio.create_task(timeout_timer())
+        logger.debug(f"Created timer task {id(timer_task)} for timeout")
+        fetcher.task_tracker.add(timer_task)
+
+        # Wait for completion using event-based method (MDC Tier 1 practice)
+        result = await wait_with_cancellation(
+            fetch_task,
+            completion_event=fetcher.completion_event,
+            cancel_event=timeout_event,
+            timeout=very_short_timeout,
+        )
+
+        # Check if timeout occurred - this is determined by our timer rather than the result of wait_with_cancellation
+        if timeout_occurred:
+            print(f"✓ Task timed out as expected after {very_short_timeout}s")
+            # Make sure to cancel the task after timeout
+            if not fetch_task.done():
+                logger.debug(f"Cancelling fetch task {id(fetch_task)} after timeout")
+                await cancel_and_wait(
+                    fetch_task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT
+                )
+        else:
+            # Safely get result, handling potential CancelledError
+            task_result = None
+            if fetch_task.done() and not fetch_task.cancelled():
+                try:
+                    task_result = fetch_task.result()
+                    print(
+                        f"Unexpectedly completed without timeout: {task_result is not None}"
+                    )
+                except asyncio.CancelledError:
+                    # This should not happen, but handle it just in case
+                    print(f"Task completed but was cancelled")
+            else:
+                print(f"Task did not complete normally")
+
+    except Exception as e:
+        logger.error(f"Unexpected error during timeout demonstration: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
+    finally:
+        # Ensure completion event is set
+        if not fetcher.completion_event.is_set():
+            fetcher.completion_event.set()
+
+        # Clean up any lingering tasks using task tracker
+        await fetcher.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+
+        # Run cleanup to prevent task leakage
+        await cleanup_lingering_tasks()
+
+        # Check for task leakage (MDC Tier 2)
+        tasks_after = len(asyncio.all_tasks())
+        if tasks_after > tasks_before:
+            logger.warning(
+                f"Task leakage detected in timeout cancellation demo: {tasks_after - tasks_before} more tasks"
+            )
+        else:
+            logger.info(f"No task leakage in timeout cancellation demo")
+
+    print(f"Timeout cancellation demonstration complete")
 
 
 def handle_signal(sig, frame):
@@ -1178,21 +1180,13 @@ async def demonstrate_signal_cancellation():
         # Start the monitor task
         monitor_task = asyncio.create_task(monitor_cancellation_flag())
         logger.debug(f"Created monitor task {id(monitor_task)} for signal handling")
+        fetcher.task_tracker.add(monitor_task)
 
         # Start the fetch
         print(f"Starting fetch for {symbol}...")
         fetch_task = asyncio.create_task(fetcher.fetch())
         logger.debug(f"Created fetch task {id(fetch_task)} for {symbol}")
-
-        # Use a custom callback that logs task status changes
-        def task_status_callback(t):
-            logger.debug(
-                f"Task {id(t)} for {symbol} completed with status: done={t.done()}, cancelled={t.cancelled()}"
-            )
-            fetcher.tasks.discard(t)
-
-        fetch_task.add_done_callback(task_status_callback)
-        fetcher.tasks.add(fetch_task)
+        fetcher.task_tracker.add(fetch_task)
 
         # Wait for completion using event-based approach (MDC Tier 1)
         try:
@@ -1226,11 +1220,6 @@ async def demonstrate_signal_cancellation():
             logger.error(f"Error during signal cancellation demonstration: {str(e)}")
             print(f"Error: {str(e)}")
 
-        # Clean up the monitor task
-        if not monitor_task.done():
-            logger.debug(f"Cancelling monitor task {id(monitor_task)}")
-            await cancel_and_wait(monitor_task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
-
     finally:
         # Restore original signal handler
         signal.signal(signal.SIGINT, original_handler)
@@ -1244,15 +1233,8 @@ async def demonstrate_signal_cancellation():
             logger.debug(f"Setting completion event for fetcher {fetcher.symbol}")
             fetcher.completion_event.set()
 
-        # Clean up any lingering tasks - Make a copy to avoid "Set changed size during iteration"
-        tasks_to_cleanup = list(fetcher.tasks)
-        logger.debug(
-            f"Cleaning up {len(tasks_to_cleanup)} lingering tasks in fetcher for {symbol}"
-        )
-        for task in tasks_to_cleanup:
-            if not task.done():
-                logger.debug(f"Cancelling lingering task {id(task)} in fetcher")
-                await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+        # Clean up any lingering tasks using the task tracker
+        await fetcher.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
 
         # Run cleanup to prevent task leakage
         await cleanup_lingering_tasks()
@@ -1304,16 +1286,7 @@ async def demonstrate_event_based_cancellation():
     print(f"Starting event-controlled fetch for {symbol}...")
     fetch_task = asyncio.create_task(fetcher.fetch())
     logger.debug(f"Created event-controlled fetch task {id(fetch_task)} for {symbol}")
-
-    # Use a custom callback that logs task status changes
-    def task_status_callback(t):
-        logger.debug(
-            f"Task {id(t)} for {symbol} completed with status: done={t.done()}, cancelled={t.cancelled()}"
-        )
-        fetcher.tasks.discard(t)
-
-    fetch_task.add_done_callback(task_status_callback)
-    fetcher.tasks.add(fetch_task)
+    fetcher.task_tracker.add(fetch_task)
 
     try:
         # Let it run for 1 second
@@ -1357,6 +1330,7 @@ async def demonstrate_event_based_cancellation():
                 timeout=5.0,  # Fallback timeout
             )
         )
+        fetcher.task_tracker.add(completion_future)
 
         # Wait for completion
         if await completion_future:
@@ -1394,15 +1368,8 @@ async def demonstrate_event_based_cancellation():
             logger.debug(f"Setting cancel event for fetcher {fetcher.symbol}")
             fetcher.cancel_event.set()
 
-        # Clean up any lingering tasks - Make a copy to avoid "Set changed size during iteration"
-        tasks_to_cleanup = list(fetcher.tasks)
-        logger.debug(
-            f"Cleaning up {len(tasks_to_cleanup)} lingering tasks in fetcher for {symbol}"
-        )
-        for task in tasks_to_cleanup:
-            if not task.done():
-                logger.debug(f"Cancelling lingering task {id(task)} in fetcher")
-                await cancel_and_wait(task, timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
+        # Clean up any lingering tasks using task tracker
+        await fetcher.task_tracker.cancel_all(timeout=LINGERING_TASK_CLEANUP_TIMEOUT)
 
         # Run cleanup to prevent task leakage
         await cleanup_lingering_tasks()
@@ -1624,89 +1591,145 @@ async def test_for_warnings():
     print("=" * 70)
 
 
+async def demonstrate_concurrent_cancellation():
+    """
+    Demonstrates cancellation in a concurrent fetcher that is handling
+    multiple delayed fetchers at once.
+    """
+    print("\n" + "=" * 70)
+    print("DEMONSTRATING CONCURRENT CANCELLATION")
+    print("=" * 70)
+    print(
+        "This demonstrates how cancellation propagates through concurrent operations."
+    )
+    print("We'll start multiple fetchers and then cancel the main task.")
+
+    # Clear caches before this demonstration (clean slate)
+    clear_caches()
+
+    # Track tasks for leak detection (MDC Tier 2)
+    tasks_before = len(asyncio.all_tasks())
+    logger.info(f"Concurrent cancellation demo starting with {tasks_before} tasks")
+
+    # Create a concurrent fetcher
+    concurrent_fetcher = DelayedConcurrentFetcher()
+
+    # Define multiple requests
+    requests = [
+        {"symbol": "BTCUSDT", "interval": Interval.HOUR_1},
+        {"symbol": "ETHUSDT", "interval": Interval.HOUR_1},
+        {"symbol": "BNBUSDT", "interval": Interval.HOUR_1},
+    ]
+
+    # Start fetch task but don't await it yet
+    fetch_task = asyncio.create_task(concurrent_fetcher.fetch_multiple(requests))
+    logger.debug(f"Created concurrent fetch task {id(fetch_task)}")
+
+    try:
+        # Let it run for 1.5 seconds
+        print(f"Letting concurrent fetch run for 1.5 seconds...")
+        await asyncio.sleep(1.5)
+
+        # Then cancel it
+        print(f"🛑 Cancelling all concurrent fetch operations...")
+        logger.debug(
+            f"Initiating cancellation for concurrent fetch task {id(fetch_task)}"
+        )
+        # Use cancel_and_wait instead of just cancel()
+        await cancel_and_wait(fetch_task, timeout=TASK_CANCEL_WAIT_TIMEOUT)
+
+        print(
+            f"✓ Concurrent task cancellation status: {'Cancelled' if fetch_task.cancelled() else 'Not cancelled'}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error during concurrent cancellation demonstration: {str(e)}")
+        print(f"Error: {str(e)}")
+    finally:
+        # Use the task tracker for cleanup
+        await concurrent_fetcher.task_tracker.cancel_all(
+            timeout=LINGERING_TASK_CLEANUP_TIMEOUT
+        )
+
+        # Clean up fetchers
+        for fetcher in concurrent_fetcher.fetchers:
+            if not fetcher.cancel_event.is_set():
+                logger.debug(f"Setting cancel event for fetcher {fetcher.symbol}")
+                fetcher.cancel_event.set()
+
+            if (
+                hasattr(fetcher, "completion_event")
+                and not fetcher.completion_event.is_set()
+            ):
+                logger.debug(f"Setting completion event for fetcher {fetcher.symbol}")
+                fetcher.completion_event.set()
+
+        # Run cleanup to prevent task leakage
+        await cleanup_lingering_tasks()
+
+        # Check for task leakage (MDC Tier 2)
+        tasks_after = len(asyncio.all_tasks())
+        if tasks_after > tasks_before:
+            logger.warning(
+                f"Task leakage detected in concurrent cancellation demo: {tasks_after - tasks_before} more tasks"
+            )
+        else:
+            logger.info(f"No task leakage in concurrent cancellation demo")
+
+    print(f"Concurrent cancellation demonstration complete")
+
+
 async def main():
     """
-    Main function that orchestrates the demonstration.
+    Main function that orchestrates demonstrations of task cancellation.
     """
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Task Cancellation Demonstration")
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable DEBUG level logging"
-    )
-    parser.add_argument(
-        "--skip-warn-test", action="store_true", help="Skip the warnings test"
+    parser = argparse.ArgumentParser(
+        description="Demonstrate different task cancellation approaches"
     )
     parser.add_argument(
         "--only",
-        choices=["manual", "timeout", "concurrent", "signal", "event"],
-        help="Run only the specified demonstration",
+        type=str,
+        help="Run only a specific demo (manual, timeout, signal, event, concurrent)",
+        default=None,
     )
     args = parser.parse_args()
 
-    # Set logging level if debug is enabled
-    if args.debug:
-        enable_debug_logging()
+    # Initialize logging
+    enable_debug_logging()
 
-    # Clear caches at startup
-    clear_caches()
+    try:
+        # Run demos based on CLI args
+        if args.only:
+            if args.only == "manual":
+                await demonstrate_manual_cancellation()
+            elif args.only == "timeout":
+                await demonstrate_timeout_cancellation()
+            elif args.only == "signal":
+                await demonstrate_signal_cancellation()
+            elif args.only == "event":
+                await demonstrate_event_based_cancellation()
+            elif args.only == "concurrent":
+                await demonstrate_concurrent_cancellation()
+            else:
+                print(f"Unknown demo: {args.only}")
+        else:
+            # Run all demos in sequence
+            await demonstrate_manual_cancellation()
+            await demonstrate_timeout_cancellation()
+            await demonstrate_signal_cancellation()
+            await demonstrate_event_based_cancellation()
+            await demonstrate_concurrent_cancellation()
 
-    print("\n" + "=" * 70)
-    print("TASK CANCELLATION DEMONSTRATION")
-    print("=" * 70)
-    print("This script demonstrates various ways tasks can be cancelled in async code.")
-    print("Each section shows a different cancellation scenario and how to handle it.")
-
-    # Record all running tasks at start for leak detection
-    tasks_at_start = len(asyncio.all_tasks())
-    logger.info(f"Starting with {tasks_at_start} active tasks")
-
-    # Run the focused test for warnings first, unless skipped
-    if not args.skip_warn_test and args.only is None:
-        await test_for_warnings()
-
-        # Clear caches after the warning test, before main demos
-        clear_caches()
-
-    # Run demonstrations based on user selection
-    if args.only is None or args.only == "manual":
-        await demonstrate_manual_cancellation()
-
-    if args.only is None or args.only == "timeout":
-        await demonstrate_timeout_cancellation()
-
-    if args.only is None or args.only == "concurrent":
-        await demonstrate_concurrent_cancellation()
-
-    if args.only is None or args.only == "signal":
-        await demonstrate_signal_cancellation()
-
-    if args.only is None or args.only == "event":
-        await demonstrate_event_based_cancellation()
-
-    # Force cleanup of any lingering tasks before checking for leakage
-    await cleanup_lingering_tasks()
-
-    # Force garbage collection
-    gc.collect()
-
-    # Check for task leakage at the end
-    tasks_at_end = len(asyncio.all_tasks())
-    if tasks_at_end > tasks_at_start:
-        logger.warning(
-            f"Task leakage detected: {tasks_at_end - tasks_at_start} more tasks at end than at start"
-        )
-        print(
-            f"⚠️ Task leakage detected: {tasks_at_end - tasks_at_start} more tasks at end than at start"
-        )
-    else:
-        logger.info(f"No task leakage detected. Tasks at end: {tasks_at_end}")
-        print(f"✓ No task leakage detected. Tasks at end: {tasks_at_end}")
-
-    print("\n" + "=" * 70)
-    print("DEMONSTRATION COMPLETE")
-    print("=" * 70)
+    except asyncio.CancelledError:
+        logger.warning("Main task was cancelled")
+    except Exception as e:
+        logger.error(f"Error in main: {str(e)}")
+    finally:
+        # Clean up any lingering tasks
+        await cleanup_lingering_tasks()
 
 
 if __name__ == "__main__":
-    # Run the demonstration
+    # Run the main function
     asyncio.run(main())
