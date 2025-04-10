@@ -15,8 +15,6 @@ from rich import print
 import asyncio
 import time
 import gc
-import sys
-import importlib
 import shutil
 import os
 import argparse
@@ -30,7 +28,6 @@ from utils.config import (
     DEMO_SIMULATED_DELAY,
     TASK_CANCEL_WAIT_TIMEOUT,
     LINGERING_TASK_CLEANUP_TIMEOUT,
-    AGGRESSIVE_TASK_CLEANUP_TIMEOUT,
 )
 
 # Import task management utilities instead of duplicating code
@@ -1010,7 +1007,7 @@ async def main():
 
     try:
         # Import time module with proper error handling
-        import time
+        pass
     except ImportError:
         logger.error("Could not import time module")
         return

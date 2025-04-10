@@ -20,11 +20,9 @@ MDC Tiers:
 """
 
 from utils.logger_setup import logger
-from rich import print
 import asyncio
 import time
 import gc
-import sys
 
 from utils.config import (
     TASK_CANCEL_WAIT_TIMEOUT,

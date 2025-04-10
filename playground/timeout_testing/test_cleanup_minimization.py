@@ -14,7 +14,6 @@ are redundant and can be removed.
 """
 
 import asyncio
-import gc
 import time
 from datetime import datetime, timezone, timedelta
 

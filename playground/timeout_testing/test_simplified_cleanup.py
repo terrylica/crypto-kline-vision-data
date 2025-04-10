@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from utils.logger_setup import logger
 from utils.network_utils import create_client, safely_close_client
 from utils.async_cleanup import cleanup_client
-from rich import print
 
 # Set up logging
 logger.setup_root(level="DEBUG", show_filename=True)

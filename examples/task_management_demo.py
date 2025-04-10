@@ -15,13 +15,10 @@ from rich import print
 import asyncio
 import time
 import gc
-import sys
 import argparse
 
 from utils.config import (
     TASK_CANCEL_WAIT_TIMEOUT,
-    LINGERING_TASK_CLEANUP_TIMEOUT,
-    AGGRESSIVE_TASK_CLEANUP_TIMEOUT,
     DEMO_SIMULATED_DELAY,
 )
 

@@ -10,8 +10,7 @@ verification scripts and make them more readable.
 import asyncio
 import contextlib
 import logging
-import traceback
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, List, Optional, Tuple, TypeVar
 import pandas as pd
 
 from utils.logger_setup import logger

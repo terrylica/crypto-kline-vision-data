@@ -16,8 +16,6 @@ Note:
 
 import asyncio
 import time
-import logging
-import warnings
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import pandas as pd
@@ -25,13 +23,11 @@ import pandas as pd
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import MarketType, Interval, DataProvider
 from utils.logger_setup import logger
-from utils.async_cleanup import cancel_and_wait
 from utils.error_handling import (
     capture_warnings,
     with_timeout_handling,
     safe_execute_verification,
     execute_with_task_cleanup,
-    display_df_summary,
     cleanup_tasks,
     suppress_consolidation_warnings,
     display_verification_results,
