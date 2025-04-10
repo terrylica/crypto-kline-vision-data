@@ -1,0 +1,2767 @@
+{
+  "start_time": "2025-04-10T20:27:20.490666",
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "LTCUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "EOSUSDT",
+    "XLMUSDT",
+    "TRXUSDT",
+    "ETCUSDT",
+    "ICXUSDT",
+    "VETUSDT",
+    "LINKUSDT",
+    "ZILUSDT",
+    "XMRUSDT",
+    "THETAUSDT",
+    "MATICUSDT",
+    "ATOMUSDT",
+    "FTMUSDT",
+    "ALGOUSDT",
+    "DOGEUSDT",
+    "CHZUSDT",
+    "XTZUSDT",
+    "BCHUSDT",
+    "KNCUSDT",
+    "MANAUSDT",
+    "SOLUSDT",
+    "SANDUSDT",
+    "CRVUSDT",
+    "DOTUSDT",
+    "LUNAUSDT",
+    "EGLDUSDT",
+    "RUNEUSDT",
+    "UNIUSDT",
+    "AVAXUSDT",
+    "NEARUSDT",
+    "AAVEUSDT",
+    "FILUSDT",
+    "AXSUSDT",
+    "ROSEUSDT",
+    "GALAUSDT",
+    "ENSUSDT",
+    "GMTUSDT",
+    "APEUSDT",
+    "OPUSDT",
+    "APTUSDT",
+    "SUIUSDT",
+    "WLDUSDT",
+    "WIFUSDT",
+    "DOGSUSDT"
+  ],
+  "duration": 5,
+  "limit": 100,
+  "requests": [
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:21.169750",
+      "weight": 24,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:21.169758",
+      "weight": 14,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:21.169760",
+      "weight": 16,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:21.169761",
+      "weight": 64,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:21.169763",
+      "weight": 12,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:21.169764",
+      "weight": 34,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:21.169768",
+      "weight": 10,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:21.169769",
+      "weight": 2,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:21.169770",
+      "weight": 92,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:21.169772",
+      "weight": 8,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:21.169773",
+      "weight": 22,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:21.169774",
+      "weight": 80,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:21.169775",
+      "weight": 18,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:21.169776",
+      "weight": 100,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:21.169777",
+      "weight": 20,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:21.169778",
+      "weight": 66,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:21.169779",
+      "weight": 26,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:21.169781",
+      "weight": 86,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:21.169786",
+      "weight": 6,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:21.169787",
+      "weight": 44,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:21.169788",
+      "weight": 28,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:21.169789",
+      "weight": 82,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:21.169790",
+      "weight": 96,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:21.169792",
+      "weight": 76,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:21.169793",
+      "weight": 68,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:21.169794",
+      "weight": 4,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:21.169795",
+      "weight": 94,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:21.169796",
+      "weight": 38,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:21.169797",
+      "weight": 46,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:21.169798",
+      "weight": 48,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:21.169799",
+      "weight": 78,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:21.169804",
+      "weight": 98,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:21.169806",
+      "weight": 72,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:21.169807",
+      "weight": 56,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:21.169808",
+      "weight": 52,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:21.169809",
+      "weight": 90,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:21.169810",
+      "weight": 54,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:21.169811",
+      "weight": 70,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:21.169812",
+      "weight": 88,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:21.169813",
+      "weight": 30,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:21.169814",
+      "weight": 36,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:21.169815",
+      "weight": 74,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:21.169816",
+      "weight": 84,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:21.169821",
+      "weight": 32,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:21.169822",
+      "weight": 40,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:21.169823",
+      "weight": 62,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:21.169825",
+      "weight": 42,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:21.169826",
+      "weight": 60,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:21.169827",
+      "weight": 58,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:21.169828",
+      "weight": 50,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:21.758834",
+      "weight": 144,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:21.758841",
+      "weight": 186,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:21.758843",
+      "weight": 150,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:21.758845",
+      "weight": 124,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:21.758846",
+      "weight": 110,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:21.758847",
+      "weight": 138,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:21.758849",
+      "weight": 196,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:21.758850",
+      "weight": 104,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:21.758851",
+      "weight": 148,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:21.758852",
+      "weight": 140,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:21.758853",
+      "weight": 102,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:21.758854",
+      "weight": 170,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:21.758855",
+      "weight": 160,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:21.758856",
+      "weight": 108,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:21.758857",
+      "weight": 190,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:21.758858",
+      "weight": 136,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:21.758859",
+      "weight": 106,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:21.758860",
+      "weight": 194,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:21.758861",
+      "weight": 168,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:21.758862",
+      "weight": 134,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:21.758863",
+      "weight": 112,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:21.758864",
+      "weight": 158,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:21.758865",
+      "weight": 192,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:21.758866",
+      "weight": 178,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:21.758867",
+      "weight": 198,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:21.758868",
+      "weight": 130,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:21.758869",
+      "weight": 120,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:21.758871",
+      "weight": 154,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:21.758872",
+      "weight": 126,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:21.758873",
+      "weight": 164,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:21.758874",
+      "weight": 162,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:21.758875",
+      "weight": 174,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:21.758876",
+      "weight": 142,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:21.758877",
+      "weight": 116,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:21.758879",
+      "weight": 114,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:21.758880",
+      "weight": 156,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:21.758881",
+      "weight": 182,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:21.758882",
+      "weight": 172,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:21.758883",
+      "weight": 200,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:21.758884",
+      "weight": 176,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:21.758885",
+      "weight": 118,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:21.758886",
+      "weight": 184,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:21.758887",
+      "weight": 166,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:21.758889",
+      "weight": 128,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:21.758890",
+      "weight": 152,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:21.758891",
+      "weight": 132,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:21.758892",
+      "weight": 146,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:21.758893",
+      "weight": 180,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:21.758894",
+      "weight": 122,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:21.758895",
+      "weight": 188,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:22.350207",
+      "weight": 210,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:22.350215",
+      "weight": 204,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:22.350217",
+      "weight": 294,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:22.350219",
+      "weight": 296,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:22.350224",
+      "weight": 218,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:22.350226",
+      "weight": 202,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:22.350227",
+      "weight": 242,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:22.350228",
+      "weight": 256,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:22.350229",
+      "weight": 232,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:22.350232",
+      "weight": 270,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:22.350233",
+      "weight": 216,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:22.350234",
+      "weight": 222,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:22.350236",
+      "weight": 252,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:22.350237",
+      "weight": 280,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:22.350238",
+      "weight": 266,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:22.350239",
+      "weight": 260,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:22.350240",
+      "weight": 284,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:22.350241",
+      "weight": 234,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:22.350243",
+      "weight": 292,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:22.350244",
+      "weight": 274,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:22.350245",
+      "weight": 258,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:22.350246",
+      "weight": 228,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:22.350247",
+      "weight": 300,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:22.350248",
+      "weight": 240,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:22.350249",
+      "weight": 220,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:22.350251",
+      "weight": 288,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:22.350252",
+      "weight": 208,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:22.350253",
+      "weight": 236,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:22.350254",
+      "weight": 238,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:22.350256",
+      "weight": 272,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:22.350257",
+      "weight": 226,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:22.350258",
+      "weight": 276,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:22.350259",
+      "weight": 278,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:22.350261",
+      "weight": 244,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:22.350262",
+      "weight": 282,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:22.350263",
+      "weight": 206,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:22.350264",
+      "weight": 250,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:22.350266",
+      "weight": 268,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:22.350267",
+      "weight": 230,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:22.350268",
+      "weight": 246,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:22.350269",
+      "weight": 262,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:22.350270",
+      "weight": 224,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:22.350271",
+      "weight": 248,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:22.350273",
+      "weight": 298,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:22.350274",
+      "weight": 264,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:22.350275",
+      "weight": 290,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:22.350277",
+      "weight": 286,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:22.350278",
+      "weight": 254,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:22.350279",
+      "weight": 214,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:22.350281",
+      "weight": 212,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:22.943389",
+      "weight": 354,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:22.943396",
+      "weight": 352,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:22.943398",
+      "weight": 320,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:22.943400",
+      "weight": 302,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:22.943401",
+      "weight": 382,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:22.943402",
+      "weight": 358,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:22.943403",
+      "weight": 306,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:22.943405",
+      "weight": 322,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:22.943406",
+      "weight": 304,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:22.943407",
+      "weight": 368,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:22.943408",
+      "weight": 346,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:22.943409",
+      "weight": 340,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:22.943410",
+      "weight": 398,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:22.943411",
+      "weight": 350,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:22.943412",
+      "weight": 344,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:22.943413",
+      "weight": 364,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:22.943414",
+      "weight": 384,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:22.943415",
+      "weight": 396,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:22.943416",
+      "weight": 348,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:22.943417",
+      "weight": 356,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:22.943418",
+      "weight": 332,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:22.943419",
+      "weight": 324,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:22.943420",
+      "weight": 308,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:22.943422",
+      "weight": 374,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:22.943423",
+      "weight": 380,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:22.943424",
+      "weight": 334,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:22.943425",
+      "weight": 386,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:22.943426",
+      "weight": 336,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:22.943427",
+      "weight": 360,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:22.943428",
+      "weight": 328,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:22.943429",
+      "weight": 394,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:22.943430",
+      "weight": 310,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:22.943431",
+      "weight": 326,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:22.943433",
+      "weight": 338,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:22.943434",
+      "weight": 390,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:22.943435",
+      "weight": 372,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:22.943436",
+      "weight": 400,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:22.943437",
+      "weight": 366,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:22.943438",
+      "weight": 314,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:22.943439",
+      "weight": 378,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:22.943440",
+      "weight": 312,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:22.943441",
+      "weight": 342,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:22.943442",
+      "weight": 392,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:22.943444",
+      "weight": 318,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:22.943445",
+      "weight": 370,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:22.943446",
+      "weight": 316,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:22.943447",
+      "weight": 330,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:22.943448",
+      "weight": 388,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:22.943449",
+      "weight": 376,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:22.943450",
+      "weight": 362,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:23.527558",
+      "weight": 408,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:23.527567",
+      "weight": 472,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:23.527569",
+      "weight": 466,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:23.527570",
+      "weight": 424,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:23.527571",
+      "weight": 404,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:23.527573",
+      "weight": 482,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:23.527574",
+      "weight": 418,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:23.527576",
+      "weight": 426,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:23.527577",
+      "weight": 406,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:23.527578",
+      "weight": 468,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:23.527580",
+      "weight": 410,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:23.527581",
+      "weight": 448,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:23.527582",
+      "weight": 478,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:23.527588",
+      "weight": 452,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:23.527589",
+      "weight": 470,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:23.527590",
+      "weight": 494,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:23.527592",
+      "weight": 474,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:23.527593",
+      "weight": 464,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:23.527594",
+      "weight": 484,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:23.527595",
+      "weight": 444,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:23.527596",
+      "weight": 416,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:23.527597",
+      "weight": 422,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:23.527598",
+      "weight": 432,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:23.527599",
+      "weight": 498,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:23.527601",
+      "weight": 436,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:23.527602",
+      "weight": 450,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:23.527603",
+      "weight": 492,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:23.527604",
+      "weight": 480,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:23.527605",
+      "weight": 488,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:23.527606",
+      "weight": 454,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:23.527607",
+      "weight": 428,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:23.527608",
+      "weight": 460,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:23.527609",
+      "weight": 414,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:23.527611",
+      "weight": 456,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:23.527613",
+      "weight": 476,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:23.527614",
+      "weight": 486,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:23.527615",
+      "weight": 458,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:23.527616",
+      "weight": 500,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:23.527618",
+      "weight": 420,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:23.527619",
+      "weight": 430,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:23.527621",
+      "weight": 412,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:23.527622",
+      "weight": 440,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:23.527624",
+      "weight": 434,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:23.527625",
+      "weight": 442,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:23.527626",
+      "weight": 490,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:23.527627",
+      "weight": 446,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:23.527629",
+      "weight": 438,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:23.527630",
+      "weight": 496,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:23.527631",
+      "weight": 462,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:23.527632",
+      "weight": 402,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:23.921563",
+      "weight": 522,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:23.921576",
+      "weight": 590,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:23.921578",
+      "weight": 504,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:23.921579",
+      "weight": 584,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:23.921580",
+      "weight": 566,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:23.921581",
+      "weight": 516,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:23.921583",
+      "weight": 502,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:23.921588",
+      "weight": 506,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:23.921589",
+      "weight": 594,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:23.921590",
+      "weight": 592,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:23.921591",
+      "weight": 550,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:23.921592",
+      "weight": 578,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:23.921593",
+      "weight": 570,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:23.921595",
+      "weight": 542,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:23.921596",
+      "weight": 520,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:23.921597",
+      "weight": 586,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:23.921598",
+      "weight": 560,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:23.921599",
+      "weight": 512,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:23.921600",
+      "weight": 572,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:23.921606",
+      "weight": 510,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:23.921607",
+      "weight": 596,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:23.921609",
+      "weight": 554,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:23.921610",
+      "weight": 576,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:23.921611",
+      "weight": 598,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:23.921612",
+      "weight": 518,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:23.921613",
+      "weight": 582,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:23.921614",
+      "weight": 580,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:23.921615",
+      "weight": 574,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:23.921616",
+      "weight": 508,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:23.921621",
+      "weight": 556,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:23.921623",
+      "weight": 544,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:23.921624",
+      "weight": 552,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:23.921625",
+      "weight": 600,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:23.921626",
+      "weight": 528,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:23.921627",
+      "weight": 562,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:23.921628",
+      "weight": 568,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:23.921630",
+      "weight": 540,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:23.921631",
+      "weight": 532,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:23.921632",
+      "weight": 530,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:23.921633",
+      "weight": 524,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:23.921635",
+      "weight": 564,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:23.921636",
+      "weight": 526,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:23.921638",
+      "weight": 536,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:23.921639",
+      "weight": 514,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:23.921640",
+      "weight": 546,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:23.921641",
+      "weight": 558,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:23.921643",
+      "weight": 588,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:23.921644",
+      "weight": 534,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:23.921645",
+      "weight": 548,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:23.921646",
+      "weight": 538,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:24.502028",
+      "weight": 660,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:24.502035",
+      "weight": 642,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:24.502037",
+      "weight": 688,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:24.502039",
+      "weight": 630,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:24.502040",
+      "weight": 650,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:24.502042",
+      "weight": 692,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:24.502043",
+      "weight": 700,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:24.502045",
+      "weight": 606,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:24.502046",
+      "weight": 604,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:24.502051",
+      "weight": 602,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:24.502052",
+      "weight": 648,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:24.502054",
+      "weight": 684,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:24.502055",
+      "weight": 678,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:24.502056",
+      "weight": 646,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:24.502058",
+      "weight": 612,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:24.502059",
+      "weight": 656,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:24.502061",
+      "weight": 620,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:24.502062",
+      "weight": 680,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:24.502064",
+      "weight": 626,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:24.502065",
+      "weight": 652,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:24.502066",
+      "weight": 694,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:24.502067",
+      "weight": 610,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:24.502068",
+      "weight": 634,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:24.502069",
+      "weight": 690,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:24.502070",
+      "weight": 664,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:24.502071",
+      "weight": 636,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:24.502072",
+      "weight": 686,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:24.502073",
+      "weight": 632,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:24.502074",
+      "weight": 658,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:24.502075",
+      "weight": 666,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:24.502076",
+      "weight": 674,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:24.502077",
+      "weight": 614,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:24.502078",
+      "weight": 644,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:24.502079",
+      "weight": 698,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:24.502081",
+      "weight": 622,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:24.502082",
+      "weight": 676,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:24.502083",
+      "weight": 654,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:24.502084",
+      "weight": 624,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:24.502085",
+      "weight": 640,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:24.502086",
+      "weight": 670,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:24.502087",
+      "weight": 616,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:24.502088",
+      "weight": 608,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:24.502089",
+      "weight": 672,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:24.502091",
+      "weight": 638,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:24.502092",
+      "weight": 618,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:24.502093",
+      "weight": 662,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:24.502094",
+      "weight": 668,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:24.502099",
+      "weight": 696,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:24.502100",
+      "weight": 628,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:24.502102",
+      "weight": 682,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:25.077707",
+      "weight": 718,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:25.077713",
+      "weight": 702,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:25.077715",
+      "weight": 798,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:25.077721",
+      "weight": 752,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:25.077723",
+      "weight": 706,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:25.077724",
+      "weight": 716,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:25.077726",
+      "weight": 760,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:25.077727",
+      "weight": 714,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:25.077729",
+      "weight": 736,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:25.077730",
+      "weight": 782,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:25.077732",
+      "weight": 710,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:25.077737",
+      "weight": 734,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:25.077738",
+      "weight": 792,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:25.077740",
+      "weight": 724,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:25.077741",
+      "weight": 794,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:25.077743",
+      "weight": 744,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:25.077744",
+      "weight": 754,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:25.077745",
+      "weight": 728,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:25.077747",
+      "weight": 788,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:25.077748",
+      "weight": 778,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:25.077749",
+      "weight": 774,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:25.077750",
+      "weight": 800,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:25.077755",
+      "weight": 772,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:25.077756",
+      "weight": 750,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:25.077757",
+      "weight": 732,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:25.077759",
+      "weight": 748,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:25.077760",
+      "weight": 762,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:25.077761",
+      "weight": 742,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:25.077762",
+      "weight": 776,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:25.077763",
+      "weight": 790,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:25.077764",
+      "weight": 704,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:25.077765",
+      "weight": 784,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:25.077772",
+      "weight": 730,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:25.077773",
+      "weight": 712,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:25.077774",
+      "weight": 766,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:25.077776",
+      "weight": 722,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:25.077777",
+      "weight": 770,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:25.077778",
+      "weight": 780,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:25.077780",
+      "weight": 786,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:25.077781",
+      "weight": 746,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:25.077782",
+      "weight": 796,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:25.077784",
+      "weight": 708,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:25.077788",
+      "weight": 720,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:25.077789",
+      "weight": 726,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:25.077791",
+      "weight": 758,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:25.077792",
+      "weight": 740,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:25.077794",
+      "weight": 768,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:25.077795",
+      "weight": 764,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:25.077797",
+      "weight": 756,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:25.077798",
+      "weight": 738,
+      "record_count": 100
+    },
+    {
+      "symbol": "BTCUSDT",
+      "timestamp": "2025-04-10T20:27:25.503342",
+      "weight": 864,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETHUSDT",
+      "timestamp": "2025-04-10T20:27:25.503350",
+      "weight": 880,
+      "record_count": 100
+    },
+    {
+      "symbol": "BNBUSDT",
+      "timestamp": "2025-04-10T20:27:25.503352",
+      "weight": 806,
+      "record_count": 100
+    },
+    {
+      "symbol": "LTCUSDT",
+      "timestamp": "2025-04-10T20:27:25.503353",
+      "weight": 802,
+      "record_count": 100
+    },
+    {
+      "symbol": "ADAUSDT",
+      "timestamp": "2025-04-10T20:27:25.503354",
+      "weight": 808,
+      "record_count": 100
+    },
+    {
+      "symbol": "XRPUSDT",
+      "timestamp": "2025-04-10T20:27:25.503355",
+      "weight": 804,
+      "record_count": 100
+    },
+    {
+      "symbol": "EOSUSDT",
+      "timestamp": "2025-04-10T20:27:25.503358",
+      "weight": 876,
+      "record_count": 100
+    },
+    {
+      "symbol": "XLMUSDT",
+      "timestamp": "2025-04-10T20:27:25.503360",
+      "weight": 848,
+      "record_count": 100
+    },
+    {
+      "symbol": "TRXUSDT",
+      "timestamp": "2025-04-10T20:27:25.503361",
+      "weight": 832,
+      "record_count": 100
+    },
+    {
+      "symbol": "ETCUSDT",
+      "timestamp": "2025-04-10T20:27:25.503362",
+      "weight": 862,
+      "record_count": 100
+    },
+    {
+      "symbol": "ICXUSDT",
+      "timestamp": "2025-04-10T20:27:25.503363",
+      "weight": 852,
+      "record_count": 100
+    },
+    {
+      "symbol": "VETUSDT",
+      "timestamp": "2025-04-10T20:27:25.503364",
+      "weight": 856,
+      "record_count": 100
+    },
+    {
+      "symbol": "LINKUSDT",
+      "timestamp": "2025-04-10T20:27:25.503365",
+      "weight": 816,
+      "record_count": 100
+    },
+    {
+      "symbol": "ZILUSDT",
+      "timestamp": "2025-04-10T20:27:25.503366",
+      "weight": 812,
+      "record_count": 100
+    },
+    {
+      "symbol": "XMRUSDT",
+      "timestamp": "2025-04-10T20:27:25.503368",
+      "weight": 810,
+      "record_count": 100
+    },
+    {
+      "symbol": "THETAUSDT",
+      "timestamp": "2025-04-10T20:27:25.503369",
+      "weight": 884,
+      "record_count": 100
+    },
+    {
+      "symbol": "MATICUSDT",
+      "timestamp": "2025-04-10T20:27:25.503370",
+      "weight": 820,
+      "record_count": 100
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "timestamp": "2025-04-10T20:27:25.503371",
+      "weight": 842,
+      "record_count": 100
+    },
+    {
+      "symbol": "FTMUSDT",
+      "timestamp": "2025-04-10T20:27:25.503372",
+      "weight": 838,
+      "record_count": 100
+    },
+    {
+      "symbol": "ALGOUSDT",
+      "timestamp": "2025-04-10T20:27:25.503373",
+      "weight": 890,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "timestamp": "2025-04-10T20:27:25.503374",
+      "weight": 894,
+      "record_count": 100
+    },
+    {
+      "symbol": "CHZUSDT",
+      "timestamp": "2025-04-10T20:27:25.503375",
+      "weight": 898,
+      "record_count": 100
+    },
+    {
+      "symbol": "XTZUSDT",
+      "timestamp": "2025-04-10T20:27:25.503376",
+      "weight": 836,
+      "record_count": 100
+    },
+    {
+      "symbol": "BCHUSDT",
+      "timestamp": "2025-04-10T20:27:25.503377",
+      "weight": 900,
+      "record_count": 100
+    },
+    {
+      "symbol": "KNCUSDT",
+      "timestamp": "2025-04-10T20:27:25.503379",
+      "weight": 846,
+      "record_count": 100
+    },
+    {
+      "symbol": "MANAUSDT",
+      "timestamp": "2025-04-10T20:27:25.503383",
+      "weight": 830,
+      "record_count": 100
+    },
+    {
+      "symbol": "SOLUSDT",
+      "timestamp": "2025-04-10T20:27:25.503384",
+      "weight": 822,
+      "record_count": 100
+    },
+    {
+      "symbol": "SANDUSDT",
+      "timestamp": "2025-04-10T20:27:25.503385",
+      "weight": 878,
+      "record_count": 100
+    },
+    {
+      "symbol": "CRVUSDT",
+      "timestamp": "2025-04-10T20:27:25.503386",
+      "weight": 826,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOTUSDT",
+      "timestamp": "2025-04-10T20:27:25.503387",
+      "weight": 896,
+      "record_count": 100
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "timestamp": "2025-04-10T20:27:25.503389",
+      "weight": 834,
+      "record_count": 100
+    },
+    {
+      "symbol": "EGLDUSDT",
+      "timestamp": "2025-04-10T20:27:25.503390",
+      "weight": 868,
+      "record_count": 100
+    },
+    {
+      "symbol": "RUNEUSDT",
+      "timestamp": "2025-04-10T20:27:25.503391",
+      "weight": 866,
+      "record_count": 100
+    },
+    {
+      "symbol": "UNIUSDT",
+      "timestamp": "2025-04-10T20:27:25.503392",
+      "weight": 888,
+      "record_count": 100
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "timestamp": "2025-04-10T20:27:25.503393",
+      "weight": 882,
+      "record_count": 100
+    },
+    {
+      "symbol": "NEARUSDT",
+      "timestamp": "2025-04-10T20:27:25.503394",
+      "weight": 872,
+      "record_count": 100
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "timestamp": "2025-04-10T20:27:25.503396",
+      "weight": 860,
+      "record_count": 100
+    },
+    {
+      "symbol": "FILUSDT",
+      "timestamp": "2025-04-10T20:27:25.503399",
+      "weight": 824,
+      "record_count": 100
+    },
+    {
+      "symbol": "AXSUSDT",
+      "timestamp": "2025-04-10T20:27:25.503401",
+      "weight": 886,
+      "record_count": 100
+    },
+    {
+      "symbol": "ROSEUSDT",
+      "timestamp": "2025-04-10T20:27:25.503402",
+      "weight": 858,
+      "record_count": 100
+    },
+    {
+      "symbol": "GALAUSDT",
+      "timestamp": "2025-04-10T20:27:25.503403",
+      "weight": 870,
+      "record_count": 100
+    },
+    {
+      "symbol": "ENSUSDT",
+      "timestamp": "2025-04-10T20:27:25.503404",
+      "weight": 818,
+      "record_count": 100
+    },
+    {
+      "symbol": "GMTUSDT",
+      "timestamp": "2025-04-10T20:27:25.503406",
+      "weight": 892,
+      "record_count": 100
+    },
+    {
+      "symbol": "APEUSDT",
+      "timestamp": "2025-04-10T20:27:25.503407",
+      "weight": 814,
+      "record_count": 100
+    },
+    {
+      "symbol": "OPUSDT",
+      "timestamp": "2025-04-10T20:27:25.503408",
+      "weight": 850,
+      "record_count": 100
+    },
+    {
+      "symbol": "APTUSDT",
+      "timestamp": "2025-04-10T20:27:25.503410",
+      "weight": 854,
+      "record_count": 100
+    },
+    {
+      "symbol": "SUIUSDT",
+      "timestamp": "2025-04-10T20:27:25.503416",
+      "weight": 874,
+      "record_count": 100
+    },
+    {
+      "symbol": "WLDUSDT",
+      "timestamp": "2025-04-10T20:27:25.503418",
+      "weight": 828,
+      "record_count": 100
+    },
+    {
+      "symbol": "WIFUSDT",
+      "timestamp": "2025-04-10T20:27:25.503419",
+      "weight": 840,
+      "record_count": 100
+    },
+    {
+      "symbol": "DOGSUSDT",
+      "timestamp": "2025-04-10T20:27:25.503421",
+      "weight": 844,
+      "record_count": 100
+    }
+  ],
+  "end_time": "2025-04-10T20:27:25.505285",
+  "total_requests": 450,
+  "successful_requests": 450,
+  "failed_requests": 0,
+  "initial_weight": 24,
+  "final_weight": 844,
+  "net_weight": 820,
+  "warnings": 0
+}

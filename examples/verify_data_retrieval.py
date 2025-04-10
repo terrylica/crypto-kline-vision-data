@@ -23,6 +23,8 @@ import pandas as pd
 from core.data_source_manager import DataSourceManager, DataSource
 from utils.market_constraints import MarketType, Interval, DataProvider
 from utils.logger_setup import logger
+from utils.validation import DataValidation
+from utils.time_utils import align_time_boundaries, estimate_record_count
 from utils.error_handling import (
     capture_warnings,
     with_timeout_handling,
@@ -36,6 +38,70 @@ from rich import print
 
 # Set up logging for the verification script
 logger.setup_root(level="WARNING", show_filename=True)
+
+
+def validate_and_align_time_boundaries(
+    symbol: str,
+    start_time: datetime,
+    end_time: datetime,
+    interval: Interval,
+    handle_future_dates: str = "truncate",
+):
+    """Validate and align time boundaries for market data retrieval.
+
+    This function:
+    1. Validates the time range and handles future dates according to specified strategy
+    2. Aligns the time boundaries to interval boundaries following Binance API rules
+    3. Estimates the expected number of records
+
+    Args:
+        symbol: Trading pair symbol
+        start_time: Original start time
+        end_time: Original end time
+        interval: Time interval
+        handle_future_dates: How to handle future dates ("error", "truncate", "allow")
+
+    Returns:
+        Tuple of (aligned_start_time, aligned_end_time, metadata)
+        where metadata includes expected record count and warnings
+    """
+    # First validate the query time boundaries
+    validated_start, validated_end, metadata = (
+        DataValidation.validate_query_time_boundaries(
+            start_time=start_time,
+            end_time=end_time,
+            handle_future_dates=handle_future_dates,
+            interval=interval,
+        )
+    )
+
+    # Then align the validated boundaries to interval boundaries
+    aligned_start, aligned_end = align_time_boundaries(
+        validated_start, validated_end, interval
+    )
+
+    # Estimate expected record count
+    expected_records = estimate_record_count(aligned_start, aligned_end, interval)
+
+    # Add alignment and record count info to metadata
+    metadata["aligned_start"] = aligned_start
+    metadata["aligned_end"] = aligned_end
+    metadata["expected_records"] = expected_records
+    metadata["original_symbol"] = symbol.upper()
+
+    logger.info(
+        f"Validated and aligned time boundaries for {symbol}:\n"
+        f"Original: {start_time.isoformat()} -> {end_time.isoformat()}\n"
+        f"Validated: {validated_start.isoformat()} -> {validated_end.isoformat()}\n"
+        f"Aligned: {aligned_start.isoformat()} -> {aligned_end.isoformat()}\n"
+        f"Expected records: {expected_records}"
+    )
+
+    # Log any warnings
+    for warning in metadata.get("warnings", []):
+        logger.warning(warning)
+
+    return aligned_start, aligned_end, metadata
 
 
 async def with_manager(func, *args, **kwargs):
@@ -62,18 +128,27 @@ async def get_data_with_timeout(
     manager, symbol, start_time, end_time, interval, timeout=30, source=DataSource.REST
 ):
     """Get data with timeout protection, handling errors consistently."""
+    # Validate and align time boundaries
+    aligned_start, aligned_end, metadata = validate_and_align_time_boundaries(
+        symbol=symbol, start_time=start_time, end_time=end_time, interval=interval
+    )
+
+    # Use the aligned time boundaries for the data request
     result, elapsed = await with_timeout_handling(
         manager.get_data,
         timeout,
         f"data retrieval for {symbol}",
         symbol=symbol,
-        start_time=start_time,
-        end_time=end_time,
+        start_time=aligned_start,
+        end_time=aligned_end,
         interval=interval,
         enforce_source=source,
-        # We don't need to pass provider explicitly in the get_data call
-        # as it's already set in the manager during initialization
     )
+
+    # Add metadata to the result for analysis
+    if result is not None and isinstance(result, pd.DataFrame) and not result.empty:
+        result.attrs["request_metadata"] = metadata
+
     return result, elapsed
 
 
@@ -82,14 +157,19 @@ async def fetch_data_for_verification(manager, symbol, start_time, end_time, int
     try:
         logger.info(f"Starting concurrent fetch for {symbol}")
 
+        # Validate and align time boundaries
+        aligned_start, aligned_end, metadata = validate_and_align_time_boundaries(
+            symbol=symbol, start_time=start_time, end_time=end_time, interval=interval
+        )
+
         # Use the task execution utility with proper cleanup
         df = await execute_with_task_cleanup(
             manager.get_data,
             timeout=30,
             operation_name=f"concurrent fetch for {symbol}",
             symbol=symbol,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=aligned_start,
+            end_time=aligned_end,
             interval=interval,
             enforce_source=DataSource.REST,
         )
@@ -101,7 +181,20 @@ async def fetch_data_for_verification(manager, symbol, start_time, end_time, int
             logger.debug(f"No data retrieved for {symbol} in concurrent operation")
             return (0, symbol, None)
 
-        logger.info(f"Successfully retrieved {len(df)} records for {symbol}")
+        # Add metadata to returned dataframe
+        df.attrs["request_metadata"] = metadata
+
+        # Analyze completeness
+        actual_records = len(df)
+        expected_records = metadata.get("expected_records", 0)
+        completeness = (
+            (actual_records / expected_records * 100) if expected_records > 0 else 0
+        )
+
+        logger.info(
+            f"Successfully retrieved {actual_records} records for {symbol} "
+            f"({completeness:.1f}% of expected {expected_records})"
+        )
         return (len(df), symbol, df)
 
     except Exception as e:
@@ -162,9 +255,28 @@ async def _verify_concurrent_data_retrieval(manager):
                     df_data = result[2]
                     if df_data is not None and isinstance(df_data, pd.DataFrame):
                         symbol = result[1]
+
+                        # Extract metadata for additional info
+                        metadata = df_data.attrs.get("request_metadata", {})
+                        expected_records = metadata.get("expected_records", 0)
+                        completeness = (
+                            (len(df_data) / expected_records * 100)
+                            if expected_records > 0
+                            else 0
+                        )
+
                         additional_info = {
-                            "Summary": f"{success_count}/{total_operations} successful operations, {error_count} errors"
+                            "Summary": f"{success_count}/{total_operations} successful operations, {error_count} errors",
+                            "Expected Records": f"{expected_records}",
+                            "Completeness": f"{completeness:.1f}%",
                         }
+
+                        # Add time boundary info
+                        if "aligned_start" in metadata and "aligned_end" in metadata:
+                            additional_info["Aligned Boundaries"] = (
+                                f"{metadata['aligned_start'].isoformat()} - {metadata['aligned_end'].isoformat()}"
+                            )
+
                         display_verification_results(
                             df=df_data,
                             symbol=symbol,
@@ -211,9 +323,25 @@ async def _verify_extended_historical_data(manager):
     symbol = "BTCUSDT"
     interval = Interval.SECOND_1  # Using 1-second interval
 
-    print(
-        f"Requesting data for {symbol} from {start_time.isoformat()} to {end_time.isoformat()} with {interval.value} interval"
+    # Validate and align time boundaries before printing request info
+    aligned_start, aligned_end, metadata = validate_and_align_time_boundaries(
+        symbol=symbol,
+        start_time=start_time,
+        end_time=end_time,
+        interval=interval,
+        handle_future_dates="allow",  # Allow future dates for this test
     )
+
+    # Print both original and aligned times
+    print(
+        f"Original request: {symbol} from {start_time.isoformat()} to {end_time.isoformat()} "
+        f"with {interval.value} interval"
+    )
+    print(
+        f"Aligned request: {symbol} from {aligned_start.isoformat()} to {aligned_end.isoformat()} "
+        f"with {interval.value} interval"
+    )
+    print(f"Expected records: {metadata.get('expected_records', 0)}")
 
     try:
         print("Starting data retrieval with timeout...")
@@ -229,6 +357,19 @@ async def _verify_extended_historical_data(manager):
             print(f"Warning: No historical data retrieved for {symbol}")
             return False
 
+        # Extract metadata for additional info
+        request_metadata = df.attrs.get("request_metadata", {})
+        expected_records = request_metadata.get("expected_records", 0)
+        completeness = (len(df) / expected_records * 100) if expected_records > 0 else 0
+
+        additional_info = {
+            "Expected Records": f"{expected_records}",
+            "Actual Records": f"{len(df)}",
+            "Completeness": f"{completeness:.1f}%",
+            "Aligned Start": f"{aligned_start.isoformat()}",
+            "Aligned End": f"{aligned_end.isoformat()}",
+        }
+
         # Use common display function
         display_verification_results(
             df=df,
@@ -239,6 +380,7 @@ async def _verify_extended_historical_data(manager):
             manager=manager,
             elapsed=elapsed,
             test_name="EXTENDED HISTORICAL DATA RETRIEVAL",
+            additional_info=additional_info,
         )
         return True
 
@@ -256,32 +398,55 @@ async def _verify_very_recent_hourly_data(manager):
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=24)
 
+    # Validate and align time boundaries, with special handling for very recent data
+    symbol = "BTCUSDT"
+    interval = Interval.HOUR_1
+
+    aligned_start, aligned_end, metadata = validate_and_align_time_boundaries(
+        symbol=symbol, start_time=start_time, end_time=end_time, interval=interval
+    )
+
     try:
         # Use warning capture context manager
         with capture_warnings() as warnings_detected:
             df, elapsed = await get_data_with_timeout(
-                manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1
+                manager, symbol, start_time, end_time, interval
             )
 
         if df is None or len(df) == 0:
             logger.warning("No recent hourly data retrieved")
             return False
 
-        # Calculate expected records and completeness
-        total_hours = (end_time - start_time).total_seconds() / 3600
-        completion_pct = (len(df) / int(total_hours)) * 100 if total_hours > 0 else 0
+        # Get metadata for analysis
+        request_metadata = df.attrs.get("request_metadata", {})
+        expected_records = request_metadata.get("expected_records", 0)
+
+        # Calculate completeness
+        actual_records = len(df)
+        completeness = (
+            (actual_records / expected_records * 100) if expected_records > 0 else 0
+        )
+        missing_records = (
+            expected_records - actual_records
+            if expected_records > actual_records
+            else 0
+        )
 
         # Use common display function with additional info
         additional_info = {
-            "Expected Records": f"~{int(total_hours)}",
-            "Completion": f"{completion_pct:.1f}%",
+            "Expected Records": f"{expected_records}",
+            "Actual Records": f"{actual_records}",
+            "Completeness": f"{completeness:.1f}%",
+            "Missing Records": f"{missing_records}",
             "Warnings": f"{len([w for w in warnings_detected if 'may not be fully consolidated' in w])}",
+            "Aligned Start": f"{aligned_start.isoformat()}",
+            "Aligned End": f"{aligned_end.isoformat()}",
         }
 
         display_verification_results(
             df=df,
-            symbol="BTCUSDT",
-            interval=Interval.HOUR_1,
+            symbol=symbol,
+            interval=interval,
             start_time=start_time,
             end_time=end_time,
             manager=manager,
@@ -308,27 +473,47 @@ async def _verify_partial_hour_data(manager):
     # End time is current time (current hour will not be fully consolidated)
     end_time = current_time
 
+    # Validate and align time boundaries
+    symbol = "BTCUSDT"
+    interval = Interval.HOUR_1
+
+    aligned_start, aligned_end, metadata = validate_and_align_time_boundaries(
+        symbol=symbol, start_time=start_time, end_time=end_time, interval=interval
+    )
+
     try:
         # Use warning capture context manager
         with capture_warnings() as warnings_detected:
             df, elapsed = await get_data_with_timeout(
-                manager, "BTCUSDT", start_time, end_time, Interval.HOUR_1, timeout=30
+                manager, symbol, start_time, end_time, interval, timeout=30
             )
 
         if df is None or len(df) == 0:
             logger.warning("No partial hour data retrieved at all")
             return False
 
-        # Calculate expected records and completeness
-        total_hours = (end_time - start_time).total_seconds() / 3600
-        actual_expected = int(total_hours) + 1  # Add one for partial current hour
-        completion_pct = (len(df) / actual_expected) * 100 if actual_expected > 0 else 0
-        missing_records = actual_expected - len(df)
+        # Get metadata for analysis
+        request_metadata = df.attrs.get("request_metadata", {})
+        expected_records = request_metadata.get("expected_records", 0)
+
+        # Calculate completeness
+        actual_records = len(df)
+        completeness = (
+            (actual_records / expected_records * 100) if expected_records > 0 else 0
+        )
+        missing_records = (
+            expected_records - actual_records
+            if expected_records > actual_records
+            else 0
+        )
 
         # Prepare additional info
         additional_info = {
-            "Expected": f"~{actual_expected}",
-            "Completion": f"{completion_pct:.1f}%",
+            "Expected Records": f"{expected_records}",
+            "Actual Records": f"{actual_records}",
+            "Completeness": f"{completeness:.1f}%",
+            "Aligned Start": f"{aligned_start.isoformat()}",
+            "Aligned End": f"{aligned_end.isoformat()}",
         }
 
         # Check if data is missing (likely the current incomplete hour)
@@ -351,8 +536,8 @@ async def _verify_partial_hour_data(manager):
         # Use common display function
         display_verification_results(
             df=df,
-            symbol="BTCUSDT",
-            interval=Interval.HOUR_1,
+            symbol=symbol,
+            interval=interval,
             start_time=start_time,
             end_time=end_time,
             manager=manager,
