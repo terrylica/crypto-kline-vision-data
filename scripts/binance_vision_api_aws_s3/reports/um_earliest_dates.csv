@@ -66,6 +66,7 @@ um,ARPAUSDT,1d,2021-10-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ARUSDT,1d,2021-09-28,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ASTRUSDT,1d,2023-02-14,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ATAUSDT,1d,2021-08-31,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,ATHUSDT,1d,2025-04-02,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ATOMUSDT,1d,2020-02-07,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AUCTIONBUSD,1d,2022-08-05,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AUCTIONUSDT,1d,2023-12-15,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
@@ -78,6 +79,7 @@ um,AVAXUSDT,1d,2020-09-23,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AXLUSDT,1d,2024-03-01,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,AXSUSDT,1d,2020-11-20,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,B3USDT,1d,2025-02-13,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,BABYUSDT,1d,2025-04-05,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BADGERUSDT,1d,2023-11-09,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BAKEUSDT,1d,2021-05-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BALUSDT,1d,2020-09-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -140,6 +142,7 @@ um,BTCUSDT_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,BTCUSDT_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTSUSDT,1d,2021-02-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BTTUSDT,1d,2021-04-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BZRXUSDT,1d,2020-09-05,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -231,6 +234,7 @@ um,ETHUSDT_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,ETHUSDT_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHWUSDT,1d,2023-11-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FARTCOINUSDT,1d,2024-12-20,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FETUSDT,1d,2023-01-17,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -244,11 +248,13 @@ um,FLOWUSDT,1d,2022-02-10,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FLUXUSDT,1d,2024-09-03,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FOOTBALLUSDT,1d,2022-09-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FORMUSDT,1d,2025-03-19,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,FORTHUSDT,1d,2025-04-08,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FRONTUSDT,1d,2023-09-22,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FTMBUSD,1d,2022-05-24,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTMUSDT,1d,2020-09-24,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTTBUSD,1d,2021-09-08,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTTUSDT,1d,2022-04-15,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,FUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FXSUSDT,1d,2023-01-20,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GALABUSD,1d,2022-05-26,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GALAUSDT,1d,2021-09-18,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -267,6 +273,7 @@ um,GRASSUSDT,1d,2024-11-08,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GRIFFAINUSDT,1d,2025-01-02,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GRTUSDT,1d,2020-12-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GTCUSDT,1d,2021-06-11,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,GUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GUSDT,1d,2024-08-15,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,HBARUSDC,1d,2025-03-07,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,HBARUSDT,1d,2021-03-17,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -360,6 +367,7 @@ um,MEWUSDT,1d,2024-06-17,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MINAUSDT,1d,2023-02-06,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,MINAUSDTSETTLED,1d,2023-02-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,MKRUSDT,1d,2020-08-13,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,MLNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MOCAUSDT,1d,2024-12-16,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MOODENGUSDT,1d,2024-10-25,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MORPHOUSDT,1d,2024-11-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h

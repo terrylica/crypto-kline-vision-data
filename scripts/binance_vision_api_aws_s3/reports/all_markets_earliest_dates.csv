@@ -214,6 +214,7 @@ spot,API3BNB,1d,2022-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3BTC,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3BUSD,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3TRY,1d,2022-03-04,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,API3USDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3USDT,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,APPCBNB,1d,2018-01-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,APPCBTC,1d,2018-01-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -305,6 +306,8 @@ spot,ATOMUSDT,1d,2019-04-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONBTC,1d,2021-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONBUSD,1d,2021-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONFDUSD,1d,2023-12-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,AUCTIONTRY,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,AUCTIONUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONUSDT,1d,2021-10-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUDBUSD,1d,2020-07-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUDIOBTC,1d,2020-10-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -365,6 +368,7 @@ spot,BANANAFDUSD,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAS31USDC,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAS31USDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANATRY,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,BANANAUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAUSDT,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANDBNB,1d,2019-09-18,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANDBTC,1d,2019-09-18,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -1286,6 +1290,11 @@ spot,GTOTUSD,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTOUSDC,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTOUSDT,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTRY,1d,2024-07-19,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNBNB,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNFDUSD,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNTRY,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GUSDT,1d,2024-07-19,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GVTBTC,1d,2017-11-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GVTETH,1d,2017-11-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2142,6 +2151,7 @@ spot,QLCETH,1d,2018-03-26,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBNB,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBTC,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBUSD,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,QNTUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTUSDT,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QSPBNB,1d,2017-11-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QSPBTC,1d,2017-11-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2565,6 +2575,7 @@ spot,THETAETH,1d,2018-05-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAEUR,1d,2021-04-02,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAFDUSD,1d,2024-03-07,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETATRY,1d,2024-03-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,THETAUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAUSDT,1d,2019-04-10,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETRY,1d,2024-11-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THEUSDC,1d,2025-03-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2782,6 +2793,7 @@ spot,VETETH,1d,2018-07-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETEUR,1d,2021-04-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETGBP,1d,2021-04-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETTRY,1d,2021-04-30,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,VETUSDC,1d,2025-04-08,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETUSDT,1d,2018-07-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VGXBTC,1d,2021-08-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VGXETH,1d,2021-08-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -3016,6 +3028,7 @@ spot,ZENBNB,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENBTC,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENBUSD,1d,2021-06-06,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENETH,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,ZENUSDC,1d,2025-04-08,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENUSDT,1d,2020-07-06,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZILBIDR,1d,2020-12-02,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZILBNB,1d,2018-03-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -3107,6 +3120,7 @@ um,ARPAUSDT,1d,2021-10-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ARUSDT,1d,2021-09-28,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ASTRUSDT,1d,2023-02-14,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,ATAUSDT,1d,2021-08-31,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,ATHUSDT,1d,2025-04-02,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ATOMUSDT,1d,2020-02-07,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AUCTIONBUSD,1d,2022-08-05,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AUCTIONUSDT,1d,2023-12-15,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
@@ -3119,6 +3133,7 @@ um,AVAXUSDT,1d,2020-09-23,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,AXLUSDT,1d,2024-03-01,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,AXSUSDT,1d,2020-11-20,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,B3USDT,1d,2025-02-13,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,BABYUSDT,1d,2025-04-05,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BADGERUSDT,1d,2023-11-09,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BAKEUSDT,1d,2021-05-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BALUSDT,1d,2020-09-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3181,6 +3196,7 @@ um,BTCUSDT_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTCUSDT_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,BTCUSDT_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,BTSUSDT,1d,2021-02-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BTTUSDT,1d,2021-04-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,BZRXUSDT,1d,2020-09-05,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3272,6 +3288,7 @@ um,ETHUSDT_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHUSDT_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,ETHUSDT_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,ETHWUSDT,1d,2023-11-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FARTCOINUSDT,1d,2024-12-20,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FETUSDT,1d,2023-01-17,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3285,11 +3302,13 @@ um,FLOWUSDT,1d,2022-02-10,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FLUXUSDT,1d,2024-09-03,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FOOTBALLUSDT,1d,2022-09-01,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FORMUSDT,1d,2025-03-19,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+um,FORTHUSDT,1d,2025-04-08,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FRONTUSDT,1d,2023-09-22,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FTMBUSD,1d,2022-05-24,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTMUSDT,1d,2020-09-24,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTTBUSD,1d,2021-09-08,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,FTTUSDT,1d,2022-04-15,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,FUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,FXSUSDT,1d,2023-01-20,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GALABUSD,1d,2022-05-26,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GALAUSDT,1d,2021-09-18,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3308,6 +3327,7 @@ um,GRASSUSDT,1d,2024-11-08,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GRIFFAINUSDT,1d,2025-01-02,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GRTUSDT,1d,2020-12-19,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,GTCUSDT,1d,2021-06-11,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,GUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,GUSDT,1d,2024-08-15,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,HBARUSDC,1d,2025-03-07,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,HBARUSDT,1d,2021-03-17,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3401,6 +3421,7 @@ um,MEWUSDT,1d,2024-06-17,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MINAUSDT,1d,2023-02-06,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,MINAUSDTSETTLED,1d,2023-02-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 um,MKRUSDT,1d,2020-08-13,,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
+um,MLNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MOCAUSDT,1d,2024-12-16,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MOODENGUSDT,1d,2024-10-25,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 um,MORPHOUSDT,1d,2024-11-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
@@ -3624,6 +3645,7 @@ cm,ADAUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,ADAUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_PERP,1d,2020-08-26,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ALGOUSD_PERP,1d,2022-03-15,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,APEUSD_PERP,1d,2022-03-28,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3650,6 +3672,7 @@ cm,BCHUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BCHUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BNBUSD_201225,1d,2020-11-04,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BNBUSD_210326,1d,2020-11-04,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3670,6 +3693,7 @@ cm,BNBUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BNBUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_PERP,1d,2020-08-21,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BTCUSD_200925,1d,2020-06-30,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BTCUSD_201225,1d,2020-07-01,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3691,6 +3715,7 @@ cm,BTCUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BTCUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_PERP,1d,2020-08-11,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,CHZUSD_PERP,1d,2022-08-18,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,CRVUSD_PERP,1d,2022-01-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3715,6 +3740,7 @@ cm,DOTUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,DOTUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_PERP,1d,2020-08-25,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,EGLDUSD_PERP,1d,2020-12-21,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ENSUSD_PERP,1d,2022-08-02,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3744,6 +3770,7 @@ cm,ETHUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,ETHUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_PERP,1d,2020-08-18,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,FILUSD_201225,1d,2020-12-09,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,FILUSD_210326,1d,2020-12-09,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3773,6 +3800,7 @@ cm,LINKUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,LINKUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_PERP,1d,2020-08-19,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LTCUSD_201225,1d,2020-12-01,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LTCUSD_210326,1d,2020-12-01,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3793,6 +3821,7 @@ cm,LTCUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,LTCUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LUNAUSD_PERP,1d,2021-09-03,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,MANAUSD_PERP,1d,2021-11-17,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3806,6 +3835,7 @@ cm,SOLUSD_240927,1d,2024-08-14,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_241227,1d,2024-08-14,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,SOLUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_PERP,1d,2021-09-02,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,SUIUSD_PERP,1d,2024-09-18,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,THETAUSD_PERP,1d,2021-04-14,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -3837,6 +3867,7 @@ cm,XRPUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,XRPUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,XTZUSD_PERP,1d,2022-02-14,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ZILUSD_PERP,1d,2022-04-07,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h

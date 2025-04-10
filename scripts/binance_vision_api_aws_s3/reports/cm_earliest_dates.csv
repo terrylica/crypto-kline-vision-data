@@ -20,6 +20,7 @@ cm,ADAUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,ADAUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ADAUSD_PERP,1d,2020-08-26,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ALGOUSD_PERP,1d,2022-03-15,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,APEUSD_PERP,1d,2022-03-28,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -46,6 +47,7 @@ cm,BCHUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BCHUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BCHUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BNBUSD_201225,1d,2020-11-04,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BNBUSD_210326,1d,2020-11-04,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -66,6 +68,7 @@ cm,BNBUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BNBUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BNBUSD_PERP,1d,2020-08-21,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BTCUSD_200925,1d,2020-06-30,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,BTCUSD_201225,1d,2020-07-01,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -87,6 +90,7 @@ cm,BTCUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,BTCUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,BTCUSD_PERP,1d,2020-08-11,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,CHZUSD_PERP,1d,2022-08-18,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,CRVUSD_PERP,1d,2022-01-06,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -111,6 +115,7 @@ cm,DOTUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,DOTUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,DOTUSD_PERP,1d,2020-08-25,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,EGLDUSD_PERP,1d,2020-12-21,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ENSUSD_PERP,1d,2022-08-02,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -140,6 +145,7 @@ cm,ETHUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,ETHUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,ETHUSD_PERP,1d,2020-08-18,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,FILUSD_201225,1d,2020-12-09,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,FILUSD_210326,1d,2020-12-09,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -169,6 +175,7 @@ cm,LINKUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,LINKUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LINKUSD_PERP,1d,2020-08-19,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LTCUSD_201225,1d,2020-12-01,12h,15m,1d,1h,1m,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LTCUSD_210326,1d,2020-12-01,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -189,6 +196,7 @@ cm,LTCUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,LTCUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,LTCUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,LUNAUSD_PERP,1d,2021-09-03,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,MANAUSD_PERP,1d,2021-11-17,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -202,6 +210,7 @@ cm,SOLUSD_240927,1d,2024-08-14,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_241227,1d,2024-08-14,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,SOLUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,SOLUSD_PERP,1d,2021-09-02,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,SUIUSD_PERP,1d,2024-09-18,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,THETAUSD_PERP,1d,2021-04-14,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
@@ -233,6 +242,7 @@ cm,XRPUSD_240927,1d,2024-03-29,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_241227,1d,2024-06-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_250328,1d,2024-09-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_250627,1d,2024-12-27,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
+cm,XRPUSD_250926,1d,2025-03-28,12h,15m,1d,1h,1m,2h,30m,3m,4h,5m,6h,8h
 cm,XRPUSD_PERP,1d,2020-09-23,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,XTZUSD_PERP,1d,2022-02-14,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h
 cm,ZILUSD_PERP,1d,2022-04-07,12h,15m,1d,1h,1m,1mo,1w,2h,30m,3d,3m,4h,5m,6h,8h

@@ -214,6 +214,7 @@ spot,API3BNB,1d,2022-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3BTC,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3BUSD,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3TRY,1d,2022-03-04,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,API3USDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,API3USDT,1d,2022-01-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,APPCBNB,1d,2018-01-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,APPCBTC,1d,2018-01-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -305,6 +306,8 @@ spot,ATOMUSDT,1d,2019-04-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONBTC,1d,2021-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONBUSD,1d,2021-02-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONFDUSD,1d,2023-12-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,AUCTIONTRY,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,AUCTIONUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUCTIONUSDT,1d,2021-10-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUDBUSD,1d,2020-07-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,AUDIOBTC,1d,2020-10-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -365,6 +368,7 @@ spot,BANANAFDUSD,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAS31USDC,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAS31USDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANATRY,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,BANANAUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANANAUSDT,1d,2024-07-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANDBNB,1d,2019-09-18,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,BANDBTC,1d,2019-09-18,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -1286,6 +1290,11 @@ spot,GTOTUSD,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTOUSDC,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTOUSDT,1d,2019-07-01,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GTRY,1d,2024-07-19,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNBNB,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNFDUSD,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNTRY,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,GUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GUSDT,1d,2024-07-19,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GVTBTC,1d,2017-11-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,GVTETH,1d,2017-11-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2142,6 +2151,7 @@ spot,QLCETH,1d,2018-03-26,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBNB,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBTC,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTBUSD,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,QNTUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QNTUSDT,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QSPBNB,1d,2017-11-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,QSPBTC,1d,2017-11-21,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2565,6 +2575,7 @@ spot,THETAETH,1d,2018-05-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAEUR,1d,2021-04-02,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAFDUSD,1d,2024-03-07,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETATRY,1d,2024-03-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,THETAUSDC,1d,2025-04-03,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETAUSDT,1d,2019-04-10,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THETRY,1d,2024-11-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,THEUSDC,1d,2025-03-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -2782,6 +2793,7 @@ spot,VETETH,1d,2018-07-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETEUR,1d,2021-04-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETGBP,1d,2021-04-16,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETTRY,1d,2021-04-30,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,VETUSDC,1d,2025-04-08,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VETUSDT,1d,2018-07-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VGXBTC,1d,2021-08-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,VGXETH,1d,2021-08-20,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
@@ -3016,6 +3028,7 @@ spot,ZENBNB,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENBTC,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENBUSD,1d,2021-06-06,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENETH,1d,2018-05-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
+spot,ZENUSDC,1d,2025-04-08,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZENUSDT,1d,2020-07-06,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZILBIDR,1d,2020-12-02,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h
 spot,ZILBNB,1d,2018-03-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h

@@ -48,6 +48,7 @@ spot,MTLUSDT,1d,2019-08-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,MTL
 spot,TOMOUSDT,1d,2019-08-24,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,TOMO
 spot,CVCUSDT,1d,2019-08-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,CVC
 spot,DENTUSDT,1d,2019-08-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,DENT
+spot,FUNUSDT,1d,2019-08-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,FUN
 spot,KEYUSDT,1d,2019-08-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,KEY
 spot,CHZUSDT,1d,2019-09-06,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,CHZ
 spot,BANDUSDT,1d,2019-09-18,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,BAND
@@ -158,6 +159,7 @@ spot,PERPUSDT,1d,2021-03-19,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,PERP
 spot,SUPERUSDT,1d,2021-03-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,SUPER
 spot,CFXUSDT,1d,2021-03-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,CFX
 spot,TLMUSDT,1d,2021-04-13,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,TLM
+spot,FORTHUSDT,1d,2021-04-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,FORTH
 spot,BAKEUSDT,1d,2021-04-30,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,BAKE
 spot,SLPUSDT,1d,2021-04-30,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,SLP
 spot,ICPUSDT,1d,2021-05-11,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,ICP
@@ -172,6 +174,7 @@ spot,KEEPUSDT,1d,2021-06-17,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,KEEP
 spot,KLAYUSDT,1d,2021-06-24,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,KLAY
 spot,PHAUSDT,1d,2021-06-25,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,PHA
 spot,BONDUSDT,1d,2021-07-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,BOND
+spot,MLNUSDT,1d,2021-07-05,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,MLN
 spot,C98USDT,1d,2021-07-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,C98
 spot,DEXEUSDT,1d,2021-07-23,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,DEXE
 spot,QNTUSDT,1d,2021-07-29,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,QNT
@@ -368,3 +371,4 @@ spot,BANANAS31USDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,BANAN
 spot,BROCCOLI714USDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,BROCCOLI714
 spot,MUBARAKUSDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,MUBARAK
 spot,TUTUSDT,1d,2025-03-27,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,TUT
+spot,GUNUSDT,1d,2025-03-31,12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h,GUN
