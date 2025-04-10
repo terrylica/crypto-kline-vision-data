@@ -1,6 +1,126 @@
 #!/bin/bash
 
 ###########################################
+# Dependency Checking and Installation
+###########################################
+
+# Function to check if a command is available
+check_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Function to install package using the appropriate package manager
+install_package() {
+    local package="$1"
+    local success=false
+
+    echo "Attempting to install $package..."
+
+    # Try apt-get (Debian/Ubuntu)
+    if check_command apt-get; then
+        echo "Installing $package using apt-get..."
+        sudo apt-get update -qq && sudo apt-get install -y "$package" && success=true
+    # Try yum (CentOS/RHEL)
+    elif check_command yum; then
+        echo "Installing $package using yum..."
+        sudo yum install -y "$package" && success=true
+    # Try dnf (Fedora)
+    elif check_command dnf; then
+        echo "Installing $package using dnf..."
+        sudo dnf install -y "$package" && success=true
+    # Try brew (macOS)
+    elif check_command brew; then
+        echo "Installing $package using brew..."
+        brew install "$package" && success=true
+    # Try apk (Alpine)
+    elif check_command apk; then
+        echo "Installing $package using apk..."
+        apk add --no-cache "$package" && success=true
+    fi
+
+    # Return success/failure
+    $success
+}
+
+# Check and install required dependencies
+check_dependencies() {
+    local missing_deps=()
+    local auto_install=${1:-false}
+    
+    # Essential dependencies
+    echo "Checking for required dependencies..."
+    
+    # Check for curl (required)
+    if ! check_command curl; then
+        echo "⚠️ Missing required dependency: curl"
+        missing_deps+=("curl")
+    fi
+    
+    # Check for aria2c (preferred but can fallback to curl)
+    if ! check_command aria2c; then
+        echo "⚠️ Missing preferred dependency: aria2c (will fallback to curl if not installed)"
+        missing_deps+=("aria2")
+    fi
+    
+    # Check for other utilities
+    if ! check_command unzip; then
+        echo "⚠️ Missing required dependency: unzip"
+        missing_deps+=("unzip")
+    fi
+    
+    if ! check_command sha256sum; then
+        if ! check_command shasum; then
+            echo "⚠️ Missing required dependency: sha256sum/shasum"
+            missing_deps+=("coreutils") # Provides sha256sum on many systems
+        fi
+    fi
+    
+    # If missing dependencies and auto-install is enabled, try to install them
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        if [ "$auto_install" = true ]; then
+            echo "Attempting to install missing dependencies..."
+            
+            for dep in "${missing_deps[@]}"; do
+                install_package "$dep" || echo "Failed to install $dep automatically. Please install it manually."
+            done
+            
+            # Re-check after installation
+            check_dependencies false
+        else
+            echo "❌ Missing dependencies detected."
+            echo "You can run the script with AUTO_INSTALL_DEPS=true to attempt automatic installation."
+            echo "Alternatively, install the following packages manually:"
+            for dep in "${missing_deps[@]}"; do
+                echo "  - $dep"
+            done
+            
+            # Ask user if they want to continue despite missing dependencies
+            read -p "Do you want to continue anyway? (y/N): " continue_anyway
+            if [[ ! "$continue_anyway" =~ ^[Yy]$ ]]; then
+                echo "Aborting script execution due to missing dependencies."
+                exit 1
+            fi
+            echo "Continuing with limited functionality..."
+        fi
+    else
+        echo "✅ All required dependencies are installed."
+    fi
+}
+
+# Replace sha256sum with a cross-platform function
+get_sha256() {
+    local file="$1"
+    if check_command sha256sum; then
+        sha256sum "$file" | cut -d' ' -f1
+    elif check_command shasum; then
+        shasum -a 256 "$file" | cut -d' ' -f1
+    else
+        echo "ERROR: No SHA256 utility available" >&2
+        return 1
+    fi
+}
+
+###########################################
 # User Configuration - Edit values below
 ###########################################
 
@@ -17,10 +137,10 @@ MARKET_TYPE="spot"
 # - For SPOT and UM: typically like "BTCUSDT", "ETHUSDT", etc.
 # - For CM: typically like "BTCUSD_PERP", "ETHUSD_PERP" or "BCHUSD_PERP", etc.
 # For multiple symbols, use space-separated list: "BTCUSDT ETHUSDT XRPUSDT"
-SYMBOLS="BTCUSDT ETHUSDT BNBUSDT LTCUSDT ADAUSDT XRPUSDT EOSUSDT XLMUSDT TRXUSDT ETCUSDT ICXUSDT VETUSDT LINKUSDT ZILUSDT XMRUSDT THETAUSDT MATICUSDT ATOMUSDT FTMUSDT ALGOUSDT DOGEUSDT CHZUSDT XTZUSDT BCHUSDT KNCUSDT MANAUSDT SOLUSDT SANDUSDT CRVUSDT DOTUSDT LUNAUSDT EGLDUSDT RUNEUSDT UNIUSDT AVAXUSDT NEARUSDT AAVEUSDT FILUSDT AXSUSDT ROSEUSDT GALAUSDT ENSUSDT GMTUSDT APEUSDT OPUSDT APTUSDT SUIUSDT WLDUSDT WIFUSDT DOGSUSDT"
+# SYMBOLS="BTCUSDT ETHUSDT BNBUSDT LTCUSDT ADAUSDT XRPUSDT EOSUSDT XLMUSDT TRXUSDT ETCUSDT ICXUSDT VETUSDT LINKUSDT ZILUSDT XMRUSDT THETAUSDT MATICUSDT ATOMUSDT FTMUSDT ALGOUSDT DOGEUSDT CHZUSDT XTZUSDT BCHUSDT KNCUSDT MANAUSDT SOLUSDT SANDUSDT CRVUSDT DOTUSDT LUNAUSDT EGLDUSDT RUNEUSDT UNIUSDT AVAXUSDT NEARUSDT AAVEUSDT FILUSDT AXSUSDT ROSEUSDT GALAUSDT ENSUSDT GMTUSDT APEUSDT OPUSDT APTUSDT SUIUSDT WLDUSDT WIFUSDT DOGSUSDT"
 # SYMBOLS="XMRUSDT THETAUSDT MATICUSDT ATOMUSDT FTMUSDT ALGOUSDT DOGEUSDT CHZUSDT XTZUSDT BCHUSDT KNCUSDT MANAUSDT SOLUSDT SANDUSDT CRVUSDT DOTUSDT LUNAUSDT EGLDUSDT RUNEUSDT UNIUSDT AVAXUSDT NEARUSDT AAVEUSDT FILUSDT AXSUSDT ROSEUSDT GALAUSDT ENSUSDT GMTUSDT APEUSDT OPUSDT APTUSDT SUIUSDT WLDUSDT WIFUSDT DOGSUSDT"
 # SYMBOLS="LUNAUSDT EGLDUSDT RUNEUSDT UNIUSDT AVAXUSDT NEARUSDT AAVEUSDT FILUSDT AXSUSDT ROSEUSDT GALAUSDT ENSUSDT GMTUSDT APEUSDT OPUSDT APTUSDT SUIUSDT WLDUSDT WIFUSDT DOGSUSDT"
-# SYMBOLS="LUNAUSDT"
+SYMBOLS="LUNAUSDT"
 
 # Time intervals to process (space-separated list)
 # Available intervals:
@@ -37,16 +157,18 @@ TEST_MODE=false
 # Date range to process
 if [ "$TEST_MODE" = true ]; then
     # Test mode - just process 3 days of data to be faster
-    START_DATE=$(date -d "3 days ago" +"%Y-%m-%d" 2>/dev/null || date -j -v-3d +"%Y-%m-%d" 2>/dev/null)
-    END_DATE=$(date -d "5 days ago" +"%Y-%m-%d" 2>/dev/null || date -j -v-5d +"%Y-%m-%d" 2>/dev/null)
-    START_DATE_AUTO=true     # Auto-detect latest available date
-    END_DATE_AUTO=false      # Use fixed end date for faster testing
+    LATEST_DATE=$(date -d "3 days ago" +"%Y-%m-%d" 2>/dev/null || date -j -v-3d +"%Y-%m-%d" 2>/dev/null)
+    EARLIEST_DATE=$(date -d "5 days ago" +"%Y-%m-%d" 2>/dev/null || date -j -v-5d +"%Y-%m-%d" 2>/dev/null)
+    LATEST_DATE_AUTO=true     # Auto-detect latest available date
+    EARLIEST_DATE_AUTO=false  # Use fixed earliest date for faster testing
 else
     # Full mode - process all available data
-    START_DATE="2025-03-27"  # Start date (YYYY-MM-DD) - Not used when START_DATE_AUTO=true
-    END_DATE="2025-03-20"    # End date (YYYY-MM-DD) - Not used when END_DATE_AUTO=true
-    START_DATE_AUTO=true     # Set to true to automatically find the latest available date
-    END_DATE_AUTO=true       # Set to true to automatically find the earliest available date
+    # Note: In this script, data is processed from newest to oldest (LATEST_DATE → EARLIEST_DATE)
+    # LATEST_DATE is usually more recent than EARLIEST_DATE.
+    LATEST_DATE="2025-03-27"  # Latest date to process from (YYYY-MM-DD) - Not used when LATEST_DATE_AUTO=true
+    EARLIEST_DATE="2025-03-20"  # Earliest date to process until (YYYY-MM-DD) - Not used when EARLIEST_DATE_AUTO=true
+    LATEST_DATE_AUTO=true     # Set to true to automatically find the latest available date
+    EARLIEST_DATE_AUTO=true   # Set to true to automatically find the earliest available date
 fi
 
 #--------------------------------------
@@ -70,6 +192,11 @@ SAVE_FAILURES=true      # Whether to save failed downloads separately
 SHOW_PROGRESS=true      # Whether to show progress dots
 SHOW_DATES=false        # Whether to show the list of dates being processed
 
+#--------------------------------------
+# DEPENDENCY CONFIGURATION
+#--------------------------------------
+AUTO_INSTALL_DEPS=false  # Set to true to attempt automatic installation of missing dependencies
+
 ###########################################
 # Script Configuration - Do not edit below
 ###########################################
@@ -83,6 +210,9 @@ TERMINATED_SYMBOLS_LOG="${LOG_DIR}/terminated_symbols.log"
 
 # Create log directory if it doesn't exist
 mkdir -p "${LOG_DIR}"
+
+# Check for dependencies before proceeding
+check_dependencies $AUTO_INSTALL_DEPS
 
 # Validate intervals and set expected lines per interval
 VALID_INTERVALS=("1s" "1m" "3m" "5m" "15m" "30m" "1h" "2h" "4h" "6h" "8h" "12h" "1d")
@@ -192,7 +322,7 @@ validate_intervals() {
     echo "${validated_intervals[@]}"
 }
 
-# Auto-detect the latest date for START_DATE if START_DATE_AUTO is true
+# Auto-detect the latest date for LATEST_DATE if LATEST_DATE_AUTO is true
 auto_detect_latest_date() {
     local market_type=$1
     local symbol=$2
@@ -247,7 +377,7 @@ auto_detect_latest_date() {
     return 2
 }
 
-# Auto-detect the earliest date if END_DATE_AUTO is true
+# Auto-detect the earliest date if EARLIEST_DATE_AUTO is true
 find_earliest_date() {
     local market_type=$1
     local symbol=$2
@@ -279,10 +409,24 @@ find_earliest_date() {
 get_file_names() {
     local symbol=$1
     local interval=$2
-    local start_date=$3
-    local end_date=$4
+    local latest_date=$3
+    local earliest_date=$4
     local timestamp=$(date +%Y%m%d_%H%M%S)
-    local base_name="${MARKET_TYPE}_${symbol}_${interval}_${start_date}_to_${end_date}"
+    
+    # Ensure chronological ordering (earliest_to_latest) for filename clarity
+    local filename_earliest_date=""
+    local filename_latest_date=""
+    
+    # Compare dates to determine which is earlier (for filename only)
+    if [ "$(date -d "$latest_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$latest_date" +%s 2>/dev/null)" -le "$(date -d "$earliest_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$earliest_date" +%s 2>/dev/null)" ]; then
+        filename_earliest_date="$latest_date"
+        filename_latest_date="$earliest_date"
+    else
+        filename_earliest_date="$earliest_date"
+        filename_latest_date="$latest_date"
+    fi
+    
+    local base_name="${MARKET_TYPE}_${symbol}_${interval}_${filename_earliest_date}_to_${filename_latest_date}"
     local retry_info=""
     
     # If this is a retry run, add information about which file we're retrying from
@@ -314,7 +458,7 @@ get_http_headers() {
     echo "$last_modified,$etag,$server,$content_type,$content_length,$x_cache,$x_amz_cf_id"
 }
 
-# Function to download file with aria2 and exponential backoff
+# Function to download file with aria2 or curl as fallback
 download_file() {
     local url=$1
     local output_file=$2
@@ -340,12 +484,18 @@ download_file() {
     local wait_time=1  # Initial wait time in seconds
     
     while [ $retry -lt $max_retries ]; do
-        # Attempt to download the file
-        aria2c --quiet --max-connection-per-server="${connections}" \
-               --connect-timeout="${timeout}" --timeout="${timeout}" \
-               --allow-overwrite=true \
-               --auto-file-renaming=false \
-               --out="${output_file}" "${url}"
+        # Attempt to download the file using aria2c if available, otherwise fallback to curl
+        if check_command aria2c; then
+            aria2c --quiet --max-connection-per-server="${connections}" \
+                   --connect-timeout="${timeout}" --timeout="${timeout}" \
+                   --allow-overwrite=true \
+                   --auto-file-renaming=false \
+                   --out="${output_file}" "${url}"
+        else
+            # Fallback to curl if aria2c is not available
+            curl -s -L --connect-timeout "${timeout}" --max-time "${timeout}" \
+                 -o "${output_file}" "${url}"
+        fi
         
         local result=$?
         
@@ -546,7 +696,7 @@ analyze_file() {
     fi
     
     # Calculate actual checksum
-    local actual_checksum=$(sha256sum "${filename}" | cut -d' ' -f1)
+    local actual_checksum=$(get_sha256 "${filename}")
     
     # Read expected checksum
     local expected_checksum=""
@@ -610,14 +760,29 @@ analyze_file() {
     fi
 }
 
-# Function to get all dates between start and end
+# Function to get all dates between latest and earliest
 get_date_range() {
-    local start_date=$1
-    local end_date=$2
-    local current_date=$start_date
+    local latest_date=$1
+    local earliest_date=$2
+    local current_date=""
+    local target_date=""
     
-    # Process dates from start_date down to end_date
-    while [ "$(date -d "$current_date" +%s)" -ge "$(date -d "$end_date" +%s)" ]; do
+    # Determine which date is later to ensure we always process from newest to oldest
+    # (regardless of the order the dates are passed in)
+    if [ "$(date -d "$latest_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$latest_date" +%s 2>/dev/null)" -ge "$(date -d "$earliest_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$earliest_date" +%s 2>/dev/null)" ]; then
+        # latest_date is actually later than or equal to earliest_date (normal case)
+        current_date="$latest_date"
+        target_date="$earliest_date"
+    else
+        # earliest_date is actually later than latest_date (reverse case)
+        echo "Note: The dates provided seem to be in reverse order (latest_date is earlier than earliest_date)." >&2
+        echo "Processing from ${earliest_date} back to ${latest_date} to ensure consistent behavior." >&2
+        current_date="$earliest_date"
+        target_date="$latest_date"
+    fi
+    
+    # Process dates from later date down to earlier date
+    while [ "$(date -d "$current_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$current_date" +%s 2>/dev/null)" -ge "$(date -d "$target_date" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$target_date" +%s 2>/dev/null)" ]; do
         echo "$current_date"
         current_date=$(adjust_date "$current_date" "-1")
     done
@@ -658,8 +823,8 @@ log_terminated_symbol() {
 # Function to process dates for a specific interval
 process_interval() {
     local interval=$1
-    local start_date=$2
-    local end_date=$3
+    local latest_date=$2
+    local earliest_date=$3
     local symbol=$4
     
     # Get expected line count for this interval
@@ -667,11 +832,11 @@ process_interval() {
     echo "Processing ${symbol} - ${interval} data (${expected_line_count} expected lines per file)"
     
     # If auto-detect is enabled for this interval, detect latest date
-    if [ "${START_DATE_AUTO}" = true ]; then
-        local auto_start=$(auto_detect_latest_date "${MARKET_TYPE}" "${symbol}" "${interval}" "${start_date}" | tail -n 1)
+    if [ "${LATEST_DATE_AUTO}" = true ]; then
+        local auto_latest=$(auto_detect_latest_date "${MARKET_TYPE}" "${symbol}" "${interval}" "${latest_date}" | tail -n 1)
         
         # Check if symbol is terminated
-        if [ "${auto_start}" = "TERMINATED" ]; then
+        if [ "${auto_latest}" = "TERMINATED" ]; then
             # Log the terminated symbol
             log_terminated_symbol "${MARKET_TYPE}" "${symbol}" "${interval}"
             
@@ -679,23 +844,23 @@ process_interval() {
             echo "Skipping further processing for ${symbol} - ${interval} (TERMINATED)"
             echo "----------------------------------------"
             return 0
-        elif [ -n "${auto_start}" ]; then
-            start_date="${auto_start}"
+        elif [ -n "${auto_latest}" ]; then
+            latest_date="${auto_latest}"
         fi
     fi
     
     # If auto-detect for earliest date is enabled, detect earliest date
-    if [ "${END_DATE_AUTO}" = true ]; then
-        local auto_end=$(find_earliest_date "${MARKET_TYPE}" "${symbol}" "${interval}")
-        if [ -n "${auto_end}" ]; then
-            end_date="${auto_end}"
+    if [ "${EARLIEST_DATE_AUTO}" = true ]; then
+        local auto_earliest=$(find_earliest_date "${MARKET_TYPE}" "${symbol}" "${interval}")
+        if [ -n "${auto_earliest}" ]; then
+            earliest_date="${auto_earliest}"
         fi
     fi
     
-    echo "Date range for ${symbol} - ${interval}: ${start_date} to ${end_date}"
+    echo "Date range for ${symbol} - ${interval}: ${latest_date} (latest) to ${earliest_date} (earliest)"
     
     # Create main CSV file for this interval
-    local main_csv=$(get_file_names "${symbol}" "${interval}" "${start_date}" "${end_date}")
+    local main_csv=$(get_file_names "${symbol}" "${interval}" "${latest_date}" "${earliest_date}")
     local failed_csv="${main_csv%.csv}_failed.csv"
     
     # Create CSV header
@@ -717,7 +882,7 @@ process_interval() {
         fi
     else
         # Get all dates in the specified range
-        mapfile -t dates < <(get_date_range "${start_date}" "${end_date}")
+        mapfile -t dates < <(get_date_range "${latest_date}" "${earliest_date}")
     fi
     
     if [ "${SHOW_DATES}" = true ]; then
@@ -788,7 +953,7 @@ process_interval() {
             
             if [ -n "${failed_earliest}" ] && [ -n "${failed_latest}" ]; then
                 local timestamp=$(date +%Y%m%d_%H%M%S)
-                local new_failed_name="${LOG_DIR}/${MARKET_TYPE}_${symbol}_${interval}_${failed_latest}_to_${failed_earliest}_${RUN_LABEL}_failed_${timestamp}.csv"
+                local new_failed_name="${LOG_DIR}/${MARKET_TYPE}_${symbol}_${interval}_${failed_earliest}_to_${failed_latest}_${RUN_LABEL}_failed_${timestamp}.csv"
                 mv "${failed_csv}" "${new_failed_name}"
                 echo "Failed downloads for ${symbol} - ${interval} saved to: $(basename "${new_failed_name}")"
             else
@@ -833,6 +998,7 @@ if [ -z "${VALIDATED_INTERVALS}" ]; then
     exit 1
 fi
 
+# Print initial script information
 echo "=========================================="
 echo " Multi-Symbol & Interval Verification Tool"
 echo "=========================================="
@@ -844,6 +1010,7 @@ if [ "$TEST_MODE" = true ]; then
 else
     echo "MODE: PRODUCTION (full date range)"
 fi
+echo "Date Processing: From ${LATEST_DATE} (latest) to ${EARLIEST_DATE} (earliest)"
 echo "Parallel processes: ${MAX_PARALLEL}"
 echo "==========================================
 
@@ -863,7 +1030,7 @@ for symbol in ${SYMBOLS}; do
     
     for interval in ${VALIDATED_INTERVALS}; do
         # Process this interval for the symbol
-        process_interval "${interval}" "${START_DATE}" "${END_DATE}" "${symbol}"
+        process_interval "${interval}" "${LATEST_DATE}" "${EARLIEST_DATE}" "${symbol}"
         
         # Add to our list of processed symbols/intervals
         PROCESSED_SYMBOLS_INTERVALS+=("${symbol}/${interval}")

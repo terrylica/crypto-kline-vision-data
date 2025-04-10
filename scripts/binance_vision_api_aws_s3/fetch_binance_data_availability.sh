@@ -697,7 +697,7 @@ process_symbol() {
     local intervals_file="${TEMP_DIR}/${market}_${symbol}_all_intervals.txt"
     if ! get_intervals "$market" "$symbol" > "$intervals_file"; then
         log_debug "Failed to get intervals for ${market}/${symbol}"
-        echo "$market,$symbol,NO_INTERVALS_AVAILABLE,," > "$result_file"
+        echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
         # Still write to data store to avoid re-fetching failed symbols
         write_to_data_store "$market" "$symbol" "$result_file"
         return 0
@@ -705,7 +705,7 @@ process_symbol() {
     
     if [[ ! -s "$intervals_file" ]]; then
         log_debug "No intervals found for ${market}/${symbol}"
-        echo "$market,$symbol,NO_INTERVALS_AVAILABLE,," > "$result_file"
+        echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
         write_to_data_store "$market" "$symbol" "$result_file"
         rm -f "$intervals_file"
         return 0
@@ -722,7 +722,7 @@ process_symbol() {
             log_debug "Using alternative interval ${interval_to_use} for ${market}/${symbol}"
         else
             log_debug "No intervals available for ${market}/${symbol}"
-            echo "$market,$symbol,NO_INTERVALS_AVAILABLE,," > "$result_file"
+            echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
             write_to_data_store "$market" "$symbol" "$result_file"
             rm -f "$intervals_file"
             return 0
@@ -734,12 +734,12 @@ process_symbol() {
     
     if [[ -z "$earliest_date" ]]; then
         log_debug "No earliest date found for ${market}/${symbol}/${interval_to_use}"
-        echo "$market,$symbol,$interval_to_use,NO_DATA_FOUND," > "$result_file"
+        echo "$market,$symbol,NO_DATA_FOUND," > "$result_file"
     else
         # Also get the list of intervals
         local all_intervals=$(tr '\n' ',' < "$intervals_file" | sed 's/,$//')
         log_debug "Successfully processed ${market}/${symbol}: ${interval_to_use}, ${earliest_date}, intervals: ${all_intervals}"
-        echo "$market,$symbol,$interval_to_use,$earliest_date,$all_intervals" > "$result_file"
+        echo "$market,$symbol,$earliest_date,$all_intervals" > "$result_file"
     fi
     
     # Update the data store with the new result
@@ -917,7 +917,7 @@ create_csv_with_header() {
 combine_market_results() {
     local market="$1"
     local output_file="${OUTPUT_DIR}/${market}_earliest_dates.csv"
-    local header="market,symbol,interval,earliest_date,available_intervals"
+    local header="market,symbol,earliest_date,available_intervals"
     
     log_debug "Combining results for $market market to $output_file"
     
@@ -1034,7 +1034,7 @@ extract_pairs_with_quote() {
     
     # Read each line, extract base symbol, and write to output if valid
     local count=0
-    while IFS=, read -r market symbol interval earliest_date intervals; do
+    while IFS=, read -r market symbol earliest_date intervals; do
         # Skip header
         if [[ "$market" == "market" ]]; then
             continue
@@ -1051,7 +1051,7 @@ extract_pairs_with_quote() {
         
         if [[ -n "$base_symbol" ]]; then
             # Write to output file with base_symbol column
-            echo "$market,$symbol,$interval,$earliest_date,$intervals,$base_symbol" >> "$output_file"
+            echo "$market,$symbol,$earliest_date,$intervals,$base_symbol" >> "$output_file"
             count=$((count + 1))
             
             # Debug: log first few added pairs
@@ -1137,7 +1137,7 @@ create_filtered_csv() {
     shift 2
     local input_files=("$@")
     
-    local header="market,symbol,interval,earliest_date,available_intervals,base_symbol"
+    local header="market,symbol,earliest_date,available_intervals,base_symbol"
     create_csv_with_header "$output_file" "$header"
     local temp_unsorted="${output_file}.unsorted"
     
@@ -1234,6 +1234,103 @@ create_filtered_list() {
     return 0
 }
 
+# Create a consolidated CSV with base symbols and their availability across markets
+# Args:
+#   $1: Output CSV file path
+#   $2: Spot market filtered CSV
+#   $3: Um market filtered CSV
+#   $4: Cm market filtered CSV
+# Returns:
+#   0 on success, 1 on failure
+create_consolidated_base_symbol_file() {
+    local output_file="$1"
+    local spot_file="$2"
+    local um_file="$3"
+    local cm_file="$4"
+    local temp_dir="$5"
+    
+    log_debug "Creating consolidated base symbol file: $output_file"
+    
+    # Create temporary files for each market's data
+    local spot_data="${temp_dir}/spot_data.csv"
+    local um_data="${temp_dir}/um_data.csv"
+    local cm_data="${temp_dir}/cm_data.csv"
+    local base_symbols="${temp_dir}/all_base_symbols.txt"
+    
+    # Extract data for each market (keeping only relevant columns)
+    if [[ -f "$spot_file" ]]; then
+        # The last column is base_symbol, so get that and other needed columns
+        awk -F, 'NR>1 {print $NF","$2","$3","$4}' "$spot_file" | sort -t, -k1,1 > "$spot_data"
+        log_debug "Extracted data from spot file: $(wc -l < "$spot_data") records"
+    else
+        touch "$spot_data"  # Create empty file if input doesn't exist
+        log_debug "No spot file found or file empty, created empty spot_data file"
+    fi
+    
+    if [[ -f "$um_file" ]]; then
+        # For um file, extract rows with um market and get columns
+        awk -F, 'NR>1 && $1=="um" {print $NF","$2","$3","$4}' "$um_file" | sort -t, -k1,1 > "$um_data"
+        log_debug "Extracted um market data: $(wc -l < "$um_data") records"
+    else
+        touch "$um_data"
+        log_debug "No um file found or file empty, created empty um_data file"
+    fi
+    
+    if [[ -f "$cm_file" ]]; then
+        # For cm file, extract rows with cm market and get columns
+        awk -F, 'NR>1 && $1=="cm" {print $NF","$2","$3","$4}' "$cm_file" | sort -t, -k1,1 > "$cm_data"
+        log_debug "Extracted cm market data: $(wc -l < "$cm_data") records"
+    else
+        touch "$cm_data"
+        log_debug "No cm file found or file empty, created empty cm_data file"
+    fi
+    
+    # Get unique list of all base symbols across all markets
+    awk -F, '{print $1}' "$spot_data" "$um_data" "$cm_data" | sort -u > "$base_symbols"
+    log_debug "Found $(wc -l < "$base_symbols") unique base symbols across all markets"
+    
+    # Create header for the consolidated file
+    echo "base_symbol,spot_symbol,spot_earliest_date,spot_available_intervals,um_symbol,um_earliest_date,um_available_intervals,cm_symbol,cm_earliest_date,cm_available_intervals" > "$output_file"
+    
+    # Process each base symbol and consolidate information
+    while IFS= read -r base_symbol; do
+        # Variables to store data for each market
+        local spot_symbol="" spot_earliest_date="" spot_available_intervals=""
+        local um_symbol="" um_earliest_date="" um_available_intervals=""
+        local cm_symbol="" cm_earliest_date="" cm_available_intervals=""
+        
+        # Get data for spot market
+        if grep -q "^${base_symbol}," "$spot_data"; then
+            IFS=, read -r base spot_symbol spot_earliest_date spot_available_intervals < <(grep "^${base_symbol}," "$spot_data" | head -1)
+            log_debug "Found spot data for $base_symbol: $spot_symbol, $spot_earliest_date"
+        fi
+        
+        # Get data for um market
+        if grep -q "^${base_symbol}," "$um_data"; then
+            IFS=, read -r base um_symbol um_earliest_date um_available_intervals < <(grep "^${base_symbol}," "$um_data" | head -1)
+            log_debug "Found um data for $base_symbol: $um_symbol, $um_earliest_date" 
+        fi
+        
+        # Get data for cm market
+        if grep -q "^${base_symbol}," "$cm_data"; then
+            IFS=, read -r base cm_symbol cm_earliest_date cm_available_intervals < <(grep "^${base_symbol}," "$cm_data" | head -1)
+            log_debug "Found cm data for $base_symbol: $cm_symbol, $cm_earliest_date"
+        fi
+        
+        # Write consolidated row
+        echo "${base_symbol},${spot_symbol},${spot_earliest_date},${spot_available_intervals},${um_symbol},${um_earliest_date},${um_available_intervals},${cm_symbol},${cm_earliest_date},${cm_available_intervals}" >> "$output_file"
+        
+    done < "$base_symbols"
+    
+    local record_count=$(( $(wc -l < "$output_file") - 1 ))
+    log_info "Created consolidated base symbol file with $record_count records saved to $output_file"
+    
+    # Clean up temporary files
+    rm -f "$spot_data" "$um_data" "$cm_data" "$base_symbols"
+    
+    return 0
+}
+
 # Filter CSV files for spot+um and spot+um+cm combinations
 filter_and_combine_markets() {
     # Start timing for filtering operation
@@ -1257,6 +1354,9 @@ filter_and_combine_markets() {
     # Output files for filtered lists
     local spot_um_filtered="${output_dir}/spot_um_usdt_filtered.csv"
     local spot_um_cm_filtered="${output_dir}/spot_um_cm_filtered.csv"
+    
+    # New output file for consolidated base symbol data
+    local consolidated_base_file="${output_dir}/consolidated_base_symbols.csv"
     
     # Extract USDT pairs from spot market
     extract_pairs_with_quote "$spot_file" "USDT" "$spot_usdt_file"
@@ -1282,6 +1382,10 @@ filter_and_combine_markets() {
         create_filtered_list "$spot_usdt_file" "$common_all_bases" "$spot_um_cm_filtered" "$temp_dir"
     fi
     
+    # Create the consolidated base symbol file using all market files
+    # For accurate results, use the full market files, not just the filtered ones
+    create_consolidated_base_symbol_file "$consolidated_base_file" "$spot_file" "$um_file" "$cm_file" "$temp_dir"
+    
     # Count records in filtered files
     local spot_um_count=$(( $(wc -l < "$spot_um_filtered") - 1 ))
     local spot_um_cm_count=0
@@ -1289,7 +1393,10 @@ filter_and_combine_markets() {
         spot_um_cm_count=$(( $(wc -l < "$spot_um_cm_filtered") - 1 ))
     fi
     
+    local consolidated_count=$(( $(wc -l < "$consolidated_base_file") - 1 ))
+    
     log_info "Created filtered instrument lists: $spot_um_filtered with $spot_um_count records, $spot_um_cm_filtered with $spot_um_cm_count records"
+    log_info "Created consolidated base symbol file: $consolidated_base_file with $consolidated_count records"
     
     # End timing for filtering operation
     end_timing "filtering"
@@ -1328,7 +1435,7 @@ main() {
     
     # Combine all markets
     local all_markets_file="${OUTPUT_DIR}/all_markets_earliest_dates.csv"
-    create_csv_with_header "$all_markets_file" "market,symbol,interval,earliest_date,available_intervals"
+    create_csv_with_header "$all_markets_file" "market,symbol,earliest_date,available_intervals"
     
     for market in "${MARKETS[@]}"; do
         if [[ -f "${OUTPUT_DIR}/${market}_earliest_dates.csv" ]]; then
@@ -1351,6 +1458,7 @@ main() {
     print_colored "$GREEN" "All done! Found earliest dates for $count symbols across all markets."
     print_colored "$GREEN" "Combined results saved to ${all_markets_file}"
     print_colored "$GREEN" "Filtered lists saved to ${OUTPUT_DIR}/spot_um_usdt_filtered.csv and ${OUTPUT_DIR}/spot_um_cm_filtered.csv"
+    print_colored "$GREEN" "Consolidated base symbol file saved to ${OUTPUT_DIR}/consolidated_base_symbols.csv"
     
     if [[ "$USE_DATA_STORE" != "true" ]]; then
         print_colored "$YELLOW" "Historical data store was disabled for this run"
