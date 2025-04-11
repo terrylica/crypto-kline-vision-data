@@ -1,5 +1,0 @@
-[22:07:48.531] INFO: Created filtered list with 373 records saved to scripts/binance_vision_api_aws_s3/reports/spot_um_usdt_filtered.csv
-[22:07:49.147] INFO: Created filtered list with 50 records saved to scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv
-[22:07:49.167] INFO: Created consolidated base symbol file with 1 records saved to scripts/binance_vision_api_aws_s3/reports/consolidated_base_symbols.csv
-[22:07:49.171] INFO: Created filtered instrument lists: scripts/binance_vision_api_aws_s3/reports/spot_um_usdt_filtered.csv with 373 records, scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv with 50 records
-[22:07:49.172] INFO: Created consolidated base symbol file: scripts/binance_vision_api_aws_s3/reports/consolidated_base_symbols.csv with 1 records
