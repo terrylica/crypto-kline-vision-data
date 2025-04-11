@@ -1467,7 +1467,7 @@ filter_and_combine_markets() {
     
     # Output files for filtered lists
     local spot_um_filtered="${output_dir}/spot_um_usdt_filtered.csv"
-    local spot_um_cm_filtered="${output_dir}/spot_um_cm_filtered.csv"
+    local spot_synchronal="${output_dir}/spot_synchronal.csv"
     
     # New output file for consolidated base symbol data
     local consolidated_base_file="${output_dir}/consolidated_base_symbols.csv"
@@ -1505,7 +1505,7 @@ filter_and_combine_markets() {
         find_common_bases "$common_spot_um_bases" "$cm_usd_perp_file" "$common_all_bases" "$temp_dir"
         
         # Create filtered list for spot+um+cm
-        create_filtered_list "$spot_usdt_file" "$common_all_bases" "$spot_um_cm_filtered" "$temp_dir"
+        create_filtered_list "$spot_usdt_file" "$common_all_bases" "$spot_synchronal" "$temp_dir"
     fi
     
     # Create a simple consolidated CSV for testing
@@ -1542,13 +1542,13 @@ filter_and_combine_markets() {
     
     local spot_um_count=$(( $(wc -l < "$spot_um_filtered") - 1 ))
     local spot_um_cm_count=0
-    if [[ -f "$spot_um_cm_filtered" ]]; then
-        spot_um_cm_count=$(( $(wc -l < "$spot_um_cm_filtered") - 1 ))
+    if [[ -f "$spot_synchronal" ]]; then
+        spot_um_cm_count=$(( $(wc -l < "$spot_synchronal") - 1 ))
     fi
     
     local consolidated_count=$(( $(wc -l < "$consolidated_base_file") - 1 ))
     
-    log_info "Created filtered instrument lists: $spot_um_filtered with $spot_um_count records, $spot_um_cm_filtered with $spot_um_cm_count records"
+    log_info "Created filtered instrument lists: $spot_um_filtered with $spot_um_count records, $spot_synchronal with $spot_um_cm_count records"
     log_info "Created consolidated base symbol file: $consolidated_base_file with $consolidated_count records"
     
     # End timing for filtering operation
@@ -1611,7 +1611,7 @@ main() {
     # Show summary
     print_colored "$GREEN" "All done! Found earliest dates for $count symbols across all markets."
     print_colored "$GREEN" "Combined results saved to ${all_markets_file}"
-    print_colored "$GREEN" "Filtered lists saved to ${OUTPUT_DIR}/spot_um_usdt_filtered.csv and ${OUTPUT_DIR}/spot_um_cm_filtered.csv"
+    print_colored "$GREEN" "Filtered lists saved to ${OUTPUT_DIR}/spot_um_usdt_filtered.csv and ${OUTPUT_DIR}/spot_synchronal.csv"
     print_colored "$GREEN" "Consolidated base symbol file saved to ${OUTPUT_DIR}/consolidated_base_symbols.csv"
     
     if [[ "$USE_DATA_STORE" != "true" ]]; then

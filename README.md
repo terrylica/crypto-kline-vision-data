@@ -35,9 +35,9 @@ cd scripts/binance_vision_api_aws_s3
 This script scans the Binance Vision API repository and generates:
 
 - Market-specific reports with earliest available dates for each symbol
-- A crucial filtered list: `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv`
+- A crucial filtered list: `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv`
 
-The `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` file is especially valuable as it contains SPOT market symbols that also have corresponding instruments in both UM (USDT-M futures) and CM (COIN-M futures) perpetual markets. This ensures you can work with instruments that have data available across all three market types.
+The `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv` file is especially valuable as it contains SPOT market symbols that also have corresponding instruments in both UM (USDT-M futures) and CM (COIN-M futures) perpetual markets. This ensures you can work with instruments that have data available across all three market types.
 
 The script identifies available intervals for each symbol, though it typically reports intervals up to 1d (daily) even when higher granularity intervals like 1w (weekly) are available from the Binance Vision API.
 
@@ -50,12 +50,12 @@ The script identifies available intervals for each symbol, though it typically r
 2. **Filtered lists**:
 
    - `scripts/binance_vision_api_aws_s3/reports/spot_um_usdt_filtered.csv` - Symbols available in both SPOT and UM (USDT-M) markets
-   - `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` - Symbols available across all three market types (SPOT, UM, CM)
+   - `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv` - Symbols available across all three market types (SPOT, UM, CM)
 
 3. **Consolidated file**:
    - `scripts/binance_vision_api_aws_s3/reports/consolidated_base_symbols.csv` - A comprehensive view of base symbols and their availability across all markets
 
-The `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` file is particularly valuable as it ensures you can work with instruments that have consistent data availability across all market types.
+The `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv` file is particularly valuable as it ensures you can work with instruments that have consistent data availability across all market types.
 
 ### 2. Simple Approach
 

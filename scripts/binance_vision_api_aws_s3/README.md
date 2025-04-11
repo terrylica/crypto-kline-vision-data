@@ -104,7 +104,7 @@ The script generates several output files in the specified output directory:
 3. **Filtered files**:
 
    - `spot_um_usdt_filtered.csv` - Symbols that exist in both spot and USDT-M markets with USDT quote currency
-   - `spot_um_cm_filtered.csv` - Symbols that exist in all three markets
+   - `spot_synchronal.csv` - Symbols that exist in all three markets
 
 4. **Consolidated file**:
 
@@ -251,7 +251,7 @@ grep "BTC" reports/all_markets_earliest_dates.csv > btc_pairs.csv
 ./fetch_binance_data_availability.sh
 
 # Use the filtered list to download data
-SYMBOLS=$(awk -F, 'NR>1 {print $2}' reports/spot_um_cm_filtered.csv | tr '\n' ' ')
+SYMBOLS=$(awk -F, 'NR>1 {print $2}' reports/spot_synchronal.csv | tr '\n' ' ')
 INTERVALS="1d" ./verify_multi_interval.sh
 ```
 

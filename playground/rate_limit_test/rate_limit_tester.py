@@ -294,7 +294,7 @@ async def main():
     parser.add_argument(
         "--csv",
         type=str,
-        default="/workspaces/binance-data-services/scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv",
+        default="/workspaces/binance-data-services/scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv",
         help="Path to CSV file with symbols",
     )
     args = parser.parse_args()
