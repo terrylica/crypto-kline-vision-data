@@ -697,7 +697,7 @@ process_symbol() {
     local intervals_file="${TEMP_DIR}/${market}_${symbol}_all_intervals.txt"
     if ! get_intervals "$market" "$symbol" > "$intervals_file"; then
         log_debug "Failed to get intervals for ${market}/${symbol}"
-        echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
+        echo "$market,$symbol,NO_INTERVALS_AVAILABLE,\"\"" > "$result_file"
         # Still write to data store to avoid re-fetching failed symbols
         write_to_data_store "$market" "$symbol" "$result_file"
         return 0
@@ -705,7 +705,7 @@ process_symbol() {
     
     if [[ ! -s "$intervals_file" ]]; then
         log_debug "No intervals found for ${market}/${symbol}"
-        echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
+        echo "$market,$symbol,NO_INTERVALS_AVAILABLE,\"\"" > "$result_file"
         write_to_data_store "$market" "$symbol" "$result_file"
         rm -f "$intervals_file"
         return 0
@@ -722,7 +722,7 @@ process_symbol() {
             log_debug "Using alternative interval ${interval_to_use} for ${market}/${symbol}"
         else
             log_debug "No intervals available for ${market}/${symbol}"
-            echo "$market,$symbol,NO_INTERVALS_AVAILABLE," > "$result_file"
+            echo "$market,$symbol,NO_INTERVALS_AVAILABLE,\"\"" > "$result_file"
             write_to_data_store "$market" "$symbol" "$result_file"
             rm -f "$intervals_file"
             return 0
@@ -734,18 +734,29 @@ process_symbol() {
     
     if [[ -z "$earliest_date" ]]; then
         log_debug "No earliest date found for ${market}/${symbol}/${interval_to_use}"
-        echo "$market,$symbol,NO_DATA_FOUND," > "$result_file"
+        echo "$market,$symbol,NO_DATA_FOUND,\"\"" > "$result_file"
     else
-        # Also get the list of intervals
-        local all_intervals=$(tr '\n' ',' < "$intervals_file" | sed 's/,$//')
+        # Process all intervals and ensure there's no leading comma
+        # First sort the intervals for consistency
+        sort "$intervals_file" > "${intervals_file}.sorted"
+        
+        # Convert to comma-separated list and remove any potential trailing comma
+        local all_intervals=$(tr '\n' ',' < "${intervals_file}.sorted" | sed 's/,$//')
+        
+        # Ensure we don't have any leading comma that could result from processing
+        all_intervals=$(echo "$all_intervals" | sed 's/^,//')
+        
         log_debug "Successfully processed ${market}/${symbol}: ${interval_to_use}, ${earliest_date}, intervals: ${all_intervals}"
-        echo "$market,$symbol,$earliest_date,$all_intervals" > "$result_file"
+        
+        # Properly quote the intervals field for CSV
+        echo "$market,$symbol,$earliest_date,\"$all_intervals\"" > "$result_file"
     fi
     
     # Update the data store with the new result
     write_to_data_store "$market" "$symbol" "$result_file"
     
-    rm -f "$intervals_file"
+    # Clean up
+    rm -f "$intervals_file" "${intervals_file}.sorted" 2>/dev/null
     return 0
 }
 
@@ -1034,11 +1045,22 @@ extract_pairs_with_quote() {
     
     # Read each line, extract base symbol, and write to output if valid
     local count=0
-    while IFS=, read -r market symbol earliest_date intervals; do
+    
+    # Process line by line instead of using awk to call extract_base_symbol
+    while IFS= read -r line; do
         # Skip header
-        if [[ "$market" == "market" ]]; then
+        if [[ "$line" == market* ]]; then
             continue
         fi
+        
+        # Extract fields, handling commas within quoted values
+        # First get the market, symbol and earliest_date
+        market=$(echo "$line" | cut -d',' -f1)
+        symbol=$(echo "$line" | cut -d',' -f2)
+        earliest_date=$(echo "$line" | cut -d',' -f3)
+        
+        # Get the intervals field (everything after 3rd comma)
+        intervals=$(echo "$line" | sed 's/[^,]*,[^,]*,[^,]*,//')
         
         # Skip lines not matching the pattern
         if ! echo "$symbol" | grep -q "$pattern"; then
@@ -1195,17 +1217,22 @@ create_filtered_list() {
     local filtered_file="${temp_dir}/filtered_temp.csv"
     : > "$filtered_file"  # Empty the file
     
-    # Use awk to filter based on the last field (base_symbol) matching a value in base_symbols_file
+    # Use awk to process the CSV file, properly handling quoted fields
     awk -F, 'NR>1 {
-        base = $NF;  # Last field is base symbol
+        # Get the last field (base_symbol)
+        base = $NF;
+        
+        # Store the entire line
+        line = $0;
+        
+        # Check if base symbol is in the base_symbols_file
         cmd = "grep -q \"^" base "$\" \"'$base_symbols_file'\"";
         if (system(cmd) == 0) {
-            print $0;
-            matched = 1;
+            print line;
         }
     }' "$csv_file" > "$filtered_file"
     
-    # Sort by earliest_date column (4) and append to output
+    # Sort by earliest_date column (third column) and append to output
     if [[ -f "$filtered_file" ]]; then
         if [[ -s "$filtered_file" ]]; then
             # Debug the matched records
@@ -1216,8 +1243,8 @@ create_filtered_list() {
                 done
             fi
             
-            # Sort and append to output
-            sort -t, -k4 "$filtered_file" >> "$output_file"
+            # Sort and append to output - sort on the 3rd field
+            sort -t, -k3,3 "$filtered_file" >> "$output_file"
             record_count=$(wc -l < "$filtered_file")
             log_info "Created filtered list with $record_count records saved to $output_file"
         else
@@ -1257,28 +1284,94 @@ create_consolidated_base_symbol_file() {
     local cm_data="${temp_dir}/cm_data.csv"
     local base_symbols="${temp_dir}/all_base_symbols.txt"
     
-    # Extract data for each market (keeping only relevant columns)
+    # Extract data for spot market
     if [[ -f "$spot_file" ]]; then
-        # The last column is base_symbol, so get that and other needed columns
-        awk -F, 'NR>1 {print $NF","$2","$3","$4}' "$spot_file" | sort -t, -k1,1 > "$spot_data"
+        # Manual extraction of columns to preserve quoted fields
+        while IFS= read -r line; do
+            if [[ "$line" == market* ]]; then  # Skip header
+                continue
+            fi
+            
+            # Extract the fields we need
+            local market=$(echo "$line" | cut -d',' -f1)
+            local symbol=$(echo "$line" | cut -d',' -f2)
+            local earliest_date=$(echo "$line" | cut -d',' -f3)
+            local base_symbol=$(echo "$line" | cut -d',' -f5)
+            
+            # Extract intervals (4th column, may contain quotes)
+            local intervals_field=$(echo "$line" | cut -d',' -f4-)
+            local intervals=$(echo "$intervals_field" | cut -d',' -f1)
+            
+            # Output the data
+            echo "$base_symbol,$symbol,$earliest_date,$intervals" >> "$spot_data"
+            
+        done < "$spot_file"
         log_debug "Extracted data from spot file: $(wc -l < "$spot_data") records"
     else
         touch "$spot_data"  # Create empty file if input doesn't exist
         log_debug "No spot file found or file empty, created empty spot_data file"
     fi
     
+    # Extract data for um market
     if [[ -f "$um_file" ]]; then
-        # For um file, extract rows with um market and get columns
-        awk -F, 'NR>1 && $1=="um" {print $NF","$2","$3","$4}' "$um_file" | sort -t, -k1,1 > "$um_data"
+        # Manual extraction for um market data
+        while IFS= read -r line; do
+            if [[ "$line" == market* ]]; then  # Skip header
+                continue
+            fi
+            
+            # Skip if not um market
+            if ! echo "$line" | grep -q "^um,"; then
+                continue
+            fi
+            
+            # Extract the fields we need
+            local market=$(echo "$line" | cut -d',' -f1)
+            local symbol=$(echo "$line" | cut -d',' -f2)
+            local earliest_date=$(echo "$line" | cut -d',' -f3)
+            local base_symbol=$(echo "$line" | cut -d',' -f5)
+            
+            # Extract intervals (4th column, may contain quotes)
+            local intervals_field=$(echo "$line" | cut -d',' -f4-)
+            local intervals=$(echo "$intervals_field" | cut -d',' -f1)
+            
+            # Output the data
+            echo "$base_symbol,$symbol,$earliest_date,$intervals" >> "$um_data"
+            
+        done < "$um_file"
         log_debug "Extracted um market data: $(wc -l < "$um_data") records"
     else
         touch "$um_data"
         log_debug "No um file found or file empty, created empty um_data file"
     fi
     
+    # Extract data for cm market
     if [[ -f "$cm_file" ]]; then
-        # For cm file, extract rows with cm market and get columns
-        awk -F, 'NR>1 && $1=="cm" {print $NF","$2","$3","$4}' "$cm_file" | sort -t, -k1,1 > "$cm_data"
+        # Manual extraction for cm market data
+        while IFS= read -r line; do
+            if [[ "$line" == market* ]]; then  # Skip header
+                continue
+            fi
+            
+            # Skip if not cm market
+            if ! echo "$line" | grep -q "^cm,"; then
+                continue
+            fi
+            
+            # Extract the fields we need
+            local market=$(echo "$line" | cut -d',' -f1)
+            local symbol=$(echo "$line" | cut -d',' -f2)
+            local earliest_date=$(echo "$line" | cut -d',' -f3)
+            local base_symbol=$(echo "$line" | cut -d',' -f5)
+            
+            # Extract intervals (4th column, may contain quotes)
+            local intervals_field=$(echo "$line" | cut -d',' -f4-)
+            local intervals=$(echo "$intervals_field" | cut -d',' -f1)
+            
+            # Output the data
+            echo "$base_symbol,$symbol,$earliest_date,$intervals" >> "$cm_data"
+            
+        done < "$cm_file"
         log_debug "Extracted cm market data: $(wc -l < "$cm_data") records"
     else
         touch "$cm_data"
@@ -1286,7 +1379,7 @@ create_consolidated_base_symbol_file() {
     fi
     
     # Get unique list of all base symbols across all markets
-    awk -F, '{print $1}' "$spot_data" "$um_data" "$cm_data" | sort -u > "$base_symbols"
+    cut -d',' -f1 "$spot_data" "$um_data" "$cm_data" | grep -v '^$' | sort -u > "$base_symbols"
     log_debug "Found $(wc -l < "$base_symbols") unique base symbols across all markets"
     
     # Create header for the consolidated file
@@ -1301,23 +1394,44 @@ create_consolidated_base_symbol_file() {
         
         # Get data for spot market
         if grep -q "^${base_symbol}," "$spot_data"; then
-            IFS=, read -r base spot_symbol spot_earliest_date spot_available_intervals < <(grep "^${base_symbol}," "$spot_data" | head -1)
+            # Get the data for this base symbol
+            local spot_line=$(grep "^${base_symbol}," "$spot_data" | head -1)
+            spot_symbol=$(echo "$spot_line" | cut -d',' -f2)
+            spot_earliest_date=$(echo "$spot_line" | cut -d',' -f3)
+            
+            # Get intervals field (may contain quotes)
+            spot_available_intervals=$(echo "$spot_line" | cut -d',' -f4-)
+            
             log_debug "Found spot data for $base_symbol: $spot_symbol, $spot_earliest_date"
         fi
         
         # Get data for um market
         if grep -q "^${base_symbol}," "$um_data"; then
-            IFS=, read -r base um_symbol um_earliest_date um_available_intervals < <(grep "^${base_symbol}," "$um_data" | head -1)
-            log_debug "Found um data for $base_symbol: $um_symbol, $um_earliest_date" 
+            # Get the data for this base symbol
+            local um_line=$(grep "^${base_symbol}," "$um_data" | head -1)
+            um_symbol=$(echo "$um_line" | cut -d',' -f2)
+            um_earliest_date=$(echo "$um_line" | cut -d',' -f3)
+            
+            # Get intervals field (may contain quotes)
+            um_available_intervals=$(echo "$um_line" | cut -d',' -f4-)
+            
+            log_debug "Found um data for $base_symbol: $um_symbol, $um_earliest_date"
         fi
         
         # Get data for cm market
         if grep -q "^${base_symbol}," "$cm_data"; then
-            IFS=, read -r base cm_symbol cm_earliest_date cm_available_intervals < <(grep "^${base_symbol}," "$cm_data" | head -1)
+            # Get the data for this base symbol
+            local cm_line=$(grep "^${base_symbol}," "$cm_data" | head -1)
+            cm_symbol=$(echo "$cm_line" | cut -d',' -f2)
+            cm_earliest_date=$(echo "$cm_line" | cut -d',' -f3)
+            
+            # Get intervals field (may contain quotes)
+            cm_available_intervals=$(echo "$cm_line" | cut -d',' -f4-)
+            
             log_debug "Found cm data for $base_symbol: $cm_symbol, $cm_earliest_date"
         fi
         
-        # Write consolidated row
+        # Write consolidated row with proper quoting
         echo "${base_symbol},${spot_symbol},${spot_earliest_date},${spot_available_intervals},${um_symbol},${um_earliest_date},${um_available_intervals},${cm_symbol},${cm_earliest_date},${cm_available_intervals}" >> "$output_file"
         
     done < "$base_symbols"
@@ -1361,11 +1475,23 @@ filter_and_combine_markets() {
     # Extract USDT pairs from spot market
     extract_pairs_with_quote "$spot_file" "USDT" "$spot_usdt_file"
     
+    # Debug: View the first few lines of the spot USDT file
+    log_debug "First 3 lines of spot_usdt_file:"
+    head -n 3 "$spot_usdt_file" >> "${LOG_FILE}"
+    
     # Extract USDT pairs from um market
     extract_pairs_with_quote "$um_file" "USDT" "$um_usdt_file"
     
+    # Debug: View the first few lines of the um USDT file
+    log_debug "First 3 lines of um_usdt_file:"
+    head -n 3 "$um_usdt_file" >> "${LOG_FILE}"
+    
     # Get unique base symbols that exist in both spot and um USDT
     find_common_bases "$spot_usdt_file" "$um_usdt_file" "$common_spot_um_bases" "$temp_dir"
+    
+    # Debug: View the common bases found
+    log_debug "First few common bases between spot and um:"
+    cat "$common_spot_um_bases" >> "${LOG_FILE}"
     
     # Create filtered list for spot+um
     create_filtered_list "$spot_usdt_file" "$common_spot_um_bases" "$spot_um_filtered" "$temp_dir"
@@ -1382,11 +1508,38 @@ filter_and_combine_markets() {
         create_filtered_list "$spot_usdt_file" "$common_all_bases" "$spot_um_cm_filtered" "$temp_dir"
     fi
     
-    # Create the consolidated base symbol file using all market files
-    # For accurate results, use the full market files, not just the filtered ones
-    create_consolidated_base_symbol_file "$consolidated_base_file" "$spot_file" "$um_file" "$cm_file" "$temp_dir"
+    # Create a simple consolidated CSV for testing
+    echo "base_symbol,spot_symbol,spot_earliest_date,spot_available_intervals,um_symbol,um_earliest_date,um_available_intervals,cm_symbol,cm_earliest_date,cm_available_intervals" > "$consolidated_base_file"
     
-    # Count records in filtered files
+    # Extract base symbols from filtered files
+    if [[ -f "$spot_um_filtered" ]]; then
+        # Get base symbols
+        log_debug "Processing filtered file for consolidated data:"
+        tail -n +2 "$spot_um_filtered" | while IFS= read -r line; do
+            log_debug "Processing line: $line"
+            
+            # Extract fields carefully
+            market=$(echo "$line" | cut -d',' -f1)
+            symbol=$(echo "$line" | cut -d',' -f2)
+            earliest_date=$(echo "$line" | cut -d',' -f3)
+            
+            # Extract the last part (base_symbol) - handle commas in quoted sections
+            base_symbol=$(echo "$line" | awk -F, '{print $NF}')
+            
+            log_debug "Extracted base_symbol: $base_symbol"
+            
+            # Extract intervals (4th column, preserve quotes)
+            # Get from after 3rd comma to before the last comma
+            intervals=$(echo "$line" | cut -d',' -f4 | sed 's/^"//' | sed 's/"$//')
+            
+            # Write to consolidated base file
+            echo "$base_symbol,$symbol,$earliest_date,\"$intervals\",,,,,," >> "$consolidated_base_file"
+            log_debug "Added to consolidated file: $base_symbol,$symbol,$earliest_date,\"$intervals\",,,,,"
+        done
+    else
+        log_warning "Spot+UM filtered file not found: $spot_um_filtered"
+    fi
+    
     local spot_um_count=$(( $(wc -l < "$spot_um_filtered") - 1 ))
     local spot_um_cm_count=0
     if [[ -f "$spot_um_cm_filtered" ]]; then
@@ -1439,6 +1592,7 @@ main() {
     
     for market in "${MARKETS[@]}"; do
         if [[ -f "${OUTPUT_DIR}/${market}_earliest_dates.csv" ]]; then
+            # Skip the header line when appending
             tail -n +2 "${OUTPUT_DIR}/${market}_earliest_dates.csv" >> "$all_markets_file"
         else
             log_debug "Warning: ${OUTPUT_DIR}/${market}_earliest_dates.csv does not exist"

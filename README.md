@@ -21,9 +21,43 @@ A high-performance, robust package for efficient market data retrieval from mult
 pip install binance-data-service
 ```
 
-## Basic Usage
+## Usage
 
-### Simple Approach
+### 1. Fetch Available Data Information
+
+As the first step, run the data availability script to identify which symbols and time intervals are available from Binance:
+
+```bash
+cd scripts/binance_vision_api_aws_s3
+./fetch_binance_data_availability.sh -o reports -t --markets spot,um,cm -p 5
+```
+
+This script scans the Binance Vision API repository and generates:
+
+- Market-specific reports with earliest available dates for each symbol
+- A crucial filtered list: `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv`
+
+The `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` file is especially valuable as it contains SPOT market symbols that also have corresponding instruments in both UM (USDT-M futures) and CM (COIN-M futures) perpetual markets. This ensures you can work with instruments that have data available across all three market types.
+
+The script identifies available intervals for each symbol, though it typically reports intervals up to 1d (daily) even when higher granularity intervals like 1w (weekly) are available from the Binance Vision API.
+
+#### Understanding the Generated Files
+
+1. **Market-specific reports**: `scripts/binance_vision_api_aws_s3/reports/spot_earliest_dates.csv`, `scripts/binance_vision_api_aws_s3/reports/um_earliest_dates.csv`, `scripts/binance_vision_api_aws_s3/reports/cm_earliest_dates.csv`
+
+   - These files contain all available symbols for each market type with their earliest available data dates.
+
+2. **Filtered lists**:
+
+   - `scripts/binance_vision_api_aws_s3/reports/spot_um_usdt_filtered.csv` - Symbols available in both SPOT and UM (USDT-M) markets
+   - `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` - Symbols available across all three market types (SPOT, UM, CM)
+
+3. **Consolidated file**:
+   - `scripts/binance_vision_api_aws_s3/reports/consolidated_base_symbols.csv` - A comprehensive view of base symbols and their availability across all markets
+
+The `scripts/binance_vision_api_aws_s3/reports/spot_um_cm_filtered.csv` file is particularly valuable as it ensures you can work with instruments that have consistent data availability across all market types.
+
+### 2. Simple Approach
 
 ```python
 from datetime import datetime, timezone, timedelta
@@ -130,11 +164,18 @@ async def futures_example():
         print(f"Retrieved {len(spot_df)} SPOT records")
 ```
 
-## Advanced Usage
-
 ### Fetching Funding Rate Data
 
 ```python
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
+from core.data_source_manager import DataSourceManager, DataQueryConfig
+
+# Set time range for data retrieval
+end_time = datetime.now(timezone.utc)
+start_time = end_time - timedelta(days=5)
+
 async def funding_rate_example():
     # Initialize DataSourceManager for funding rate data
     async with DataSourceManager.create(

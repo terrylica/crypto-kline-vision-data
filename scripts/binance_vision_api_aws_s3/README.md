@@ -13,6 +13,7 @@ The `fetch_binance_data_availability.sh` script efficiently retrieves all availa
 - Automatic generation of market-specific and combined reports
 - Cross-market symbol filtering based on quote currencies
 - Customizable output formats and directories
+- Historical data store for improved performance on subsequent runs
 
 ### CSV Output Structure
 
@@ -21,20 +22,116 @@ The script creates CSV files with the following columns:
 - `market` - Market type (spot, um, cm)
 - `symbol` - Trading symbol (e.g., BTCUSDT)
 - `earliest_date` - Earliest date data is available
-- `available_intervals` - Comma-separated list of available kline intervals
+- `available_intervals` - Comma-separated list of available kline intervals (properly quoted as a single field)
+
+Additionally, filtered files include:
+
+- `base_symbol` - The base symbol extracted from the trading pair (e.g., BTC from BTCUSDT)
+
+The consolidated base symbols file contains columns:
+
+- `base_symbol` - Base symbol (e.g., BTC)
+- `spot_symbol`, `spot_earliest_date`, `spot_available_intervals` - Data for spot market
+- `um_symbol`, `um_earliest_date`, `um_available_intervals` - Data for USDT-M futures
+- `cm_symbol`, `cm_earliest_date`, `cm_available_intervals` - Data for COIN-M futures
 
 ### Recent Changes
 
+- **CSV Format Improvement**: The `available_intervals` field is now properly quoted to ensure strict CSV format compliance where each comma-separated value corresponds to exactly one column.
 - **Removed redundant `interval` column**: Since the script primarily uses the 1d interval to find the earliest available date, the interval column was removed from CSV outputs for clarity.
+- **Added historical data store**: Speeds up consecutive runs by caching previous results.
+- **Better cross-market symbol matching**: Improved filtering for spot+um and spot+um+cm combinations.
 
 ### Usage
+
+Basic usage:
 
 ```bash
 # Run with default settings
 ./fetch_binance_data_availability.sh
+```
 
+Advanced options:
+
+```bash
 # Customize with options
 ./fetch_binance_data_availability.sh --output custom_dir --markets spot,um --parallel 30
+
+# Run in test mode (processes only a few symbols per market)
+./fetch_binance_data_availability.sh -t
+
+# Skip using the historical data store
+./fetch_binance_data_availability.sh -s
+
+# Run with debugging information
+./fetch_binance_data_availability.sh -d
+```
+
+Full list of options:
+
+```bash
+Usage: ./fetch_binance_data_availability.sh [OPTIONS]
+
+Options:
+  -o, --output DIR       Output directory (default: scripts/binance_vision_api_aws_s3/reports)
+  -c, --data-store DIR   Historical data store directory
+  -m, --markets MARKETS  Comma-separated list of markets to scan (default: spot,um,cm)
+  -p, --parallel N       Number of parallel processes (default: 100)
+  -i, --interval INTVL   Default interval to check for earliest date (default: 1d)
+  -d, --debug            Enable debug logging
+  -t, --test             Test mode: only process a few symbols per market
+  -s, --skip-data-store  Skip using historical data store and fetch all data fresh
+  -q, --quiet            Suppress progress information
+  --no-perf              Disable performance statistics
+  --auto-install-deps    Automatically install missing dependencies
+  -h, --help             Display this help message and exit
+```
+
+### Output Files
+
+The script generates several output files in the specified output directory:
+
+1. **Market-specific files**:
+
+   - `spot_earliest_dates.csv` - All spot market symbols and their earliest dates
+   - `um_earliest_dates.csv` - All USDT-M futures symbols and earliest dates
+   - `cm_earliest_dates.csv` - All COIN-M futures symbols and earliest dates
+
+2. **Combined files**:
+
+   - `all_markets_earliest_dates.csv` - Combined results from all scanned markets
+
+3. **Filtered files**:
+
+   - `spot_um_usdt_filtered.csv` - Symbols that exist in both spot and USDT-M markets with USDT quote currency
+   - `spot_um_cm_filtered.csv` - Symbols that exist in all three markets
+
+4. **Consolidated file**:
+
+   - `consolidated_base_symbols.csv` - Base symbols with their data from all available markets
+
+5. **Performance data**:
+   - `performance.log` - Timing information about script execution
+
+### Understanding and Using the Results
+
+The generated CSV files can be used for several purposes:
+
+1. **Data Availability Analysis**: Find when a symbol's data first became available across different markets
+2. **Cross-Market Correlation**: Identify symbols trading across multiple markets for cross-market analysis
+3. **Data Collection Planning**: Plan data collection jobs based on available intervals and date ranges
+
+Example of working with the data:
+
+```bash
+# Sort symbols by earliest date (newest first)
+sort -t, -k3,3 -r reports/spot_earliest_dates.csv | head -10
+
+# Find symbols available in both spot and futures markets
+cat reports/spot_um_usdt_filtered.csv
+
+# Extract specific base symbols
+grep "^BTC," reports/consolidated_base_symbols.csv
 ```
 
 ## Multi-Interval Verification Tool
@@ -134,3 +231,36 @@ If you encounter download failures:
 ### For LUNA/UST specific issues
 
 During May 2022, the LUNA/UST collapse occurred, which may have resulted in trading suspensions and missing data files for certain dates. The script will correctly identify these as "File not found" errors and properly document them in the failure reports.
+
+## Workflow Examples
+
+### Example 1: Find the earliest date for all BTC pairs
+
+```bash
+# Run the fetch script to get all data
+./fetch_binance_data_availability.sh
+
+# Filter the results for BTC pairs
+grep "BTC" reports/all_markets_earliest_dates.csv > btc_pairs.csv
+```
+
+### Example 2: Find symbols available in all markets and download their data
+
+```bash
+# Generate the filtered list of symbols in all markets
+./fetch_binance_data_availability.sh
+
+# Use the filtered list to download data
+SYMBOLS=$(awk -F, 'NR>1 {print $2}' reports/spot_um_cm_filtered.csv | tr '\n' ' ')
+INTERVALS="1d" ./verify_multi_interval.sh
+```
+
+### Example 3: Generate a report of recently added symbols
+
+```bash
+# Get all symbols and sort by newest first
+./fetch_binance_data_availability.sh
+sort -t, -k3,3 -r reports/all_markets_earliest_dates.csv | head -20 > newest_symbols.csv
+
+# Use these symbols for analysis or data collection
+```
