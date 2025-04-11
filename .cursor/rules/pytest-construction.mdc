@@ -39,15 +39,15 @@ On API related issues, always use `CURL` from terminal to find the root causes f
 
 `# Testing Principles (PyTest Execution)
 
-- Use `scripts/run_tests_parallel.sh` as the _only_ entry point for running tests.
+- Use `scripts/op/run_tests_parallel.sh` as the _only_ entry point for running tests.
 - Do not invoke `pytest` directly.
 - _Avoid_ all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
-- Pass all configurations and flags _explicitly_ via the `scripts/run_tests_parallel.sh` script arguments — never rely on hidden config files.
+- Pass all configurations and flags _explicitly_ via the `scripts/op/run_tests_parallel.sh` script arguments — never rely on hidden config files.
 - Centralize execution. Standardize behavior. Ensure reproducibility.
 - No implicit state. No config sprawl. No surprises.
 - CLI arguments over config files. Script for execution control.
 
-## `scripts/run_tests_parallel.sh`
+## `scripts/op/run_tests_parallel.sh`
 
 ### Example Usage:
 

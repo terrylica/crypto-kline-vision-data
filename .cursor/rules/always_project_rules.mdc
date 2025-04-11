@@ -8,18 +8,18 @@ alwaysApply: false
 - Maintain flat directory structures
 - Utilize established libraries and frameworks to minimize custom code
 - Focus on high-impact, essential code - remove peripheral edge cases
-- Execute tests using `scripts/run_tests_parallel.sh`:
+- Execute tests using `scripts/op/run_tests_parallel.sh`:
 
   Run all tests:
 
   ```bash
-  scripts/run_tests_parallel.sh
+  scripts/op/run_tests_parallel.sh
   ```
 
   Run specific test directory:
 
   ```bash
-  scripts/run_tests_parallel.sh tests/cache_structure
+  scripts/op/run_tests_parallel.sh tests/cache_structure
   ```
 
 `utils/logger_setup.py` is used for all debug
@@ -82,17 +82,17 @@ On API related issues, always use `CURL` from terminal to find the root causes f
 
 `# Testing Principles (PyTest Execution)
 
-- Use `scripts/run_tests_parallel.sh` as the _only_ entry point for running tests.
+- Use `scripts/op/run_tests_parallel.sh` as the _only_ entry point for running tests.
 - Do not invoke `pytest` directly.
 - _Avoid_ all config files: `pytest.ini`, `tox.ini`, `pyproject.toml`.
-- Pass all configurations and flags _explicitly_ via the `scripts/run_tests_parallel.sh` script arguments — never rely on hidden config files.
+- Pass all configurations and flags _explicitly_ via the `scripts/op/run_tests_parallel.sh` script arguments — never rely on hidden config files.
 - Centralize execution. Standardize behavior. Ensure reproducibility.
 - No implicit state. No config sprawl. No surprises.
 - CLI arguments over config files. Script for execution control.
 
-### How to use `scripts/run_tests_parallel.sh`
+### How to use `scripts/op/run_tests_parallel.sh`
 
-- DO NOT run entire `scripts/run_tests_parallel.sh -v` because the hundreds of cases output in the tests will overload the LLM context windows.
+- DO NOT run entire `scripts/op/run_tests_parallel.sh -v` because the hundreds of cases output in the tests will overload the LLM context windows.
 
 ### Example Usage
 

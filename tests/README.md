@@ -27,7 +27,7 @@ Each test directory should contain an `__init__.py` file with a docstring descri
 
 ## Running Tests
 
-Always use the `scripts/run_tests_parallel.sh` script to run tests. This script provides several features:
+Always use the `scripts/op/run_tests_parallel.sh` script to run tests. This script provides several features:
 
 - Parallel test execution (with `-n8` by default)
 - Smart handling of tests marked with `@pytest.mark.serial`
@@ -36,16 +36,16 @@ Always use the `scripts/run_tests_parallel.sh` script to run tests. This script 
 
 ```bash
 # Run all tests
-scripts/run_tests_parallel.sh
+scripts/op/run_tests_parallel.sh
 
 # Run a specific test file or directory
-scripts/run_tests_parallel.sh tests/utils/test_logging_parallel.py
+scripts/op/run_tests_parallel.sh tests/utils/test_logging_parallel.py
 
 # Run tests sequentially (for debugging)
-scripts/run_tests_parallel.sh -s
+scripts/op/run_tests_parallel.sh -s
 
 # Run with increased log verbosity
-scripts/run_tests_parallel.sh tests/ DEBUG
+scripts/op/run_tests_parallel.sh tests/ DEBUG
 ```
 
 ## Test Markers

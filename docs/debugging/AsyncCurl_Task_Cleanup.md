@@ -143,5 +143,5 @@ def try_unblock_task(task):
 
    ```bash
    # Run with task inspection
-   LOG_LEVEL=DEBUG scripts/run_tests_parallel.sh -n1
+   LOG_LEVEL=DEBUG scripts/op/run_tests_parallel.sh -n1
    ```

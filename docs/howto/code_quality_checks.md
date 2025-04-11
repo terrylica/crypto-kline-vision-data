@@ -28,10 +28,10 @@ autoflake --remove-all-unused-imports --recursive --in-place .
 
 ```bash
 # Run all tests
-scripts/run_tests_parallel.sh
+scripts/op/run_tests_parallel.sh
 
 # Run specific test directory
-scripts/run_tests_parallel.sh tests/cache_structure
+scripts/op/run_tests_parallel.sh tests/cache_structure
 ```
 
 ### Pre-commit Configuration

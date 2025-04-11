@@ -23,7 +23,7 @@ A comprehensive failure summary is provided with:
 Run tests with the `-e` flag to enable the enhanced error summary:
 
 ```bash
-./scripts/run_tests_parallel.sh -e tests/your_test_file.py
+./scripts/op/run_tests_parallel.sh -e tests/your_test_file.py
 ```
 
 ### How It Works

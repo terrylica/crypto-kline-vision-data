@@ -29,10 +29,10 @@ Tests for the consolidated utility modules can be run using:
 
 ```bash
 # Run all tests
-scripts/run_tests_parallel.sh tests
+scripts/op/run_tests_parallel.sh tests
 
 # Run specific utility tests
-scripts/run_tests_parallel.sh tests/network_utils
-scripts/run_tests_parallel.sh tests/validation_utils
-scripts/run_tests_parallel.sh tests/time_utils
+scripts/op/run_tests_parallel.sh tests/network_utils
+scripts/op/run_tests_parallel.sh tests/validation_utils
+scripts/op/run_tests_parallel.sh tests/time_utils
 ```

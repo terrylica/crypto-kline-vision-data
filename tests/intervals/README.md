@@ -44,11 +44,11 @@ The tests should be run using the project's `run_tests_parallel.sh` script:
 
 ```bash
 # Run all interval tests
-scripts/run_tests_parallel.sh tests/intervals
+scripts/op/run_tests_parallel.sh tests/intervals
 
 # Run with debug logging
-scripts/run_tests_parallel.sh tests/intervals DEBUG
+scripts/op/run_tests_parallel.sh tests/intervals DEBUG
 
 # Run specific interval tests
-scripts/run_tests_parallel.sh tests/intervals INFO "-k test_minute_1_interval"
+scripts/op/run_tests_parallel.sh tests/intervals INFO "-k test_minute_1_interval"
 ```

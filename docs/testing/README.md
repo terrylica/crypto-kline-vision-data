@@ -10,7 +10,7 @@ The [unified logging abstraction](unified_logging.md) provides a robust solution
 
 ### Running Tests
 
-Tests are executed using the `scripts/run_tests_parallel.sh` script, which supports:
+Tests are executed using the `scripts/op/run_tests_parallel.sh` script, which supports:
 
 - Running tests in parallel or sequentially
 - Interactive test selection
@@ -20,7 +20,7 @@ Tests are executed using the `scripts/run_tests_parallel.sh` script, which suppo
 See the script's help message for details:
 
 ```bash
-scripts/run_tests_parallel.sh -h
+scripts/op/run_tests_parallel.sh -h
 ```
 
 ## Best Practices

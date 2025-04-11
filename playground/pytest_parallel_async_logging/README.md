@@ -29,13 +29,13 @@ This playground now uses the centralized `tests/utils/unified_logging.py` module
 To run the tests in this playground, use the following command from the project root:
 
 ```bash
-scripts/run_tests_parallel.sh playground/pytest_parallel_async_logging
+scripts/op/run_tests_parallel.sh playground/pytest_parallel_async_logging
 ```
 
 Or to run in sequential mode:
 
 ```bash
-scripts/run_tests_parallel.sh -s playground/pytest_parallel_async_logging
+scripts/op/run_tests_parallel.sh -s playground/pytest_parallel_async_logging
 ```
 
 ## Example Code

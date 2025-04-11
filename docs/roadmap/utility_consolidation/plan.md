@@ -21,7 +21,7 @@ This consolidation will be performed in phases to minimize risk and allow for it
   4. **Update Imports**: Update all files in `utils` and `core` that currently import from `time_alignment.py` and `api_boundary_validator.py` (for time functions) to import from `utils/time_utils.py` instead.
   5. **Deprecate Old Functions**: In `time_alignment.py` and `api_boundary_validator.py`, mark the moved time-related functions as deprecated, but keep them as wrappers that call the new functions in `utils/time_utils.py`. This will provide a transition period and avoid immediate breaking changes. Add clear deprecation warnings using the `warnings` module.
   6. **Testing**:
-     - Run existing tests using `scripts/run_tests_parallel.sh tests/core tests/utils` to ensure no regressions are introduced in core functionality.
+     - Run existing tests using `scripts/op/run_tests_parallel.sh tests/core tests/utils` to ensure no regressions are introduced in core functionality.
      - Create new unit tests specifically for `utils/time_utils.py` to test all consolidated time functions thoroughly.
 
 ## Phase 2: Validation Logic Consolidation
@@ -37,7 +37,7 @@ This consolidation will be performed in phases to minimize risk and allow for it
   4. **Update Imports**: Update all files in `utils` and `core` that currently import from `cache_validator.py` and `validation.py` to import from `utils/validation_utils.py` for validation functions.
   5. **Deprecate Old Validation Classes/Functions**: In `cache_validator.py` and `validation.py`, mark the moved validation functions and classes as deprecated, using wrapper functions that call the new implementations in `utils/validation_utils.py`. Add deprecation warnings.
   6. **Testing**:
-     - Run existing tests using `scripts/run_tests_parallel.sh tests/core tests/utils`.
+     - Run existing tests using `scripts/op/run_tests_parallel.sh tests/core tests/utils`.
      - Create new unit tests for `utils/validation_utils.py` to cover all consolidated validation logic.
 
 ## Phase 3: HTTP Client and Download Handling Consolidation
@@ -53,7 +53,7 @@ This consolidation will be performed in phases to minimize risk and allow for it
   4. **Update Imports**: Update imports in `utils` and `core` to use `utils/network_utils.py` for HTTP client and download functionalities.
   5. **Deprecate Old Classes/Functions**: In `download_handler.py` and `http_client_factory.py`, deprecate the moved classes and functions, providing wrappers that call the new implementations in `utils/network_utils.py`. Add deprecation warnings.
   6. **Testing**:
-     - Run existing tests using `scripts/run_tests_parallel.sh tests/core tests/utils`.
+     - Run existing tests using `scripts/op/run_tests_parallel.sh tests/core tests/utils`.
      - Create unit tests for `utils/network_utils.py`, focusing on HTTP client creation, request handling, and download functionalities.
 
 ## Phase 4: Deprecated Code Removal and Final Cleanup
@@ -62,7 +62,7 @@ This consolidation will be performed in phases to minimize risk and allow for it
 - **Tasks**:
   1. **Remove Deprecated Wrappers**: After ensuring all imports have been updated and the system is stable with the deprecated wrappers, remove the wrapper functions and classes from the original utility files.
   2. **Update Documentation**: Update any relevant documentation (including code comments and external documentation if any) to reflect the new utility module structure and usage.
-  3. **Final Testing**: Run all tests (`scripts/run_tests_parallel.sh tests/core tests/utils`) one last time to confirm no issues after removing deprecated code.
+  3. **Final Testing**: Run all tests (`scripts/op/run_tests_parallel.sh tests/core tests/utils`) one last time to confirm no issues after removing deprecated code.
   4. **Code Review**: Conduct a final code review of all consolidated utility modules to ensure code quality, consistency, and clarity.
 
 ## Dependencies
@@ -74,7 +74,7 @@ This consolidation will be performed in phases to minimize risk and allow for it
 
 - **Unit Tests**: Create comprehensive unit tests for each new consolidated utility module (`time_utils.py`, `validation_utils.py`, `network_utils.py`).
 - **Integration Tests**: Existing core script tests will serve as integration tests, ensuring that the utility consolidations do not break core functionalities.
-- **Parallel Test Execution**: Utilize `scripts/run_tests_parallel.sh` for efficient test execution.
+- **Parallel Test Execution**: Utilize `scripts/op/run_tests_parallel.sh` for efficient test execution.
 - **Monitor Deprecation Warnings**: Pay close attention to deprecation warnings during testing to ensure a smooth transition and identify any missed import updates.
 
 ## Rollback Plan

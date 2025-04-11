@@ -21,13 +21,13 @@ The tests should be run using the project's `run_tests_parallel.sh` script to en
 
 ```bash
 # Run all data source tests
-scripts/run_tests_parallel.sh tests/data_sources
+scripts/op/run_tests_parallel.sh tests/data_sources
 
 # Run with debug logging
-scripts/run_tests_parallel.sh tests/data_sources DEBUG
+scripts/op/run_tests_parallel.sh tests/data_sources DEBUG
 
 # Run only a specific test function
-scripts/run_tests_parallel.sh tests/data_sources INFO "-k test_vision_to_rest_fallback"
+scripts/op/run_tests_parallel.sh tests/data_sources INFO "-k test_vision_to_rest_fallback"
 ```
 
 ## Test Environment

@@ -27,13 +27,13 @@ The tests should be run using the project's `run_tests_parallel.sh` script:
 
 ```bash
 # Run all market type tests
-scripts/run_tests_parallel.sh tests/market_types
+scripts/op/run_tests_parallel.sh tests/market_types
 
 # Run with debug logging
-scripts/run_tests_parallel.sh tests/market_types DEBUG
+scripts/op/run_tests_parallel.sh tests/market_types DEBUG
 
 # Run only a specific test function
-scripts/run_tests_parallel.sh tests/market_types INFO "-k test_spot_market_data_retrieval"
+scripts/op/run_tests_parallel.sh tests/market_types INFO "-k test_spot_market_data_retrieval"
 ```
 
 ## Implementation Notes

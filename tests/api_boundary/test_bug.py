@@ -82,4 +82,4 @@ async def test_direct_url_construction():
 
 
 # Note: The direct asyncio.run() invocation is removed to comply with the requirement
-# to use scripts/run_tests_parallel.sh as the entry point
+# to use scripts/op/run_tests_parallel.sh as the entry point

@@ -185,16 +185,16 @@ We use the PyTest framework for thorough testing of our consolidated modules. Th
 
 ```bash
 # Run all tests
-scripts/run_tests_parallel.sh tests
+scripts/op/run_tests_parallel.sh tests
 
 # Run network utils tests
-scripts/run_tests_parallel.sh tests/network_utils
+scripts/op/run_tests_parallel.sh tests/network_utils
 
 # Run validation utils tests
-scripts/run_tests_parallel.sh tests/validation_utils
+scripts/op/run_tests_parallel.sh tests/validation_utils
 
 # Run time utils tests
-scripts/run_tests_parallel.sh tests/time_utils
+scripts/op/run_tests_parallel.sh tests/time_utils
 ```
 
 ## Progress Summary

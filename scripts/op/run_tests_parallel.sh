@@ -40,8 +40,8 @@
 #     permanent location without ANSI color codes for easier viewing in text editors.
 #
 # USAGE:
-#   ./scripts/run_tests_parallel.sh [options] [test_path] [additional_pytest_args]
-#   ./scripts/run_tests_parallel.sh -i|--interactive [additional_pytest_args]
+#   ./scripts/op/run_tests_parallel.sh [options] [test_path] [additional_pytest_args]
+#   ./scripts/op/run_tests_parallel.sh -i|--interactive [additional_pytest_args]
 #
 # OPTIONS:
 #   -i, --interactive:  Enable interactive test selection mode. Presents a menu
@@ -87,37 +87,37 @@
 #
 # EXAMPLES:
 #   # 1. Run all tests in the tests/ directory with default settings:
-#   ./scripts/run_tests_parallel.sh
+#   ./scripts/op/run_tests_parallel.sh
 #
 #   # 2. Run tests interactively to select specific tests:
-#   ./scripts/run_tests_parallel.sh -i
+#   ./scripts/op/run_tests_parallel.sh -i
 #
 #   # 2a. Run tests interactively with verbosity flag and error summary:
-#   ./scripts/run_tests_parallel.sh -i -v -e
+#   ./scripts/op/run_tests_parallel.sh -i -v -e
 #
 #   # 3. Run tests in a specific subdirectory with default settings:
-#   ./scripts/run_tests_parallel.sh tests/time_boundary
+#   ./scripts/op/run_tests_parallel.sh tests/time_boundary
 #
 #   # 4. Display the full help message:
-#   ./scripts/run_tests_parallel.sh -h
+#   ./scripts/op/run_tests_parallel.sh -h
 #
 #   # 5. Run tests in sequential mode (no parallel execution):
-#   ./scripts/run_tests_parallel.sh -s tests/utils
+#   ./scripts/op/run_tests_parallel.sh -s tests/utils
 #
 #   # 6. Run tests with pytest pattern matching:
-#   ./scripts/run_tests_parallel.sh tests/utils -k "test_pattern"
+#   ./scripts/op/run_tests_parallel.sh tests/utils -k "test_pattern"
 #
 #   # 7. Run tests with error summary for better debugging:
-#   ./scripts/run_tests_parallel.sh -e tests/utils
+#   ./scripts/op/run_tests_parallel.sh -e tests/utils
 #
 #   # 8. Run tests sequentially with error summary:
-#   ./scripts/run_tests_parallel.sh -s -e tests/utils
+#   ./scripts/op/run_tests_parallel.sh -s -e tests/utils
 #
 #   # 9. Run tests and save the log file to a permanent location:
-#   ./scripts/run_tests_parallel.sh -e --save-log test_results.log tests/utils
+#   ./scripts/op/run_tests_parallel.sh -e --save-log test_results.log tests/utils
 #
 #   # 10. First select interactively, then filter tests by pattern:
-#   ./scripts/run_tests_parallel.sh -i -k "pattern"
+#   ./scripts/op/run_tests_parallel.sh -i -k "pattern"
 #
 # BEST PRACTICES and NOTES:
 #   - Interactive Test Selection: The interactive mode smartly detects both
@@ -205,11 +205,11 @@ show_help() {
   
   if [[ "$verbosity" == "minimal" ]]; then
     # Minimal help - just the basics for normal operation
-    echo -e "${YELLOW}Run:${NC} ${CYAN}./scripts/run_tests_parallel.sh -h${NC} ${YELLOW}for full help${NC}"
+    echo -e "${YELLOW}Run:${NC} ${CYAN}./scripts/op/run_tests_parallel.sh -h${NC} ${YELLOW}for full help${NC}"
     echo -e ""
   else
     # Full help information
-    echo -e "${YELLOW}Usage:${NC} ./scripts/run_tests_parallel.sh [options] [test_path] [additional_pytest_args]"
+    echo -e "${YELLOW}Usage:${NC} ./scripts/op/run_tests_parallel.sh [options] [test_path] [additional_pytest_args]"
     echo -e ""
     echo -e "${YELLOW}Options:${NC}"
     echo -e "  ${GREEN}-i, --interactive${NC} : Select tests interactively"
@@ -233,13 +233,13 @@ show_help() {
     echo -e "  ${GREEN}additional_pytest_args${NC}: Extra arguments passed to pytest (e.g., -k pattern, -m marker)"
     echo -e ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh${NC}                  : Run all tests"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -i${NC}               : Interactive mode"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -s tests/utils${NC}   : Sequential mode"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -e tests/utils${NC}   : With error summary"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh tests/utils -k pattern${NC} : With pattern matching"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -s -e tests/utils${NC}: Sequential with error summary"
-    echo -e "  ${CYAN}./scripts/run_tests_parallel.sh -e --save-log output.log tests/utils${NC} : Save log file"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh${NC}                  : Run all tests"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh -i${NC}               : Interactive mode"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh -s tests/utils${NC}   : Sequential mode"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh -e tests/utils${NC}   : With error summary"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh tests/utils -k pattern${NC} : With pattern matching"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh -s -e tests/utils${NC}: Sequential with error summary"
+    echo -e "  ${CYAN}./scripts/op/run_tests_parallel.sh -e --save-log output.log tests/utils${NC} : Save log file"
     echo -e ""
     echo -e "${YELLOW}Log File Viewing:${NC}"
     echo -e "  - When using ${CYAN}-e/--error-summary${NC}, logs are saved to a temporary file"
