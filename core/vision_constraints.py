@@ -162,63 +162,75 @@ def get_vision_url(
     interval: str,
     date: datetime,
     file_type: FileType,
-    market_type: Union[str, MarketType] = "spot",
+    market_type: str = "spot",
 ) -> str:
-    """Generate standard Vision URLs.
+    """Get Binance Vision API URL for the given parameters.
 
     Args:
         symbol: Trading pair symbol
-        interval: Time interval
-        date: Target date
-        file_type: Type of file to generate URL for
-        market_type: Market type (spot, futures_usdt, futures_coin) or MarketType enum
+        interval: Kline interval
+        date: Date to fetch
+        file_type: File type (DATA or CHECKSUM)
+        market_type: Market type (spot, futures_usdt, futures_coin)
 
     Returns:
-        Formatted Vision URL
+        Full URL to the file
     """
-    # Convert MarketType enum to appropriate string path if needed
-    if isinstance(market_type, MarketType):
-        market_path = market_type.vision_api_path
-    else:
-        # Handle string inputs for backward compatibility
-        # Ensure market_type is a string before calling .lower()
-        market_type_str = str(market_type).lower()
-
-        # Map market types to URL paths
-        market_path_mapping = {
-            "spot": "spot",
-            "futures_usdt": "futures/um",
-            "futures_coin": "futures/cm",
-        }
-
-        if market_type_str not in market_path_mapping:
-            raise ValueError(f"Invalid market type: {market_type}")
-
-        market_path = market_path_mapping[market_type_str]
-
-    # Adjust symbol for coin-margined futures (CM)
-    adjusted_symbol = symbol
-    # Compare by name rather than direct instance comparison to handle module reloading
-    if isinstance(market_type, MarketType):
-        is_futures_coin = market_type.name == "FUTURES_COIN"
-    else:
-        is_futures_coin = str(market_type).lower() == "futures_coin"
-
-    if is_futures_coin:
-        # Add _PERP suffix if not already present
-        if not symbol.endswith("_PERP"):
-            adjusted_symbol = f"{symbol}_PERP"
-
-    base_url = f"https://data.binance.vision/data/{market_path}/daily/klines"
+    # Format date string
     date_str = date.strftime("%Y-%m-%d")
-    file_name = f"{adjusted_symbol}-{interval}-{date_str}"
 
-    if file_type == FileType.DATA:
-        return f"{base_url}/{adjusted_symbol}/{interval}/{file_name}.zip"
-    elif file_type == FileType.CHECKSUM:
-        return f"{base_url}/{adjusted_symbol}/{interval}/{file_name}.zip.CHECKSUM"
+    from utils.logger_setup import logger
+
+    logger.debug(
+        f"Creating Vision API URL for {symbol} {interval} on {date_str} (market: {market_type})"
+    )
+
+    # Determine base URL
+    base_url = "https://data.binance.vision"
+
+    # Determine path components based on market type
+    # Convert market type to lowercase for consistency
+    market_type = market_type.lower()
+
+    if market_type == "spot":
+        market_path = "spot"
+    elif market_type in ["futures_usdt", "um"]:
+        market_path = "futures/um"
+    elif market_type in ["futures_coin", "cm"]:
+        market_path = "futures/cm"
     else:
-        raise ValueError(f"Invalid file type for Vision URL: {file_type}")
+        raise ValueError(f"Unsupported market type: {market_type}")
+
+    # For coin-margined futures, append _PERP suffix
+    if market_type in ["futures_coin", "cm"]:
+        # If symbol already has _PERP suffix, don't add it again
+        if not symbol.endswith("_PERP"):
+            symbol = f"{symbol}_PERP"
+
+    # Construct file name
+    file_name = f"{symbol}-{interval}-{date_str}.zip"
+
+    # Add suffix for checksum file
+    if file_type == FileType.CHECKSUM:
+        file_name += ".CHECKSUM"
+
+    # Construct full URL
+    url = f"{base_url}/data/{market_path}/daily/klines/{symbol}/{interval}/{file_name}"
+
+    logger.debug(f"Generated Vision API URL: {url}")
+
+    # Save URLs to file for debugging - write to /tmp to avoid issues with permissions
+    try:
+        import os
+
+        debug_file = "/tmp/vision_api_urls.txt"
+        with open(debug_file, "a") as f:
+            f.write(f"{url}\n")
+        logger.debug(f"Saved URL to {debug_file}")
+    except Exception as e:
+        logger.debug(f"Failed to save URL to debug file: {e}")
+
+    return url
 
 
 def is_data_likely_available(target_date: datetime) -> bool:
