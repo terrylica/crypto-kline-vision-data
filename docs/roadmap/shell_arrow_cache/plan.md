@@ -81,7 +81,9 @@ For data integrity, our implementation includes robust checksum verification of 
    - Add a "retry-failed-checksums" option to attempt re-downloading files with checksum mismatches
 
 4. **Checksum Failure Registry**
+
    - Store structured information about each failure:
+
      ```json
      {
        "symbol": "BTCUSDT",
@@ -93,6 +95,7 @@ For data integrity, our implementation includes robust checksum verification of 
        "action_taken": "skipped|cached_anyway|retried_success|retried_failed"
      }
      ```
+
    - Allow reviewing and managing checksum failures through helper scripts
 
 ### Usage Examples

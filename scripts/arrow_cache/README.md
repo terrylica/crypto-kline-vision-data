@@ -98,7 +98,7 @@ The Arrow Cache Builder provides a reliable and efficient way to download histor
 
 The Arrow cache is organized in a hierarchical structure:
 
-```
+```tree
 cache/
   BINANCE/
     KLINES/
