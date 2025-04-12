@@ -13,13 +13,11 @@ Usage:
     python scripts/arrow_cache/cache_builder_sync.py --symbols BTCUSDT,ETHUSDT --intervals 1m,5m --start-date 2024-01-01
 """
 
-import os
 import sys
 import csv
 import time
 import signal
 import argparse
-import threading
 import urllib.request
 import zipfile
 import json
@@ -27,21 +25,16 @@ import io
 import hashlib
 import sqlite3
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Tuple, Optional, Set
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.parquet as pq
-import numpy as np
 
 from utils.logger_setup import logger
-from rich import print
 from utils.market_constraints import Interval, MarketType
 
 # Add re module for pattern matching in JSON validation
-import re
 
 # Constants
 CACHE_DIR = Path("./cache")

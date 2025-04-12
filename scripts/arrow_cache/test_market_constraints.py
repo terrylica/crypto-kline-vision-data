@@ -6,9 +6,7 @@ This script shows how to properly use the market_constraints.py enums with the A
 ensuring data is stored in the correct locations and can be found by the ArrowCacheReader.
 """
 
-from utils.logger_setup import logger
 from rich import print
-import pandas as pd
 from datetime import datetime
 from pathlib import Path
 

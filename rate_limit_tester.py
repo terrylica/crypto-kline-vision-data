@@ -14,7 +14,6 @@ import asyncio
 import time
 import argparse
 import signal
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 

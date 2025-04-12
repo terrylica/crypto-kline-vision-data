@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # Example usage of ArrowCacheReader with proper market_constraints.py enums
 
-from utils.logger_setup import logger
 from rich import print
-import pandas as pd
 from datetime import datetime
-from pathlib import Path
 
 from utils.market_constraints import DataProvider, MarketType, ChartType, Interval
 from utils.arrow_cache_reader import ArrowCacheReader

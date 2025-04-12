@@ -15,9 +15,6 @@ import time
 import argparse
 import csv
 import signal
-import sys
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from utils.logger_setup import logger
 from rich import print
