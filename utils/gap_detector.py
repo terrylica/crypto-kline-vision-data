@@ -8,8 +8,7 @@ based on expected intervals defined in market_constraints.py.
 
 from pathlib import Path
 import pandas as pd
-import numpy as np
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List
 from dataclasses import dataclass
 import sys
 
