@@ -8,17 +8,15 @@ timestamp validation issues and day boundary transitions.
 
 from datetime import datetime, timezone, timedelta
 import os
-import sys
 import pandas as pd
 import argparse
 from pathlib import Path
 import time
-from typing import Dict, List, Tuple, Optional, Union, Any
+from typing import Dict, List, Tuple, Any
 
 # Try to import visualization libraries but make them optional
 try:
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    pass
 
     VISUALIZATION_AVAILABLE = True
 except ImportError:
@@ -29,12 +27,9 @@ except ImportError:
 
 # Import from the project
 from utils.logger_setup import logger
-from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
+from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
-    filter_dataframe_by_time,
     align_time_boundaries,
-    datetime_to_milliseconds,
-    milliseconds_to_datetime,
     get_interval_seconds,
 )
 from core.sync.vision_data_client import VisionDataClient

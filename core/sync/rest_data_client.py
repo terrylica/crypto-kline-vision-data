@@ -2,11 +2,9 @@
 """Client for fetching market data from REST APIs with synchronous implementation."""
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
-import warnings
-import random
 
 from utils.logger_setup import logger
 from utils.time_utils import (
@@ -29,7 +27,6 @@ from utils.config import (
 )
 from utils.hardware_monitor import HardwareMonitor
 from core.sync.data_client_interface import DataClientInterface
-from utils.network_utils import create_client
 
 # Define the column names as a constant since they aren't in config.py
 OUTPUT_COLUMNS = [
@@ -535,7 +532,6 @@ class RestDataClient(DataClientInterface):
             interval: Time interval
         """
         # Implementation omitted, retained as a placeholder for future use
-        pass
 
     def _align_interval_boundaries(
         self, start_time: datetime, end_time: datetime, interval: Interval

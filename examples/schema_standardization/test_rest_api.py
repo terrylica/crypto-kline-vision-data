@@ -5,15 +5,14 @@ import argparse
 from pathlib import Path
 import sys
 from datetime import datetime, timedelta, timezone
-import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
-from utils.market_constraints import MarketType, DataProvider, ChartType, Interval
+from utils.market_constraints import MarketType, DataProvider, Interval
 from core.sync.data_source_manager import DataSourceManager
-from core.sync.rest_data_client import RestDataClient, process_kline_data
+from core.sync.rest_data_client import RestDataClient
 
 
 def main():

@@ -7,21 +7,16 @@ It focuses specifically on the common pattern where 00:00:00 timestamps are miss
 
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-import numpy as np
-from typing import List, Tuple, Dict, Any, Optional
+from typing import List, Tuple, Dict, Any
 import logging
-import sys
 import argparse
 from pathlib import Path
 
 # Project imports
 from utils.logger_setup import logger
-from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
+from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
-    filter_dataframe_by_time,
-    align_time_boundaries,
     get_interval_seconds,
-    enforce_utc_timezone,
 )
 from core.sync.data_source_manager import DataSourceManager
 from core.sync.vision_data_client import VisionDataClient

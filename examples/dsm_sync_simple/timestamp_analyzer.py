@@ -10,15 +10,12 @@ from pathlib import Path
 import pandas as pd
 import logging
 import argparse
-from datetime import datetime, timezone, timedelta
-import pytz
-import time
+from datetime import datetime, timezone
 import json
 
 from utils.logger_setup import logger
 from rich import print
-from utils.market_constraints import MarketType, ChartType, DataProvider, Interval
-from utils.timestamp_utils import convert_timestamp_to_datetime
+from utils.time_utils import milliseconds_to_datetime
 
 # Set up detailed logging
 logger.setLevel(logging.DEBUG)
@@ -40,7 +37,7 @@ def test_timestamp_conversion(timestamps):
     """
     Test timestamp conversion function on various formats.
 
-    This tests the convert_timestamp_to_datetime function from utils.timestamp_utils
+    This tests the milliseconds_to_datetime function from utils.time_utils
     which is likely used in multiple places in the codebase.
     """
     logger.info("Testing timestamp conversion function")
@@ -49,7 +46,7 @@ def test_timestamp_conversion(timestamps):
     for ts_type, ts_value in timestamps.items():
         try:
             logger.info(f"Converting {ts_type} timestamp: {ts_value}")
-            dt = convert_timestamp_to_datetime(ts_value)
+            dt = milliseconds_to_datetime(ts_value)
             logger.info(f"Result: {dt} (type: {type(dt)})")
             results[ts_type] = {
                 "original": ts_value,
@@ -75,7 +72,7 @@ def extract_timestamp_code_paths():
 
     # These are the known files that handle timestamps
     key_files = [
-        "utils/timestamp_utils.py",
+        "utils/time_utils.py",
         "core/sync/vision_data_client.py",
         "core/sync/rest_data_client.py",
         "core/sync/data_source_manager.py",

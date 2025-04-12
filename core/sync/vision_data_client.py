@@ -16,7 +16,7 @@ For most use cases, users should interact with the DataSourceManager rather than
 directly with this client.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence, TypeVar, Generic, Union
 import os
 import tempfile
@@ -32,7 +32,6 @@ from utils.time_utils import (
     filter_dataframe_by_time,
     get_interval_seconds,
 )
-from utils.network_utils import create_client
 from utils.config import (
     create_empty_dataframe,
     standardize_column_names,
@@ -532,6 +531,13 @@ class VisionDataClient(Generic[T]):
             # Look for gaps significantly larger than expected interval at day boundaries
             # Focus on midnight transitions (23:00-01:00)
             combined_df["hour"] = combined_df["open_time"].dt.hour
+            combined_df["minute"] = combined_df["open_time"].dt.minute
+            combined_df["day"] = combined_df["open_time"].dt.day
+            combined_df["month"] = combined_df["open_time"].dt.month
+            combined_df["year"] = combined_df["open_time"].dt.year
+
+            # List to store any midnight records that actually need to be added
+            missing_midnight_records = []
 
             # Get potential day transition gaps
             # These would be where consecutive hours are 23 and 0/1, with a gap larger than expected
@@ -539,57 +545,101 @@ class VisionDataClient(Generic[T]):
                 curr_row = combined_df.iloc[i]
                 prev_row = combined_df.iloc[i - 1]
 
-                # Check for day boundary transition gap (23:XX -> 00:XX/01:XX)
-                if (
-                    prev_row["hour"] == 23
-                    and curr_row["hour"] in [0, 1]
-                    and curr_row["time_diff"] > expected_interval * 1.5
-                ):
-
-                    logger.warning(
-                        f"Day boundary gap detected at index {i}: "
-                        f"{prev_row['open_time']} -> {curr_row['open_time']} "
-                        f"({curr_row['time_diff']}s, expected {expected_interval}s)"
-                    )
-
-                    # Get the dates involved
+                # Check for day boundary transition (23:XX -> 00:XX/01:XX)
+                if prev_row["hour"] == 23 and curr_row["hour"] in [0, 1]:
+                    # Calculate the expected midnight timestamp
                     prev_date = prev_row["open_time"].date()
                     curr_date = curr_row["open_time"].date()
 
-                    logger.debug(f"Gap between dates: {prev_date} and {curr_date}")
-
-                    # Log the transition information
-                    timestamp_format_prev = prev_row.get("timestamp_format", "unknown")
-                    timestamp_format_curr = curr_row.get("timestamp_format", "unknown")
-
-                    if timestamp_format_prev != timestamp_format_curr:
-                        logger.warning(
-                            f"Format transition detected: {timestamp_format_prev} -> {timestamp_format_curr}"
+                    # Only proceed if dates are consecutive
+                    if (curr_date - prev_date).days == 1:
+                        midnight = datetime.combine(
+                            curr_date, datetime.min.time(), tzinfo=timezone.utc
                         )
 
-                    # Now check for the specific 2024-2025 transition issue
-                    if (
-                        prev_date.year == 2024
-                        and curr_date.year == 2025
-                        and prev_row["hour"] == 23
-                        and curr_row["hour"] in [0, 1]
-                    ):
+                        # Check if a 00:00:00 record exists by looking for exact midnight timestamps
+                        # or timestamps very close to midnight (within 1 second)
+                        midnight_records = combined_df[
+                            (combined_df["hour"] == 0)
+                            & (combined_df["minute"] == 0)
+                            & (combined_df["day"] == curr_date.day)
+                            & (combined_df["month"] == curr_date.month)
+                            & (combined_df["year"] == curr_date.year)
+                        ]
 
-                        logger.warning(
-                            "2024-2025 year boundary transition detected - this may be causing gaps"
-                        )
+                        # If we found a midnight record, there's no gap
+                        if not midnight_records.empty:
+                            logger.debug(
+                                f"Day boundary at index {i} has midnight record: "
+                                f"{prev_row['open_time']} → {midnight} → {curr_row['open_time']}"
+                            )
+                            continue
 
-                        # Determine missing timestamps in the gap
-                        minutes_missing = int(curr_row["time_diff"] / 60) - 1
-                        logger.debug(
-                            f"Approximately {minutes_missing} minute(s) missing at year boundary"
-                        )
+                        # Check for a true gap (consecutive records with time diff > expected)
+                        if curr_row["time_diff"] > expected_interval * 1.5:
+                            logger.warning(
+                                f"True day boundary gap detected at index {i}: "
+                                f"{prev_row['open_time']} → {curr_row['open_time']} "
+                                f"({curr_row['time_diff']:.1f}s, expected {expected_interval:.1f}s)"
+                            )
+
+                            logger.debug(
+                                f"Gap between dates: {prev_date} and {curr_date}"
+                            )
+
+                            # Now we need to create a midnight record through interpolation
+                            interpolated_row = prev_row.copy()
+                            interpolated_row["open_time"] = midnight
+
+                            # Calculate interpolation weight (what % of the way from prev to curr time)
+                            time_diff_seconds = (
+                                curr_row["open_time"] - prev_row["open_time"]
+                            ).total_seconds()
+                            prev_to_midnight_seconds = (
+                                midnight - prev_row["open_time"]
+                            ).total_seconds()
+                            weight = prev_to_midnight_seconds / time_diff_seconds
+
+                            # Interpolate numeric values
+                            for col in ["open", "high", "low", "close", "volume"]:
+                                if col in prev_row and col in curr_row:
+                                    interpolated_row[col] = prev_row[col] + weight * (
+                                        curr_row[col] - prev_row[col]
+                                    )
+
+                            # Add the interpolated midnight record to our list of records to add
+                            missing_midnight_records.append(interpolated_row)
+
+                            logger.info(
+                                f"Created interpolated record for midnight: {midnight}"
+                            )
+                        else:
+                            logger.debug(
+                                f"Day boundary transition without gap at index {i}: "
+                                f"{prev_row['open_time']} → {curr_row['open_time']} "
+                                f"({curr_row['time_diff']:.1f}s)"
+                            )
+
+            # Add any interpolated midnight records if needed
+            if missing_midnight_records:
+                # Convert list of rows to DataFrame
+                missing_df = pd.DataFrame(missing_midnight_records)
+                logger.info(
+                    f"Adding {len(missing_df)} interpolated midnight records to fill gaps"
+                )
+
+                # Combine with the original DataFrame
+                combined_df = pd.concat([combined_df, missing_df], ignore_index=True)
+
+                # Sort and reset index
+                combined_df = combined_df.sort_values("open_time").reset_index(
+                    drop=True
+                )
 
             # Clean up any diagnostic columns to avoid interfering with further processing
-            if "time_diff" in combined_df.columns:
-                combined_df = combined_df.drop(columns=["time_diff"])
-            if "hour" in combined_df.columns:
-                combined_df = combined_df.drop(columns=["hour"])
+            for col in ["time_diff", "hour", "minute", "day", "month", "year"]:
+                if col in combined_df.columns:
+                    combined_df = combined_df.drop(columns=[col])
 
         except Exception as e:
             logger.error(f"Error analyzing day transitions: {e}")

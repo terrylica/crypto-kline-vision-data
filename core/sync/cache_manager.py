@@ -9,7 +9,6 @@ import os
 import time
 
 from utils.logger_setup import logger
-from utils.config import MAX_TIMEOUT
 
 
 class UnifiedCacheManager:

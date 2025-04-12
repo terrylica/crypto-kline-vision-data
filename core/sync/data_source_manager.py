@@ -8,30 +8,25 @@ import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass
 import time
-import json
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
 from utils.time_utils import (
     filter_dataframe_by_time,
     align_time_boundaries,
+    get_interval_seconds,
 )
-from utils.validation import DataFrameValidator
 from utils.config import (
     OUTPUT_DTYPES,
     FUNDING_RATE_DTYPES,
     VISION_DATA_DELAY_HOURS,
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
-    standardize_column_names,
     create_empty_dataframe,
-    create_empty_funding_rate_dataframe,
 )
 from core.sync.rest_data_client import RestDataClient
 from core.sync.vision_data_client import VisionDataClient
-from core.sync.binance_funding_rate_client import BinanceFundingRateClient
 from core.sync.cache_manager import UnifiedCacheManager
-from core.sync.data_client_interface import DataClientInterface
 
 
 class DataSource(Enum):

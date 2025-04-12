@@ -5,15 +5,13 @@ import argparse
 from pathlib import Path
 import sys
 from datetime import datetime, timedelta
-import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
-from utils.market_constraints import MarketType, DataProvider, ChartType
+from utils.market_constraints import MarketType, DataProvider
 from utils.schema_standardizer import SchemaStandardizer
-from core.sync.data_source_manager import DataSourceManager
 
 
 def parse_date(date_str: str) -> datetime:

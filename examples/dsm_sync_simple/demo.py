@@ -17,7 +17,6 @@ import time
 import os
 import argparse
 import logging
-import shutil
 
 from utils.logger_setup import logger
 from rich import print

@@ -1,12 +1,11 @@
-from typing import List, Dict, Union, Optional, Tuple
+from typing import Dict, Optional
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta, timezone
 
 from utils.logger_setup import logger
-from rich import print
 
-from utils.market_constraints import MarketType, DataProvider, ChartType, Interval
+from utils.market_constraints import MarketType, DataProvider, Interval
 from core.sync.data_source_manager import DataSourceManager
 from core.sync.rest_data_client import RestDataClient
 
