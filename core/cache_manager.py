@@ -236,8 +236,9 @@ class UnifiedCacheManager:
         date: datetime,
         provider: str = "BINANCE",
         chart_type: str = "KLINES",
+        market_type: str = "spot",
     ) -> str:
-        """Generate a standardized cache key.
+        """Get cache key for a data point.
 
         Args:
             symbol: Trading pair symbol
@@ -245,6 +246,7 @@ class UnifiedCacheManager:
             date: Reference date
             provider: Data provider
             chart_type: Chart type
+            market_type: Market type (spot, futures_usdt, futures_coin)
 
         Returns:
             Cache key string
@@ -255,9 +257,10 @@ class UnifiedCacheManager:
         date_str = date.strftime("%Y-%m-%d")
         provider = provider.upper()
         chart_type = chart_type.upper()
+        market_type = market_type.lower()
 
         # Create a key that incorporates all components
-        return f"{provider}_{chart_type}_{symbol}_{interval}_{date_str}"
+        return f"{provider}_{chart_type}_{market_type}_{symbol}_{interval}_{date_str}"
 
     def _get_cache_path(self, cache_key: str) -> Path:
         """Get filesystem path for a cache key.
@@ -271,14 +274,17 @@ class UnifiedCacheManager:
         # Use cache key components to create a directory structure
         components = cache_key.split("_")
 
-        if len(components) >= 5:
-            provider, chart_type, symbol, interval, date_str = components[:5]
+        if len(components) >= 6:
+            provider, chart_type, market_type, symbol, interval, date_str = components[
+                :6
+            ]
 
-            # Create path with hierarchical structure
+            # Create path with hierarchical structure according to specification
             return (
                 self.cache_dir
                 / provider
                 / chart_type
+                / market_type
                 / symbol
                 / interval
                 / f"{date_str}.arrow"
@@ -294,6 +300,7 @@ class UnifiedCacheManager:
         date: datetime,
         provider: str = "BINANCE",
         chart_type: str = "KLINES",
+        market_type: str = "spot",
     ) -> Optional[pd.DataFrame]:
         """Load data from cache.
 
@@ -303,6 +310,7 @@ class UnifiedCacheManager:
             date: Reference date
             provider: Data provider
             chart_type: Chart type
+            market_type: Market type (spot, futures_usdt, futures_coin)
 
         Returns:
             DataFrame with cached data or None if not found
@@ -314,7 +322,9 @@ class UnifiedCacheManager:
 
         # Generate cache key
         key_gen_start = time.time()
-        cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type)
+        cache_key = self.get_cache_key(
+            symbol, interval, date, provider, chart_type, market_type
+        )
         cache_path = self._get_cache_path(cache_key)
         key_gen_elapsed = time.time() - key_gen_start
         logger.debug(f"Cache key generation completed in {key_gen_elapsed:.4f}s")
@@ -408,6 +418,7 @@ class UnifiedCacheManager:
         date: datetime,
         provider: str = "BINANCE",
         chart_type: str = "KLINES",
+        market_type: str = "spot",
     ) -> bool:
         """Save data to cache.
 
@@ -418,6 +429,7 @@ class UnifiedCacheManager:
             date: Reference date
             provider: Data provider
             chart_type: Chart type
+            market_type: Market type (spot, futures_usdt, futures_coin)
 
         Returns:
             True if successful, False otherwise
@@ -434,7 +446,9 @@ class UnifiedCacheManager:
 
         # Generate cache key and path
         key_gen_start = time.time()
-        cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type)
+        cache_key = self.get_cache_key(
+            symbol, interval, date, provider, chart_type, market_type
+        )
         cache_path = self._get_cache_path(cache_key)
         key_gen_elapsed = time.time() - key_gen_start
         logger.debug(f"Cache key generation completed in {key_gen_elapsed:.4f}s")
@@ -538,8 +552,9 @@ class UnifiedCacheManager:
         date: datetime,
         provider: str = "BINANCE",
         chart_type: str = "KLINES",
+        market_type: str = "spot",
     ) -> None:
-        """Invalidate a cache entry.
+        """Mark cache entry as invalid (will be excluded from loading).
 
         Args:
             symbol: Trading pair symbol
@@ -547,20 +562,13 @@ class UnifiedCacheManager:
             date: Reference date
             provider: Data provider
             chart_type: Chart type
+            market_type: Market type (spot, futures_usdt, futures_coin)
         """
-        cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type)
-        cache_path = self._get_cache_path(cache_key)
-
-        if cache_path.exists():
-            try:
-                # Try to delete the file
-                os.remove(cache_path)
-                logger.debug(f"Deleted invalidated cache: {cache_path}")
-            except Exception as e:
-                logger.error(f"Failed to delete cache file: {e}")
-
-        # Also mark as invalid in metadata
-        asyncio.create_task(self._mark_cache_invalid(cache_key, "Manual invalidation"))
+        logger.debug(f"Invalidating cache for {symbol} {interval} {date.date()}")
+        cache_key = self.get_cache_key(
+            symbol, interval, date, provider, chart_type, market_type
+        )
+        self._mark_cache_invalid(cache_key, "Manually invalidated")
 
     async def purge_expired_cache(self, max_age_days: int = 30) -> int:
         """Purge expired cache entries.

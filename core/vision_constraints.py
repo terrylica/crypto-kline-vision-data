@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import TypeVar, NewType, Final, NamedTuple, Literal, Dict, Union
+from typing import TypeVar, NewType, Final, NamedTuple, Literal, Dict
 from datetime import datetime, timedelta
 import pandas as pd
 from pathlib import Path
@@ -23,7 +23,6 @@ from utils.config import (
     ERROR_TYPES,
     CONSOLIDATION_DELAY,
 )  # Import ERROR_TYPES from central config
-from utils.market_constraints import MarketType
 
 # Type definitions for semantic clarity and safety
 TimeseriesIndex = NewType("TimeseriesIndex", pd.DatetimeIndex)
@@ -221,7 +220,7 @@ def get_vision_url(
 
     # Save URLs to file for debugging - write to /tmp to avoid issues with permissions
     try:
-        import os
+        pass
 
         debug_file = "/tmp/vision_api_urls.txt"
         with open(debug_file, "a") as f:
