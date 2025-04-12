@@ -105,3 +105,4 @@ cache_test/
 scripts/binance_vision_api_aws_s3/reports/temp/
 scripts/binance_vision_api_aws_s3/reports/aws_cache
 examples/schema_standardization/schema_test/
+playground/rate_limit_test/results/

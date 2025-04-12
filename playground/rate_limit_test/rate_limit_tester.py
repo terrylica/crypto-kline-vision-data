@@ -10,11 +10,10 @@ Usage:
     python rate_limit_tester.py --duration 300  # Run for 5 minutes
 """
 
-import asyncio
 import time
 import argparse
-import csv
 import signal
+from pathlib import Path
 
 from utils.logger_setup import logger
 from rich import print
@@ -28,7 +27,7 @@ from rich.progress import (
 )
 
 # For API access
-from core.data_source_manager import DataSourceManager
+from core.sync.data_source_manager import DataSourceManager
 from utils.market_constraints import MarketType, Interval, DataProvider
 import pandas as pd
 
@@ -102,18 +101,16 @@ class RateLimitTester:
         # Configure minimal logging
         logger.setup_root(level="WARNING", show_filename=True)
 
-    async def setup(self):
+    def setup(self):
         """Set up the data source manager."""
         self.manager = DataSourceManager(
             market_type=MarketType.SPOT,
             provider=DataProvider.BINANCE,
             use_cache=False,
-            # Increase concurrent limit for better performance
-            max_concurrent=50,
         )
         return self
 
-    async def fetch_data(self, symbol):
+    def fetch_data(self, symbol):
         """Fetch 1-second data for a single symbol.
 
         Args:
@@ -127,9 +124,10 @@ class RateLimitTester:
             # We'll call the REST client directly to bypass the DataSourceManager time validations
             rest_client = self.manager._rest_client
 
-            # Ensure rest client is initialized
+            # Ensure REST client is initialized
             if not rest_client._client:
-                await rest_client._ensure_client()
+                # Use synchronous HTTP client initialization
+                rest_client._client = rest_client._create_client()
 
             # Build parameters without start/end time
             params = {
@@ -138,9 +136,11 @@ class RateLimitTester:
                 "limit": 1000,
             }
 
-            # Call endpoint directly
+            # Call endpoint directly using synchronous requests
+            import requests
+
             endpoint_url = rest_client._get_klines_endpoint()
-            response = await rest_client._client.get(endpoint_url, params=params)
+            response = requests.get(endpoint_url, params=params)
 
             # Extract rate limit info from response headers
             if hasattr(response, "headers"):
@@ -150,7 +150,40 @@ class RateLimitTester:
             # Process response data
             data = response.json()
             if data and isinstance(data, list):
-                df = rest_client.process_kline_data(data)
+                # Convert to DataFrame manually since we're not using the async client
+                columns = [
+                    "open_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "close_time",
+                    "quote_volume",
+                    "trades",
+                    "taker_buy_base_volume",
+                    "taker_buy_quote_volume",
+                    "ignore",
+                ]
+                df = pd.DataFrame(data, columns=columns)
+
+                # Convert timestamps to datetime
+                df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+                df["close_time"] = pd.to_datetime(df["close_time"], unit="ms")
+
+                # Convert numeric columns
+                for col in [
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "quote_volume",
+                    "trades",
+                    "taker_buy_base_volume",
+                    "taker_buy_quote_volume",
+                ]:
+                    df[col] = pd.to_numeric(df[col])
             else:
                 df = pd.DataFrame()
 
@@ -163,7 +196,7 @@ class RateLimitTester:
             logger.error(f"Error fetching {symbol}: {str(e)}")
             return None
 
-    async def run_test(self):
+    def run_test(self):
         """Run the rate limit test."""
         self.running = True
         self.test_start_time = time.time()
@@ -199,13 +232,9 @@ class RateLimitTester:
                 elapsed = time.time() - self.test_start_time
                 progress.update(task, completed=min(elapsed, self.duration))
 
-                # Create tasks for all symbols
-                tasks = []
+                # Process symbols one at a time
                 for symbol in self.symbols:
-                    tasks.append(self.fetch_data(symbol))
-
-                # Run all tasks concurrently
-                await asyncio.gather(*tasks)
+                    self.fetch_data(symbol)
 
                 # Display stats
                 stats = self.tracker.get_stats()
@@ -216,13 +245,13 @@ class RateLimitTester:
                     f"Warnings: {stats['warnings']}"
                 )
 
-                # Wait until 1 second has passed since the start of this iteration
-                cycle_duration = time.time() - (self.test_start_time + elapsed)
-                if cycle_duration < 1.0:
-                    await asyncio.sleep(1.0 - cycle_duration)
+                # Sleep for a second before next iteration
+                remaining_time = 1.0 - (time.time() - (self.test_start_time + elapsed))
+                if remaining_time > 0:
+                    time.sleep(remaining_time)
 
         # Print final statistics
-        await self.print_final_stats()
+        self.print_final_stats()
 
     def _handle_signal(self, signum, frame):
         """Handle termination signals."""
@@ -231,7 +260,7 @@ class RateLimitTester:
         )
         self.running = False
 
-    async def print_final_stats(self):
+    def print_final_stats(self):
         """Print final test statistics."""
         self.console.print("\n[bold green]Rate Limit Test Completed[/bold green]")
         self.console.print(
@@ -256,32 +285,36 @@ class RateLimitTester:
                 "[bold green]SUCCESS: No rate limit warnings were triggered.[/bold green]"
             )
 
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up resources."""
         if hasattr(self, "manager"):
-            await self.manager.__aexit__(None, None, None)
+            self.manager.__exit__(None, None, None)
 
 
 # Helper functions
-def read_symbols_from_csv(csv_path):
-    """Read symbols from CSV file.
+def read_symbols_from_file(file_path):
+    """Read symbols from a text file.
 
     Args:
-        csv_path: Path to the CSV file
+        file_path: Path to the text file with one symbol per line
 
     Returns:
         List of symbols
     """
     symbols = []
-    with open(csv_path, "r") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row["market"] == "spot":
-                symbols.append(row["symbol"])
-    return symbols
+    try:
+        with open(file_path, "r") as f:
+            for line in f:
+                symbol = line.strip()
+                if symbol:
+                    symbols.append(symbol)
+        return symbols
+    except Exception as e:
+        print(f"Error reading symbols file: {str(e)}")
+        return []
 
 
-async def main():
+def main():
     """Run the rate limit test."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test Binance API rate limits")
@@ -289,25 +322,32 @@ async def main():
         "--duration", type=int, default=300, help="Test duration in seconds"
     )
     parser.add_argument(
-        "--csv",
+        "--symbols",
         type=str,
-        default="/workspaces/binance-data-services/scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv",
-        help="Path to CSV file with symbols",
+        default=str(Path(__file__).parent / "symbols.txt"),
+        help="Path to symbols file (one per line)",
     )
     args = parser.parse_args()
 
-    # Read symbols from CSV
-    symbols = read_symbols_from_csv(args.csv)
+    # Read symbols from file
+    symbols = read_symbols_from_file(args.symbols)
+    if not symbols:
+        print(
+            "No symbols found. Make sure symbols.txt exists with one symbol per line."
+        )
+        return
+
+    print(f"Loaded {len(symbols)} symbols from {args.symbols}")
 
     # Initialize and run the tester
-    tester = await RateLimitTester(symbols, args.duration).setup()
+    tester = RateLimitTester(symbols, args.duration).setup()
     try:
-        await tester.run_test()
+        tester.run_test()
     except Exception as e:
         print(f"Error during test: {str(e)}")
     finally:
-        await tester.cleanup()
+        tester.cleanup()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
