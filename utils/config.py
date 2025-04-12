@@ -160,7 +160,7 @@ DEFAULT_HTTP_TIMEOUT_SECONDS: Final[float] = (
 # Chunk size constraints
 REST_CHUNK_SIZE: Final = 1000
 REST_MAX_CHUNKS: Final = 1000  # Increased from 5 to 1000 to effectively remove limit
-MAXIMUM_CONCURRENT_DOWNLOADS: Final = 13
+MAXIMUM_CONCURRENT_DOWNLOADS: Final = 50  # Increased from 13 to 50 based on benchmarks
 
 # File formats
 FILE_EXTENSIONS: Final[Dict[str, str]] = {

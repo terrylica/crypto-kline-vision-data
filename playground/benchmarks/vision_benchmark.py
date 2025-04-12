@@ -37,6 +37,7 @@ from core.sync.vision_constraints import (
 from utils.time_utils import enforce_utc_timezone
 from utils.logger_setup import logger
 from rich import print
+from utils.config import KLINE_COLUMNS
 
 
 class DownloadMethod(Enum):
@@ -151,27 +152,11 @@ def download_with_httpx(symbol, interval, start_time, end_time, user_agent):
                             df = pd.read_csv(csv_path)
                             logger.info(f"Read {len(df)} rows from CSV")
 
-                            # Create column names for the dataframe
-                            column_names = [
-                                "open_time_us",  # Microsecond timestamp
-                                "open",
-                                "high",
-                                "low",
-                                "close",
-                                "volume",
-                                "close_time_us",
-                                "quote_asset_volume",
-                                "number_of_trades",
-                                "taker_buy_base_asset_volume",
-                                "taker_buy_quote_asset_volume",
-                                "ignore",
-                            ]
+                            # Use standard column names from config
+                            if len(df.columns) == len(KLINE_COLUMNS):
+                                df.columns = KLINE_COLUMNS
 
-                            # Rename columns
-                            if len(df.columns) == len(column_names):
-                                df.columns = column_names
-
-                            # Convert microseconds to milliseconds for comparison
+                            # Handle timestamp detection and conversion
                             if len(df) > 0:
                                 first_ts = df.iloc[
                                     0, 0
@@ -189,72 +174,66 @@ def download_with_httpx(symbol, interval, start_time, end_time, user_agent):
                                         f"Detected timestamp unit: {timestamp_unit}"
                                     )
 
-                                    if timestamp_unit == "us":
-                                        logger.info(
-                                            "Timestamps are in microseconds, converting to milliseconds"
-                                        )
-                                        df["open_time_ms"] = df["open_time_us"] // 1000
-                                    else:
-                                        logger.info("Timestamps are in milliseconds")
-                                        df["open_time_ms"] = df["open_time_us"]
+                                    # Convert timestamps to datetime directly using the detected unit
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit=timestamp_unit, utc=True
+                                    )
+                                    df["close_time"] = pd.to_datetime(
+                                        df["close_time"], unit=timestamp_unit, utc=True
+                                    )
+
+                                    logger.info(
+                                        f"Converted timestamps to datetime using {timestamp_unit} unit"
+                                    )
                                 except ValueError as e:
                                     logger.warning(
                                         f"Error detecting timestamp unit: {e}"
                                     )
                                     # Default to microseconds if detection fails (safer approach)
                                     logger.info(
-                                        "Defaulting to microseconds, converting to milliseconds"
+                                        "Defaulting to microseconds for timestamp conversion"
                                     )
-                                    df["open_time_ms"] = df["open_time_us"] // 1000
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit="us", utc=True
+                                    )
+                                    df["close_time"] = pd.to_datetime(
+                                        df["close_time"], unit="us", utc=True
+                                    )
 
-                                # Convert to datetime for display of the first/last timestamps
+                                # Display the first/last timestamps
                                 try:
-                                    first_ms = df["open_time_ms"].iloc[0]
-                                    last_ms = df["open_time_ms"].iloc[-1]
-                                    first_dt = datetime.fromtimestamp(
-                                        first_ms / 1000, tz=timezone.utc
-                                    )
-                                    last_dt = datetime.fromtimestamp(
-                                        last_ms / 1000, tz=timezone.utc
-                                    )
+                                    first_dt = df["open_time"].iloc[0]
+                                    last_dt = df["open_time"].iloc[-1]
                                     logger.info(
                                         f"First datetime: {first_dt.isoformat()}"
                                     )
                                     logger.info(f"Last datetime: {last_dt.isoformat()}")
                                 except Exception as e:
                                     logger.error(
-                                        f"Error converting timestamps to datetime: {e}"
+                                        f"Error displaying datetime values: {e}"
                                     )
 
-                                # Calculate filter boundaries in milliseconds
-                                start_ms = int(start_time.timestamp() * 1000)
-                                end_ms = int(end_time.timestamp() * 1000)
+                                # Calculate filter boundaries
+                                # Convert to pandas Timestamp, preserving timezone
+                                start_dt = pd.Timestamp(start_time)
+                                end_dt = pd.Timestamp(end_time)
                                 logger.info(
-                                    f"Filtering for timestamps between {start_ms} ms and {end_ms} ms"
+                                    f"Filtering for timestamps between {start_dt} and {end_dt}"
                                 )
 
-                                # Filter rows by timestamp in milliseconds
+                                # Filter rows by timestamp directly using datetime comparison
                                 filtered_df = df[
-                                    (df["open_time_ms"] >= start_ms)
-                                    & (df["open_time_ms"] <= end_ms)
-                                ].copy()  # Create an explicit copy
+                                    (df["open_time"] >= start_dt)
+                                    & (df["open_time"] <= end_dt)
+                                ].copy()
                                 logger.info(
                                     f"Filtered to {len(filtered_df)} rows in requested time range"
                                 )
 
-                                # Now convert timestamps to datetime objects
-                                if len(filtered_df) > 0:
-                                    logger.info(
-                                        "Creating datetime objects for the filtered rows"
-                                    )
-                                    filtered_df.loc[:, "open_time"] = pd.to_datetime(
-                                        filtered_df["open_time_ms"], unit="ms"
-                                    )
-
-                                    # Append to result
-                                    all_data.append(filtered_df)
-                                else:
-                                    logger.warning("No rows left after filtering")
+                                # Append to result
+                                all_data.append(filtered_df)
+                            else:
+                                logger.warning("No rows left after filtering")
                 except Exception as e:
                     logger.error(
                         f"Error processing zip file {temp_file_path}: {str(e)}",
@@ -361,27 +340,11 @@ def download_with_aws_cli(symbol, interval, start_time, end_time):
                     df = pd.read_csv(csv_path)
                     logger.info(f"Read {len(df)} rows from CSV")
 
-                    # Create column names for the dataframe
-                    column_names = [
-                        "open_time_us",  # Microsecond timestamp
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                        "volume",
-                        "close_time_us",
-                        "quote_asset_volume",
-                        "number_of_trades",
-                        "taker_buy_base_asset_volume",
-                        "taker_buy_quote_asset_volume",
-                        "ignore",
-                    ]
+                    # Use standard column names from config
+                    if len(df.columns) == len(KLINE_COLUMNS):
+                        df.columns = KLINE_COLUMNS
 
-                    # Rename columns
-                    if len(df.columns) == len(column_names):
-                        df.columns = column_names
-
-                    # Convert microseconds to milliseconds for comparison
+                    # Handle timestamp detection and conversion
                     if len(df) > 0:
                         first_ts = df.iloc[0, 0]  # First timestamp in first column
                         last_ts = df.iloc[-1, 0]  # Last timestamp in first column
@@ -393,68 +356,59 @@ def download_with_aws_cli(symbol, interval, start_time, end_time):
                             timestamp_unit = detect_timestamp_unit(first_ts)
                             logger.info(f"Detected timestamp unit: {timestamp_unit}")
 
-                            if timestamp_unit == "us":
-                                logger.info(
-                                    "Timestamps are in microseconds, converting to milliseconds"
-                                )
-                                df["open_time_ms"] = df["open_time_us"] // 1000
-                            else:
-                                logger.info("Timestamps are in milliseconds")
-                                df["open_time_ms"] = df["open_time_us"]
+                            # Convert timestamps to datetime directly using the detected unit
+                            df["open_time"] = pd.to_datetime(
+                                df["open_time"], unit=timestamp_unit, utc=True
+                            )
+                            df["close_time"] = pd.to_datetime(
+                                df["close_time"], unit=timestamp_unit, utc=True
+                            )
+
+                            logger.info(
+                                f"Converted timestamps to datetime using {timestamp_unit} unit"
+                            )
                         except ValueError as e:
                             logger.warning(f"Error detecting timestamp unit: {e}")
                             # Default to microseconds if detection fails (safer approach)
                             logger.info(
-                                "Defaulting to microseconds, converting to milliseconds"
+                                "Defaulting to microseconds for timestamp conversion"
                             )
-                            df["open_time_ms"] = df["open_time_us"] // 1000
+                            df["open_time"] = pd.to_datetime(
+                                df["open_time"], unit="us", utc=True
+                            )
+                            df["close_time"] = pd.to_datetime(
+                                df["close_time"], unit="us", utc=True
+                            )
 
-                        # Convert to datetime for display of the first/last timestamps
+                        # Display the first/last timestamps
                         try:
-                            first_ms = df["open_time_ms"].iloc[0]
-                            last_ms = df["open_time_ms"].iloc[-1]
-                            first_dt = datetime.fromtimestamp(
-                                first_ms / 1000, tz=timezone.utc
-                            )
-                            last_dt = datetime.fromtimestamp(
-                                last_ms / 1000, tz=timezone.utc
-                            )
+                            first_dt = df["open_time"].iloc[0]
+                            last_dt = df["open_time"].iloc[-1]
                             logger.info(f"First datetime: {first_dt.isoformat()}")
                             logger.info(f"Last datetime: {last_dt.isoformat()}")
                         except Exception as e:
-                            logger.error(
-                                f"Error converting timestamps to datetime: {e}"
-                            )
+                            logger.error(f"Error displaying datetime values: {e}")
 
-                        # Calculate filter boundaries in milliseconds
-                        start_ms = int(start_time.timestamp() * 1000)
-                        end_ms = int(end_time.timestamp() * 1000)
+                        # Calculate filter boundaries
+                        # Convert to pandas Timestamp, preserving timezone
+                        start_dt = pd.Timestamp(start_time)
+                        end_dt = pd.Timestamp(end_time)
                         logger.info(
-                            f"Filtering for timestamps between {start_ms} ms and {end_ms} ms"
+                            f"Filtering for timestamps between {start_dt} and {end_dt}"
                         )
 
-                        # Filter rows by timestamp in milliseconds
+                        # Filter rows by timestamp directly using datetime comparison
                         filtered_df = df[
-                            (df["open_time_ms"] >= start_ms)
-                            & (df["open_time_ms"] <= end_ms)
-                        ].copy()  # Create an explicit copy
+                            (df["open_time"] >= start_dt) & (df["open_time"] <= end_dt)
+                        ].copy()
                         logger.info(
                             f"Filtered to {len(filtered_df)} rows in requested time range"
                         )
 
-                        # Now convert timestamps to datetime objects
-                        if len(filtered_df) > 0:
-                            logger.info(
-                                "Creating datetime objects for the filtered rows"
-                            )
-                            filtered_df.loc[:, "open_time"] = pd.to_datetime(
-                                filtered_df["open_time_ms"], unit="ms"
-                            )
-
-                            # Append to result
-                            all_data.append(filtered_df)
-                        else:
-                            logger.warning("No rows left after filtering")
+                        # Append to result
+                        all_data.append(filtered_df)
+                    else:
+                        logger.warning("No rows left after filtering")
 
                     # Clean up CSV file
                     if csv_path.exists():
@@ -591,27 +545,11 @@ async def download_with_aioboto3(symbol, interval, start_time, end_time):
                             df = pd.read_csv(csv_path)
                             logger.info(f"Read {len(df)} rows from CSV")
 
-                            # Create column names for the dataframe
-                            column_names = [
-                                "open_time_us",  # Microsecond timestamp
-                                "open",
-                                "high",
-                                "low",
-                                "close",
-                                "volume",
-                                "close_time_us",
-                                "quote_asset_volume",
-                                "number_of_trades",
-                                "taker_buy_base_asset_volume",
-                                "taker_buy_quote_asset_volume",
-                                "ignore",
-                            ]
+                            # Use standard column names from config
+                            if len(df.columns) == len(KLINE_COLUMNS):
+                                df.columns = KLINE_COLUMNS
 
-                            # Rename columns
-                            if len(df.columns) == len(column_names):
-                                df.columns = column_names
-
-                            # Convert microseconds to milliseconds for comparison
+                            # Handle timestamp detection and conversion
                             if len(df) > 0:
                                 first_ts = df.iloc[
                                     0, 0
@@ -629,72 +567,66 @@ async def download_with_aioboto3(symbol, interval, start_time, end_time):
                                         f"Detected timestamp unit: {timestamp_unit}"
                                     )
 
-                                    if timestamp_unit == "us":
-                                        logger.info(
-                                            "Timestamps are in microseconds, converting to milliseconds"
-                                        )
-                                        df["open_time_ms"] = df["open_time_us"] // 1000
-                                    else:
-                                        logger.info("Timestamps are in milliseconds")
-                                        df["open_time_ms"] = df["open_time_us"]
+                                    # Convert timestamps to datetime directly using the detected unit
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit=timestamp_unit, utc=True
+                                    )
+                                    df["close_time"] = pd.to_datetime(
+                                        df["close_time"], unit=timestamp_unit, utc=True
+                                    )
+
+                                    logger.info(
+                                        f"Converted timestamps to datetime using {timestamp_unit} unit"
+                                    )
                                 except ValueError as e:
                                     logger.warning(
                                         f"Error detecting timestamp unit: {e}"
                                     )
                                     # Default to microseconds if detection fails (safer approach)
                                     logger.info(
-                                        "Defaulting to microseconds, converting to milliseconds"
+                                        "Defaulting to microseconds for timestamp conversion"
                                     )
-                                    df["open_time_ms"] = df["open_time_us"] // 1000
+                                    df["open_time"] = pd.to_datetime(
+                                        df["open_time"], unit="us", utc=True
+                                    )
+                                    df["close_time"] = pd.to_datetime(
+                                        df["close_time"], unit="us", utc=True
+                                    )
 
-                                # Convert to datetime for display of the first/last timestamps
+                                # Display the first/last timestamps
                                 try:
-                                    first_ms = df["open_time_ms"].iloc[0]
-                                    last_ms = df["open_time_ms"].iloc[-1]
-                                    first_dt = datetime.fromtimestamp(
-                                        first_ms / 1000, tz=timezone.utc
-                                    )
-                                    last_dt = datetime.fromtimestamp(
-                                        last_ms / 1000, tz=timezone.utc
-                                    )
+                                    first_dt = df["open_time"].iloc[0]
+                                    last_dt = df["open_time"].iloc[-1]
                                     logger.info(
                                         f"First datetime: {first_dt.isoformat()}"
                                     )
                                     logger.info(f"Last datetime: {last_dt.isoformat()}")
                                 except Exception as e:
                                     logger.error(
-                                        f"Error converting timestamps to datetime: {e}"
+                                        f"Error displaying datetime values: {e}"
                                     )
 
-                                # Calculate filter boundaries in milliseconds
-                                start_ms = int(start_time.timestamp() * 1000)
-                                end_ms = int(end_time.timestamp() * 1000)
+                                # Calculate filter boundaries
+                                # Convert to pandas Timestamp, preserving timezone
+                                start_dt = pd.Timestamp(start_time)
+                                end_dt = pd.Timestamp(end_time)
                                 logger.info(
-                                    f"Filtering for timestamps between {start_ms} ms and {end_ms} ms"
+                                    f"Filtering for timestamps between {start_dt} and {end_dt}"
                                 )
 
-                                # Filter rows by timestamp in milliseconds
+                                # Filter rows by timestamp directly using datetime comparison
                                 filtered_df = df[
-                                    (df["open_time_ms"] >= start_ms)
-                                    & (df["open_time_ms"] <= end_ms)
-                                ].copy()  # Create an explicit copy
+                                    (df["open_time"] >= start_dt)
+                                    & (df["open_time"] <= end_dt)
+                                ].copy()
                                 logger.info(
                                     f"Filtered to {len(filtered_df)} rows in requested time range"
                                 )
 
-                                # Now convert timestamps to datetime objects
-                                if len(filtered_df) > 0:
-                                    logger.info(
-                                        "Creating datetime objects for the filtered rows"
-                                    )
-                                    filtered_df.loc[:, "open_time"] = pd.to_datetime(
-                                        filtered_df["open_time_ms"], unit="ms"
-                                    )
-
-                                    # Append to result
-                                    all_data.append(filtered_df)
-                                else:
-                                    logger.warning("No rows left after filtering")
+                                # Append to result
+                                all_data.append(filtered_df)
+                            else:
+                                logger.warning("No rows left after filtering")
 
                             # Clean up CSV file
                             if csv_path.exists():
@@ -832,27 +764,11 @@ def download_with_boto3(symbol, interval, start_time, end_time):
                     df = pd.read_csv(csv_path)
                     logger.info(f"Read {len(df)} rows from CSV")
 
-                    # Create column names for the dataframe
-                    column_names = [
-                        "open_time_us",  # Microsecond timestamp
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                        "volume",
-                        "close_time_us",
-                        "quote_asset_volume",
-                        "number_of_trades",
-                        "taker_buy_base_asset_volume",
-                        "taker_buy_quote_asset_volume",
-                        "ignore",
-                    ]
+                    # Use standard column names from config
+                    if len(df.columns) == len(KLINE_COLUMNS):
+                        df.columns = KLINE_COLUMNS
 
-                    # Rename columns
-                    if len(df.columns) == len(column_names):
-                        df.columns = column_names
-
-                    # Convert microseconds to milliseconds for comparison
+                    # Handle timestamp detection and conversion
                     if len(df) > 0:
                         first_ts = df.iloc[0, 0]  # First timestamp in first column
                         last_ts = df.iloc[-1, 0]  # Last timestamp in first column
@@ -864,68 +780,59 @@ def download_with_boto3(symbol, interval, start_time, end_time):
                             timestamp_unit = detect_timestamp_unit(first_ts)
                             logger.info(f"Detected timestamp unit: {timestamp_unit}")
 
-                            if timestamp_unit == "us":
-                                logger.info(
-                                    "Timestamps are in microseconds, converting to milliseconds"
-                                )
-                                df["open_time_ms"] = df["open_time_us"] // 1000
-                            else:
-                                logger.info("Timestamps are in milliseconds")
-                                df["open_time_ms"] = df["open_time_us"]
+                            # Convert timestamps to datetime directly using the detected unit
+                            df["open_time"] = pd.to_datetime(
+                                df["open_time"], unit=timestamp_unit, utc=True
+                            )
+                            df["close_time"] = pd.to_datetime(
+                                df["close_time"], unit=timestamp_unit, utc=True
+                            )
+
+                            logger.info(
+                                f"Converted timestamps to datetime using {timestamp_unit} unit"
+                            )
                         except ValueError as e:
                             logger.warning(f"Error detecting timestamp unit: {e}")
                             # Default to microseconds if detection fails (safer approach)
                             logger.info(
-                                "Defaulting to microseconds, converting to milliseconds"
+                                "Defaulting to microseconds for timestamp conversion"
                             )
-                            df["open_time_ms"] = df["open_time_us"] // 1000
+                            df["open_time"] = pd.to_datetime(
+                                df["open_time"], unit="us", utc=True
+                            )
+                            df["close_time"] = pd.to_datetime(
+                                df["close_time"], unit="us", utc=True
+                            )
 
-                        # Convert to datetime for display of the first/last timestamps
+                        # Display the first/last timestamps
                         try:
-                            first_ms = df["open_time_ms"].iloc[0]
-                            last_ms = df["open_time_ms"].iloc[-1]
-                            first_dt = datetime.fromtimestamp(
-                                first_ms / 1000, tz=timezone.utc
-                            )
-                            last_dt = datetime.fromtimestamp(
-                                last_ms / 1000, tz=timezone.utc
-                            )
+                            first_dt = df["open_time"].iloc[0]
+                            last_dt = df["open_time"].iloc[-1]
                             logger.info(f"First datetime: {first_dt.isoformat()}")
                             logger.info(f"Last datetime: {last_dt.isoformat()}")
                         except Exception as e:
-                            logger.error(
-                                f"Error converting timestamps to datetime: {e}"
-                            )
+                            logger.error(f"Error displaying datetime values: {e}")
 
-                        # Calculate filter boundaries in milliseconds
-                        start_ms = int(start_time.timestamp() * 1000)
-                        end_ms = int(end_time.timestamp() * 1000)
+                        # Calculate filter boundaries
+                        # Convert to pandas Timestamp, preserving timezone
+                        start_dt = pd.Timestamp(start_time)
+                        end_dt = pd.Timestamp(end_time)
                         logger.info(
-                            f"Filtering for timestamps between {start_ms} ms and {end_ms} ms"
+                            f"Filtering for timestamps between {start_dt} and {end_dt}"
                         )
 
-                        # Filter rows by timestamp in milliseconds
+                        # Filter rows by timestamp directly using datetime comparison
                         filtered_df = df[
-                            (df["open_time_ms"] >= start_ms)
-                            & (df["open_time_ms"] <= end_ms)
-                        ].copy()  # Create an explicit copy
+                            (df["open_time"] >= start_dt) & (df["open_time"] <= end_dt)
+                        ].copy()
                         logger.info(
                             f"Filtered to {len(filtered_df)} rows in requested time range"
                         )
 
-                        # Now convert timestamps to datetime objects
-                        if len(filtered_df) > 0:
-                            logger.info(
-                                "Creating datetime objects for the filtered rows"
-                            )
-                            filtered_df.loc[:, "open_time"] = pd.to_datetime(
-                                filtered_df["open_time_ms"], unit="ms"
-                            )
-
-                            # Append to result
-                            all_data.append(filtered_df)
-                        else:
-                            logger.warning("No rows left after filtering")
+                        # Append to result
+                        all_data.append(filtered_df)
+                    else:
+                        logger.warning("No rows left after filtering")
 
                     # Clean up CSV file
                     if csv_path.exists():
@@ -1108,6 +1015,8 @@ def benchmark_vision_download(
     max_workers=None,
     heartbeat_interval=5,
     download_methods=None,
+    multi_day=1,  # Add parameter for number of days to download in parallel
+    force_sequential=False,
 ):
     """Benchmark the VisionDataClient download performance.
 
@@ -1120,6 +1029,8 @@ def benchmark_vision_download(
         max_workers: Maximum number of concurrent workers (None for default)
         heartbeat_interval: Seconds between heartbeat messages
         download_methods: List of download methods to benchmark (default: all)
+        multi_day: Number of consecutive days to download for testing parallel performance (default: 1)
+        force_sequential: Force sequential processing even for multi-day downloads
     """
     # Default to vision client if no methods specified
     if download_methods is None:
@@ -1131,26 +1042,79 @@ def benchmark_vision_download(
         f"Download methods: {', '.join(m.name.replace('_', ' ').title() for m in download_methods)}"
     )
     print(f"Execution mode: {'Concurrent' if run_concurrent else 'Sequential'}")
+    if multi_day > 1:
+        print(f"Multi-day mode: Testing {multi_day} consecutive days in parallel")
+        if force_sequential:
+            print(f"Forcing sequential processing for multi-day downloads")
+            run_concurrent = False
 
-    # Calculate the date range - using a small window for benchmarking
-    end_time = enforce_utc_timezone(datetime.utcnow() - timedelta(days=days_back))
-    start_time = end_time - timedelta(hours=6)  # 6-hour window
+    # Calculate the date range
+    # For multi-day, we'll create a date range starting 'days_back' days ago
+    # Each download will handle a single day
+    base_end_time = enforce_utc_timezone(datetime.utcnow() - timedelta(days=days_back))
 
-    print(f"Date range: {start_time.isoformat()} to {end_time.isoformat()}")
+    # Create start and end times for each day
+    day_ranges = []
+    for day_offset in range(multi_day):
+        day_end = base_end_time - timedelta(days=day_offset)
+        day_start = day_end.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start.replace(hour=23, minute=59, second=59, microsecond=999999)
+        day_ranges.append((day_start, day_end))
+
+    if multi_day == 1:
+        # For backward compatibility, if multi_day=1, use the previous 6-hour window
+        start_time = base_end_time - timedelta(hours=6)
+        end_time = base_end_time
+        print(f"Date range: {start_time.isoformat()} to {end_time.isoformat()}")
+        day_ranges = [(start_time, end_time)]
+    else:
+        print(f"Date ranges being tested:")
+        for i, (start, end) in enumerate(day_ranges):
+            print(
+                f"  Day {i+1}: {start.date()} ({start.isoformat()} to {end.isoformat()})"
+            )
+
+    # Store total points downloaded for each method
+    method_total_points = {method: 0 for method in download_methods}
+    method_total_time = {method: 0 for method in download_methods}
+
+    # Track individual download times for each method - used for calculating sequential equivalent time
+    method_individual_times = {method: [] for method in download_methods}
 
     # Results dictionary to store results by method
     results = {
-        method: {"times": [], "avg": 0, "min": 0, "max": 0, "success": 0, "records": 0}
+        method: {
+            "times": [],
+            "avg": 0,
+            "min": 0,
+            "max": 0,
+            "success": 0,
+            "records": 0,
+            "total_days": 0,
+        }
         for method in download_methods
     }
+
+    # Force sequential mode if requested
+    if force_sequential:
+        run_concurrent = False
 
     # Prepare arguments for downloads
     download_args = []
     for method in download_methods:
         for i in range(download_count):
-            download_args.append(
-                (method, symbol, interval, start_time, end_time, i + 1, download_count)
-            )
+            for day_idx, (day_start, day_end) in enumerate(day_ranges):
+                download_args.append(
+                    (
+                        method,
+                        symbol,
+                        interval,
+                        day_start,
+                        day_end,
+                        f"{i+1}/{day_idx+1}",
+                        f"{download_count}/{len(day_ranges)}",
+                    )
+                )
 
     if run_concurrent:
         # Set up heartbeat monitor
@@ -1161,6 +1125,9 @@ def benchmark_vision_download(
         heartbeat_thread.daemon = True  # Make thread exit when main thread exits
 
         try:
+            # Track actual wall clock time for concurrent downloads
+            concurrent_start_time = time.time()
+
             # Run downloads using ThreadPoolExecutor for concurrency
             futures = []
             heartbeat_thread.start()
@@ -1169,7 +1136,7 @@ def benchmark_vision_download(
                 max_workers=max_workers
             ) as executor:
                 # Submit all tasks and collect futures
-                print("Starting concurrent downloads...")
+                print(f"Starting {len(download_args)} concurrent downloads...")
                 for args in download_args:
                     futures.append(executor.submit(run_single_download, args))
 
@@ -1182,11 +1149,15 @@ def benchmark_vision_download(
                         if length > 0:  # Only count successful downloads
                             results[method]["times"].append(elapsed)
                             results[method]["success"] += 1
-                            results[method][
-                                "records"
-                            ] = length  # Store the most recent record count
+                            results[method]["records"] += length  # Accumulate records
+                            results[method]["total_days"] += 1  # Count successful days
+                            # Store the individual download time
+                            method_individual_times[method].append(elapsed)
                     except Exception as e:
                         logger.error(f"Task failed: {e}")
+
+            # Calculate actual wall clock time for concurrent execution
+            concurrent_total_time = time.time() - concurrent_start_time
         finally:
             # Stop the heartbeat thread
             stop_event.set()
@@ -1201,9 +1172,10 @@ def benchmark_vision_download(
             if length > 0:  # Only count successful downloads
                 results[method]["times"].append(elapsed)
                 results[method]["success"] += 1
-                results[method][
-                    "records"
-                ] = length  # Store the most recent record count
+                results[method]["records"] += length  # Accumulate records
+                results[method]["total_days"] += 1  # Count successful days
+                # Store the individual download time
+                method_individual_times[method].append(elapsed)
 
     # Calculate statistics for each method
     for method, data in results.items():
@@ -1225,17 +1197,73 @@ def benchmark_vision_download(
         avg_time = f"{data['avg']:.2f}s" if data["times"] else "N/A"
         min_time = f"{data['min']:.2f}s" if data["times"] else "N/A"
         max_time = f"{data['max']:.2f}s" if data["times"] else "N/A"
-        success = f"{data['success']}/{download_count}"
+
+        # Update how success is calculated for multi-day mode
+        expected_downloads = download_count * len(day_ranges)
+        success = f"{data['success']}/{expected_downloads}"
 
         points_per_sec = "N/A"
         if data["times"] and data["records"] > 0:
-            points_per_sec = f"{data['records'] / data['avg']:.2f}"
+            points_per_sec = f"{data['records'] / sum(data['times']):.2f}"
 
         print(
             f"{method_name:<20} {avg_time:<10} {min_time:<10} {max_time:<10} {success:<10} {points_per_sec:<10}"
         )
 
     print("=" * 80)
+
+    # Display additional information for multi-day mode
+    if multi_day > 1:
+        print("\nMulti-day Download Statistics:")
+        print("-" * 80)
+        for method, data in results.items():
+            method_name = method.name.replace("_", " ").title()
+            expected_days = download_count * multi_day
+
+            if data["total_days"] > 0:
+                total_points = data["records"]
+
+                # Use the correct total time based on execution mode
+                if run_concurrent:
+                    # Use the actual wall clock time for concurrent downloads
+                    total_time = concurrent_total_time
+                else:
+                    # For sequential, sum individual download times
+                    total_time = sum(data["times"])
+
+                avg_time_per_day = total_time / data["total_days"]
+
+                # Calculate sequential equivalent time as sum of individual download times
+                sequential_time = sum(method_individual_times[method])
+
+                # Get the actual parallel time (wall clock time for concurrent mode)
+                parallel_time = concurrent_total_time if run_concurrent else total_time
+
+                # Calculate speedup based on sequential vs actual time
+                parallel_speedup = (
+                    sequential_time / parallel_time
+                    if parallel_time > 0 and run_concurrent
+                    else 1.0
+                )
+                efficiency = (
+                    (parallel_speedup / multi_day) * 100 if multi_day > 0 else 0
+                )
+                throughput = total_points / total_time if total_time > 0 else 0
+
+                print(f"{method_name}:")
+                print(f"  Total days processed: {data['total_days']} / {expected_days}")
+                print(f"  Total data points: {total_points:,}")
+                print(f"  Total download time: {total_time:.2f}s")
+                print(f"  Sequential equivalent time: {sequential_time:.2f}s")
+                print(f"  Parallel speedup: {parallel_speedup:.2f}x")
+                print(f"  Parallel efficiency: {efficiency:.2f}%")
+                print(f"  Throughput: {throughput:.2f} points/sec")
+                print(f"  Avg time per day: {avg_time_per_day:.2f}s")
+            else:
+                print(f"{method_name}: No successful downloads")
+            print("-" * 40)
+
+        print("=" * 80)
 
     # Save results to JSON file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1246,22 +1274,59 @@ def benchmark_vision_download(
         "timestamp": datetime.now().isoformat(),
         "symbol": symbol,
         "interval": interval,
-        "date_range": {
-            "start": start_time.isoformat(),
-            "end": end_time.isoformat(),
-        },
+        "multi_day": multi_day,
+        "date_ranges": [
+            {"start": start.isoformat(), "end": end.isoformat()}
+            for start, end in day_ranges
+        ],
         "methods": {
             method.name: {
                 "times": data["times"],
                 "avg_time": data["avg"],
                 "min_time": data["min"],
                 "max_time": data["max"],
-                "success_rate": f"{data['success']}/{download_count}",
+                "success_rate": f"{data['success']}/{download_count * multi_day}",
                 "records": data["records"],
                 "points_per_second": (
-                    data["records"] / data["avg"]
-                    if data["avg"] > 0 and data["records"] > 0
+                    data["records"] / sum(data["times"])
+                    if data["times"] and sum(data["times"]) > 0
                     else 0
+                ),
+                "total_days_processed": data["total_days"],
+                "individual_times": method_individual_times[method],
+                "parallel_metrics": (
+                    {
+                        "sequential_time": sum(method_individual_times[method]),
+                        "parallel_time": (
+                            concurrent_total_time
+                            if run_concurrent
+                            else sum(data["times"])
+                        ),
+                        "speedup": (
+                            sum(method_individual_times[method]) / concurrent_total_time
+                            if run_concurrent and concurrent_total_time > 0
+                            else (
+                                sum(method_individual_times[method])
+                                / sum(data["times"])
+                                if data["times"] and sum(data["times"]) > 0
+                                else 0
+                            )
+                        ),
+                        "efficiency": (
+                            (
+                                sum(method_individual_times[method])
+                                / concurrent_total_time
+                                / multi_day
+                            )
+                            * 100
+                            if run_concurrent
+                            and concurrent_total_time > 0
+                            and multi_day > 0
+                            else 0
+                        ),
+                    }
+                    if multi_day > 1
+                    else {}
                 ),
             }
             for method, data in results.items()
@@ -1298,6 +1363,9 @@ def parse_args():
         "--concurrent", action="store_true", help="Run downloads concurrently"
     )
     parser.add_argument(
+        "--sequential", help="Force sequential even for multi-day", action="store_true"
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=None,
@@ -1315,6 +1383,12 @@ def parse_args():
         default="vision_client",
         help="Comma-separated list of download methods to test (default: vision_client). "
         "Options: vision_client, httpx_chrome, httpx_firefox, httpx_safari, aws_cli, aioboto3, boto3, all",
+    )
+    parser.add_argument(
+        "--multi-day",
+        type=int,
+        default=1,
+        help="Number of consecutive days to download for testing parallel performance (default: 1)",
     )
     return parser.parse_args()
 
@@ -1357,4 +1431,6 @@ if __name__ == "__main__":
         max_workers=args.workers,
         heartbeat_interval=args.heartbeat,
         download_methods=methods,
+        multi_day=args.multi_day,
+        force_sequential=args.sequential,
     )

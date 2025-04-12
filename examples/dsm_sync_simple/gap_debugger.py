@@ -27,6 +27,8 @@ except ImportError:
 
 # Import from the project
 from utils.logger_setup import logger
+from rich import print
+from rich.logging import RichHandler
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import (
     align_time_boundaries,
@@ -36,33 +38,18 @@ from core.sync.vision_data_client import VisionDataClient
 from core.sync.rest_data_client import RestDataClient
 from core.sync.data_source_manager import DataSourceManager, DataSource
 
-# Configure logging to file for detailed analysis
-import logging
-from rich.logging import RichHandler
-
 # Ensure logs directory exists
 log_dir = Path("logs/gap_debugger")
-os_makedirs = getattr(os, "makedirs", None)  # Use os.makedirs if available
-if os_makedirs:
-    os_makedirs(log_dir, exist_ok=True)
-else:
-    log_dir.mkdir(parents=True, exist_ok=True)
+log_dir.mkdir(parents=True, exist_ok=True)
 
 # Setup file handler for detailed logging
 log_file = log_dir / f"gap_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-file_handler = logging.FileHandler(log_file)
-file_handler.setLevel(logging.DEBUG)
-file_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
 
-# Add rich handler for console output
-console_handler = RichHandler(rich_tracebacks=True)
-console_handler.setLevel(logging.INFO)
-logger.addHandler(console_handler)
-logger.setLevel(logging.DEBUG)
+# Configure logger to log to file and console
+logger.enable_error_logging(str(log_file))
+logger.show_filename(True)
+logger.use_rich(True)
+logger.setLevel("INFO")
 
 
 def analyze_timestamp_continuity(
@@ -523,6 +510,7 @@ def debug_chunked_retrieval(
                             )
 
     # Final analysis of the complete merged dataset
+    final_gaps = []
     if merged_df is not None:
         has_gaps, final_gaps = analyze_timestamp_continuity(merged_df, interval)
         logger.info(
@@ -532,7 +520,7 @@ def debug_chunked_retrieval(
     return {
         "chunks": chunk_results,
         "merged_df": merged_df,
-        "final_gaps": final_gaps if merged_df is not None else [],
+        "final_gaps": final_gaps,
     }
 
 
