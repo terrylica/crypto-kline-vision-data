@@ -2,6 +2,7 @@ import logging, os
 import inspect
 from colorlog import ColoredFormatter
 import traceback
+from pathlib import Path
 
 try:
     from rich.console import Console
@@ -536,6 +537,90 @@ class LoggerProxy:
         """
         set_error_log_file(path)
         return self
+
+    def add_file_handler(
+        self, file_path, level="DEBUG", mode="w", formatter_pattern=None
+    ):
+        """Add a file handler to the root logger for outputting logs to a file.
+
+        This method eliminates the need to import the standard logging module
+        when setting up file-based logging.
+
+        Args:
+            file_path (str): Path to the log file
+            level (str): Logging level for this handler (DEBUG, INFO, etc.)
+            mode (str): File mode ('w' for write/overwrite, 'a' for append)
+            formatter_pattern (str): Optional custom formatter pattern
+                                     Defaults to "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+        Returns:
+            LoggerProxy: Self reference for method chaining
+        """
+        # Ensure parent directory exists
+        file_path = Path(file_path)
+        if file_path.parent and not file_path.parent.exists():
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create file handler
+        handler = logging.FileHandler(str(file_path), mode=mode)
+
+        # Set level
+        level_str = level.upper() if isinstance(level, str) else level
+        handler.setLevel(level_str)
+
+        # Create formatter
+        if formatter_pattern is None:
+            formatter_pattern = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        formatter = logging.Formatter(formatter_pattern)
+        handler.setFormatter(formatter)
+
+        # Add to root logger
+        logging.getLogger().addHandler(handler)
+
+        # Log the file handler setup using the logger itself
+        self.info(f"Added file handler: {file_path}")
+
+        return self
+
+    def get_logger(self, name=None):
+        """Get a logger instance for the specified name.
+
+        This provides access to the standard logging.getLogger() functionality
+        without requiring direct import of the logging module.
+
+        Args:
+            name (str, optional): Logger name. If None, uses the caller's module name.
+
+        Returns:
+            logging.Logger: The requested logger instance
+        """
+        if name is None:
+            frame = inspect.currentframe().f_back
+            module = inspect.getmodule(frame)
+            name = module.__name__ if module else "__main__"
+
+        return logging.getLogger(name)
+
+    def create_formatter(self, pattern):
+        """Create a log formatter with the specified pattern.
+
+        This provides access to logging.Formatter without requiring direct import
+        of the logging module.
+
+        Args:
+            pattern (str): Formatter pattern string
+
+        Returns:
+            logging.Formatter: Configured formatter instance
+        """
+        return logging.Formatter(pattern)
+
+    # Constants to expose logging levels without importing logging
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
 
 
 # Create the auto-detecting logger proxy for conventional syntax
