@@ -1,0 +1,47 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Focus is on iteratively testing and debugging `examples/dsm_sync_simple/demo.sh`, which invokes `examples/dsm_sync_simple/demo.py`, and subsequently calls `core/sync/data_source_manager.py`. This demo operates solely in **synchronous** mode (async intentionally excluded for simplicity) and targets the minimal viable setup for retrieving **1-minute Bitcoin data** for SPOT, UM, or CM markets.
+
+The file `core/sync/data_source_manager.py` acts as the orchestrator. Its responsibilities include:
+
+- **Failover Composition Priority (FCP)**:
+  1. **Cache (Local Arrow files)**  
+     - Retrieves data via memory-mapped Apache-formatted files (treated as valid without expiration).
+  2. **VISION API**  
+     - If data is missing from cache, attempts to fetch the missing range via `core/sync/vision_data_client.py` (no explicit existence check; just attempt download).
+  3. **REST API**  
+     - If the VISION API fails, falls back to fetching data via `core/sync/rest_data_client.py`.
+
+- **Segment Merging**:
+  - When requested data spans multiple sources, the orchestrator merges the segments by aligning on `open_time` (used as index), strictly adhering to the required 1-minute granularity.
+  - Schema differences between REST and VISION are normalized as needed (see documentation in `docs/api/binance_rest_klines.md` and `docs/api/binance_vision_klines.md`).
+
+- **Dataframe Consistency Enforcement**:
+  - The output DataFrame from any source must have an identical columnar arrangement and naming.
+  - For the data going into cache (Apache Arrow files), ensure the schema matches that of the REST API standard at creation time, so re-alignment upon retrieval is not necessary.
+  - In case of discrepancies during retrieval, the REST API output is used as the default standard, and both cached and VISION API data are adjusted to align with it.
+  - `utils/schema_standardizer.py` is employed to ensure schema alignment.
+
+- **Retry and Failure Handling**:
+  - All network calls use `tenacity` with exponential backoff configured for up to **3 retries** (max total of **30 seconds**).
+  - Only the final failure is logged; if all retries across all sources fail, the program exits with a critical error—no empty DataFrames are returned.
+
+- **Configuration and Constraints**:
+  - `utils/market_constraints.py` is the single source of truth for market data types and constraints.
+  - `utils/config.py` is the single source of truth for all runtime parameters.
+
+- **Legacy Code Note**:
+  - The scripts in the `core/sync/` and `utils/` directories originate from a legacy async approach and are overcomplicated; in case of any discrepancy with our current strategy, refactor these parts accordingly.
+  - There should be no code-enforced request limits on our side—if any are discovered, remove them.
+
+- **Merge Testing Guidelines**:
+  - The merge test must use an interesting time span that covers three distinct segments: data available in cache, data retrievable via the VISION API, and data retrievable via the REST API.
+  - Ensure that the test harness is fully aware of the latest available vision data (verified via CURL and the API documentation) as well as REST API data availability.
+  - Use the chosen time span as the baseline test to confirm that:
+    - Data from all three sources is correctly identified as missing or available.
+    - The merging logic properly aligns and integrates data according to the defined 1-minute granularity.
+
+While the underlying logic accepts any market symbol or type, Bitcoin (BTC) remains the default focus for current testing.
