@@ -14,7 +14,6 @@ from utils.market_constraints import Interval, MarketType, ChartType, DataProvid
 from utils.time_utils import (
     filter_dataframe_by_time,
     align_time_boundaries,
-    get_interval_seconds,
 )
 from utils.config import (
     OUTPUT_DTYPES,
@@ -23,7 +22,6 @@ from utils.config import (
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
     create_empty_dataframe,
-    CACHE_DATA_HOURS,
 )
 from core.sync.rest_data_client import RestDataClient
 from core.sync.vision_data_client import VisionDataClient
