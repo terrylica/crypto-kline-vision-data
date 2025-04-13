@@ -138,26 +138,6 @@ def get_data_sync(
     return df
 
 
-def get_market_type_from_string(market_str: str) -> MarketType:
-    """Convert market type string to MarketType enum.
-
-    Args:
-        market_str: String representation of market type
-
-    Returns:
-        MarketType enum value
-    """
-    market_str = market_str.upper()
-    if market_str == "SPOT":
-        return MarketType.SPOT
-    elif market_str == "UM" or market_str == "FUTURES_USDT":
-        return MarketType.FUTURES_USDT
-    elif market_str == "CM" or market_str == "FUTURES_COIN":
-        return MarketType.FUTURES_COIN
-    else:
-        raise ValueError(f"Unknown market type: {market_str}")
-
-
 def get_historical_data_test(
     market_type: MarketType,
     symbol: str = "BTCUSDT",
@@ -376,6 +356,10 @@ def get_historical_data_test(
     )  # Default to 60 seconds for unknown intervals
 
     # Check for gaps
+    # Ensure we reset the index if it's open_time to avoid ambiguity
+    if df.index.name == "open_time":
+        df = df.reset_index()
+
     df_sorted = df.sort_values("open_time")
     time_diffs = df_sorted["open_time"].diff().dropna().dt.total_seconds()
     gaps = time_diffs[time_diffs > expected_intervals]
@@ -898,7 +882,7 @@ def main():
     args = parser.parse_args()
 
     # Convert string arguments to enums
-    market_type = get_market_type_from_string(args.market)
+    market_type = MarketType.from_string(args.market)
     provider = DataProvider.from_string(args.provider)
     chart_type = ChartType.from_string(args.chart_type)
 
