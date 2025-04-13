@@ -199,36 +199,42 @@ class UnifiedCacheManager:
         """Get the file path for a cache entry.
 
         Args:
-            cache_key: Cache key
+            cache_key: Cache key to get path for
 
         Returns:
-            Path to the cache file
+            Full path to the cache file
         """
-        # Parse components from the cache key
-        parts = cache_key.split("_")
-        if len(parts) < 6:
-            logger.warning(f"Invalid cache key format: {cache_key}")
-            # Fallback path
+        # Extract components from the cache key
+        # Format: PROVIDER_CHARTTYPE_MARKETTYPE_SYMBOL_INTERVAL_DATESTR
+        try:
+            components = cache_key.split("_")
+            if len(components) < 6:
+                raise ValueError(f"Invalid cache key format: {cache_key}")
+
+            provider = components[0]
+            chart_type = components[1]
+            market_type = components[2]
+            symbol = components[3]
+            interval = components[4]
+            date_str = components[5]
+
+            # Create directory structure
+            provider_dir = self.cache_dir / provider.lower()
+            chart_dir = provider_dir / chart_type.lower()
+            market_dir = chart_dir / market_type.lower()
+            symbol_dir = market_dir / symbol.upper()
+            interval_dir = symbol_dir / interval.lower()
+
+            # Create directories if they don't exist
+            os.makedirs(interval_dir, exist_ok=True)
+
+            # Return full path with .arrow extension
+            return interval_dir / f"{date_str}.arrow"
+
+        except Exception as e:
+            logger.error(f"Error generating cache path for {cache_key}: {e}")
+            # Default to a safe location in case of error
             return self.cache_dir / f"{cache_key}.arrow"
-
-        provider, chart_type, market_type, symbol, interval, date_str = parts[0:6]
-
-        # Create a directory structure based on components for better organization
-        # provider/chart_type/market_type/symbol/interval/date_str.arrow
-        cache_path = (
-            self.cache_dir
-            / provider
-            / chart_type
-            / market_type
-            / symbol
-            / interval
-            / f"{date_str}.arrow"
-        )
-
-        # Ensure directory exists
-        os.makedirs(cache_path.parent, exist_ok=True)
-
-        return cache_path
 
     def load_from_cache(
         self,
@@ -250,7 +256,7 @@ class UnifiedCacheManager:
             market_type: Market type
 
         Returns:
-            DataFrame from cache, or None if not found
+            DataFrame with cached data, or None if no cache exists
         """
         # Generate cache key
         cache_key = self.get_cache_key(
@@ -260,59 +266,54 @@ class UnifiedCacheManager:
         # Get the file path
         cache_path = self._get_cache_path(cache_key)
 
+        # Check if the file exists
+        if not cache_path.exists():
+            logger.debug(f"Cache miss for {cache_key} at {cache_path}")
+            return None
+
+        # Check if entry is marked as invalid in metadata
+        if cache_key in self.metadata and self.metadata[cache_key].get(
+            "is_invalid", False
+        ):
+            invalid_reason = self.metadata[cache_key].get(
+                "invalid_reason", "Unknown reason"
+            )
+            logger.warning(
+                f"Not using invalid cache entry {cache_key}: {invalid_reason}"
+            )
+            return None
+
         try:
-            # Check if the file exists
-            if not cache_path.exists():
-                logger.debug(f"Cache not found: {cache_path}")
-                return None
+            # Log the loading attempt
+            logger.debug(f"Loading cache file: {cache_path}")
 
-            # Check file size, skip if too small to be valid
-            try:
-                file_size = os.path.getsize(cache_path)
-                if file_size < 100:  # Extremely small file size suggests corruption
-                    logger.warning(
-                        f"Cache file is too small ({file_size} bytes): {cache_path}"
-                    )
-                    return None
-            except Exception as size_err:
-                logger.warning(f"Error checking cache file size: {size_err}")
-                return None
+            # Read the Arrow file
+            with pa.memory_map(str(cache_path), "r") as source:
+                reader = pa.ipc.open_file(source)
+                table = reader.read_all()
 
-            # Try to read the arrow file
-            try:
-                with pa.memory_map(str(cache_path), "r") as source:
-                    table = pa.ipc.open_file(source).read_all()
-                df = table.to_pandas()
-            except (pa.ArrowInvalid, pa.ArrowIOError) as e:
-                logger.warning(f"Error reading Arrow file: {e}")
-                return None
+            # Convert to pandas DataFrame
+            df = table.to_pandas()
 
-            # Validate that the DataFrame has data
+            # Basic validation on the returned data
             if df.empty:
-                logger.warning(f"Cache file is empty: {cache_path}")
+                logger.warning(f"Cache file {cache_path} returned empty DataFrame")
+                self._mark_cache_invalid(cache_key, "Empty DataFrame")
                 return None
 
-            # Update metadata with last access time if it exists
+            # Update last access time in metadata
             if cache_key in self.metadata:
                 self.metadata[cache_key]["last_accessed"] = datetime.now(
                     timezone.utc
                 ).isoformat()
-                # Save metadata periodically, not on every read to avoid overhead
-                # Let's say update every 10th read or after significant time passed
-                if "access_count" not in self.metadata[cache_key]:
-                    self.metadata[cache_key]["access_count"] = 1
-                    self._save_metadata()
-                else:
-                    self.metadata[cache_key]["access_count"] += 1
-                    if self.metadata[cache_key]["access_count"] % 10 == 0:
-                        self._save_metadata()
+                self._save_metadata()
 
-            logger.debug(f"Successfully loaded {len(df)} rows from cache: {cache_path}")
+            logger.debug(f"Successfully loaded {len(df)} rows from {cache_path}")
             return df
 
         except Exception as e:
-            logger.error(f"Error loading cache file for {cache_key}: {e}")
-            # Mark this cache entry as invalid
+            logger.error(f"Error loading from cache for {cache_key}: {e}")
+            # Mark as invalid for future reference
             self._mark_cache_invalid(cache_key, str(e))
             return None
 
@@ -419,164 +420,6 @@ class UnifiedCacheManager:
         except Exception as e:
             logger.error(f"Error saving to cache for {cache_key}: {e}")
             return False
-
-    def invalidate_cache(
-        self,
-        symbol: str,
-        interval: str,
-        date: datetime,
-        provider: str = "BINANCE",
-        chart_type: str = "KLINES",
-        market_type: str = "spot",
-    ) -> None:
-        """Invalidate a cache entry.
-
-        Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            date: Date for the data
-            provider: Data provider
-            chart_type: Chart type
-            market_type: Market type
-        """
-        # Generate cache key
-        cache_key = self.get_cache_key(
-            symbol, interval, date, provider, chart_type, market_type
-        )
-
-        # Get the file path
-        cache_path = self._get_cache_path(cache_key)
-
-        # Check if the file exists
-        if not cache_path.exists():
-            logger.debug(f"Cannot invalidate non-existent cache: {cache_key}")
-            return
-
-        try:
-            # Delete the file
-            cache_path.unlink()
-            logger.debug(f"Deleted cache file: {cache_path}")
-
-            # Update metadata
-            if cache_key in self.metadata:
-                self.metadata.pop(cache_key)
-                self._save_metadata()
-
-        except Exception as e:
-            logger.error(f"Error invalidating cache for {cache_key}: {e}")
-
-    def purge_expired_cache(self, max_age_days: int = 30) -> int:
-        """Remove cache entries older than the specified age.
-
-        Args:
-            max_age_days: Maximum age in days for cache entries
-
-        Returns:
-            Number of entries purged
-        """
-        # Calculate the cutoff date
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=max_age_days)
-        logger.info(f"Purging cache entries older than {cutoff_date.isoformat()}")
-
-        # Track the number of entries purged
-        purged_count = 0
-
-        # Iterate through metadata entries
-        keys_to_remove = []
-        for cache_key, entry in self.metadata.items():
-            try:
-                # Parse the creation date
-                if "created_at" in entry:
-                    created_at = datetime.fromisoformat(entry["created_at"])
-                    if created_at < cutoff_date:
-                        # This entry is too old
-                        cache_path = self._get_cache_path(cache_key)
-                        if cache_path.exists():
-                            # Delete the file
-                            cache_path.unlink()
-                            logger.debug(f"Purged expired cache file: {cache_path}")
-                        keys_to_remove.append(cache_key)
-                        purged_count += 1
-            except Exception as e:
-                logger.error(f"Error processing cache entry {cache_key}: {e}")
-                # Mark for removal regardless due to error
-                keys_to_remove.append(cache_key)
-
-        # Remove the entries from metadata
-        for key in keys_to_remove:
-            self.metadata.pop(key, None)
-
-        # Save updated metadata
-        if keys_to_remove:
-            self._save_metadata()
-
-        logger.info(f"Purged {purged_count} expired cache entries")
-        return purged_count
-
-    def get_cache_statistics(self) -> Dict[str, Any]:
-        """Get statistics about the cache.
-
-        Returns:
-            Dictionary with cache statistics
-        """
-        stats = {
-            "total_entries": len(self.metadata),
-            "total_size_bytes": 0,
-            "entry_count_by_provider": {},
-            "entry_count_by_chart_type": {},
-            "entry_count_by_market_type": {},
-            "entry_count_by_symbol": {},
-            "entry_count_by_interval": {},
-            "invalid_entries": 0,
-        }
-
-        # Process metadata entries
-        for cache_key, entry in self.metadata.items():
-            # Add to total size
-            if "file_size_bytes" in entry:
-                stats["total_size_bytes"] += entry["file_size_bytes"]
-
-            # Count by provider
-            provider = entry.get("provider", "unknown")
-            stats["entry_count_by_provider"][provider] = (
-                stats["entry_count_by_provider"].get(provider, 0) + 1
-            )
-
-            # Count by chart type
-            chart_type = entry.get("chart_type", "unknown")
-            stats["entry_count_by_chart_type"][chart_type] = (
-                stats["entry_count_by_chart_type"].get(chart_type, 0) + 1
-            )
-
-            # Count by market type
-            market_type = entry.get("market_type", "unknown")
-            stats["entry_count_by_market_type"][market_type] = (
-                stats["entry_count_by_market_type"].get(market_type, 0) + 1
-            )
-
-            # Count by symbol
-            symbol = entry.get("symbol", "unknown")
-            stats["entry_count_by_symbol"][symbol] = (
-                stats["entry_count_by_symbol"].get(symbol, 0) + 1
-            )
-
-            # Count by interval
-            interval = entry.get("interval", "unknown")
-            stats["entry_count_by_interval"][interval] = (
-                stats["entry_count_by_interval"].get(interval, 0) + 1
-            )
-
-            # Count invalid entries
-            if entry.get("is_invalid", False):
-                stats["invalid_entries"] += 1
-
-        # Add some helpful derived statistics
-        stats["total_size_mb"] = stats["total_size_bytes"] / (1024 * 1024)
-        stats["avg_entry_size_kb"] = stats["total_size_bytes"] / (
-            1024 * max(1, len(self.metadata))
-        )
-
-        return stats
 
     def _mark_cache_invalid(self, cache_key: str, reason: str) -> None:
         """Mark a cache entry as invalid.

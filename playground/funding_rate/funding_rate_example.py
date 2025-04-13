@@ -64,13 +64,6 @@ async def fetch_funding_rates():
             df.to_csv(csv_path)
             logger.info(f"Saved funding rate data to {csv_path}")
 
-            # Show cache statistics
-            if dsm.cache_manager:
-                cache_stats = await dsm.cache_manager.get_cache_statistics()
-                print("\nCache Statistics:")
-                for key, value in cache_stats.items():
-                    print(f"{key}: {value}")
-
         # You can also fetch for multiple symbols if needed
         logger.info("Fetching funding rate data for ETHUSDT")
         df_eth = await dsm.get_data(

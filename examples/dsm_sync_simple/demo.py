@@ -576,23 +576,14 @@ def setup_test_scenario(
                 print(f"[red]Directory does not exist: {cache_path.parent}[/red]")
 
             if os.path.exists(cache_path):
-                print(f"[bold green]Cache file created: {cache_path}[/bold green]")
+                print(
+                    f"[bold green]Cache file successfully created! Path: {cache_path}[/bold green]"
+                )
                 print(f"File size: {os.path.getsize(cache_path)} bytes")
             else:
                 print(
                     f"[bold red]WARNING: Cache file was not created at {cache_path}[/bold red]"
                 )
-                # Check for mismatches in format (.arrow vs .parquet)
-                alternative_path = str(cache_path).replace(".arrow", ".parquet")
-                if os.path.exists(alternative_path):
-                    print(
-                        f"[yellow]Found alternative file format: {alternative_path}[/yellow]"
-                    )
-                alternative_path = str(cache_path).replace(".parquet", ".arrow")
-                if os.path.exists(alternative_path):
-                    print(
-                        f"[yellow]Found alternative file format: {alternative_path}[/yellow]"
-                    )
         else:
             print(f"[bold red]WARNING: Failed to pre-cache data for range 1[/bold red]")
 

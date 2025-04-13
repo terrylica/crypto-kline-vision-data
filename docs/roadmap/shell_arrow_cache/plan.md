@@ -283,7 +283,6 @@ This automated mode will provide a "set and forget" approach to maintaining the 
 
 - [ ] Create API endpoints for programmatic access to the cache
 - [ ] Implement integration with common data analysis frameworks
-- [ ] Add support for additional file formats (Parquet, CSV, JSON)
 - [ ] Create plugins for popular trading platforms
 - [ ] Implement distributed cache building across multiple nodes
 

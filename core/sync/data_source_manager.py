@@ -606,16 +606,19 @@ class DataSourceManager:
 
         return combined_df, missing_ranges
 
-    def _save_to_cache(self, df: pd.DataFrame, symbol: str, interval: Interval) -> None:
+    def _save_to_cache(
+        self, df: pd.DataFrame, symbol: str, interval: Interval, source: str = None
+    ) -> None:
         """Save data to cache.
 
         Args:
             df: DataFrame to cache
             symbol: Symbol the data is for
             interval: Time interval of the data
+            source: Data source (VISION, REST, etc.) - used to prioritize Vision API data for caching
         """
         print(
-            f"**** SAVING TO CACHE: {symbol} {interval.value} with {len(df)} records, use_cache={self.use_cache}"
+            f"**** SAVING TO CACHE: {symbol} {interval.value} with {len(df)} records, source={source}, use_cache={self.use_cache}"
         )
 
         if not self.use_cache or self.cache_manager is None:
@@ -672,7 +675,8 @@ class DataSourceManager:
                 logger.debug(
                     f"Saving {len(group)} records for {symbol} on {cache_date.date()} to cache"
                 )
-                # Save to cache
+
+                # Always save data directly to Arrow cache
                 success = self.cache_manager.save_to_cache(
                     df=group,
                     symbol=symbol,
@@ -772,6 +776,11 @@ class DataSourceManager:
 
             # Add source information
             df["_data_source"] = "VISION"
+
+            # Save Vision API data to cache immediately
+            if self.use_cache and not df.empty:
+                logger.info(f"Saving Vision API data to Arrow cache for {symbol}")
+                self._save_to_cache(df, symbol, interval, source="VISION")
 
             logger.info(f"Retrieved {len(df)} records from Vision API")
 
@@ -996,7 +1005,9 @@ class DataSourceManager:
                                     logger.debug(
                                         f"Auto-saving Vision data to cache for {symbol}"
                                     )
-                                    self._save_to_cache(range_df, symbol, interval)
+                                    self._save_to_cache(
+                                        range_df, symbol, interval, source="VISION"
+                                    )
                             else:
                                 # If Vision failed, add to REST fallback ranges
                                 rest_fallback_ranges.append((miss_start, miss_end))
@@ -1024,7 +1035,9 @@ class DataSourceManager:
                         # If REST data was retrieved successfully and caching is enabled, save it
                         if not rest_df.empty and self.use_cache:
                             logger.debug(f"Auto-saving REST data to cache for {symbol}")
-                            self._save_to_cache(rest_df, symbol, interval)
+                            self._save_to_cache(
+                                rest_df, symbol, interval, source="REST"
+                            )
 
             # Merge all DataFrames
             if not dfs:
