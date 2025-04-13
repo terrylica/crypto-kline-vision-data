@@ -14,6 +14,13 @@ class DataClientInterface(ABC):
 
     This abstract base class defines the common interface that all data clients
     must implement to be used with the DataSourceManager.
+
+    Implementation Guidelines:
+    1. All concrete implementations should properly validate parameters
+    2. Error handling should follow consistent patterns across implementations
+    3. Return types should maintain consistent structure (column names, types)
+    4. Method names should follow the interface exactly as defined
+    5. Optional parameters should be handled gracefully with sensible defaults
     """
 
     @property
@@ -49,7 +56,7 @@ class DataClientInterface(ABC):
         """Get the interval.
 
         Returns:
-            The time interval
+            The time interval as a string or compatible object with string representation
         """
 
     @abstractmethod
@@ -63,24 +70,39 @@ class DataClientInterface(ABC):
     ) -> pd.DataFrame:
         """Fetch data from the data source.
 
+        All implementations should validate input parameters and provide
+        appropriate error handling for invalid inputs. If the implementation
+        allows for default values (e.g., using instance properties when
+        parameters are empty), this should be clearly documented.
+
         Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            start_time: Start time
-            end_time: End time
-            **kwargs: Additional parameters
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval as string (e.g., "1m", "1h")
+            start_time: Start time as timezone-aware datetime
+            end_time: End time as timezone-aware datetime
+            **kwargs: Additional parameters specific to the implementation
 
         Returns:
-            DataFrame with the fetched data
+            DataFrame with the fetched data, properly formatted according to
+            the chart type (klines, funding rate, etc.)
+
+        Raises:
+            ValueError: If input parameters are invalid
+            RuntimeError: If data cannot be fetched due to service issues
         """
 
     @abstractmethod
     def is_data_available(self, start_time: datetime, end_time: datetime) -> bool:
         """Check if data is available for the specified time range.
 
+        This method is used to determine if the specific data source can
+        provide data for the given time range. It should consider factors
+        such as exchange launch date, recent data availability, and any
+        other source-specific constraints.
+
         Args:
-            start_time: Start time
-            end_time: End time
+            start_time: Start time as timezone-aware datetime
+            end_time: End time as timezone-aware datetime
 
         Returns:
             True if data is available, False otherwise
@@ -90,13 +112,21 @@ class DataClientInterface(ABC):
     def create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty DataFrame with the correct structure.
 
+        This method should return an empty DataFrame with the proper column
+        structure, data types, and index configuration appropriate for the
+        specific chart type (klines, funding rate, etc.).
+
         Returns:
-            Empty DataFrame
+            Empty DataFrame with the correct structure
         """
 
     @abstractmethod
     def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
         """Validate that a DataFrame contains valid data.
+
+        Implementations should check for structural correctness, data types,
+        required columns, and any chart-type specific validations. This may
+        use shared validation utilities to maintain consistency.
 
         Args:
             df: DataFrame to validate
@@ -107,4 +137,8 @@ class DataClientInterface(ABC):
 
     @abstractmethod
     def close(self) -> None:
-        """Close the client and release resources."""
+        """Close the client and release resources.
+
+        This method should properly clean up any open connections or resources
+        to prevent memory leaks or resource exhaustion.
+        """

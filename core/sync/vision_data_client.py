@@ -28,7 +28,7 @@ import re
 import pandas as pd
 
 from utils.logger_setup import logger
-from utils.market_constraints import Interval, MarketType
+from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
 from utils.time_utils import (
     filter_dataframe_by_time,
     detect_timestamp_unit,
@@ -42,12 +42,14 @@ from utils.dataframe_types import TimestampedDataFrame
 from core.sync.vision_constraints import get_vision_url
 from utils.gap_detector import detect_gaps, Gap
 from utils.dataframe_utils import ensure_open_time_as_column
+from core.sync.data_client_interface import DataClientInterface
+from utils.validation import DataFrameValidator
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
 
 
-class VisionDataClient(Generic[T]):
+class VisionDataClient(DataClientInterface, Generic[T]):
     """Vision Data Client for direct access to Binance historical data."""
 
     def __init__(
@@ -63,8 +65,8 @@ class VisionDataClient(Generic[T]):
             interval: Kline interval e.g. '1s', '1m'
             market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
         """
-        self.symbol = symbol.upper()
-        self.interval = interval
+        self._symbol = symbol.upper()
+        self._interval_str = interval
         self.market_type = market_type
 
         # Convert MarketType enum to string if needed
@@ -133,7 +135,7 @@ class VisionDataClient(Generic[T]):
             if hasattr(self._client, "close") and callable(self._client.close):
                 self._client.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the client and release resources."""
         if hasattr(self, "_client") and self._client:
             if hasattr(self._client, "close") and callable(self._client.close):
@@ -141,8 +143,27 @@ class VisionDataClient(Generic[T]):
                 self._client = None
                 logger.debug("Closed Vision API HTTP client")
 
-    @staticmethod
-    def _create_empty_dataframe() -> TimestampedDataFrame:
+    @property
+    def provider(self) -> DataProvider:
+        """Get the data provider for this client."""
+        return DataProvider.BINANCE
+
+    @property
+    def chart_type(self) -> ChartType:
+        """Get the chart type for this client."""
+        return ChartType.KLINES
+
+    @property
+    def symbol(self) -> str:
+        """Get the symbol for this client."""
+        return self._symbol
+
+    @property
+    def interval(self) -> Union[str, object]:
+        """Get the interval for this client."""
+        return self._interval_str
+
+    def create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty dataframe with the correct structure.
 
         Returns:
@@ -160,6 +181,46 @@ class VisionDataClient(Generic[T]):
             df = df.set_index("open_time_us")
 
         return TimestampedDataFrame(df)
+
+    def is_data_available(self, start_time: datetime, end_time: datetime) -> bool:
+        """Check if data is available for the specified time range.
+
+        Args:
+            start_time: Start time
+            end_time: End time
+
+        Returns:
+            True if data is available, False otherwise
+        """
+        # For Binance Vision API, data is available from the start of the exchange
+        # (September 2017 for most pairs), up to around 24-48 hours ago
+        launch_date = datetime(2017, 9, 1, tzinfo=timezone.utc)
+
+        # Check if the requested time range is after the launch date
+        if end_time < launch_date:
+            return False
+
+        # Check if the requested time range is too recent
+        # Vision data typically has a 24-48 hour delay
+        now = datetime.now(timezone.utc)
+        vision_cutoff = now - timedelta(hours=48)
+        if start_time > vision_cutoff:
+            return False
+
+        # Otherwise, data should be available
+        return True
+
+    def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
+        """Validate that a DataFrame contains valid market data.
+
+        Args:
+            df: DataFrame to validate
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        validator = DataFrameValidator(df)
+        return validator.validate_klines_data()
 
     def _get_interval_seconds(self, interval: str) -> int:
         """Get interval duration in seconds from interval string.
@@ -306,11 +367,11 @@ class VisionDataClient(Generic[T]):
                 return None, None
 
             # Generate URL for the data - ensure we use interval string value
-            interval_str = self.interval
+            interval_str = self._interval_str
 
             # Debug for interval
             logger.debug(
-                f"Self.interval is {self.interval} of type {type(self.interval)}"
+                f"Self.interval is {self._interval_str} of type {type(self._interval_str)}"
             )
             logger.debug(
                 f"Self.interval_obj is {self.interval_obj} of type {type(self.interval_obj)}"
@@ -326,7 +387,7 @@ class VisionDataClient(Generic[T]):
                 )
 
             url = get_vision_url(
-                symbol=self.symbol,
+                symbol=self._symbol,
                 interval=interval_str,  # Use string value
                 date=date,
                 file_type=FileType.DATA,  # Explicitly pass proper FileType.DATA enum
@@ -453,7 +514,7 @@ class VisionDataClient(Generic[T]):
             TimestampedDataFrame with downloaded data
         """
         logger.info(
-            f"Downloading data for {self.symbol} {self.interval} from {start_time.isoformat()} to {end_time.isoformat()}"
+            f"Downloading data for {self._symbol} {self._interval_str} from {start_time.isoformat()} to {end_time.isoformat()}"
         )
 
         # Convert start and end times to date objects for file-based lookups
@@ -474,7 +535,7 @@ class VisionDataClient(Generic[T]):
         warning_messages = []  # Collect warning messages
 
         # For very short intervals like 1s, avoid too many concurrent downloads
-        if self.interval == "1s" and max_workers > 10:
+        if self._interval_str == "1s" and max_workers > 10:
             max_workers = 10
             logger.info(
                 f"Limited concurrent downloads to {max_workers} for 1s interval"
@@ -488,7 +549,7 @@ class VisionDataClient(Generic[T]):
         # Get data files
         if len(date_objects) == 0:
             logger.warning("No dates to download")
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
         try:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -548,7 +609,7 @@ class VisionDataClient(Generic[T]):
                     "No data downloaded from Binance Vision API - this may happen for recent data or less common markets (e.g., CM futures). "
                     "The system will attempt to fetch from REST API instead."
                 )
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
         logger.info(f"Downloaded {len(downloaded_dfs)} daily files")
 
@@ -558,14 +619,14 @@ class VisionDataClient(Generic[T]):
         # If the dataframe is empty, return early
         if concatenated_df.empty:
             logger.warning("No data in downloaded files")
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
         # Ensure timestamps are in datetime format
         if "open_time" not in concatenated_df.columns:
             logger.error(
                 f"Missing 'open_time' column in downloaded data. Columns: {concatenated_df.columns}"
             )
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
         # Sort the dataframe by timestamp
         if not concatenated_df["open_time"].is_monotonic_increasing:
@@ -581,11 +642,13 @@ class VisionDataClient(Generic[T]):
         # Use gap_detector to find gaps
         # Convert the interval string to Interval enum for proper gap detection
         try:
-            interval_obj = next((i for i in Interval if i.value == self.interval), None)
+            interval_obj = next(
+                (i for i in Interval if i.value == self._interval_str), None
+            )
             if interval_obj is None:
                 interval_obj = Interval.MINUTE_1
                 logger.warning(
-                    f"Could not find interval {self.interval}, using MINUTE_1 as default for gap detection"
+                    f"Could not find interval {self._interval_str}, using MINUTE_1 as default for gap detection"
                 )
         except Exception as e:
             logger.warning(f"Error parsing interval for gap detection: {e}")
@@ -668,7 +731,7 @@ class VisionDataClient(Generic[T]):
 
         except Exception as e:
             logger.error(f"Error creating TimestampedDataFrame: {e}")
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
     def _fill_boundary_gaps_with_rest(
         self, df: pd.DataFrame, boundary_gaps: List[Gap]
@@ -695,7 +758,7 @@ class VisionDataClient(Generic[T]):
             # Create a REST client with the same parameters
             rest_client = RestDataClient(
                 market_type=self.market_type,
-                symbol=self.symbol,
+                symbol=self._symbol,
                 interval=self.interval_obj,
             )
 
@@ -721,8 +784,8 @@ class VisionDataClient(Generic[T]):
 
                 # Fetch the gap data using REST API
                 gap_data = rest_client.fetch(
-                    self.symbol,
-                    self.interval_obj,
+                    self._symbol,
+                    self.interval_obj.value,
                     start_time=gap_start,
                     end_time=gap_end,
                 )
@@ -777,18 +840,65 @@ class VisionDataClient(Generic[T]):
 
     def fetch(
         self,
+        symbol: str,
+        interval: str,
         start_time: datetime,
         end_time: datetime,
+        **kwargs,
     ) -> pd.DataFrame:
-        """Fetch data for a specific time range.
+        """Fetch data for a specific time range from the Binance Vision API.
+
+        This method implements the DataClientInterface fetch method.
+        It downloads data from Binance Vision API using daily data files and
+        handles date boundaries correctly.
 
         Args:
-            start_time: Start time for data
-            end_time: End time for data
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval string (e.g., "1m", "1h")
+            start_time: Start time for data retrieval (timezone-aware datetime)
+            end_time: End time for data retrieval (timezone-aware datetime)
+            **kwargs: Additional parameters (unused, for interface compatibility)
 
         Returns:
-            DataFrame with data (standard pandas DataFrame, not TimestampedDataFrame)
+            DataFrame with data, where open_time is both a column and the index name
+
+        Note:
+            This client is optimized for historical data. For recent data (< 2 days old),
+            use the RestDataClient as Vision API typically has a 24-48 hour delay.
         """
+        # Validate parameters
+        if not isinstance(symbol, str) or not symbol:
+            logger.warning(
+                f"Invalid symbol: {symbol}, using client symbol {self._symbol}"
+            )
+            symbol = self._symbol
+        elif symbol != self._symbol:
+            logger.warning(
+                f"Symbol mismatch: requested {symbol}, client configured for {self._symbol}. "
+                f"Using client configuration."
+            )
+            # Continue with the client's configured symbol
+
+        if not isinstance(interval, str) or not interval:
+            logger.warning(
+                f"Invalid interval: {interval}, using client interval {self._interval_str}"
+            )
+            interval = self._interval_str
+        elif interval != self._interval_str:
+            logger.warning(
+                f"Interval mismatch: requested {interval}, client configured for {self._interval_str}. "
+                f"Using client configuration."
+            )
+            # Continue with the client's configured interval
+
+        if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
+            raise ValueError("Start time and end time must be datetime objects")
+
+        if start_time >= end_time:
+            raise ValueError(
+                f"Start time {start_time} must be before end time {end_time}"
+            )
+
         try:
             # Enforce consistent timezone for time boundaries
             start_time = start_time.astimezone(timezone.utc)
@@ -839,7 +949,7 @@ class VisionDataClient(Generic[T]):
                 raise
         except Exception as e:
             logger.error(f"Error fetching data: {e}")
-            return self._create_empty_dataframe()
+            return self.create_empty_dataframe()
 
     @staticmethod
     def fetch_multiple(
@@ -894,12 +1004,17 @@ class VisionDataClient(Generic[T]):
                 with VisionDataClient(
                     symbol=symbol, interval=interval, market_type=market_type
                 ) as client:
-                    df = client.fetch(start_time, end_time)
+                    df = client.fetch(symbol, interval, start_time, end_time)
                 return symbol, df
             except Exception as e:
                 logger.error(f"Error fetching data for {symbol}: {e}")
                 # Return empty dataframe on error
-                return symbol, VisionDataClient._create_empty_dataframe()
+                client = VisionDataClient(
+                    symbol=symbol, interval=interval, market_type=market_type
+                )
+                empty_df = client.create_empty_dataframe()
+                client.close()
+                return symbol, empty_df
 
         # Use ThreadPoolExecutor to parallelize downloads across symbols
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -919,6 +1034,10 @@ class VisionDataClient(Generic[T]):
                 except Exception as e:
                     logger.error(f"Error processing result for {symbol}: {e}")
                     # Create empty dataframe for failed symbols
-                    results[symbol] = VisionDataClient._create_empty_dataframe()
+                    client = VisionDataClient(
+                        symbol=symbol, interval=interval, market_type=market_type
+                    )
+                    results[symbol] = client.create_empty_dataframe()
+                    client.close()
 
         return results

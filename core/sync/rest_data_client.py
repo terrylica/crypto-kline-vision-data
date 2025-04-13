@@ -3,7 +3,7 @@
 
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
 from utils.logger_setup import logger
@@ -570,31 +570,61 @@ class RestDataClient(DataClientInterface):
     def fetch(
         self,
         symbol: str,
-        interval: Interval,
+        interval: str,
         start_time: datetime,
         end_time: datetime,
+        **kwargs,
     ) -> pd.DataFrame:
         """Fetch kline data for a symbol and time range.
 
+        This method implements the DataClientInterface fetch method.
+        It retrieves data based on the provided parameters and handles chunking
+        for large time ranges to stay within API limits.
+
         Args:
-            symbol: Trading pair symbol
-            interval: Time interval
-            start_time: Start time
-            end_time: End time
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval string (e.g., "1m", "1h") - must be a valid Interval value
+            start_time: Start time for data retrieval (timezone-aware datetime)
+            end_time: End time for data retrieval (timezone-aware datetime)
+            **kwargs: Additional parameters (unused, for interface compatibility)
 
         Returns:
-            DataFrame with kline data
+            DataFrame with kline data indexed by open_time
+
+        Raises:
+            ValueError: If parameters are invalid or inconsistent
         """
+        # Convert interval string to Interval enum if needed
+        interval_enum = None
+        if isinstance(interval, str):
+            try:
+                # Try direct value lookup first
+                interval_enum = next((i for i in Interval if i.value == interval), None)
+                if interval_enum is None:
+                    # Try by enum name if value lookup failed
+                    try:
+                        interval_enum = Interval[interval.upper()]
+                    except KeyError:
+                        raise ValueError(f"Invalid interval: {interval}")
+            except Exception as e:
+                logger.warning(f"Error converting interval string '{interval}': {e}")
+                interval_enum = self._interval  # Fall back to instance default
+        else:
+            # If it's already an Interval enum, use it directly
+            interval_enum = (
+                interval if isinstance(interval, Interval) else self._interval
+            )
+
         # Validate request parameters
-        self._validate_request_params(symbol, interval, start_time, end_time)
+        self._validate_request_params(symbol, interval_enum, start_time, end_time)
 
         # Align time boundaries
         aligned_start, aligned_end = align_time_boundaries(
-            start_time, end_time, interval
+            start_time, end_time, interval_enum
         )
 
         logger.info(
-            f"Fetching {interval.value} data for {symbol} from "
+            f"Fetching {interval_enum.value} data for {symbol} from "
             f"{aligned_start.isoformat()} to {aligned_end.isoformat()}"
         )
 
@@ -603,7 +633,7 @@ class RestDataClient(DataClientInterface):
         end_ms = datetime_to_milliseconds(aligned_end)
 
         # Calculate chunk boundaries
-        chunks = self._calculate_chunks(start_ms, end_ms, interval)
+        chunks = self._calculate_chunks(start_ms, end_ms, interval_enum)
 
         # Track stats
         stats = {
@@ -623,7 +653,7 @@ class RestDataClient(DataClientInterface):
 
             # Fetch the chunk
             chunk_data = self._fetch_chunk_data(
-                symbol, interval, chunk_start, chunk_end
+                symbol, interval_enum, chunk_start, chunk_end
             )
 
             if chunk_data:
@@ -716,13 +746,17 @@ class RestDataClient(DataClientInterface):
         return self._symbol
 
     @property
-    def interval(self) -> Interval:
+    def interval(self) -> Union[str, object]:
         """Get the interval.
 
         Returns:
-            The time interval
+            The time interval string
         """
-        return self._interval
+        return (
+            self._interval.value
+            if hasattr(self._interval, "value")
+            else str(self._interval)
+        )
 
     @property
     def provider(self) -> DataProvider:

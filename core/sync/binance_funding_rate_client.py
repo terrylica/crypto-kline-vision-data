@@ -118,9 +118,11 @@ class BinanceFundingRateClient(DataClientInterface):
         return self._symbol
 
     @property
-    def interval(self) -> Union[str, Interval]:
+    def interval(self) -> Union[str, object]:
         """Get the interval for this client."""
-        return self._interval
+        if hasattr(self._interval, "value"):
+            return self._interval.value
+        return str(self._interval)
 
     def create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty DataFrame with the correct structure for funding rate data.
@@ -133,40 +135,99 @@ class BinanceFundingRateClient(DataClientInterface):
     def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
         """Validate that a DataFrame contains valid funding rate data.
 
+        This method checks the structure, data types, and integrity of a
+        funding rate DataFrame against expected standards. It ensures
+        all required columns are present with correct data types, and
+        that time-related columns are properly formatted.
+
         Args:
             df: DataFrame to validate
 
         Returns:
             Tuple of (is_valid, error_message)
         """
+        if not isinstance(df, pd.DataFrame):
+            return False, f"Expected DataFrame object, got {type(df).__name__}"
+
         try:
+            # Check if DataFrame is empty
+            if df.empty:
+                logger.debug("Validating empty DataFrame - no data to validate")
+                return True, None
+
             # Check basic structure
             required_columns = list(FUNDING_RATE_DTYPES.keys())
             missing_columns = [col for col in required_columns if col not in df.columns]
 
             if missing_columns:
-                return False, f"Missing columns: {missing_columns}"
+                return False, f"Missing required columns: {missing_columns}"
 
             # Validate data types
+            dtype_errors = []
             for col, dtype in FUNDING_RATE_DTYPES.items():
-                if col in df.columns and not pd.api.types.is_dtype_equal(
-                    df[col].dtype, dtype
-                ):
-                    return (
-                        False,
-                        f"Column {col} has wrong dtype: {df[col].dtype}, expected {dtype}",
-                    )
+                if col in df.columns:
+                    try:
+                        # Skip validation for empty series
+                        if df[col].empty:
+                            continue
 
-            # Additional validations
-            if "funding_time" in df.columns and len(df) > 0:
-                # Check if funding_time is in ascending order
+                        # Check if dtype is compatible
+                        if not pd.api.types.is_dtype_equal(df[col].dtype, dtype):
+                            # Try to convert and check for data loss
+                            original_values = df[col].dropna().values
+                            if len(original_values) > 0:
+                                try:
+                                    converted = df[col].astype(dtype)
+                                    # For numeric types, check for data loss in conversion
+                                    if pd.api.types.is_numeric_dtype(
+                                        df[col]
+                                    ) and pd.api.types.is_numeric_dtype(converted):
+                                        if not (
+                                            converted.dropna().values == original_values
+                                        ).all():
+                                            dtype_errors.append(
+                                                f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
+                                            )
+
+                                except Exception as e:
+                                    dtype_errors.append(
+                                        f"Column {col} cannot be converted from {df[col].dtype} to {dtype}: {e}"
+                                    )
+
+                            dtype_errors.append(
+                                f"Column {col} has dtype {df[col].dtype}, expected {dtype}"
+                            )
+                    except Exception as e:
+                        dtype_errors.append(
+                            f"Error validating dtype for column {col}: {e}"
+                        )
+
+            if dtype_errors:
+                return False, f"Data type validation errors: {', '.join(dtype_errors)}"
+
+            # Check if funding_time is in ascending order (if present)
+            if "funding_time" in df.columns and len(df) > 1:
                 is_sorted = df["funding_time"].is_monotonic_increasing
                 if not is_sorted:
                     return False, "funding_time is not in ascending order"
 
+                # Check for duplicates in funding_time
+                if df["funding_time"].duplicated().any():
+                    return False, "DataFrame contains duplicate funding_time values"
+
+            # Check if all funding rates are within reasonable bounds (-10% to 10%)
+            if "funding_rate" in df.columns:
+                min_rate = df["funding_rate"].min()
+                max_rate = df["funding_rate"].max()
+                if min_rate < -0.1:
+                    logger.warning(f"Unusually low funding rate detected: {min_rate}")
+                if max_rate > 0.1:
+                    logger.warning(f"Unusually high funding rate detected: {max_rate}")
+
             return True, None
         except Exception as e:
-            return False, str(e)
+            logger.error(f"Error validating funding rate data: {e}")
+            return False, f"Validation error: {str(e)}"
 
     def is_data_available(self, start_time: datetime, end_time: datetime) -> bool:
         """Check if funding rate data is available for the specified time range.
@@ -196,19 +257,19 @@ class BinanceFundingRateClient(DataClientInterface):
 
     def fetch(
         self,
-        symbol: Optional[str] = None,
-        interval: Optional[Union[str, Interval]] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        symbol: str,
+        interval: str,
+        start_time: datetime,
+        end_time: datetime,
         **kwargs,
     ) -> pd.DataFrame:
         """Fetch funding rate data for the specified symbol and time range.
 
         Args:
-            symbol: Trading pair symbol (optional, defaults to instance symbol)
-            interval: Time interval (optional, defaults to instance interval)
-            start_time: Start time
-            end_time: End time
+            symbol: Trading pair symbol (uses provided value or falls back to instance symbol)
+            interval: Time interval (uses provided value or falls back to instance interval)
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
             **kwargs: Additional parameters
 
         Returns:
@@ -217,22 +278,31 @@ class BinanceFundingRateClient(DataClientInterface):
         Raises:
             ValueError: If parameters are invalid
         """
-        # Use instance defaults if not provided
-        symbol = symbol or self._symbol
-        interval = interval or self._interval
+        # Validate input parameters (keeping backward compatibility)
+        if not isinstance(symbol, str) or not symbol:
+            symbol = self._symbol
+            logger.debug(f"Using instance symbol: {symbol}")
 
         # Convert interval to Interval enum if it's a string
-        if isinstance(interval, str):
-            try:
-                interval = Interval(interval)
-            except ValueError:
-                logger.warning(f"Invalid interval: {interval}, using HOUR_8")
-                interval = Interval.HOUR_8
+        try:
+            interval_obj = next((i for i in Interval if i.value == interval), None)
+            if interval_obj is None:
+                # Try by enum name
+                try:
+                    interval_obj = Interval[interval.upper()]
+                except KeyError:
+                    logger.warning(
+                        f"Invalid interval: {interval}, using instance interval"
+                    )
+                    interval_obj = self._interval
 
-        # Validate input parameters
-        if not isinstance(symbol, str) or not symbol:
-            raise ValueError(f"Symbol must be a non-empty string, got {symbol}")
+        except Exception:
+            logger.warning(
+                f"Error converting interval '{interval}', using instance interval"
+            )
+            interval_obj = self._interval
 
+        # Validate time parameters
         if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
             raise ValueError("Start time and end time must be datetime objects")
 
@@ -246,7 +316,7 @@ class BinanceFundingRateClient(DataClientInterface):
             # Check if data is available in cache
             cached_df = self._cache_manager.load_from_cache(
                 symbol=symbol,
-                interval=interval.value,
+                interval=interval_obj.value,
                 date=start_time,
                 provider="BINANCE",
                 chart_type="FUNDING_RATE",
@@ -269,7 +339,7 @@ class BinanceFundingRateClient(DataClientInterface):
             self._cache_manager.save_to_cache(
                 df=df,
                 symbol=symbol,
-                interval=interval.value,
+                interval=interval_obj.value,
                 date=start_time,
                 provider="BINANCE",
                 chart_type="FUNDING_RATE",

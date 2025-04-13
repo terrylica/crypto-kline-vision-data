@@ -704,7 +704,7 @@ class DataSourceManager:
     def _fetch_from_vision(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
     ) -> pd.DataFrame:
-        """Fetch data from Vision API.
+        """Fetch data from Binance Vision API.
 
         Args:
             symbol: Symbol to retrieve data for
@@ -719,17 +719,38 @@ class DataSourceManager:
             f"Fetching data from Vision API for {symbol} from {start_time} to {end_time}"
         )
 
-        # Create Vision client if not already created
+        # Initialize Vision client if not already done
         if self.vision_client is None:
+            logger.debug("Creating new Vision API client")
             self.vision_client = VisionDataClient(
                 symbol=symbol,
                 interval=interval.value,
                 market_type=self.market_type,
             )
+        else:
+            logger.debug(
+                f"Reusing existing Vision API client configured for {self.vision_client.symbol}"
+            )
+            # Check if symbol and interval match, recreate client if needed
+            if (
+                self.vision_client.symbol != symbol
+                or self.vision_client.interval != interval.value
+            ):
+                logger.debug(
+                    f"Recreating Vision API client for {symbol} {interval.value}"
+                )
+                self.vision_client.close()
+                self.vision_client = VisionDataClient(
+                    symbol=symbol,
+                    interval=interval.value,
+                    market_type=self.market_type,
+                )
 
         try:
             # Fetch data from Vision API
             df = self.vision_client.fetch(
+                symbol=symbol,
+                interval=interval.value,
                 start_time=start_time,
                 end_time=end_time,
             )
@@ -827,7 +848,7 @@ class DataSourceManager:
             # Fetch data using the REST client
             df = self.rest_client.fetch(
                 symbol=symbol,
-                interval=interval,
+                interval=interval.value,
                 start_time=start_time,
                 end_time=end_time,
             )
