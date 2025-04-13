@@ -505,23 +505,21 @@ class DataSourceManager:
     def _should_use_vision_api(self, start_time: datetime, end_time: datetime) -> bool:
         """Determine if Vision API should be used based on time range.
 
-        Vision API has a delay before data is available, typically 48 hours.
+        According to the Failover Composition Priority (FCP) strategy,
+        we should always attempt to use Vision API first before falling back to REST.
+
+        This function now returns True to enforce using Vision API as the preferred
+        source for all missing data, regardless of how recent it is.
 
         Args:
             start_time: Start time for data retrieval
             end_time: End time for data retrieval
 
         Returns:
-            True if Vision API should be used, False otherwise
+            True to always try Vision API first
         """
-        # Get current time
-        now = datetime.now(timezone.utc)
-
-        # Check if end time is before the Vision data delay
-        cutoff_time = now - timedelta(hours=VISION_DATA_DELAY_HOURS)
-
-        # Use Vision API if entire time range is before the cutoff
-        return end_time <= cutoff_time
+        # According to FCP, always attempt Vision API first
+        return True
 
     def _get_from_cache(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
@@ -757,7 +755,7 @@ class DataSourceManager:
             return create_empty_dataframe()
 
         if len(dfs) == 1:
-            return dfs[0]
+            return self._standardize_columns(dfs[0])
 
         # Concatenate all DataFrames
         merged = pd.concat(dfs, ignore_index=True)
@@ -788,7 +786,8 @@ class DataSourceManager:
             source_counts = merged["_data_source"].value_counts()
             logger.info(f"Merged data source statistics: {source_counts.to_dict()}")
 
-        return merged
+        # Standardize columns before returning
+        return self._standardize_columns(merged)
 
     def get_data(
         self,
@@ -798,6 +797,7 @@ class DataSourceManager:
         interval: Interval = Interval.MINUTE_1,
         chart_type: Optional[ChartType] = None,
         include_source_info: bool = True,
+        enforce_source: DataSource = DataSource.AUTO,
     ) -> pd.DataFrame:
         """Get data for the specified time range, using the FCP strategy.
 
@@ -813,6 +813,7 @@ class DataSourceManager:
             interval: Time interval between data points
             chart_type: Override chart type for this query
             include_source_info: Whether to include source information in the result
+            enforce_source: Force specific data source (AUTO, REST, VISION)
 
         Returns:
             DataFrame with requested data
@@ -856,6 +857,8 @@ class DataSourceManager:
             # If we have all data from cache, return it
             if not missing_ranges:
                 logger.info(f"Retrieved all data from cache: {len(cached_df)} records")
+                # Standardize columns before handling source info
+                cached_df = self._standardize_columns(cached_df)
                 if not include_source_info and "_data_source" in cached_df.columns:
                     cached_df = cached_df.drop(columns=["_data_source"])
                 return cached_df
@@ -868,18 +871,40 @@ class DataSourceManager:
                     f"Fetching missing data from {missing_start} to {missing_end}"
                 )
 
-                # Check if we should use Vision API for this range
-                use_vision = self._should_use_vision_api(missing_start, missing_end)
+                # Handle forced source if specified
+                if enforce_source != DataSource.AUTO:
+                    df = create_empty_dataframe()
 
-                # Try Vision API first if appropriate
+                    if enforce_source == DataSource.VISION:
+                        logger.info("Using enforced source: VISION API")
+                        df = self._fetch_from_vision(
+                            symbol, missing_start, missing_end, interval
+                        )
+                    elif enforce_source == DataSource.REST:
+                        logger.info("Using enforced source: REST API")
+                        df = self._fetch_from_rest(
+                            symbol, missing_start, missing_end, interval
+                        )
+
+                    if not df.empty:
+                        all_dfs.append(df)
+
+                        # Cache the data we just fetched
+                        if self.use_cache:
+                            self._save_to_cache(df, symbol, interval)
+                    continue
+
+                # For automatic source selection, follow FCP strategy:
+                # Try Vision API first for all missing ranges
                 df = create_empty_dataframe()
-                if use_vision:
-                    logger.info("Attempting to use Vision API")
-                    df = self._fetch_from_vision(
-                        symbol, missing_start, missing_end, interval
-                    )
 
-                # If Vision API failed or returned no data, try REST API
+                # Always attempt to use Vision API first
+                logger.info("Attempting to use Vision API")
+                df = self._fetch_from_vision(
+                    symbol, missing_start, missing_end, interval
+                )
+
+                # If Vision API failed or returned no data, fall back to REST API
                 if df.empty:
                     logger.info("Falling back to REST API")
                     df = self._fetch_from_rest(
@@ -1024,3 +1049,48 @@ class DataSourceManager:
             self.rest_client = None
 
         logger.debug("Closed all data clients")
+
+    def _standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Standardize DataFrame columns to ensure consistent output.
+
+        This ensures that all DataFrames returned by DataSourceManager have the
+        same column structure regardless of data source.
+
+        Args:
+            df: DataFrame to standardize
+
+        Returns:
+            Standardized DataFrame with consistent columns
+        """
+        if df.empty:
+            return df
+
+        # Define standard columns in their expected order
+        standard_columns = [
+            "open_time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "close_time",
+            "quote_asset_volume",
+            "count",
+            "taker_buy_volume",
+            "taker_buy_quote_volume",
+        ]
+
+        # Add _data_source if present
+        if "_data_source" in df.columns:
+            standard_columns.append("_data_source")
+
+        # Create a new DataFrame with only the standard columns that exist
+        result_columns = [col for col in standard_columns if col in df.columns]
+
+        # If any standard columns are missing, log a warning
+        missing_columns = [col for col in standard_columns if col not in df.columns]
+        if missing_columns:
+            logger.warning(f"Missing standard columns in output: {missing_columns}")
+
+        # Return DataFrame with standardized columns
+        return df[result_columns]

@@ -21,7 +21,7 @@ import logging
 from utils.logger_setup import logger
 from rich import print
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
-from core.sync.data_source_manager import DataSourceManager
+from core.sync.data_source_manager import DataSourceManager, DataSource
 from core.sync.cache_manager import UnifiedCacheManager
 from utils.config import VISION_DATA_DELAY_HOURS
 
@@ -36,10 +36,12 @@ def get_data_sync(
     end_time: datetime,
     interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
+    chart_type: ChartType = ChartType.KLINES,
     use_cache: bool = False,
     show_cache_path: bool = False,
     max_retries: int = 3,
     retry_delay: int = 1,
+    enforce_source: DataSource = DataSource.AUTO,
 ):
     """
     Retrieve data synchronously using DataSourceManager.
@@ -54,19 +56,23 @@ def get_data_sync(
         end_time: End time for data retrieval
         interval: Time interval between data points
         provider: Data provider (currently only BINANCE is supported)
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         use_cache: Whether to use caching
         show_cache_path: Whether to show the cache path
         max_retries: Maximum number of retry attempts
         retry_delay: Delay between retries in seconds
+        enforce_source: Force specific data source (AUTO, REST, VISION)
 
     Returns:
         Pandas DataFrame containing the retrieved data
     """
     logger.info(
-        f"Retrieving {interval.value} candlestick data for {symbol} in {market_type.name} market using {provider.name}"
+        f"Retrieving {interval.value} {chart_type.name} data for {symbol} in {market_type.name} market using {provider.name}"
     )
     logger.info(f"Time range: {start_time.isoformat()} to {end_time.isoformat()}")
     logger.info(f"Cache enabled: {use_cache}")
+    if enforce_source != DataSource.AUTO:
+        logger.info(f"Enforcing data source: {enforce_source.name}")
 
     # If cache path display is requested
     if show_cache_path and use_cache:
@@ -84,7 +90,7 @@ def get_data_sync(
             interval=interval.value,
             date=start_time,
             provider=provider.name,
-            chart_type=ChartType.KLINES.name,
+            chart_type=chart_type.name,
             market_type=market_type_str,
         )
         cache_path = cache_manager._get_cache_path(cache_key)
@@ -106,6 +112,7 @@ def get_data_sync(
     with DataSourceManager(
         market_type=market_type,
         provider=provider,
+        chart_type=chart_type,
         use_cache=use_cache,
         retry_count=max_retries,
     ) as manager:
@@ -116,7 +123,7 @@ def get_data_sync(
             start_time=start_time,
             end_time=end_time,
             interval=interval,
-            chart_type=ChartType.KLINES,
+            chart_type=chart_type,
         )
 
     elapsed_time = time.time() - start_time_retrieval
@@ -156,10 +163,12 @@ def get_historical_data_test(
     symbol: str = "BTCUSDT",
     interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
+    chart_type: ChartType = ChartType.KLINES,
     use_cache: bool = True,
     show_cache_path: bool = False,
     max_retries: int = 3,
     debug: bool = False,
+    enforce_source: DataSource = DataSource.AUTO,
 ):
     """
     Run a long-term historical data test for DataSourceManager orchestration.
@@ -172,10 +181,12 @@ def get_historical_data_test(
         symbol: Symbol to retrieve data for (defaults to "BTCUSDT")
         interval: Time interval between data points (defaults to 1 minute)
         provider: Data provider (currently only BINANCE is supported)
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         use_cache: Whether to use caching
         show_cache_path: Whether to show the cache path
         max_retries: Maximum number of retry attempts
         debug: Whether to enable additional debug output
+        enforce_source: Force specific data source (AUTO, REST, VISION)
 
     Returns:
         Pandas DataFrame containing the retrieved data
@@ -189,11 +200,13 @@ def get_historical_data_test(
     logger.info(f"Today's date: April 11, 2025")
     logger.info(f"Using date range: {start_time.isoformat()} to {end_time.isoformat()}")
     logger.info(
-        f"Market: {market_type.name} | Symbol: {symbol} | Interval: {interval.value}"
+        f"Market: {market_type.name} | Symbol: {symbol} | Chart Type: {chart_type.name} | Interval: {interval.value}"
     )
     logger.info(
         f"Total duration: {(end_time - start_time).days} days, {(end_time - start_time).seconds // 3600} hours"
     )
+    if enforce_source != DataSource.AUTO:
+        logger.info(f"Enforcing data source: {enforce_source.name}")
 
     # Adjust symbol for CM (Coin-Margined Futures) market if needed
     if market_type == MarketType.FUTURES_COIN and symbol == "BTCUSDT":
@@ -227,7 +240,7 @@ def get_historical_data_test(
                 interval=interval.value,
                 date=date,
                 provider=provider.name,
-                chart_type=ChartType.KLINES.name,
+                chart_type=chart_type.name,
                 market_type=market_type_str,
             )
             cache_path = cache_manager._get_cache_path(cache_key)
@@ -248,6 +261,7 @@ def get_historical_data_test(
     with DataSourceManager(
         market_type=market_type,
         provider=provider,
+        chart_type=chart_type,
         use_cache=use_cache,
         retry_count=max_retries,
     ) as manager:
@@ -281,11 +295,17 @@ def get_historical_data_test(
                     start_time=chunk_start,
                     end_time=chunk_end,
                     interval=interval,
-                    chart_type=ChartType.KLINES,
+                    chart_type=chart_type,
+                    enforce_source=enforce_source,
                 )
                 chunk_time = time.time() - chunk_start_time
 
                 if chunk_df is not None and not chunk_df.empty:
+                    # Count data source breakdown
+                    if "_data_source" in chunk_df.columns:
+                        source_counts = chunk_df["_data_source"].value_counts()
+                        print(f"Data source breakdown: {source_counts.to_dict()}")
+
                     print(
                         f"Retrieved {len(chunk_df)} records in {chunk_time:.2f} seconds"
                     )
@@ -306,7 +326,8 @@ def get_historical_data_test(
                 start_time=start_time,
                 end_time=end_time,
                 interval=interval,
-                chart_type=ChartType.KLINES,
+                chart_type=chart_type,
+                enforce_source=enforce_source,
             )
 
     elapsed_time = time.time() - start_time_retrieval
@@ -319,6 +340,13 @@ def get_historical_data_test(
     logger.info(
         f"Retrieved {len(df)} records for {symbol} in {elapsed_time:.2f} seconds"
     )
+
+    # Print source breakdown
+    if "_data_source" in df.columns:
+        source_counts = df["_data_source"].value_counts()
+        print(f"\n[bold cyan]Data Source Breakdown:[/bold cyan]")
+        for source, count in source_counts.items():
+            print(f"{source}: {count} records ({count/len(df)*100:.1f}%)")
 
     # Print summary statistics
     print(f"\n[bold green]Historical Data Test Results:[/bold green]")
@@ -370,7 +398,9 @@ def demonstrate_data_source_merging(
     symbol: str = "BTCUSDT",
     interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
+    chart_type: ChartType = ChartType.KLINES,
     max_retries: int = 3,
+    enforce_source: DataSource = DataSource.AUTO,
 ):
     """
     Demonstrate data source merging with DataSourceManager.
@@ -388,7 +418,9 @@ def demonstrate_data_source_merging(
         symbol: Symbol to retrieve data for (defaults to "BTCUSDT")
         interval: Time interval between data points (defaults to 1 minute)
         provider: Data provider (currently only BINANCE is supported)
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         max_retries: Maximum number of retry attempts
+        enforce_source: Force specific data source (AUTO, REST, VISION)
 
     Returns:
         Pandas DataFrame containing the merged data
@@ -397,17 +429,33 @@ def demonstrate_data_source_merging(
     print(f"Market: {market_type.name}")
     print(f"Symbol: {symbol}")
     print(f"Interval: {interval.value}")
+    print(f"Chart Type: {chart_type.name}")
+    print(f"Data Provider: {provider.name}")
     print(f"Vision API delay hours: {VISION_DATA_DELAY_HOURS}")
 
+    if enforce_source != DataSource.AUTO:
+        print(
+            f"[bold yellow]Enforcing data source: {enforce_source.name}[/bold yellow]"
+        )
+
     # Set up test scenario by clearing and pre-caching data
-    ranges = setup_test_scenario(symbol, market_type, interval)
+    ranges = setup_test_scenario(symbol, market_type, interval, chart_type)
     cache_range = ranges[0:2]
     vision_range = ranges[2:4]
     rest_range = ranges[4:6]
 
     # Fetch and merge data
     df = fetch_and_merge_data(
-        symbol, market_type, interval, cache_range, vision_range, rest_range
+        symbol,
+        market_type,
+        interval,
+        chart_type,
+        provider,
+        cache_range,
+        vision_range,
+        rest_range,
+        max_retries,
+        enforce_source,
     )
 
     # Analyze merged data
@@ -416,13 +464,16 @@ def demonstrate_data_source_merging(
     return df
 
 
-def clear_cache(symbol: str, market_type: MarketType, interval: Interval):
+def clear_cache(
+    symbol: str, market_type: MarketType, interval: Interval, chart_type: ChartType
+):
     """Clear cache for a specific symbol and market type.
 
     Args:
         symbol: Symbol to clear cache for
         market_type: Market type
         interval: Interval to clear cache for
+        chart_type: Type of chart data to clear from cache
     """
     # Create cache manager
     cache_manager = UnifiedCacheManager(cache_dir=CACHE_DIR, create_dirs=True)
@@ -451,7 +502,7 @@ def clear_cache(symbol: str, market_type: MarketType, interval: Interval):
             interval=interval.value,
             date=date,
             provider=DataProvider.BINANCE.name,
-            chart_type=ChartType.KLINES.name,
+            chart_type=chart_type.name,
             market_type=market_type_str,
         )
         cache_path = cache_manager._get_cache_path(cache_key)
@@ -461,13 +512,16 @@ def clear_cache(symbol: str, market_type: MarketType, interval: Interval):
             os.remove(cache_path)
 
 
-def setup_test_scenario(symbol: str, market_type: MarketType, interval: Interval):
+def setup_test_scenario(
+    symbol: str, market_type: MarketType, interval: Interval, chart_type: ChartType
+):
     """Set up test scenario for demonstrating data source merging.
 
     Args:
         symbol: Symbol to set up test for
         market_type: Market type
         interval: Interval to set up test for
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
 
     Returns:
         Tuple of (cache_start, cache_end, vision_start, vision_end, rest_start, rest_end)
@@ -496,13 +550,14 @@ def setup_test_scenario(symbol: str, market_type: MarketType, interval: Interval
     print(f"REST data: {rest_start.isoformat()} to {rest_end.isoformat()}")
 
     # First clear any existing cache data for these ranges
-    clear_cache(symbol, market_type, interval)
+    clear_cache(symbol, market_type, interval, chart_type)
 
     # Now fetch and cache the first range
     print(f"\n[bold yellow]Pre-caching data for Range 1...[/bold yellow]")
     with DataSourceManager(
         market_type=market_type,
         provider=DataProvider.BINANCE,
+        chart_type=chart_type,
         use_cache=True,  # Enable caching
         retry_count=3,
         cache_dir=CACHE_DIR,  # Explicitly set cache directory
@@ -513,7 +568,7 @@ def setup_test_scenario(symbol: str, market_type: MarketType, interval: Interval
             start_time=cache_start,
             end_time=cache_end,
             interval=interval,
-            chart_type=ChartType.KLINES,
+            chart_type=chart_type,
         )
 
         if df_cache is not None and len(df_cache) > 0:
@@ -535,7 +590,7 @@ def setup_test_scenario(symbol: str, market_type: MarketType, interval: Interval
                 interval=interval.value,
                 date=cache_start.date(),
                 provider=DataProvider.BINANCE.name,
-                chart_type=ChartType.KLINES.name,
+                chart_type=chart_type.name,
                 market_type=market_type_str,
             )
             cache_path = cache_manager._get_cache_path(cache_key)
@@ -556,9 +611,13 @@ def fetch_and_merge_data(
     symbol: str,
     market_type: MarketType,
     interval: Interval,
+    chart_type: ChartType,
+    provider: DataProvider,
     cache_range: tuple,
     vision_range: tuple,
     rest_range: tuple,
+    max_retries: int,
+    enforce_source: DataSource = DataSource.AUTO,
 ):
     """Fetch data from multiple ranges and merge them.
 
@@ -566,9 +625,13 @@ def fetch_and_merge_data(
         symbol: Symbol to fetch data for
         market_type: Market type
         interval: Time interval
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
+        provider: Data provider
         cache_range: Tuple of (start_time, end_time) for cache data
         vision_range: Tuple of (start_time, end_time) for Vision API data
         rest_range: Tuple of (start_time, end_time) for REST API data
+        max_retries: Maximum number of retry attempts
+        enforce_source: Force specific data source (AUTO, REST, VISION)
 
     Returns:
         DataFrame with merged data
@@ -582,13 +645,19 @@ def fetch_and_merge_data(
         f"Overall time range: {overall_start.isoformat()} to {overall_end.isoformat()}"
     )
 
+    if enforce_source != DataSource.AUTO:
+        print(
+            f"[bold yellow]Enforcing data source: {enforce_source.name}[/bold yellow]"
+        )
+
     # Create DataSourceManager with cache enabled
     start_time = time.time()
     with DataSourceManager(
         market_type=market_type,
-        provider=DataProvider.BINANCE,
+        provider=provider,
+        chart_type=chart_type,
         use_cache=True,  # Enable caching
-        retry_count=3,
+        retry_count=max_retries,
     ) as manager:
         # Fetch data from the entire range
         df = manager.get_data(
@@ -596,11 +665,15 @@ def fetch_and_merge_data(
             start_time=overall_start,
             end_time=overall_end,
             interval=interval,
-            chart_type=ChartType.KLINES,
+            chart_type=chart_type,
+            enforce_source=enforce_source,
+            include_source_info=True,  # Explicitly set to include source information
         )
     elapsed_time = time.time() - start_time
 
     print(f"Retrieved and merged {len(df)} records in {elapsed_time:.2f} seconds")
+
+    # Column standardization is now handled by DataSourceManager internally
 
     return df
 
@@ -634,6 +707,35 @@ def analyze_merged_data(
             )
             return
 
+    # First, show the true data source breakdown based on the _data_source column
+    if "_data_source" in df.columns:
+        source_counts = df["_data_source"].value_counts()
+        print(
+            f"\n[bold cyan]Actual Data Source Breakdown (from _data_source column):[/bold cyan]"
+        )
+        for source, count in source_counts.items():
+            print(f"{source}: {count} records ({count/len(df)*100:.1f}%)")
+
+        # Get sample data from each actual source
+        print(f"\n[bold yellow]Sample Data By Actual Source:[/bold yellow]")
+        for source in source_counts.index:
+            print(f"\n[bold green]Records from {source} source:[/bold green]")
+            source_data = df[df["_data_source"] == source].head(3)
+            print(source_data)
+    else:
+        print(
+            f"\n[bold red]WARNING: DataFrame doesn't have a _data_source column![/bold red]"
+        )
+        print(
+            f"Cannot determine actual data sources - falling back to time-based analysis only."
+        )
+
+    # For comparison, also show time-based range analysis
+    print(
+        f"\n[bold cyan]Time Range-Based Analysis (may not match actual sources):[/bold cyan]"
+    )
+    print(f"Note: This is based on time ranges, not actual data sources")
+
     # Create masks for each range
     cache_mask = (df.index >= cache_start) & (df.index <= cache_end)
     vision_mask = (df.index >= vision_start) & (df.index <= vision_end)
@@ -645,25 +747,11 @@ def analyze_merged_data(
     rest_count = rest_mask.sum()
     other_count = len(df) - cache_count - vision_count - rest_count
 
-    print(f"\n[bold cyan]Data Source Analysis:[/bold cyan]")
-    print(f"Cache data records: {cache_count}")
-    print(f"Vision API data records: {vision_count}")
-    print(f"REST API data records: {rest_count}")
-    print(f"Other data records (gap filling): {other_count}")
+    print(f"Cache time range records: {cache_count}")
+    print(f"Vision API time range records: {vision_count}")
+    print(f"REST API time range records: {rest_count}")
+    print(f"Other time range records: {other_count}")
     print(f"Total records: {len(df)}")
-
-    # Display a few records from each range
-    if cache_count > 0:
-        print(f"\n[bold yellow]Sample Cache Data:[/bold yellow]")
-        print(df[cache_mask].head(3))
-
-    if vision_count > 0:
-        print(f"\n[bold yellow]Sample Vision API Data:[/bold yellow]")
-        print(df[vision_mask].head(3))
-
-    if rest_count > 0:
-        print(f"\n[bold yellow]Sample REST API Data:[/bold yellow]")
-        print(df[rest_mask].head(3))
 
 
 def main():
@@ -672,42 +760,147 @@ def main():
     logger.setLevel(logging.INFO)
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Demonstrate DSM API")
-    parser.add_argument(
-        "--market", type=str, default="spot", help="Market type (spot, um, cm)"
+    parser = argparse.ArgumentParser(
+        description="Demonstrate DataSourceManager API for Binance data retrieval"
     )
-    parser.add_argument("--days", type=int, default=1, help="Number of days to fetch")
-    parser.add_argument("--provider", type=str, default="binance", help="Data provider")
-    parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Trading symbol")
-    parser.add_argument("--use-cache", action="store_true", help="Enable caching")
+
+    # Market type selection (explicitly list all options from MarketType enum)
     parser.add_argument(
-        "--demo-cache", action="store_true", help="Demonstrate caching by running twice"
+        "--market",
+        type=str,
+        default="spot",
+        choices=[
+            "spot",
+            "um",
+            "futures_usdt",
+            "cm",
+            "futures_coin",
+            "futures",
+            "options",
+        ],
+        help="Market type: spot (SPOT), um/futures_usdt (USDT-margined futures), "
+        + "cm/futures_coin (Coin-margined futures), futures (legacy), options (Options market)",
     )
+
+    # Data provider selection (explicitly list all options from DataProvider enum)
     parser.add_argument(
-        "--retries", type=int, default=3, help="Number of retry attempts"
+        "--provider",
+        type=str,
+        default="binance",
+        choices=["binance", "tradestation"],
+        help="Data provider (currently only binance is fully implemented)",
     )
-    parser.add_argument("--show-cache", action="store_true", help="Show cache path")
+
+    # Chart type selection (explicitly list all options from ChartType enum)
     parser.add_argument(
-        "--interval", type=str, default="1m", help="Time interval (e.g., 1m, 5m, 1h)"
+        "--chart-type",
+        type=str,
+        default="klines",
+        choices=["klines", "fundingRate"],
+        help="Chart data type: klines (candlestick data), fundingRate (funding rate data for futures)",
     )
+
+    # Interval selection (explicitly list all options from Interval enum)
+    parser.add_argument(
+        "--interval",
+        type=str,
+        default="1m",
+        choices=[
+            "1s",
+            "1m",
+            "3m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "4h",
+            "6h",
+            "8h",
+            "12h",
+            "1d",
+            "3d",
+            "1w",
+            "1M",
+        ],
+        help="Time interval between data points",
+    )
+
+    # Symbol selection
+    parser.add_argument(
+        "--symbol",
+        type=str,
+        default="BTCUSDT",
+        help="Trading symbol (e.g., BTCUSDT for spot/UM, BTCUSD_PERP for CM)",
+    )
+
+    # Time range options
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=1,
+        help="Number of days to fetch (used for regular mode)",
+    )
+
+    # Cache options
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="Enable caching of retrieved data to local Arrow files",
+    )
+
+    parser.add_argument(
+        "--demo-cache",
+        action="store_true",
+        help="Demonstrate caching by running the same query twice to show performance difference",
+    )
+
+    parser.add_argument(
+        "--show-cache", action="store_true", help="Show cache file paths and status"
+    )
+
+    # Retry options
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=3,
+        help="Number of retry attempts for API requests",
+    )
+
+    # Demo options
     parser.add_argument(
         "--historical-test",
         action="store_true",
-        help="Run long-term historical data test with specific dates",
+        help="Run long-term historical data test with specific dates (Dec 2024-Feb 2025)",
     )
+
     parser.add_argument(
-        "--debug", action="store_true", help="Enable debug mode with additional output"
+        "--debug",
+        action="store_true",
+        help="Enable debug mode with additional output and chunked data retrieval",
     )
+
     parser.add_argument(
         "--demo-merge",
         action="store_true",
-        help="Demonstrate data source merging functionality",
+        help="Demonstrate data source merging from cache, VISION API, and REST API",
     )
+
+    # Add enforce_source parameter to the argument parser
+    parser.add_argument(
+        "--enforce-source",
+        type=str,
+        choices=["AUTO", "REST", "VISION"],
+        default="AUTO",
+        help="Force specific data source (default: AUTO - uses the optimal source)",
+    )
+
     args = parser.parse_args()
 
     # Convert string arguments to enums
     market_type = get_market_type_from_string(args.market)
-    provider = DataProvider.BINANCE  # Currently only Binance is supported
+    provider = DataProvider.from_string(args.provider)
+    chart_type = ChartType.from_string(args.chart_type)
 
     # Convert interval string to enum
     try:
@@ -717,6 +910,16 @@ def main():
         print(f"Valid intervals: {', '.join([i.value for i in Interval])}")
         return
 
+    # Convert enforce_source string to enum
+    if args.enforce_source == "AUTO":
+        enforce_source = DataSource.AUTO
+    elif args.enforce_source == "REST":
+        enforce_source = DataSource.REST
+    elif args.enforce_source == "VISION":
+        enforce_source = DataSource.VISION
+    else:
+        enforce_source = DataSource.AUTO
+
     # Run data source merging demo if requested
     if args.demo_merge:
         print(f"\n[bold green]Running Data Source Merging Demo[/bold green]")
@@ -725,7 +928,9 @@ def main():
             symbol=args.symbol,
             interval=interval_enum,
             provider=provider,
+            chart_type=chart_type,
             max_retries=args.retries,
+            enforce_source=enforce_source,
         )
 
         # Save data to CSV if retrieved successfully
@@ -734,7 +939,7 @@ def main():
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Create a filename with relevant info
-            filename = f"{market_type.name.lower()}_{args.symbol}_{args.interval}_merge_test.csv"
+            filename = f"{market_type.name.lower()}_{args.symbol}_{args.interval}_{chart_type.name.lower()}_merge_test.csv"
             output_path = output_dir / filename
 
             df.to_csv(output_path, index=False)
@@ -749,10 +954,12 @@ def main():
             symbol=args.symbol,
             interval=interval_enum,
             provider=provider,
+            chart_type=chart_type,
             use_cache=args.use_cache,
             show_cache_path=args.show_cache,
             max_retries=args.retries,
             debug=args.debug,
+            enforce_source=enforce_source,
         )
 
         # Save data to CSV if retrieved successfully
@@ -761,7 +968,7 @@ def main():
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Create a filename with relevant info
-            filename = f"{market_type.name.lower()}_{args.symbol}_{args.interval}_historical_test.csv"
+            filename = f"{market_type.name.lower()}_{args.symbol}_{args.interval}_{chart_type.name.lower()}_historical_test.csv"
             output_path = output_dir / filename
 
             df.to_csv(output_path, index=False)
@@ -783,9 +990,17 @@ def main():
     print(f"[bold cyan]Fetching {args.days} days of data[/bold cyan]")
     print(f"Market Type: {market_type.name}")
     print(f"Symbol: {symbol}")
+    print(f"Chart Type: {chart_type.name}")
+    print(f"Data Provider: {provider.name}")
+    print(f"Interval: {interval_enum.value}")
     print(f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}")
     print(f"Caching: {'Enabled' if args.use_cache else 'Disabled'}")
     print(f"Retries: {args.retries}")
+
+    if args.enforce_source != "AUTO":
+        print(
+            f"[bold yellow]Enforcing data source: {args.enforce_source}[/bold yellow]"
+        )
 
     # Demonstrate cache effect if requested
     if args.demo_cache:
@@ -797,10 +1012,13 @@ def main():
             symbol=symbol,
             start_time=start_time,
             end_time=end_time,
+            interval=interval_enum,
             provider=provider,
+            chart_type=chart_type,
             use_cache=True,
             show_cache_path=args.show_cache,
             max_retries=args.retries,
+            enforce_source=enforce_source,
         )
         first_elapsed = time.time() - first_start
 
@@ -812,10 +1030,13 @@ def main():
             symbol=symbol,
             start_time=start_time,
             end_time=end_time,
+            interval=interval_enum,
             provider=provider,
+            chart_type=chart_type,
             use_cache=True,
             show_cache_path=args.show_cache,
             max_retries=args.retries,
+            enforce_source=enforce_source,
         )
         second_elapsed = time.time() - second_start
 
@@ -845,15 +1066,26 @@ def main():
             symbol=symbol,
             start_time=start_time,
             end_time=end_time,
+            interval=interval_enum,
             provider=provider,
+            chart_type=chart_type,
             use_cache=args.use_cache,
             show_cache_path=args.show_cache,
             max_retries=args.retries,
+            enforce_source=enforce_source,
         )
 
         # Display results
         if df is not None and not df.empty:
             print("\n[bold green]Data Retrieved Successfully![/bold green]")
+
+            # Print source breakdown if available
+            if "_data_source" in df.columns:
+                source_counts = df["_data_source"].value_counts()
+                print(f"\n[bold cyan]Data Source Breakdown:[/bold cyan]")
+                for source, count in source_counts.items():
+                    print(f"{source}: {count} records ({count/len(df)*100:.1f}%)")
+
             print(f"\nData sample ({min(5, len(df))} records of {len(df)} total):")
             print(df.head())
         else:

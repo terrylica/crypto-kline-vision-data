@@ -23,7 +23,7 @@ The file `core/sync/data_source_manager.py` acts as the orchestrator. Its respon
   - The output DataFrame from any source must have an identical columnar arrangement and naming.
   - For the data going into cache (Apache Arrow files), ensure the schema matches that of the REST API standard at creation time, so re-alignment upon retrieval is not necessary.
   - In case of discrepancies during retrieval, the REST API output is used as the default standard, and both cached and VISION API data are adjusted to align with it.
-  - `utils/schema_standardizer.py` is employed to ensure schema alignment.
+  - The `_standardize_columns` method in `DataSourceManager` is employed to ensure consistent column names and ordering.
 
 - **Data Integrity and Source Identification**:
   - No code in the entire workspace is allowed to interpret missing data or fill gaps with any fake data.

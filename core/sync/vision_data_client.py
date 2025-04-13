@@ -134,6 +134,14 @@ class VisionDataClient(Generic[T]):
             if hasattr(self._client, "close") and callable(self._client.close):
                 self._client.close()
 
+    def close(self):
+        """Close the client and release resources."""
+        if hasattr(self, "_client") and self._client:
+            if hasattr(self._client, "close") and callable(self._client.close):
+                self._client.close()
+                self._client = None
+                logger.debug("Closed Vision API HTTP client")
+
     @staticmethod
     def _create_empty_dataframe() -> TimestampedDataFrame:
         """Create an empty dataframe with the correct structure.
