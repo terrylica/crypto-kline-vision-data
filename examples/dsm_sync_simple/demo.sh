@@ -29,6 +29,29 @@ YELLOW='\033[1;33m'
 RED='\033[1;31m'
 NC='\033[0m' # No Color
 
+# Check dependencies
+check_dependencies() {
+  # Check if matplotlib is installed (for statistics visualization)
+  if ! python -c "import matplotlib" &>/dev/null; then
+    echo -e "${YELLOW}Warning: matplotlib is not installed. Statistics visualizations will not be available.${NC}"
+    echo -e "You can install it using: pip install matplotlib"
+  fi
+
+  # Check if pandas is installed
+  if ! python -c "import pandas" &>/dev/null; then
+    echo -e "${RED}Error: pandas is not installed. This demo requires pandas.${NC}"
+    echo -e "Please install it using: pip install pandas"
+    exit 1
+  fi
+
+  # Check if rich is installed
+  if ! python -c "import rich" &>/dev/null; then
+    echo -e "${RED}Error: rich is not installed. This demo requires rich for formatting.${NC}"
+    echo -e "Please install it using: pip install rich"
+    exit 1
+  fi
+}
+
 # Show help function
 show_help() {
   echo -e "${GREEN}################################################${NC}"
@@ -43,7 +66,8 @@ show_help() {
   echo -e "${CYAN}OPTIONS:${NC}"
   echo -e "  -h, --help             Show this help message and exit"
   echo -e "  --cache-demo           Demonstrate cache behavior by running the data retrieval twice"
-  echo -e "  --historical-test      Run historical test with specific dates (Dec 2024-Feb 2025)${NC}\n"
+  echo -e "  --historical-test      Run historical test with specific dates (Dec 2024-Feb 2025)"
+  echo -e "  --detailed-stats       Show detailed statistics after the run and save to JSON file${NC}\n"
   
   echo -e "${CYAN}PARAMETERS:${NC}"
   echo -e "  MARKET                 Market type: spot, um, or cm (default: spot)"
@@ -58,6 +82,7 @@ show_help() {
   echo -e "  ${YELLOW}./examples/dsm_sync_simple/demo.sh cm BTCUSD_PERP 1m klines${NC}   # Run merge demo for BTC in CM futures market"
   echo -e "  ${YELLOW}./examples/dsm_sync_simple/demo.sh --cache-demo spot BTCUSDT${NC}  # Demonstrate cache performance"
   echo -e "  ${YELLOW}./examples/dsm_sync_simple/demo.sh --historical-test spot${NC}     # Run historical test in SPOT market"
+  echo -e "  ${YELLOW}./examples/dsm_sync_simple/demo.sh --detailed-stats spot${NC}      # Run with detailed statistics"
 }
 
 # Function to demonstrate data source merging (now the default)
@@ -67,6 +92,7 @@ function run_merge_demo() {
   local interval=${3:-"1m"}
   local chart_type=${4:-"klines"}
   local enforce_source=${5:-"AUTO"}
+  local detailed_stats=${6:-"false"}
   
   echo -e "\n${CYAN}=================================================${NC}"
   echo -e "${CYAN}Running Data Source Merge Demo with FCP${NC}"
@@ -150,6 +176,9 @@ function demo_cache_performance() {
   eval $cmd
 }
 
+# Check dependencies before proceeding
+check_dependencies
+
 # Parse arguments
 if [[ $1 == "-h" || $1 == "--help" ]]; then
   # Show help
@@ -175,6 +204,16 @@ elif [[ $1 == "--historical-test" ]]; then
   debug_mode=${5:-"false"}
   
   run_historical_test "$market_type" "$symbol" "$interval" "$provider" "$debug_mode"
+  exit 0
+elif [[ $1 == "--detailed-stats" ]]; then
+  # Run with detailed statistics
+  shift
+  market_type=${1:-"spot"}
+  symbol=${2:-"BTCUSDT"}
+  interval=${3:-"1m"}
+  chart_type=${4:-"klines"}
+  
+  run_merge_demo "$market_type" "$symbol" "$interval" "$chart_type" "AUTO" "true"
   exit 0
 else
   # Run the default merge demo with provided or default parameters

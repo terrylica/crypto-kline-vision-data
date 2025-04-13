@@ -24,6 +24,7 @@ from utils.market_utils import get_market_type_str
 from core.sync.data_source_manager import DataSourceManager, DataSource
 from core.sync.cache_manager import UnifiedCacheManager
 from utils.config import VISION_DATA_DELAY_HOURS
+import demo_stats
 
 
 # We'll use this cache dir for all demos
@@ -359,6 +360,103 @@ def get_historical_data_test(
     return df
 
 
+def analyze_merged_data(
+    df: pd.DataFrame,
+    cache_range: tuple,
+    vision_range: tuple,
+    rest_range: tuple,
+    symbol: str = "BTCUSDT",
+    market_type: str = "SPOT",
+    interval: str = "1m",
+    chart_type: str = "KLINES",
+):
+    """Analyze the merged data to show which parts came from which source.
+
+    Args:
+        df: DataFrame with merged data
+        cache_range: Tuple of (start_time, end_time) for cache data
+        vision_range: Tuple of (start_time, end_time) for Vision API data
+        rest_range: Tuple of (start_time, end_time) for REST API data
+        symbol: Symbol that was analyzed (default: BTCUSDT)
+        market_type: Market type that was analyzed (default: SPOT)
+        interval: Interval that was analyzed (default: 1m)
+        chart_type: Chart type that was analyzed (default: KLINES)
+    """
+    cache_start, cache_end = cache_range
+    vision_start, vision_end = vision_range
+    rest_start, rest_end = rest_range
+
+    # Ensure the index is properly set
+    if df.index.name != "open_time":
+        # If index is not properly set, try to use the open_time column
+        if "open_time" in df.columns:
+            df = df.set_index("open_time")
+        else:
+            print(
+                "[bold red]ERROR: DataFrame doesn't have an open_time index or column![/bold red]"
+            )
+            return
+
+    # First, show the true data source breakdown based on the _data_source column
+    if "_data_source" in df.columns:
+        source_counts = df["_data_source"].value_counts()
+        print(
+            f"\n[bold cyan]Actual Data Source Breakdown (from _data_source column):[/bold cyan]"
+        )
+        for source, count in source_counts.items():
+            print(f"{source}: {count} records ({count/len(df)*100:.1f}%)")
+
+        # Get sample data from each actual source
+        print(f"\n[bold yellow]Sample Data By Actual Source:[/bold yellow]")
+        for source in source_counts.index:
+            print(f"\n[bold green]Records from {source} source:[/bold green]")
+            source_data = df[df["_data_source"] == source].head(3)
+            print(source_data)
+    else:
+        print(
+            f"\n[bold red]WARNING: DataFrame doesn't have a _data_source column![/bold red]"
+        )
+        print(
+            f"Cannot determine actual data sources - falling back to time-based analysis only."
+        )
+
+    # For comparison, also show time-based range analysis
+    print(
+        f"\n[bold cyan]Time Range-Based Analysis (may not match actual sources):[/bold cyan]"
+    )
+    print(f"Note: This is based on time ranges, not actual data sources")
+
+    # Create masks for each range
+    cache_mask = (df.index >= cache_start) & (df.index <= cache_end)
+    vision_mask = (df.index >= vision_start) & (df.index <= vision_end)
+    rest_mask = (df.index >= rest_start) & (df.index <= rest_end)
+
+    # Count records in each range
+    cache_count = cache_mask.sum()
+    vision_count = vision_mask.sum()
+    rest_count = rest_mask.sum()
+    other_count = len(df) - cache_count - vision_count - rest_count
+
+    print(f"Cache time range records: {cache_count}")
+    print(f"Vision API time range records: {vision_count}")
+    print(f"REST API time range records: {rest_count}")
+    print(f"Other time range records: {other_count}")
+    print(f"Total records: {len(df)}")
+
+    # NEW: Display detailed statistics using our demo_stats module
+    demo_stats.display_detailed_stats(
+        df=df,
+        cache_range=cache_range,
+        vision_range=vision_range,
+        rest_range=rest_range,
+        symbol=symbol,
+        market_type=market_type,
+        interval=interval,
+        chart_type=chart_type,
+        save_to_file=True,
+    )
+
+
 def demonstrate_data_source_merging(
     market_type: MarketType,
     symbol: str = "BTCUSDT",
@@ -424,8 +522,17 @@ def demonstrate_data_source_merging(
         enforce_source,
     )
 
-    # Analyze merged data
-    analyze_merged_data(df, cache_range, vision_range, rest_range)
+    # Analyze merged data with additional parameters for better reporting
+    analyze_merged_data(
+        df,
+        cache_range,
+        vision_range,
+        rest_range,
+        symbol=symbol,
+        market_type=market_type.name,
+        interval=interval.value,
+        chart_type=chart_type.name,
+    )
 
     return df
 
@@ -659,82 +766,6 @@ def fetch_and_merge_data(
     # Column standardization is now handled by DataSourceManager internally
 
     return df
-
-
-def analyze_merged_data(
-    df: pd.DataFrame,
-    cache_range: tuple,
-    vision_range: tuple,
-    rest_range: tuple,
-):
-    """Analyze the merged data to show which parts came from which source.
-
-    Args:
-        df: DataFrame with merged data
-        cache_range: Tuple of (start_time, end_time) for cache data
-        vision_range: Tuple of (start_time, end_time) for Vision API data
-        rest_range: Tuple of (start_time, end_time) for REST API data
-    """
-    cache_start, cache_end = cache_range
-    vision_start, vision_end = vision_range
-    rest_start, rest_end = rest_range
-
-    # Ensure the index is properly set
-    if df.index.name != "open_time":
-        # If index is not properly set, try to use the open_time column
-        if "open_time" in df.columns:
-            df = df.set_index("open_time")
-        else:
-            print(
-                "[bold red]ERROR: DataFrame doesn't have an open_time index or column![/bold red]"
-            )
-            return
-
-    # First, show the true data source breakdown based on the _data_source column
-    if "_data_source" in df.columns:
-        source_counts = df["_data_source"].value_counts()
-        print(
-            f"\n[bold cyan]Actual Data Source Breakdown (from _data_source column):[/bold cyan]"
-        )
-        for source, count in source_counts.items():
-            print(f"{source}: {count} records ({count/len(df)*100:.1f}%)")
-
-        # Get sample data from each actual source
-        print(f"\n[bold yellow]Sample Data By Actual Source:[/bold yellow]")
-        for source in source_counts.index:
-            print(f"\n[bold green]Records from {source} source:[/bold green]")
-            source_data = df[df["_data_source"] == source].head(3)
-            print(source_data)
-    else:
-        print(
-            f"\n[bold red]WARNING: DataFrame doesn't have a _data_source column![/bold red]"
-        )
-        print(
-            f"Cannot determine actual data sources - falling back to time-based analysis only."
-        )
-
-    # For comparison, also show time-based range analysis
-    print(
-        f"\n[bold cyan]Time Range-Based Analysis (may not match actual sources):[/bold cyan]"
-    )
-    print(f"Note: This is based on time ranges, not actual data sources")
-
-    # Create masks for each range
-    cache_mask = (df.index >= cache_start) & (df.index <= cache_end)
-    vision_mask = (df.index >= vision_start) & (df.index <= vision_end)
-    rest_mask = (df.index >= rest_start) & (df.index <= rest_end)
-
-    # Count records in each range
-    cache_count = cache_mask.sum()
-    vision_count = vision_mask.sum()
-    rest_count = rest_mask.sum()
-    other_count = len(df) - cache_count - vision_count - rest_count
-
-    print(f"Cache time range records: {cache_count}")
-    print(f"Vision API time range records: {vision_count}")
-    print(f"REST API time range records: {rest_count}")
-    print(f"Other time range records: {other_count}")
-    print(f"Total records: {len(df)}")
 
 
 def main():

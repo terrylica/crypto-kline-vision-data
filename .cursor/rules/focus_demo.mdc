@@ -36,6 +36,7 @@ The file `core/sync/data_source_manager.py` acts as the orchestrator. Its respon
 - **Configuration and Constraints**:
   - `utils/market_constraints.py` is the single source of truth for market data types and constraints.
   - `utils/config.py` is the single source of truth for all runtime parameters.
+  - `utils/gap_detector.py` is the single source of truth for detecting gap in data.
 
 - **Legacy Code Note**:
   - The scripts in the `core/sync/` and `utils/` directories originate from a legacy async approach and are overcomplicated; in case of any discrepancy with our current strategy, refactor these parts accordingly.
