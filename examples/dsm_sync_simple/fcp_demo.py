@@ -21,6 +21,7 @@ from pathlib import Path
 import time
 import sys
 import os
+import shutil
 
 # Import the logger for logging and rich formatting
 from utils.logger_setup import logger
@@ -32,6 +33,10 @@ logger.setLevel("INFO")
 from rich.panel import Panel
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.console import Console
+from rich.text import Text
+from rich.markdown import Markdown
+from rich import box
 
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
 from core.sync.data_source_manager import DataSourceManager, DataSource
@@ -47,6 +52,248 @@ from utils_for_debug.dataframe_output import (
 
 # We'll use this cache dir for all demos
 CACHE_DIR = Path("./cache")
+
+
+# Custom rich-formatted ArgumentParser
+class RichArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser with rich-formatted help output."""
+
+    def _print_message(self, message, file=None):
+        """Override _print_message to use rich formatting."""
+        if message:
+            if file is None:
+                file = sys.stdout
+
+            # Skip formatting if it's an error message (usually goes to stderr)
+            if file == sys.stderr:
+                file.write(message)
+                return
+
+            # Convert standard argparse output to rich-formatted output
+            if message.startswith("usage:"):
+                self._print_rich_help()
+            else:
+                # For other messages, just print normally
+                file.write(message)
+
+    def _print_rich_help(self):
+        """Print help using rich formatting."""
+        console = Console()
+
+        # Program name and description panel
+        console.print(
+            Panel(
+                f"[bold green]{self.description}[/bold green]",
+                expand=False,
+                border_style="green",
+            )
+        )
+
+        # Usage section
+        usage_text = Text()
+        usage_text.append("Usage: ", style="bold")
+        usage_text.append(f"{os.path.basename(sys.argv[0])} ")
+        usage_text.append("[OPTIONS]", style="yellow")
+        console.print(usage_text)
+        console.print()
+
+        # Create options table
+        options_table = Table(
+            title="[bold]Command Options[/bold]",
+            box=box.ROUNDED,
+            highlight=True,
+            title_justify="left",
+            expand=True,
+        )
+        options_table.add_column("Option", style="cyan", no_wrap=True)
+        options_table.add_column("Description", style="white")
+        options_table.add_column("Default", style="green")
+
+        # Add main options
+        options_table.add_row(
+            "--symbol SYMBOL", "Trading symbol (e.g., BTCUSDT)", "BTCUSDT"
+        )
+        options_table.add_row(
+            "--market {spot,um,cm,futures_usdt,futures_coin}",
+            "Market type: spot, um (USDT-M futures), cm (Coin-M futures)",
+            "spot",
+        )
+        options_table.add_row(
+            "--interval INTERVAL", "Time interval (e.g., 1m, 5m, 1h)", "1m"
+        )
+        options_table.add_row(
+            "--retries RETRIES", "Maximum number of retry attempts", "3"
+        )
+        options_table.add_row(
+            "--chart-type {klines,fundingRate}", "Type of chart data", "klines"
+        )
+        options_table.add_row(
+            "--log-level, -l {DEBUG,INFO,...}",
+            "Set the log level (see Log Level Options below)",
+            "INFO",
+        )
+        options_table.add_row("-h, --help", "Show this help message and exit", "")
+
+        console.print(options_table)
+        console.print()
+
+        # Time Range options
+        time_table = Table(
+            title="[bold]Time Range Options[/bold]",
+            box=box.ROUNDED,
+            highlight=True,
+            title_justify="left",
+            expand=True,
+        )
+        time_table.add_column("Option", style="cyan", no_wrap=True)
+        time_table.add_column("Description", style="white")
+        time_table.add_column("Default", style="green")
+
+        time_table.add_row(
+            "--start-time START_TIME",
+            "Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
+            "",
+        )
+        time_table.add_row(
+            "--end-time END_TIME",
+            "End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
+            "",
+        )
+        time_table.add_row(
+            "--days DAYS",
+            "Number of days to fetch (used if start-time and end-time not provided)",
+            "3",
+        )
+
+        console.print(time_table)
+        console.print()
+
+        # Cache options
+        cache_table = Table(
+            title="[bold]Cache Options[/bold]",
+            box=box.ROUNDED,
+            highlight=True,
+            title_justify="left",
+            expand=True,
+        )
+        cache_table.add_column("Option", style="cyan", no_wrap=True)
+        cache_table.add_column("Description", style="white")
+        cache_table.add_column("Default", style="green")
+
+        cache_table.add_row(
+            "--no-cache", "Disable caching (cache is enabled by default)", "False"
+        )
+        cache_table.add_row(
+            "--clear-cache", "-cc", "Clear the cache directory before running", "False"
+        )
+
+        console.print(cache_table)
+        console.print()
+
+        # Source options
+        source_table = Table(
+            title="[bold]Source Options[/bold]",
+            box=box.ROUNDED,
+            highlight=True,
+            title_justify="left",
+            expand=True,
+        )
+        source_table.add_column("Option", style="cyan", no_wrap=True)
+        source_table.add_column("Description", style="white")
+        source_table.add_column("Default", style="green")
+
+        source_table.add_row(
+            "--enforce-source {AUTO,REST,VISION}", "Force specific data source", "AUTO"
+        )
+
+        console.print(source_table)
+        console.print()
+
+        # Log Level options
+        level_table = Table(
+            title="[bold]Log Level Options[/bold]",
+            box=box.ROUNDED,
+            highlight=True,
+            title_justify="left",
+            expand=True,
+        )
+        level_table.add_column("Option", style="cyan", no_wrap=True)
+        level_table.add_column("Log Level", style="white")
+        level_table.add_column("Shorthand", style="green")
+
+        level_table.add_row("--log-level DEBUG, -l D", "Debug (most verbose)", "D")
+        level_table.add_row("--log-level INFO, -l I", "Information (default)", "I")
+        level_table.add_row("--log-level WARNING, -l W", "Warning", "W")
+        level_table.add_row("--log-level ERROR, -l E", "Error", "E")
+        level_table.add_row(
+            "--log-level CRITICAL, -l C", "Critical (least verbose)", "C"
+        )
+
+        console.print(level_table)
+        console.print()
+
+        # Examples section
+        if self.epilog:
+            # Create a better examples display with custom tables
+            console.print("\n[bold]Examples:[/bold]")
+
+            # Parse examples from epilog - this assumes specific format with ## headers and examples in code blocks
+            # We'll create a more structured display
+            import re
+
+            sections = re.split(r"##\s+([^\n]+)", self.epilog)[
+                1:
+            ]  # Split on ## headers, skip first empty element
+
+            # Process sections in pairs (title, content)
+            for i in range(0, len(sections), 2):
+                if i + 1 < len(sections):
+                    title = sections[i].strip()
+                    content = sections[i + 1].strip()
+
+                    # Extract example commands (between ``` ```)
+                    examples = re.findall(r"```\s*(.*?)\s*```", content, re.DOTALL)
+
+                    # Create section table
+                    console.print(f"\n[bold cyan]{title}[/bold cyan]")
+
+                    for example in examples:
+                        lines = example.strip().split("\n")
+                        description = ""
+                        command = ""
+
+                        # First line with # is description, rest is command
+                        for line in lines:
+                            if line.startswith("#"):
+                                description = line[1:].strip()
+                            elif line.strip() and not description:
+                                # If we found a non-empty line before description, it's not formatted correctly
+                                command = line.strip()
+                            elif line.strip():
+                                # Add to command
+                                if command:
+                                    command += f"\n{line.strip()}"
+                                else:
+                                    command = line.strip()
+
+                        # Display without a panel - just use colors and spacing
+                        console.print(f"[yellow]• {description}[/yellow]")
+                        console.print(
+                            f"[green]  {command.replace(chr(10), chr(10) + '  ')}[/green]"
+                        )
+                        console.print()
+
+
+def clear_cache_directory():
+    """Remove the cache directory and its contents."""
+    if CACHE_DIR.exists():
+        logger.info(f"Clearing cache directory: {CACHE_DIR}")
+        print(f"[bold yellow]Removing cache directory: {CACHE_DIR}[/bold yellow]")
+        shutil.rmtree(CACHE_DIR, ignore_errors=True)
+        print(f"[bold green]Cache directory removed successfully[/bold green]")
+    else:
+        logger.info(f"Cache directory does not exist: {CACHE_DIR}")
+        print(f"[bold yellow]Cache directory does not exist: {CACHE_DIR}[/bold yellow]")
 
 
 def verify_project_root():
@@ -258,8 +505,47 @@ def display_results(df, symbol, market_type, interval, chart_type):
 
 def parse_arguments():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
+    # Create examples based on successfully tested commands with a simpler format
+    # that our custom parser can handle
+    examples = """
+## Basic Usage
+```
+# Basic usage with default parameters (BTCUSDT on spot market for the last 3 days)
+python examples/dsm_sync_simple/fcp_demo.py
+```
+
+## Market Types and Intervals
+```
+# Fetch Ethereum data with 15-minute intervals and detailed logging
+python examples/dsm_sync_simple/fcp_demo.py --symbol ETHUSDT --market spot --interval 15m --days 1 --log-level DEBUG
+```
+
+```
+# Use REST API as source for Bitcoin data from USDT-M futures with cache cleared
+python examples/dsm_sync_simple/fcp_demo.py --symbol BTCUSDT --market um --days 1 --enforce-source REST --clear-cache
+```
+
+## Date Range Specification
+```
+# Fetch hourly Bitcoin spot data for a specific date range
+python examples/dsm_sync_simple/fcp_demo.py --symbol BTCUSDT --market spot \\
+  --start-time "2025-04-13" --end-time "2025-04-14" --interval 1h
+```
+
+## Log Level Shorthand Options
+```
+# Using shorthand log level options for debugging
+python examples/dsm_sync_simple/fcp_demo.py -l D  # Same as --log-level DEBUG
+
+# Using warning log level with shorthand
+python examples/dsm_sync_simple/fcp_demo.py -l W  # Same as --log-level WARNING
+```
+"""
+
+    parser = RichArgumentParser(
         description="FCP Demo: Demonstrate the Failover Composition Priority mechanism",
+        epilog=examples,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # Required arguments
@@ -308,6 +594,13 @@ def parse_arguments():
         help="Disable caching (cache is enabled by default)",
     )
 
+    cache_group.add_argument(
+        "--clear-cache",
+        "-cc",
+        action="store_true",
+        help="Clear the cache directory before running",
+    )
+
     # Source options
     source_group = parser.add_argument_group("Source Options")
     source_group.add_argument(
@@ -334,11 +627,28 @@ def parse_arguments():
     # Add a log level option to demonstrate rich output control
     parser.add_argument(
         "--log-level",
+        "-l",
         type=str,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        choices=[
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+            "D",
+            "I",
+            "W",
+            "E",
+            "C",
+        ],
         default="INFO",
-        help="Set the log level (default: INFO)",
+        help="Set the log level (default: INFO). Shorthand options: D=DEBUG, I=INFO, W=WARNING, E=ERROR, C=CRITICAL",
     )
+
+    # For --help flag, use our custom formatter
+    if "-h" in sys.argv or "--help" in sys.argv:
+        parser.print_help()
+        sys.exit(0)
 
     return parser.parse_args()
 
@@ -368,8 +678,25 @@ def main():
         print(f"[bold cyan]Command line arguments:[/bold cyan] {args}")
 
         # Set the log level
-        logger.setLevel(args.log_level)
-        print(f"[bold cyan]Log level set to:[/bold cyan] {args.log_level}")
+        # Convert shorthand to full names
+        log_level = args.log_level
+        if log_level == "D":
+            log_level = "DEBUG"
+        elif log_level == "I":
+            log_level = "INFO"
+        elif log_level == "W":
+            log_level = "WARNING"
+        elif log_level == "E":
+            log_level = "ERROR"
+        elif log_level == "C":
+            log_level = "CRITICAL"
+
+        logger.setLevel(log_level)
+        print(f"[bold cyan]Log level set to:[/bold cyan] {log_level}")
+
+        # Clear cache if requested
+        if args.clear_cache:
+            clear_cache_directory()
 
         # Validate and process arguments
         try:
@@ -453,7 +780,8 @@ def main():
                     "- When log level is DEBUG, INFO, or WARNING: Rich output is visible\n"
                     "- When log level is ERROR or CRITICAL: Rich output is suppressed\n\n"
                     "Try running with different log levels to see the difference:\n"
-                    "  python examples/dsm_sync_simple/fcp_demo.py --log-level ERROR",
+                    "  python examples/dsm_sync_simple/fcp_demo.py --log-level ERROR\n"
+                    "  python examples/dsm_sync_simple/fcp_demo.py -l E (shorthand for ERROR)\n",
                     title="Rich Output Control",
                     border_style="blue",
                 )
