@@ -214,9 +214,10 @@ def get_vision_url(
     # Construct file name
     file_name = f"{symbol}-{interval}-{date_str}.zip"
 
-    # Add suffix for checksum file
+    # Add suffix for checksum file - use .zip.CHECKSUM format
     if file_type == FileType.CHECKSUM:
-        file_name += ".CHECKSUM"
+        # The correct format is .zip.CHECKSUM, not just .CHECKSUM
+        file_name = f"{symbol}-{interval}-{date_str}.zip.CHECKSUM"
 
     # Construct full URL
     url = f"{base_url}/data/{market_path}/daily/klines/{symbol}/{interval}/{file_name}"

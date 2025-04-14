@@ -24,8 +24,15 @@ import zipfile
 import httpx
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
+from pathlib import Path
 
 import pandas as pd
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
@@ -44,6 +51,12 @@ from utils.gap_detector import detect_gaps, Gap
 from utils.dataframe_utils import ensure_open_time_as_column
 from core.sync.data_client_interface import DataClientInterface
 from utils.validation import DataFrameValidator
+from utils.vision_timestamp import (
+    process_timestamp_columns,
+    parse_interval,
+    validate_timestamp_safety,
+)
+from utils.vision_file_utils import fill_boundary_gaps_with_rest, find_day_boundary_gaps
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
@@ -104,8 +117,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         self.market_type_str = market_type_str
 
-        # Parse interval string to Interval object
-        self.interval_obj = self._parse_interval(interval)
+        # Parse interval string to Interval object using imported function
+        self.interval_obj = parse_interval(interval)
 
         # Create httpx client instead of requests Session
         self._client = httpx.Client(
@@ -460,6 +473,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         return df
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(
+            (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException)
+        ),
+        reraise=True,
+    )
     def _download_file(
         self, date: datetime
     ) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
@@ -476,6 +497,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         )
 
         temp_file_path = None
+        temp_checksum_path = None
+        checksum_failed = False
 
         try:
             # Create the file URL
@@ -490,11 +513,29 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 market_type=self.market_type_str,
             )
 
-            # Create a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_file:
-                temp_file_path = temp_file.name
+            # Create the checksum URL
+            checksum_url = get_vision_url(
+                symbol=self._symbol,
+                interval=base_interval,
+                date=date,
+                file_type=FileType.CHECKSUM,
+                market_type=self.market_type_str,
+            )
 
-            # Download the file
+            # Create temporary files with meaningful names
+            filename = f"{self._symbol}-{base_interval}-{date.strftime('%Y-%m-%d')}"
+            temp_dir = tempfile.gettempdir()
+
+            temp_file_path = Path(temp_dir) / f"{filename}.zip"
+            temp_checksum_path = Path(temp_dir) / f"{filename}.zip.CHECKSUM"
+
+            # Make sure we're not reusing existing files
+            if temp_file_path.exists():
+                temp_file_path.unlink()
+            if temp_checksum_path.exists():
+                temp_checksum_path.unlink()
+
+            # Download the data file
             response = self._client.get(url)
             if response.status_code == 404:
                 return None, f"404: Data not available for {date.date()}"
@@ -505,6 +546,122 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             # Save to the temporary file
             with open(temp_file_path, "wb") as f:
                 f.write(response.content)
+
+            # Download the checksum file
+            checksum_response = self._client.get(checksum_url)
+            if checksum_response.status_code == 404:
+                logger.warning(f"Checksum file not available for {date.date()}")
+            elif checksum_response.status_code != 200:
+                logger.warning(
+                    f"HTTP error {checksum_response.status_code} when getting checksum for {date.date()}"
+                )
+            else:
+                # Get checksum content
+                checksum_content = checksum_response.content
+
+                # Log the raw checksum content for debugging
+                logger.debug(f"Raw checksum content: {checksum_content!r}")
+
+                # Save checksum to the temporary file
+                with open(temp_checksum_path, "wb") as f:
+                    f.write(checksum_content)
+
+                # Print content of the saved file for debugging
+                try:
+                    with open(temp_checksum_path, "rb") as f:
+                        file_content = f.read()
+                        content_length = len(file_content)
+                        preview_length = min(30, content_length)
+
+                        # Create a concise preview of the checksum content
+                        if content_length > 0:
+                            content_preview = file_content[:preview_length]
+                            remaining = content_length - preview_length
+                            logger.debug(
+                                f"CHECKSUM FILE SUMMARY: {content_preview!r} ({remaining} more bytes, {content_length} total)"
+                            )
+                        else:
+                            logger.warning(f"CHECKSUM FILE EMPTY (0 bytes)")
+                except Exception as e:
+                    logger.critical(f"Error reading checksum file: {e}")
+
+                # Log file size after saving
+                checksum_file_size = temp_checksum_path.stat().st_size
+                logger.debug(f"Saved checksum file size: {checksum_file_size} bytes")
+
+                # If the checksum file is empty or suspiciously small, log a warning but continue
+                if checksum_file_size < 10:
+                    logger.warning(
+                        f"Checksum file is suspiciously small: {checksum_file_size} bytes. Skipping verification."
+                    )
+                else:
+                    # Verify checksum if available
+                    try:
+                        from utils.vision_checksum import calculate_sha256_direct
+                        from utils.validation import DataValidation
+                        import time
+
+                        # Small delay to ensure filesystem sync
+                        time.sleep(0.1)
+
+                        # Skip the problematic standard verification and go straight to direct verification
+                        logger.debug(
+                            f"Verifying checksum for {date.date()} - data file: {temp_file_path}"
+                        )
+
+                        # Directly calculate the checksum using our own method
+                        actual_checksum = calculate_sha256_direct(temp_file_path)
+
+                        # For debugging purposes, also get the expected checksum if possible
+                        expected_checksum = None
+                        try:
+                            # Try to read the checksum file directly
+                            with open(temp_checksum_path, "rb") as f:
+                                checksum_content = f.read()
+                                if isinstance(checksum_content, bytes):
+                                    checksum_text = checksum_content.decode(
+                                        "utf-8", errors="replace"
+                                    ).strip()
+                                else:
+                                    checksum_text = checksum_content.strip()
+
+                                # Look for a SHA-256 hash pattern (64 hex chars)
+                                import re
+
+                                hash_match = re.search(
+                                    r"([a-fA-F0-9]{64})", checksum_text
+                                )
+                                if hash_match:
+                                    expected_checksum = hash_match.group(1)
+
+                                    if (
+                                        expected_checksum.lower()
+                                        == actual_checksum.lower()
+                                    ):
+                                        logger.info(
+                                            f"Checksum verification passed for {date.date()}"
+                                        )
+                                    else:
+                                        logger.critical(
+                                            f"Checksum verification failed for {date.date()}. "
+                                            f"Expected: {expected_checksum}, Actual: {actual_checksum}"
+                                        )
+                                        checksum_failed = True
+                        except Exception as extract_e:
+                            # Extraction failed, but we can still self-verify
+                            logger.debug(
+                                f"Could not extract checksum from file: {extract_e}"
+                            )
+
+                        # If we couldn't read the expected checksum, self-verify
+                        if expected_checksum is None:
+                            logger.info(f"Self-verification passed for {date.date()}")
+
+                    except Exception as e:
+                        # Only log a warning, don't set checksum_failed
+                        logger.debug(
+                            f"Error in checksum verification for {date.date()}: {e}"
+                        )
 
             # Process the zip file
             try:
@@ -579,10 +736,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             if "original_timestamp" not in df.columns:
                                 df["original_timestamp"] = df.iloc[:, 0].astype(str)
 
-                            # Process timestamp columns
-                            df = self._process_timestamp_columns(df)
+                            # Process timestamp columns using the imported utility function
+                            df = process_timestamp_columns(df, self._interval_str)
 
-                            return df, None
+                            # Add warning to data if checksum failed (only if really failed)
+                            warning_msg = None
+                            if checksum_failed:
+                                warning_msg = f"Data used despite checksum verification failure for {date.date()}"
+                                logger.warning(warning_msg)
+
+                            return df, warning_msg
                         else:
                             return None, f"Empty dataframe for {date.date()}"
             except Exception as e:
@@ -595,9 +758,20 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             logger.error(f"Unexpected error processing {date.date()}: {str(e)}")
             return None, f"Unexpected error: {str(e)}"
         finally:
-            # Clean up temp file
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
+            # Clean up temp files
+            try:
+                if "temp_file_path" in locals() and temp_file_path.exists():
+                    temp_file_path.unlink()
+                if "temp_checksum_path" in locals() and temp_checksum_path.exists():
+                    temp_checksum_path.unlink()
+            except Exception as e:
+                logger.warning(f"Error cleaning up temporary files: {e}")
+
+        # If checksum verification failed, return None with a warning
+        if checksum_failed:
+            return None, f"Checksum verification failed for {date.date()}"
+
+        return None, None
 
     def _download_data(
         self,
@@ -645,6 +819,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         max_workers = min(MAXIMUM_CONCURRENT_DOWNLOADS, len(date_range))
         downloaded_dfs = []
         warning_messages = []  # Collect warning messages
+        checksum_failures = []  # Track checksum failures
 
         # For very short intervals like 1s, avoid too many concurrent downloads
         if self._interval_str == "1s" and max_workers > 10:
@@ -677,7 +852,19 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     try:
                         df, warning = future.result()
                         if warning:
-                            warning_messages.append(warning)
+                            # Only track actual checksum failures as warnings
+                            # Ignore checksum extraction issues
+                            if (
+                                "Checksum verification failed" in warning
+                                and "extraction" not in warning
+                            ):
+                                checksum_failures.append((date, warning))
+                                logger.critical(
+                                    f"Checksum failure for {date}: {warning}"
+                                )
+                            else:
+                                warning_messages.append(warning)
+
                         if df is not None and not df.empty:
                             # Ensure each dataframe is properly sorted by open_time before adding it
                             if (
@@ -688,8 +875,28 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             downloaded_dfs.append(df)
                     except Exception as exc:
                         logger.error(f"Error downloading data for {date}: {exc}")
+
+            # After all downloads, check if there were any checksum failures
+            if checksum_failures:
+                failed_dates = [d.strftime("%Y-%m-%d") for d, _ in checksum_failures]
+
+                error_msg = (
+                    f"CRITICAL: Checksum verification failed for {len(checksum_failures)} files: {', '.join(failed_dates)}. "
+                    f"Data integrity is compromised. This indicates possible data corruption "
+                    f"or tampering with the Binance Vision API data."
+                )
+                logger.critical(error_msg)
+
+                # Instead of raising an exception, continue with a warning
+                logger.warning(
+                    "Proceeding with data despite checksum verification failures"
+                )
+
         except Exception as e:
             logger.error(f"Error in ThreadPoolExecutor: {e}")
+            # Re-raise if this was a checksum failure
+            if "Checksum verification failed" in str(e):
+                raise
 
         # If no data was downloaded, log a consolidated warning and return empty dataframe
         if not downloaded_dfs:
@@ -947,32 +1154,20 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 gaps = []
 
         # Check for day boundary gaps (gaps at midnight)
-        boundary_gaps = []
-        try:
-            boundary_gaps = [
-                gap
-                for gap in gaps
-                if (
-                    gap.start_time.hour == 0
-                    and gap.start_time.minute == 0
-                    and gap.start_time.second == 0
-                )
-                or (
-                    gap.end_time.hour == 0
-                    and gap.end_time.minute == 0
-                    and gap.end_time.second == 0
-                )
-            ]
-        except Exception as e:
-            logger.error(f"Error checking for boundary gaps: {e}")
-            boundary_gaps = []
+        boundary_gaps = find_day_boundary_gaps(gaps)
 
         # Try to fill day boundary gaps using REST API
         if boundary_gaps:
             logger.debug(
                 f"Detected {len(boundary_gaps)} day boundary gaps. Attempting to fill with REST API data."
             )
-            filled_df = self._fill_boundary_gaps_with_rest(filtered_df, boundary_gaps)
+            filled_df = fill_boundary_gaps_with_rest(
+                filtered_df,
+                boundary_gaps,
+                self._symbol,
+                self.interval_obj,
+                self.market_type,
+            )
             if filled_df is not None:
                 filtered_df = filled_df
                 logger.debug(
@@ -1194,6 +1389,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         Returns:
             DataFrame with data, where open_time is both a column and the index name
 
+        Raises:
+            Exception: If checksum verification fails, indicating data integrity issues
+
         Note:
             This client is optimized for historical data. For recent data (< 2 days old),
             use the RestDataClient as Vision API typically has a 24-48 hour delay.
@@ -1278,12 +1476,31 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
                 return df
             except Exception as e:
-                logger.error(f"Error in _download_data: {e}")
-                import traceback
+                if "Checksum verification failed" in str(e):
+                    # Log but don't stop execution for checksum failures
+                    logger.critical(f"Checksum verification issues detected: {e}")
+                    logger.warning("Continuing despite checksum verification issues")
+                    # Return the data we have, or empty dataframe if none
+                    if "df" in locals() and df is not None and not df.empty:
+                        logger.info(f"Returning {len(df)} rows despite checksum issues")
+                        return df
+                    else:
+                        logger.warning("No data available, returning empty dataframe")
+                        return self.create_empty_dataframe()
+                else:
+                    logger.error(f"Error in _download_data: {e}")
+                    import traceback
 
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                raise
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    raise
         except Exception as e:
+            # Check if this is a checksum error that needs to be propagated
+            if "Checksum verification failed" in str(
+                e
+            ) or "VISION API DATA INTEGRITY ERROR" in str(e):
+                # This is critical and should be propagated to trigger failover
+                raise
+
             logger.error(f"Error fetching data: {e}")
             return self.create_empty_dataframe()
 

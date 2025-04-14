@@ -796,6 +796,16 @@ class DataSourceManager:
             import traceback
 
             logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # Check if this is a checksum verification error
+            if "VISION API DATA INTEGRITY ERROR" in str(
+                e
+            ) or "Checksum verification failed" in str(e):
+                logger.warning(
+                    "Vision API checksum verification failed, falling back to REST API"
+                )
+                # Let the manager continue to the next data source in FCP
+
             return create_empty_dataframe()
 
     def _fetch_from_rest(
