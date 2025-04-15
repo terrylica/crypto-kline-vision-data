@@ -118,8 +118,8 @@ def save_dataframe_to_csv(
     csv_filename = f"{market_type.lower()}_{symbol}_{interval}_{timestamp}.csv"
     csv_path = output_path / csv_filename
 
-    # Save to CSV
-    df.to_csv(csv_path)
+    # Save to CSV without the index
+    df.to_csv(csv_path, index=False)
     return csv_path
 
 
