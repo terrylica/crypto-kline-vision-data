@@ -14,7 +14,6 @@ It shows real-time source information about where each data point comes from,
 and provides a summary of the data source breakdown.
 """
 
-from datetime import datetime, timezone, timedelta
 import pandas as pd
 from pathlib import Path
 import time
@@ -25,6 +24,7 @@ from typing import Optional
 from enum import Enum
 import typer
 from typing_extensions import Annotated
+import pendulum
 
 # Import the logger for logging and rich formatting
 from utils.logger_setup import logger
@@ -131,33 +131,54 @@ def verify_project_root():
 
 
 def parse_datetime(dt_str):
-    """Parse datetime string in ISO format or human readable format."""
+    """Parse datetime string in ISO format or human readable format using pendulum."""
+    logger.debug(f"Attempting to parse datetime string: {dt_str!r}")
+
+    # If input is None, return None
+    if dt_str is None:
+        logger.debug("Input datetime string is None")
+        return None
+
     try:
-        # Try ISO format first (YYYY-MM-DDTHH:MM:SS)
-        return datetime.fromisoformat(dt_str).replace(tzinfo=timezone.utc)
-    except ValueError:
+        # Use pendulum's powerful parse function which handles most formats
+        dt = pendulum.parse(dt_str)
+        # Ensure UTC timezone
+        if dt.timezone_name != "UTC":
+            dt = dt.in_timezone("UTC")
+        logger.debug(
+            f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
+        )
+        return dt
+    except Exception as e:
         try:
-            # Try more flexible format (YYYY-MM-DD HH:MM:SS)
-            return datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S").replace(
-                tzinfo=timezone.utc
-            )
-        except ValueError:
-            try:
-                # Try date only format (YYYY-MM-DD)
-                return datetime.strptime(dt_str, "%Y-%m-%d").replace(
-                    tzinfo=timezone.utc
+            # Try more explicitly with from_format for certain patterns
+            if "T" not in dt_str and ":" in dt_str:
+                # Try YYYY-MM-DD HH:MM:SS format
+                dt = pendulum.from_format(dt_str, "YYYY-MM-DD HH:mm:ss", tz="UTC")
+                logger.debug(
+                    f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
                 )
-            except ValueError:
-                raise ValueError(
-                    f"Unable to parse datetime: {dt_str}. Please use ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD HH:MM:SS or YYYY-MM-DD"
+                return dt
+            elif len(dt_str) == 10 and "-" in dt_str:
+                # Try YYYY-MM-DD format
+                dt = pendulum.from_format(dt_str, "YYYY-MM-DD", tz="UTC")
+                logger.debug(
+                    f"Successfully parsed date-only string: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
                 )
+                return dt
+        except Exception as e2:
+            logger.debug(f"Failed specific format parsing: {e2}")
+
+        error_msg = f"Unable to parse datetime: {dt_str!r}. Error: {str(e)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
 
 def fetch_data_with_fcp(
     market_type: MarketType,
     symbol: str,
-    start_time: datetime,
-    end_time: datetime,
+    start_time: pendulum.DateTime,
+    end_time: pendulum.DateTime,
     interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
     chart_type: ChartType = ChartType.KLINES,
@@ -330,9 +351,22 @@ def display_results(df, symbol, market_type, interval, chart_type):
         if hasattr(market_type, "name")
         else market_type.lower()
     )
-    csv_path = save_dataframe_to_csv(df, market_str, symbol, interval)
-    if csv_path:
+
+    # Generate timestamp with pendulum
+    timestamp = pendulum.now("UTC").format("YYYYMMDD_HHmmss")
+
+    # Define the CSV path using pendulum timestamp
+    csv_dir = Path("logs/fcp_demo")
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = csv_dir / f"{market_str}_{symbol}_{interval}_{timestamp}.csv"
+
+    try:
+        df.to_csv(csv_path)
         print(f"\n[bold green]Data saved to: {csv_path}[/bold green]")
+        return csv_path
+    except Exception as e:
+        print(f"[bold red]Error saving data to CSV: {e}[/bold red]")
+        return None
 
 
 def test_fcp_pm_mechanism(
@@ -362,25 +396,40 @@ def test_fcp_pm_mechanism(
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
         interval: Time interval between data points
         chart_type: Type of chart data
-        start_date: Start date in YYYY-MM-DD format (optional)
-        end_date: End date in YYYY-MM-DD format (optional)
+        start_date: Start date in YYYY-MM-DD format or full ISO format (optional)
+        end_date: End date in YYYY-MM-DD format or full ISO format (optional)
         days: Number of days to fetch if start_date/end_date not provided
         prepare_cache: Whether to prepare cache with partial data first
     """
-    current_time = datetime.now(timezone.utc)
+    current_time = pendulum.now("UTC")
+
+    # Enhanced logging for date parsing
+    logger.debug(f"test_fcp_pm_mechanism received start_date: {start_date!r}")
+    logger.debug(f"test_fcp_pm_mechanism received end_date: {end_date!r}")
 
     # Determine the date range
     if start_date and end_date:
-        start_time = datetime.fromisoformat(f"{start_date}T00:00:00").replace(
-            tzinfo=timezone.utc
-        )
-        end_time = datetime.fromisoformat(f"{end_date}T23:59:59").replace(
-            tzinfo=timezone.utc
-        )
+        try:
+            # Use the parse_datetime function to handle different formats
+            start_time = parse_datetime(start_date)
+            end_time = parse_datetime(end_date)
+            logger.debug(
+                f"Successfully parsed dates: {start_time.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_time.format('YYYY-MM-DD HH:mm:ss.SSS')}"
+            )
+        except ValueError as e:
+            logger.error(f"Error parsing dates: {e}")
+            print(f"[bold red]Error parsing dates: {e}[/bold red]")
+            # Fallback to default date range
+            end_time = current_time
+            start_time = end_time.subtract(days=days)
+            logger.warning(
+                f"Using fallback date range: {start_time.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_time.format('YYYY-MM-DD HH:mm:ss.SSS')}"
+            )
     else:
         # Default to 5 days with end_time as now
         end_time = current_time
-        start_time = end_time - timedelta(days=days)
+        start_time = end_time.subtract(days=days)
+        logger.debug(f"Using default date range based on days={days}")
 
     # Make sure cache directory exists
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -391,7 +440,7 @@ def test_fcp_pm_mechanism(
             f"Symbol: {symbol}\n"
             f"Market: {market_type.name}\n"
             f"Interval: {interval.value}\n"
-            f"Date Range: {start_time.isoformat()} to {end_time.isoformat()}",
+            f"Date Range: {start_time.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_time.format('YYYY-MM-DD HH:mm:ss.SSS')}",
             title="FCP-PM Test",
             border_style="green",
         )
@@ -399,13 +448,13 @@ def test_fcp_pm_mechanism(
 
     # Divide the full date range into three segments for different sources
     time_range = (end_time - start_time).total_seconds()
-    one_third = timedelta(seconds=time_range / 3)
+    one_third = pendulum.duration(seconds=time_range / 3)
 
     segment1_start = start_time
-    segment1_end = start_time + one_third
+    segment1_end = start_time.add(seconds=one_third.total_seconds())
 
     segment2_start = segment1_end
-    segment2_end = segment2_start + one_third
+    segment2_end = segment2_start.add(seconds=one_third.total_seconds())
 
     segment3_start = segment2_end
     segment3_end = end_time
@@ -630,7 +679,7 @@ def main(
             "-st",
             help="Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
         ),
-    ] = "2025-04-01",
+    ] = "2025-04-01T00:17:23.321",
     end_time: Annotated[
         Optional[str],
         typer.Option(
@@ -638,7 +687,7 @@ def main(
             "-et",
             help="End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
         ),
-    ] = "2025-04-13",
+    ] = "2025-04-03T23:51:09.789",
     days: Annotated[
         int,
         typer.Option(
@@ -707,7 +756,7 @@ def main(
 
     It displays real-time source information about where each data point comes from.
     """
-    logger.info(f"Current time: {datetime.now().isoformat()}")
+    logger.info(f"Current time: {pendulum.now().isoformat()}")
 
     try:
         print(
@@ -765,6 +814,16 @@ def main(
 
         # Check if we should run the FCP-PM test
         if test_fcp_pm:
+            # Add debug logging
+            logger.debug(f"Running FCP-PM test with:")
+            logger.debug(f"  Symbol: {symbol}")
+            logger.debug(f"  Market: {market.value} (converting to enum)")
+            logger.debug(f"  Interval: {interval}")
+            logger.debug(f"  Start time: {start_time!r}")
+            logger.debug(f"  End time: {end_time!r}")
+            logger.debug(f"  Days: {days}")
+            logger.debug(f"  Prepare cache: {prepare_cache}")
+
             # Run the FCP-PM mechanism test
             test_fcp_pm_mechanism(
                 symbol=symbol,
@@ -797,8 +856,8 @@ def main(
                 end_datetime = parse_datetime(end_time)
             else:
                 # Use days parameter to calculate time range
-                end_datetime = datetime.now(timezone.utc)
-                start_datetime = end_datetime - timedelta(days=days)
+                end_datetime = pendulum.now("UTC")
+                start_datetime = end_datetime.subtract(days=days)
                 print(
                     f"[yellow]Using dynamic date range based on --days={days}[/yellow]"
                 )
@@ -833,7 +892,7 @@ def main(
             print(f"Interval: {interval_enum.value}")
             print(f"Chart type: {chart_type_enum.name}")
             print(
-                f"Time range: {start_datetime.isoformat()} to {end_datetime.isoformat()}"
+                f"Time range: {start_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')}"
             )
             print(f"Cache enabled: {use_cache}")
             print(f"Enforce source: {enforce_source.value}")
