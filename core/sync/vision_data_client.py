@@ -559,7 +559,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 checksum_content = checksum_response.content
 
                 # Log the raw checksum content for debugging
-                logger.debug(f"Raw checksum content: {checksum_content!r}")
+                content_length = len(checksum_content)
+                preview_length = min(40, content_length)
+                truncated_content = checksum_content[:preview_length]
+                logger.debug(
+                    f"Raw checksum content: {truncated_content!r} (+ {content_length - preview_length} more bytes, {content_length} total)"
+                )
 
                 # Save checksum to the temporary file
                 with open(temp_checksum_path, "wb") as f:
