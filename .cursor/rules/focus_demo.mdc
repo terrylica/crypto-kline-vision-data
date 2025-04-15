@@ -3,50 +3,64 @@ description:
 globs: 
 alwaysApply: true
 ---
-Focus is on iteratively testing and debugging `examples/dsm_sync_simple/demo.py`, and subsequently calls `core/sync/data_source_manager.py`. This demo operates solely in **synchronous** mode (async intentionally excluded for simplicity) and targets the minimal viable setup for retrieving **1-minute Bitcoin data** for SPOT, UM, or CM markets.
+# Failover Composition and Parcel Merge (FCP-PM) Mechanism
 
-The file `core/sync/data_source_manager.py` acts as the orchestrator. Its responsibilities include:
+The file `core/sync/data_source_manager.py` is the orchestrator responsible for retrieving **1-minute Bitcoin data** for SPOT, UM, or CM markets. In this upgrade, we extend the legacy **Failover Composition Priority (FCP)** to an iterative merging strategy dubbed **Failover Composition and Parcel Merge (FCP-PM)**.
 
-- **Failover Composition Priority (FCP)**:
-  1. **Cache (Local Arrow files)**  
-     - Retrieves data via memory-mapped Apache-formatted files (treated as valid without expiration).
-  2. **VISION API**  
-     - If data is missing from cache, attempts to fetch the missing range via `core/sync/vision_data_client.py` (no explicit existence check; just attempt download).
-  3. **REST API**  
-     - If the VISION API fails, falls back to fetching data via `core/sync/rest_data_client.py`.
+## Mechanism Overview
 
-- **Segment Merging**:
-  - When requested data spans multiple sources, the orchestrator merges the segments by aligning on `open_time` (used as index), strictly adhering to the required 1-minute granularity.
-  - Schema differences between REST and VISION are normalized as needed (see documentation in `docs/api/binance_rest_klines.md` and `docs/api/binance_vision_klines.md`).
+The FCP-PM mechanism now operates as follows:
 
-- **Dataframe Consistency Enforcement**:
-  - The output DataFrame from any source must have an identical columnar arrangement and naming.
-  - For the data going into cache (Apache Arrow files), ensure the schema matches that of the REST API standard at creation time, so re-alignment upon retrieval is not necessary.
-  - In case of discrepancies during retrieval, the REST API output is used as the default standard, and both cached and VISION API data are adjusted to align with it.
-  - The `_standardize_columns` method in `DataSourceManager` is employed to ensure consistent column names and ordering.
+1. **Local Cache Retrieval**
+   - **Purpose:** Leverage local Apache Arrow files to quickly obtain data.
+   - **Process:** Data is memory-mapped and assumed valid without expiration. Any data successfully retrieved from cache is immediately merged into the output dataset.
+   
+2. **Vision API Retrieval with Iterative Merge**
+   - **Purpose:** Supplement missing data segments identified after cache retrieval.
+   - **Process:** The system compares the desired time span against the merged cache data. If gaps are found, it performs targeted queries to the Vision API.
+   - **Merge:** Data retrieved from the Vision API is merged *iteratively* with the already available cache data—using `open_time` as the alignment index and enforcing 1-minute granularity.
+   
+3. **REST API Fallback with Final Merge**
+   - **Purpose:** Ensure complete data coverage by requesting any remaining segments missing after merging cache and Vision data.
+   - **Process:** The REST API is queried for the precise missing ranges.
+   - **Merge:** Retrieved REST data is merged with the cumulative data from cache and Vision, standardizing the schema via `_standardize_columns` to match the REST API standard.
+   
+## Key Features of the FCP-PM Upgrade
 
-- **Data Integrity and Source Identification**:
-  - No code in the entire workspace is allowed to interpret missing data or fill gaps with any fake data.
-  - `core/sync/data_source_manager.py` must always be aware of, and explicitly identify, the data source(s) it is handling.
+- **Iterative Merge Operations:**
+  - Data is merged immediately after retrieval at each stage to form a progressively more complete dataset.
+  - This prevents redundant network calls by limiting later queries to only the missing data segments.
+  
+- **Full Parcel Merge Orchestration:**
+  - The process continuously checks and reconciles for missing segments as it transitions between data sources.
+  - Each merging stage is aware of the current state of the dataset, ensuring no over-fetching or reordering of valid data.
+  
+- **Dataframe Consistency:**
+  - At every merge point, the `_standardize_columns` method ensures consistency in column names and order.
+  - The final output DataFrame has a uniform schema aligned to the REST API standard.
+  - Data sources (Cache, Vision, or REST) are explicitly identified in the resulting metadata for auditability.
+  
+- **Robust Retry and Failure Handling:**
+  - All network calls utilize `tenacity` with exponential backoff for up to **3 retries** (totaling a max of **30 seconds**).
+  - On cumulative failure across all sources, the system exits with a critical error, thereby eliminating the risk of returning an empty DataFrame.
 
-- **Retry and Failure Handling**:
-  - All network calls use `tenacity` with exponential backoff configured for up to **3 retries** (max total of **30 seconds**).
-  - Only the final failure is logged; if all retries across all sources fail, the program exits with a critical error—no empty DataFrames are returned.
+## Additional Configuration and Testing Guidelines
 
-- **Configuration and Constraints**:
-  - `utils/market_constraints.py` is the single source of truth for market data types and constraints.
-  - `utils/config.py` is the single source of truth for all runtime parameters.
-  - `utils/gap_detector.py` is the single source of truth for detecting gap in data.
+- **Configuration and Constraints:**
+  - `utils/market_constraints.py` remains the single source of truth for market data types and constraints.
+  - `utils/config.py` holds all runtime parameter definitions.
+  - `utils/gap_detector.py` is solely responsible for identifying data gaps.
+  - Any discovered code-enforced request limits should be removed immediately.
 
-- **Legacy Code Note**:
-  - The scripts in the `core/sync/` and `utils/` directories originate from a legacy async approach and are overcomplicated; in case of any discrepancy with our current strategy, refactor these parts accordingly.
-  - There should be no code-enforced request limits on our side—if any are discovered, remove them.
+- **Merge Testing Guidelines:**
+  - The merge test must cover a time span that includes three distinct segments: data present in cache, data fetchable via Vision API, and data available from the REST API.
+  - The test harness should:
+    - Confirm that available segments are correctly identified from all sources.
+    - Validate that the iterative merging correctly aligns segments based on `open_time` with strict 1-minute granularity.
+    - Ensure that data-source identifiers correctly reflect the origin of each merged data segment.
 
-- **Merge Testing Guidelines**:
-  - The merge test must use an interesting time span that covers three distinct segments: data available in cache, data retrievable via the VISION API, and data retrievable via the REST API.
-  - Ensure that the test harness is fully aware of the latest available vision data (verified via CURL and the API documentation) as well as REST API data availability.
-  - Use the chosen time span as the baseline test to confirm that:
-    - Data from all three sources is correctly identified as missing or available.
-    - The merging logic properly aligns and integrates data according to the defined 1-minute granularity.
+- **Legacy Code Considerations:**
+  - Legacy modules within `core/sync/` and `utils/` should be refactored as needed to align with the new FCP-PM mechanism.
+  - Any conflicts between the previous async-oriented implementation and the current synchronous, merge-based strategy should be resolved to streamline the process.
 
-While the underlying logic accepts any market symbol or type, Bitcoin (BTC) remains the default focus for current testing.
+Bitcoin (BTC) remains the default focus for testing while the mechanism is designed to be symbol-agnostic.
