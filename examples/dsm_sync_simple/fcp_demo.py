@@ -630,7 +630,7 @@ def main(
             "-st",
             help="Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
         ),
-    ] = None,
+    ] = "2025-04-01",
     end_time: Annotated[
         Optional[str],
         typer.Option(
@@ -638,7 +638,7 @@ def main(
             "-et",
             help="End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD",
         ),
-    ] = None,
+    ] = "2025-04-13",
     days: Annotated[
         int,
         typer.Option(
@@ -790,7 +790,8 @@ def main(
             chart_type_enum = ChartType.from_string(chart_type.value)
 
             # Determine time range
-            if start_time and end_time:
+            days_provided = sys.argv and "--days" in sys.argv or "-d" in sys.argv
+            if start_time and end_time and not days_provided:
                 # Use specified time range
                 start_datetime = parse_datetime(start_time)
                 end_datetime = parse_datetime(end_time)
@@ -798,6 +799,10 @@ def main(
                 # Use days parameter to calculate time range
                 end_datetime = datetime.now(timezone.utc)
                 start_datetime = end_datetime - timedelta(days=days)
+                print(
+                    f"[yellow]Using dynamic date range based on --days={days}[/yellow]"
+                )
+                print(f"[yellow]Overriding default start_time and end_time[/yellow]")
 
             # Process caching option
             use_cache = not no_cache
@@ -879,17 +884,53 @@ def main(
             traceback.print_exc()
             sys.exit(1)
         except Exception as e:
-            print(f"[bold red]Unexpected error: {e}[/bold red]")
+            try:
+                # Safely handle the error to prevent rich text formatting issues
+                error_msg = str(e)
+                # Sanitize error message to replace non-printable characters
+                safe_error_msg = "".join(
+                    c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_msg
+                )
+                print(f"[bold red]CRITICAL ERROR: {safe_error_msg}[/bold red]")
+                import traceback
+
+                # Also sanitize the traceback
+                tb_str = traceback.format_exc()
+                safe_tb = "".join(
+                    c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_str
+                )
+                print(safe_tb)
+                sys.exit(1)
+            except Exception as nested_error:
+                # If even our error handling fails, print a simple message without rich formatting
+                print("CRITICAL ERROR occurred")
+                print(f"Error type: {type(e).__name__}")
+                print(f"Error handling also failed: {type(nested_error).__name__}")
+                sys.exit(1)
+    except Exception as e:
+        try:
+            # Safely handle the error to prevent rich text formatting issues
+            error_msg = str(e)
+            # Sanitize error message to replace non-printable characters
+            safe_error_msg = "".join(
+                c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_msg
+            )
+            print(f"[bold red]CRITICAL ERROR: {safe_error_msg}[/bold red]")
             import traceback
 
-            traceback.print_exc()
+            # Also sanitize the traceback
+            tb_str = traceback.format_exc()
+            safe_tb = "".join(
+                c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_str
+            )
+            print(safe_tb)
             sys.exit(1)
-    except Exception as e:
-        print(f"[bold red]CRITICAL ERROR: {e}[/bold red]")
-        import traceback
-
-        traceback.print_exc()
-        sys.exit(1)
+        except Exception as nested_error:
+            # If even our error handling fails, print a simple message without rich formatting
+            print("CRITICAL ERROR occurred")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error handling also failed: {type(nested_error).__name__}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
