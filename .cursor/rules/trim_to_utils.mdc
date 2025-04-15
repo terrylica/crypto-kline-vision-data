@@ -1,0 +1,8 @@
+---
+description: refactor
+globs: 
+alwaysApply: false
+---
+- Keep helper functions out of core files—-move them to `utils/` and import as needed.
+
+- Avoid leaving large chunks of inline code in core logic. Use conditional blocks, extract into helper functions under `utils/`, or comment them with clear markers for reusability. This keeps the codebase clean while preserving traceability.
