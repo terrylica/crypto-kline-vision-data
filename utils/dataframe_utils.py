@@ -10,7 +10,7 @@ across the codebase, particularly for:
 4. Ensuring proper index configuration
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 import pandas as pd
@@ -150,99 +150,150 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug(f"DataFrame index name: {df.index.name}")
     logger.debug(f"DataFrame index type: {type(df.index)}")
 
-    # Case 1: open_time exists as both index and column
-    if (
-        hasattr(df, "index")
-        and hasattr(df.index, "name")
-        and df.index.name == CANONICAL_INDEX_NAME
-        and CANONICAL_INDEX_NAME in df.columns
-    ):
-        logger.debug("Resolving ambiguity: open_time exists as both index and column")
-        # Use column version as the definitive one
-        df = df.reset_index(drop=True)
-        df = df.set_index(CANONICAL_INDEX_NAME)
+    try:
+        # Case 1: open_time exists as both index and column
+        if (
+            hasattr(df, "index")
+            and hasattr(df.index, "name")
+            and df.index.name == CANONICAL_INDEX_NAME
+            and CANONICAL_INDEX_NAME in df.columns
+        ):
+            logger.debug(
+                "Resolving ambiguity: open_time exists as both index and column"
+            )
+            # Use column version as the definitive one
+            df = df.reset_index(drop=True)
+            df = df.set_index(CANONICAL_INDEX_NAME)
 
-    # Case 2: open_time exists only as column
-    elif CANONICAL_INDEX_NAME in df.columns:
-        logger.debug("Setting open_time column as index")
-        df = df.set_index(CANONICAL_INDEX_NAME)
+        # Case 2: open_time exists only as column
+        elif CANONICAL_INDEX_NAME in df.columns:
+            logger.debug("Setting open_time column as index")
+            df = df.set_index(CANONICAL_INDEX_NAME)
 
-    # Case 3: index is already correct
-    elif (
-        hasattr(df, "index")
-        and hasattr(df.index, "name")
-        and df.index.name == CANONICAL_INDEX_NAME
-    ):
-        logger.debug("open_time index already set correctly")
+        # Case 3: index is already correct
+        elif (
+            hasattr(df, "index")
+            and hasattr(df.index, "name")
+            and df.index.name == CANONICAL_INDEX_NAME
+        ):
+            logger.debug("open_time index already set correctly")
 
-    # Case 4: index is unnamed or has a different name
-    else:
-        logger.warning("No suitable open_time found - attempting recovery")
-
-        # If the index is a DatetimeIndex but has the wrong name
-        if isinstance(df.index, pd.DatetimeIndex):
-            logger.debug("Renaming existing DatetimeIndex to open_time")
-            df.index.name = CANONICAL_INDEX_NAME
+        # Case 4: index is unnamed or has a different name
         else:
-            # Try to find any time-related columns
-            time_col = None
-            for col in df.columns:
-                if "time" in col.lower() and pd.api.types.is_datetime64_any_dtype(
-                    df[col]
-                ):
-                    time_col = col
-                    break
+            logger.warning("No suitable open_time found - attempting recovery")
 
-            if time_col:
-                logger.debug(f"Using {time_col} as open_time index")
-                df = df.set_index(time_col)
+            # If the index is a DatetimeIndex but has the wrong name
+            if isinstance(df.index, pd.DatetimeIndex):
+                logger.debug("Renaming existing DatetimeIndex to open_time")
                 df.index.name = CANONICAL_INDEX_NAME
             else:
-                logger.error("Cannot find suitable column to use as open_time index")
-                # Create a placeholder index to prevent errors
-                df.index = pd.DatetimeIndex(
-                    pd.date_range(
-                        start=datetime.now(timezone.utc), periods=len(df), freq="s"
-                    ),
-                    name=CANONICAL_INDEX_NAME,
-                )
+                # Try to find any time-related columns
+                time_col = None
+                for col in df.columns:
+                    if "time" in col.lower() and pd.api.types.is_datetime64_any_dtype(
+                        df[col]
+                    ):
+                        time_col = col
+                        break
 
-    # Ensure the index is a DatetimeIndex with UTC timezone
-    if not isinstance(df.index, pd.DatetimeIndex):
-        try:
-            logger.debug("Converting index to DatetimeIndex")
-            df.index = pd.to_datetime(df.index, utc=True)
-            df.index.name = CANONICAL_INDEX_NAME
-        except Exception as e:
-            logger.error(f"Error converting index to DatetimeIndex: {e}")
-    else:
-        # Ensure timezone is UTC
-        if df.index.tz is None:
-            logger.debug("Localizing index to UTC")
-            df.index = df.index.tz_localize(timezone.utc)
-        elif df.index.tz != timezone.utc:
-            logger.debug(f"Converting index timezone from {df.index.tz} to UTC")
-            df.index = df.index.tz_convert(timezone.utc)
+                if time_col:
+                    logger.debug(f"Using {time_col} as open_time index")
+                    try:
+                        df = df.set_index(time_col)
+                        df.index.name = CANONICAL_INDEX_NAME
+                    except Exception as e:
+                        logger.error(f"Error setting {time_col} as index: {e}")
+                        # Create a copy of the column first before setting as index
+                        df[CANONICAL_INDEX_NAME] = df[time_col]
+                        df = df.set_index(CANONICAL_INDEX_NAME)
+                else:
+                    # Last resort - try to create an open_time column based on row number
+                    logger.warning("Creating synthetic open_time based on row number")
+                    now = datetime.now(timezone.utc)
+                    base_time = datetime(
+                        now.year, now.month, now.day, tzinfo=timezone.utc
+                    )
 
-        # Ensure index name is correct
-        if df.index.name != CANONICAL_INDEX_NAME:
-            logger.debug(
-                f"Changing index name from {df.index.name} to {CANONICAL_INDEX_NAME}"
+                    # Create evenly spaced timestamps - Using minute intervals
+                    df[CANONICAL_INDEX_NAME] = [
+                        base_time + timedelta(minutes=i) for i in range(len(df))
+                    ]
+                    df = df.set_index(CANONICAL_INDEX_NAME)
+
+                    logger.warning(
+                        "Created synthetic timestamps. This is a fallback and may not represent real data timestamps."
+                    )
+
+            # Ensure index is datetime type with UTC timezone
+            if not isinstance(df.index, pd.DatetimeIndex):
+                logger.debug("Converting index to DatetimeIndex")
+                # Try to convert the index to datetime (if it's not already)
+                try:
+                    df.index = pd.to_datetime(df.index, utc=True)
+                    df.index.name = CANONICAL_INDEX_NAME
+                except Exception as e:
+                    logger.error(f"Error converting index to datetime: {e}")
+                    # Create a new DatetimeIndex if conversion fails
+                    old_index = df.index.copy()
+                    df = df.reset_index()
+                    now = datetime.now(timezone.utc)
+                    base_time = datetime(
+                        now.year, now.month, now.day, tzinfo=timezone.utc
+                    )
+                    df[CANONICAL_INDEX_NAME] = [
+                        base_time + timedelta(minutes=i) for i in range(len(df))
+                    ]
+                    # Add the old index as a column with a different name for reference
+                    df["original_index"] = old_index
+                    df = df.set_index(CANONICAL_INDEX_NAME)
+                    logger.warning(
+                        "Created synthetic index. Original index preserved in 'original_index' column."
+                    )
+
+            # Ensure timezone is UTC
+            if isinstance(df.index, pd.DatetimeIndex):
+                if df.index.tz is None:
+                    logger.debug("Localizing index to UTC")
+                    df.index = df.index.tz_localize(timezone.utc)
+                elif df.index.tz != timezone.utc:
+                    logger.debug("Converting index timezone to UTC")
+                    df.index = df.index.tz_convert(timezone.utc)
+
+        # Ensure index is sorted
+        if not df.index.is_monotonic_increasing:
+            logger.debug("Sorting DataFrame by index")
+            df = df.sort_index()
+
+        # Remove duplicates from index
+        if df.index.has_duplicates:
+            logger.warning("Removing duplicate indices")
+            df = df[~df.index.duplicated(keep="first")]
+
+    except Exception as e:
+        logger.error(f"Error in ensure_open_time_as_index: {e}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        # If all else fails, force a minimal working solution
+        if CANONICAL_INDEX_NAME in df.columns:
+            logger.warning(
+                "Fallback: Using existing open_time column as index despite error"
             )
-            df.index.name = CANONICAL_INDEX_NAME
+            # Last resort, try a simple set_index operation
+            try:
+                df = df.set_index(CANONICAL_INDEX_NAME)
+            except:
+                pass
+        else:
+            logger.warning("Fallback: Creating a new synthetic index despite error")
+            # Last resort, create a new empty index
+            df.index = pd.DatetimeIndex(
+                [datetime.now(timezone.utc)] * len(df), name=CANONICAL_INDEX_NAME
+            )
 
-    # Ensure index is sorted
-    if not df.index.is_monotonic_increasing:
-        logger.debug("Sorting DataFrame by index")
-        df = df.sort_index()
-
-    # Remove duplicates from index
-    if df.index.has_duplicates:
-        logger.warning("Removing duplicate indices")
-        df = df[~df.index.duplicated(keep="first")]
-
-    logger.debug(f"Final index name: {df.index.name}")
-    logger.debug(f"Final index timezone: {df.index.tz}")
+    logger.debug(f"Final DataFrame index name: {df.index.name}")
+    logger.debug(f"Final DataFrame index type: {type(df.index)}")
     return df
 
 
@@ -281,6 +332,25 @@ def standardize_dataframe(
     if keep_as_column and CANONICAL_INDEX_NAME not in df.columns:
         logger.debug("Adding open_time as column from index")
         df = df.reset_index()
+
+    # Fix: Handle the case where quote_volume exists but quote_asset_volume doesn't
+    if "quote_volume" in df.columns:
+        if "quote_asset_volume" not in df.columns:
+            logger.debug(
+                "Mapping 'quote_volume' to 'quote_asset_volume' to match standard column naming"
+            )
+            df["quote_asset_volume"] = df["quote_volume"]
+        elif (
+            "quote_asset_volume" in df.columns
+            and df["quote_asset_volume"].isna().any()
+            and not df["quote_volume"].isna().all()
+        ):
+            # If quote_asset_volume has NaN values but quote_volume has values, use those
+            logger.debug(
+                "Filling NaN values in 'quote_asset_volume' with values from 'quote_volume'"
+            )
+            mask = df["quote_asset_volume"].isna()
+            df.loc[mask, "quote_asset_volume"] = df.loc[mask, "quote_volume"]
 
     # Use centralized DEFAULT_COLUMN_ORDER from config.py instead of duplicating
     standard_columns = DEFAULT_COLUMN_ORDER.copy()

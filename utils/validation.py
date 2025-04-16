@@ -39,6 +39,7 @@ from utils.config import (
     MIN_VALID_FILE_SIZE,
     MAX_CACHE_AGE,
     OUTPUT_DTYPES,
+    TIMESTAMP_PRECISION,
 )
 
 

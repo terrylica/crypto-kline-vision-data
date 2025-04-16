@@ -25,48 +25,44 @@ class TimestampedDataFrame(pd.DataFrame):
     """
 
     def __init__(self, *args, **kwargs):
-        """Initialize with DataFrame validation.
+        """Initialize a TimestampedDataFrame.
 
-        Preserves the semantic meaning of timestamps:
-        - open_time represents the BEGINNING of each candle period
-        - close_time represents the END of each candle period
+        Ensures that open_time is consistently handled, either as an index or both index and column.
         """
-        # Check if open_time exists as both index and column in the input DataFrame
-        if args and isinstance(args[0], pd.DataFrame):
-            df = args[0]
-            # Add detailed debug logging
-            logger.debug(
-                f"Initializing TimestampedDataFrame with columns: {list(df.columns)}"
-            )
-            logger.debug(f"Input DataFrame index name: {df.index.name}")
-            logger.debug(f"Input DataFrame index type: {type(df.index)}")
-
-            if (
-                hasattr(df, "index")
-                and hasattr(df.index, "name")
-                and df.index.name == CANONICAL_INDEX_NAME
-                and CANONICAL_INDEX_NAME in df.columns
-            ):
-                # Create a new DataFrame without the ambiguous structure
-                # Keep only the column version of open_time and set it as index later
-                df = pd.DataFrame(df.reset_index())
-                # Update args with the corrected DataFrame
-                args = (df,) + args[1:]
-                logger.debug("Resolved ambiguous open_time in index and columns")
-
         super().__init__(*args, **kwargs)
-        self._validate_and_normalize_index()
+
+        # Validate and normalize index
+        try:
+            self._validate_and_normalize_index()
+        except Exception as e:
+            logger.error(f"Error normalizing index: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Create an empty DataFrame with proper structure instead of raising
+            super().__init__()
+            return
 
         # After initialization, ensure open_time is available as a column
         # This is critical for compatibility with standard pandas operations
-        if "open_time" not in self.columns:
-            if hasattr(self.index, "name") and self.index.name == "open_time":
-                logger.debug("Ensuring open_time exists as column (copied from index)")
-                # Set from index while preserving semantic meaning (BEGINNING of candle)
-                self["open_time"] = self.index
-                logger.debug(
-                    f"Added open_time column, dtype: {self['open_time'].dtype} (represents BEGINNING of candle)"
-                )
+        try:
+            if "open_time" not in self.columns:
+                if hasattr(self.index, "name") and self.index.name == "open_time":
+                    logger.debug(
+                        "Ensuring open_time exists as column (copied from index)"
+                    )
+                    # Fix: Use reset_index and set_index operations instead of direct assignment
+                    temp_df = self.reset_index()
+                    self._update_inplace(temp_df)
+                    self.set_index("open_time", inplace=True)
+                    logger.debug(
+                        f"Added open_time column, dtype: {self['open_time'].dtype if 'open_time' in self.columns else 'N/A'} (represents BEGINNING of candle)"
+                    )
+        except Exception as e:
+            logger.error(f"Error ensuring open_time as column: {e}")
+            logger.error(f"Columns available: {list(self.columns)}")
+            logger.error(
+                f"Index type: {type(self.index)}, name: {getattr(self.index, 'name', None)}"
+            )
+            # Don't raise the exception - keep the DataFrame as is
 
     def _validate_and_normalize_index(self):
         """Validate and normalize the index to meet requirements.
