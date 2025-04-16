@@ -25,11 +25,14 @@ from rich import print
 from rich.panel import Panel
 
 # Import FCP utility modules we created
-from utils.fcp_time_utils import parse_datetime
-from utils.fcp_cache_utils import clear_cache_directory
-from utils.fcp_project_utils import verify_project_root
-from utils.fcp_display_utils import display_results
-from utils.fcp_cli_examples import display_humanized_help, define_example_commands
+from utils.for_demo.fcp_time_utils import parse_datetime
+from utils.for_demo.fcp_cache_utils import clear_cache_directory
+from utils.for_demo.fcp_project_utils import verify_project_root
+from utils.for_demo.fcp_display_utils import display_results
+from utils.for_demo.fcp_cli_examples import (
+    display_humanized_help,
+    define_example_commands,
+)
 
 # Set up logging
 main_log, error_log, log_timestamp = configure_session_logging("fcp_test", "INFO")

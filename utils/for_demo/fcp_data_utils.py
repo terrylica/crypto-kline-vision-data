@@ -188,7 +188,7 @@ def test_fcp_pm_mechanism(
         prepare_cache: Whether to prepare cache with partial data first
         cache_dir: Path object pointing to the cache directory
     """
-    from utils.fcp_time_utils import parse_datetime
+    from utils.for_demo.fcp_time_utils import parse_datetime
     from rich.panel import Panel
     from rich.table import Table
 
