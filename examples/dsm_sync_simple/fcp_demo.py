@@ -360,43 +360,81 @@ def display_results(df, symbol, market_type, interval, chart_type, log_timestamp
     csv_dir.mkdir(parents=True, exist_ok=True)
     csv_path = csv_dir / f"{market_str}_{symbol}_{interval}_{timestamp}.csv"
 
-    # If log_timestamp is provided, use it for log paths
-    if log_timestamp:
-        main_log_path = f"logs/fcp_demo_logs/fcp_demo_{log_timestamp}.log"
-        error_log_path = f"logs/error_logs/fcp_demo_errors_{log_timestamp}.log"
-
     try:
         df.to_csv(csv_path)
         print(f"\n[bold green]Data saved to: {csv_path}[/bold green]")
 
         # Display log file paths
-        log_file_path = Path(f"logs/fcp_demo_logs/fcp_demo_{timestamp}.log")
-        error_log_file_path = Path(f"logs/error_logs/fcp_demo_errors_{timestamp}.log")
-
         print("\n[bold cyan]Log Files:[/bold cyan]")
 
-        # Check detailed logs
-        if log_file_path.exists():
-            log_size = log_file_path.stat().st_size
-            print(f"[green]Detailed logs: {log_file_path} ({log_size:,} bytes)[/green]")
+        # If log_timestamp is provided, use it for log paths
+        if log_timestamp:
+            main_log_path = Path(f"logs/fcp_demo_logs/fcp_demo_{log_timestamp}.log")
+            error_log_path = Path(
+                f"logs/error_logs/fcp_demo_errors_{log_timestamp}.log"
+            )
         else:
-            print(f"[yellow]Detailed logs: {log_file_path} (file not found)[/yellow]")
+            # Fall back to timestamp from CSV file if log_timestamp not provided
+            main_log_path = Path(f"logs/fcp_demo_logs/fcp_demo_{timestamp}.log")
+            error_log_path = Path(f"logs/error_logs/fcp_demo_errors_{timestamp}.log")
+
+        # Check detailed logs
+        if main_log_path.exists():
+            log_size = main_log_path.stat().st_size
+            print(f"[green]Detailed logs: {main_log_path} ({log_size:,} bytes)[/green]")
+        else:
+            # Try looking for a log file with a similar timestamp (with seconds off by ±10)
+            found_log = False
+            log_dir = Path("logs/fcp_demo_logs")
+            if log_dir.exists():
+                for log_file in log_dir.glob("fcp_demo_*.log"):
+                    # Only check files from today
+                    if timestamp[:8] in log_file.name:
+                        found_log = True
+                        log_size = log_file.stat().st_size
+                        print(
+                            f"[green]Detailed logs: {log_file} ({log_size:,} bytes)[/green]"
+                        )
+                        break
+
+            if not found_log:
+                print(
+                    f"[yellow]Detailed logs: {main_log_path} (file not found)[/yellow]"
+                )
 
         # Check error logs
-        if error_log_file_path.exists():
-            error_size = error_log_file_path.stat().st_size
+        if error_log_path.exists():
+            error_size = error_log_path.stat().st_size
             if error_size > 0:
                 print(
-                    f"[yellow]Error logs: {error_log_file_path} ({error_size:,} bytes - contains errors)[/yellow]"
+                    f"[yellow]Error logs: {error_log_path} ({error_size:,} bytes - contains errors)[/yellow]"
                 )
             else:
                 print(
-                    f"[green]Error logs: {error_log_file_path} (empty - no errors)[/green]"
+                    f"[green]Error logs: {error_log_path} (empty - no errors)[/green]"
                 )
         else:
-            print(
-                f"[yellow]Error logs: {error_log_file_path} (file not found)[/yellow]"
-            )
+            # Try looking for an error log file with a similar timestamp
+            found_error_log = False
+            error_log_dir = Path("logs/error_logs")
+            if error_log_dir.exists():
+                for error_file in error_log_dir.glob("fcp_demo_errors_*.log"):
+                    # Only check files from today
+                    if timestamp[:8] in error_file.name:
+                        found_error_log = True
+                        error_size = error_file.stat().st_size
+                        if error_size > 0:
+                            print(
+                                f"[yellow]Error logs: {error_file} ({error_size:,} bytes - contains errors)[/yellow]"
+                            )
+                        else:
+                            print(
+                                f"[green]Error logs: {error_file} (empty - no errors)[/green]"
+                            )
+                        break
+
+            if not found_error_log:
+                print(f"[yellow]Error logs: {error_log_path} (file not found)[/yellow]")
 
         print("\n[dim]To view logs: cat logs/fcp_demo_logs/fcp_demo_*.log[/dim]")
 
@@ -695,6 +733,7 @@ def test_fcp_pm_mechanism(
 
 @app.command()
 def main(
+    # Data Selection
     symbol: Annotated[
         str, typer.Option("--symbol", "-s", help="Trading symbol (e.g., BTCUSDT)")
     ] = "BTCUSDT",
@@ -709,6 +748,10 @@ def main(
     interval: Annotated[
         str, typer.Option("--interval", "-i", help="Time interval (e.g., 1m, 5m, 1h)")
     ] = "1m",
+    chart_type: Annotated[
+        ChartTypeChoice, typer.Option("--chart-type", "-ct", help="Type of chart data")
+    ] = ChartTypeChoice.KLINES,
+    # Time Range (mutually exclusive options)
     start_time: Annotated[
         Optional[str],
         typer.Option(
@@ -730,9 +773,20 @@ def main(
         typer.Option(
             "--days",
             "-d",
-            help="Number of days to fetch (used if start-time and end-time not provided)",
+            help="Number of days to fetch (alternative to start-time/end-time)",
         ),
     ] = 3,
+    # Data Source
+    enforce_source: Annotated[
+        DataSourceChoice,
+        typer.Option(
+            "--enforce-source", "-es", help="Force specific data source (default: AUTO)"
+        ),
+    ] = DataSourceChoice.AUTO,
+    retries: Annotated[
+        int, typer.Option("--retries", "-r", help="Maximum number of retry attempts")
+    ] = 3,
+    # Cache Control
     no_cache: Annotated[
         bool,
         typer.Option(
@@ -745,12 +799,7 @@ def main(
             "--clear-cache", "-cc", help="Clear the cache directory before running"
         ),
     ] = False,
-    enforce_source: Annotated[
-        DataSourceChoice,
-        typer.Option(
-            "--enforce-source", "-es", help="Force specific data source (default: AUTO)"
-        ),
-    ] = DataSourceChoice.AUTO,
+    # Test Mode
     test_fcp_pm: Annotated[
         bool,
         typer.Option(
@@ -759,12 +808,15 @@ def main(
             help="Run the special test for Failover Composition and Parcel Merge mechanism",
         ),
     ] = False,
-    retries: Annotated[
-        int, typer.Option("--retries", "-r", help="Maximum number of retry attempts")
-    ] = 3,
-    chart_type: Annotated[
-        ChartTypeChoice, typer.Option("--chart-type", "-ct", help="Type of chart data")
-    ] = ChartTypeChoice.KLINES,
+    prepare_cache: Annotated[
+        bool,
+        typer.Option(
+            "--prepare-cache",
+            "-pc",
+            help="Pre-populate cache with the first segment of data (only used with --test-fcp-pm)",
+        ),
+    ] = False,
+    # Other
     log_level: Annotated[
         LogLevel,
         typer.Option(
@@ -773,14 +825,6 @@ def main(
             help="Set the log level (default: INFO). Shorthand options: D=DEBUG, I=INFO, W=WARNING, E=ERROR, C=CRITICAL",
         ),
     ] = LogLevel.INFO,
-    prepare_cache: Annotated[
-        bool,
-        typer.Option(
-            "--prepare-cache",
-            "-pc",
-            help="Pre-populate cache with the first segment of data (for FCP-PM test)",
-        ),
-    ] = False,
 ):
     """
     FCP Demo: Demonstrates the Failover Composition Priority (FCP) mechanism.
@@ -840,21 +884,33 @@ def main(
         if not verify_project_root():
             sys.exit(1)
 
-        # Show command line arguments
+        # Show command line arguments grouped by function with clear hierarchy
         print(f"[bold cyan]Command line arguments:[/bold cyan]")
+        print(f"[cyan]Data Selection:[/cyan]")
         print(f"  Symbol: {symbol}")
         print(f"  Market: {market.value}")
         print(f"  Interval: {interval}")
-        print(f"  Days: {days}")
+        print(f"  Chart type: {chart_type.value}")
+
+        print(f"[cyan]Time Range:[/cyan]")
         print(f"  Start time: {start_time}")
         print(f"  End time: {end_time}")
+        print(f"  Days: {days}")
+
+        print(f"[cyan]Data Source:[/cyan]")
+        print(f"  Enforce source: {enforce_source.value}")
+        print(f"  Retries: {retries}")
+
+        print(f"[cyan]Cache Control:[/cyan]")
         print(f"  No cache: {no_cache}")
         print(f"  Clear cache: {clear_cache}")
-        print(f"  Enforce source: {enforce_source.value}")
+
+        print(f"[cyan]Test Mode:[/cyan]")
         print(f"  Test FCP-PM: {test_fcp_pm}")
-        print(f"  Retries: {retries}")
-        print(f"  Chart type: {chart_type.value}")
         print(f"  Prepare cache: {prepare_cache}")
+
+        print(f"[cyan]Other:[/cyan]")
+        print(f"  Log level: {log_level.value}")
 
         # Clear cache if requested
         if clear_cache:

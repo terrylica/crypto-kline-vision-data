@@ -545,7 +545,12 @@ class LoggerProxy:
         return self
 
     def add_file_handler(
-        self, file_path, level="DEBUG", mode="w", formatter_pattern=None
+        self,
+        file_path,
+        level="DEBUG",
+        mode="w",
+        formatter_pattern=None,
+        strip_rich_markup=True,
     ):
         """Add a file handler to the root logger for outputting logs to a file.
 
@@ -558,6 +563,7 @@ class LoggerProxy:
             mode (str): File mode ('w' for write/overwrite, 'a' for append)
             formatter_pattern (str): Optional custom formatter pattern
                                      Defaults to "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            strip_rich_markup (bool): Whether to strip Rich markup tags from log messages
 
         Returns:
             LoggerProxy: Self reference for method chaining
@@ -579,6 +585,43 @@ class LoggerProxy:
             formatter_pattern = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         formatter = logging.Formatter(formatter_pattern)
         handler.setFormatter(formatter)
+
+        # Add a filter to strip Rich markup if requested
+        if strip_rich_markup:
+            import re
+
+            rich_markup_pattern = re.compile(r"\[(.*?)\]")
+
+            class RichMarkupStripper(logging.Filter):
+                def filter(self, record):
+                    if isinstance(record.msg, str):
+                        # Remove Rich markup tags
+                        record.msg = rich_markup_pattern.sub("", record.msg)
+
+                        # Also strip markup from any values in the record.args tuple if it exists
+                        if record.args and isinstance(record.args, tuple):
+                            args_list = list(record.args)
+                            for i, arg in enumerate(args_list):
+                                if isinstance(arg, str):
+                                    args_list[i] = rich_markup_pattern.sub("", arg)
+                            record.args = tuple(args_list)
+
+                        # Also strip markup from any extra values
+                        if hasattr(record, "source_file") and isinstance(
+                            record.source_file, str
+                        ):
+                            record.source_file = rich_markup_pattern.sub(
+                                "", record.source_file
+                            )
+                        if hasattr(record, "source_line") and isinstance(
+                            record.source_line, str
+                        ):
+                            record.source_line = rich_markup_pattern.sub(
+                                "", record.source_line
+                            )
+                    return True
+
+            handler.addFilter(RichMarkupStripper())
 
         # Add to root logger
         logging.getLogger().addHandler(handler)
@@ -1031,6 +1074,28 @@ def _configure_error_logger():
     )
     handler.setFormatter(formatter)
 
+    # Add a filter to strip Rich markup
+    import re
+
+    rich_markup_pattern = re.compile(r"\[(.*?)\]")
+
+    class RichMarkupStripper(logging.Filter):
+        def filter(self, record):
+            if isinstance(record.msg, str):
+                # Remove Rich markup tags
+                record.msg = rich_markup_pattern.sub("", record.msg)
+
+                # Also strip markup from any values in the record.args tuple if it exists
+                if record.args and isinstance(record.args, tuple):
+                    args_list = list(record.args)
+                    for i, arg in enumerate(args_list):
+                        if isinstance(arg, str):
+                            args_list[i] = rich_markup_pattern.sub("", arg)
+                    record.args = tuple(args_list)
+            return True
+
+    handler.addFilter(RichMarkupStripper())
+
     # Add the handler to the logger
     error_logger.handlers.clear()
     error_logger.addHandler(handler)
@@ -1188,7 +1253,9 @@ def configure_session_logging(session_name, log_level="DEBUG"):
 
     # Configure logging
     logger.setLevel(log_level)
-    logger.add_file_handler(str(main_log_path), level=log_level, mode="w")
+    logger.add_file_handler(
+        str(main_log_path), level=log_level, mode="w", strip_rich_markup=True
+    )
     logger.enable_error_logging(str(error_log_path))
 
     # Log initialization
