@@ -5,64 +5,68 @@ alwaysApply: true
 ---
 # Failover Composition and Parcel Merge (FCP-PM) Mechanism
 
-The file `core/sync/data_source_manager.py` is the orchestrator responsible for retrieving **1-minute Bitcoin data** for SPOT, UM, or CM markets. In this upgrade, we extend the legacy **Failover Composition Priority (FCP)** to an iterative merging strategy dubbed **Failover Composition and Parcel Merge (FCP-PM)**.
+The file `core/sync/data_source_manager.py` is the orchestrator responsible for retrieving **1-minute Bitcoin data** for SPOT, UM, or CM markets. This mechanism holistically revises data retrieval by extending the legacy **Failover Composition Priority (FCP)** into an iterative merging strategy, dubbed **Failover Composition and Parcel Merge (FCP-PM)**.
 
 ## Mechanism Overview
+
+The FCP-PM mechanism consists of three integrated phases that collectively ensure the retrieval of a complete and consistent dataset:
 
 1. **Local Cache Retrieval**
    - **Purpose:** Leverage local Apache Arrow files to quickly obtain data.
    - **Process:** Data is memory-mapped and assumed valid without expiration. Any data successfully retrieved from cache is immediately merged into the output dataset.
    
-2. **Vision API Retrieval with Iterative Merge**
+2. **Vision API Retrieval with Iterative Merge and Daily Pack Caching**
    - **Purpose:** Supplement missing data segments identified after cache retrieval.
-   - **Process:** The system compares the desired time span against the merged cache data. If gaps are found, it performs targeted queries to the Vision API.
-   - **Merge:** Data retrieved from the Vision API is merged *iteratively* with the already available cache data—using `open_time` as the alignment index and enforcing 1-minute granularity.
+   - **Daily Pack Caching (Core Business Logic):**
+     - **Requirement:** Vision data is delivered in daily packs. Irrespective of whether a request specifies a start time at the beginning, middle, or end of the day, once a Vision data file for a specific day is downloaded, the **entire day's data must be cached**.
+     - **Rationale:** This requirement is embedded at the core business logic level and not delegated to peripheral modules like `tcp_demo.py`. It guarantees that processing a Vision file yields a complete dataset for that day.
+   - **Process:** The system identifies missing time segments after cache retrieval and performs targeted queries to the Vision API.
+   - **Merge:** Retrieved Vision data is merged *iteratively* with the available cache data—using `open_time` as the alignment index and enforcing a 1-minute granularity.
    
 3. **REST API Fallback with Final Merge**
-   - **Purpose:** Ensure complete data coverage by requesting any remaining segments missing after merging cache and Vision data.
+   - **Purpose:** Ensure complete data coverage by requesting any remaining segments missing after merging Cache and Vision API data.
    - **Process:** The REST API is queried for the precise missing ranges.
-   - **Merge:** Retrieved REST data is merged with the cumulative data from cache and Vision, standardizing the schema via `_standardize_columns` to match the REST API standard.
+   - **Merge:** Retrieved REST data is merged with the cumulative dataset from Cache and Vision, with schema standardized via `_standardize_columns` to align with the REST API standard.
    
-## Key Features of the FCP-PM Upgrade
+## Key Features of the FCP-PM Mechanism
 
 - **Iterative Merge Operations:**
-  - Data is merged immediately after retrieval at each stage to form a progressively more complete dataset.
-  - This prevents redundant network calls by limiting later queries to only the missing data segments.
+  - Data is progressively merged immediately after retrieval from each source, forming a more complete dataset.
+  - This staged approach minimizes redundant network calls by restricting subsequent queries to only the missing segments.
   
 - **Full Parcel Merge Orchestration:**
-  - The process continuously checks and reconciles for missing segments as it transitions between data sources.
-  - Each merging stage is aware of the current state of the dataset, ensuring no over-fetching or reordering of valid data.
+  - Continuous verification and reconciliation for missing segments is performed as the mechanism transitions between data sources.
+  - Each merging stage is aware of the current dataset state, ensuring no over-fetching or misordering of valid data.
   
 - **Dataframe Consistency:**
-  - At every merge point, the `_standardize_columns` method ensures consistency in column names and order.
-  - The final output DataFrame has a uniform schema aligned to the REST API standard.
-  - Data sources (Cache, Vision, or REST) are explicitly identified in the resulting metadata for auditability.
+  - At every merge point, the `_standardize_columns` method ensures consistency in column names and ordering.
+  - The final output is a coherent DataFrame conforming to the REST API schema, with metadata that explicitly identifies the origin (Cache, Vision, or REST) of each data segment.
   
 - **Robust Retry and Failure Handling:**
-  - All network calls utilize `tenacity` with exponential backoff for up to **3 retries** (totaling a max of **30 seconds**).
+  - All network calls are managed using `tenacity` with exponential backoff for up to **3 retries** (totaling a maximum of **30 seconds**).
   - **Conditional Tolerance for Vision API Failures:**
-    - Failed downloads from the Vision API are tolerated only when the retrieved data's end time falls within the allowable delay window defined by `VISION_DATA_DELAY_HOURS` relative to the current time.
-    - *Example:* If `VISION_DATA_DELAY_HOURS` is set to 48 hours and the current time is 00:00 on 3rd Jan 2025, any Vision API data with an end time between 00:00 on 1st Jan 2025 and one millisecond before the current time is acceptable, and a failed attempt in this window results only in a WARNING.
-    - For all other scenarios, a Vision API failure issues an ERROR on the first retry and escalates to a CRITICAL error on the final attempt.
-  - On cumulative failure across all sources, the system exits with a critical error, thereby eliminating the risk of returning an empty DataFrame.
+    - If a Vision API download fails, the failure is tolerated only when the Vision data's end time falls within the window specified by `VISION_DATA_DELAY_HOURS` relative to the current time.
+    - *Example:* With `VISION_DATA_DELAY_HOURS` set to 48 hours and the current time at 00:00 on 3rd Jan 2025, any Vision data with an end time between 00:00 on 1st Jan 2025 and one millisecond before the current time is acceptable, and such a failure warrants only a WARNING.
+    - For Vision data outside this window, an initial failure issues an ERROR on the first attempt and escalates to a CRITICAL error on the final retry.
+  - On cumulative failure across all sources, the mechanism exits with a critical error to prevent returning an empty DataFrame.
 
 ## Additional Configuration and Testing Guidelines
 
 - **Configuration and Constraints:**
   - `utils/market_constraints.py` remains the single source of truth for market data types and constraints.
-  - `utils/config.py` holds all runtime parameter definitions.
-  - `utils/gap_detector.py` is solely responsible for identifying data gaps.
-  - Any discovered code-enforced request limits should be removed immediately.
-
+  - Runtime parameters are defined in `utils/config.py`.
+  - The module `utils/gap_detector.py` is responsible solely for identifying data gaps.
+  - Any code-enforced request limits should be promptly removed.
+  
 - **Merge Testing Guidelines:**
-  - The merge test must cover a time span that includes three distinct segments: data present in cache, data fetchable via Vision API, and data available from the REST API.
-  - The test harness should:
-    - Confirm that available segments are correctly identified from all sources.
-    - Validate that the iterative merging correctly aligns segments based on `open_time` with strict 1-minute granularity.
-    - Ensure that data-source identifiers correctly reflect the origin of each merged data segment.
+  - The merge tests must cover a time span that includes three segments: data from the local cache, data fetchable via the Vision API, and data available from the REST API.
+  - The test suite should:
+    - Confirm that available segments are correctly identified across all sources.
+    - Validate that the iterative merging accurately aligns segments based on `open_time` with strict 1-minute granularity.
+    - Ensure that data source identifiers in the final merged dataset correctly reflect the origin of each segment.
 
 - **Legacy Code Considerations:**
-  - Legacy modules within `core/sync/` and `utils/` should be refactored as needed to align with the new FCP-PM mechanism.
-  - Any conflicts between the previous async-oriented implementation and the current synchronous, merge-based strategy should be resolved to streamline the process.
+  - Legacy modules within `core/sync/` and `utils/` should be refactored as necessary to integrate with the new FCP-PM mechanism.
+  - Any conflicts between previous asynchronous implementations and the current synchronous, merge-based strategy must be resolved to streamline the process.
 
-Bitcoin (BTC) remains the default focus for testing while the mechanism is designed to be symbol-agnostic.
+Bitcoin (BTC) remains the default focus for testing, though the mechanism is designed to be symbol-agnostic.
