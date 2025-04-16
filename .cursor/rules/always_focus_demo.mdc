@@ -9,8 +9,6 @@ The file `core/sync/data_source_manager.py` is the orchestrator responsible for 
 
 ## Mechanism Overview
 
-The FCP-PM mechanism now operates as follows:
-
 1. **Local Cache Retrieval**
    - **Purpose:** Leverage local Apache Arrow files to quickly obtain data.
    - **Process:** Data is memory-mapped and assumed valid without expiration. Any data successfully retrieved from cache is immediately merged into the output dataset.
@@ -42,6 +40,10 @@ The FCP-PM mechanism now operates as follows:
   
 - **Robust Retry and Failure Handling:**
   - All network calls utilize `tenacity` with exponential backoff for up to **3 retries** (totaling a max of **30 seconds**).
+  - **Conditional Tolerance for Vision API Failures:**
+    - Failed downloads from the Vision API are tolerated only when the retrieved data's end time falls within the allowable delay window defined by `VISION_DATA_DELAY_HOURS` relative to the current time.
+    - *Example:* If `VISION_DATA_DELAY_HOURS` is set to 48 hours and the current time is 00:00 on 3rd Jan 2025, any Vision API data with an end time between 00:00 on 1st Jan 2025 and one millisecond before the current time is acceptable, and a failed attempt in this window results only in a WARNING.
+    - For all other scenarios, a Vision API failure issues an ERROR on the first retry and escalates to a CRITICAL error on the final attempt.
   - On cumulative failure across all sources, the system exits with a critical error, thereby eliminating the risk of returning an empty DataFrame.
 
 ## Additional Configuration and Testing Guidelines
