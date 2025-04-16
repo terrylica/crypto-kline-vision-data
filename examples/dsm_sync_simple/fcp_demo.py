@@ -84,12 +84,12 @@ app = typer.Typer(
   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -cc
 
 [green]Testing FCP Mechanism:[/green]
-  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp
-  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp -pc
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp -pc
 
 [green]Combined Examples:[/green]
   ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
-  ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -tfp -pc -l D -cc
+  ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
 """,
 )
 
@@ -869,7 +869,7 @@ def main(
         bool,
         typer.Option(
             "--test-fcp",
-            "-tfp",
+            "-fcp",
             help="Run the special test for Failover Control Protocol (FCP) mechanism",
         ),
     ] = False,
@@ -926,12 +926,12 @@ def main(
       ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -cc
 
     [green]Testing FCP Mechanism:[/green]
-      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp
-      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp -pc
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp -pc
 
     [green]Combined Examples:[/green]
       ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
-      ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -tfp -pc -l D -cc
+      ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
     """
     # Convert shorthand log levels to full names
     level = log_level.value

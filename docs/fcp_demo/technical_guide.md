@@ -138,7 +138,7 @@ def _merge_dataframes(self, dfs, priority_order=None):
     # ...
 ```
 
-## FCP (Parcel Merge) Extension
+## FCP Extension
 
 FCP extends the basic FCP mechanism with more granular data retrieval:
 

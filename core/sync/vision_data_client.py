@@ -52,11 +52,14 @@ from utils.gap_detector import detect_gaps, Gap
 from utils.dataframe_utils import ensure_open_time_as_column
 from core.sync.data_client_interface import DataClientInterface
 from utils.validation import DataFrameValidator
-from utils.vision_timestamp import (
+from utils.for_core.vision_timestamp import (
     process_timestamp_columns,
     parse_interval,
 )
-from utils.vision_file_utils import fill_boundary_gaps_with_rest, find_day_boundary_gaps
+from utils.for_core.vision_file_utils import (
+    fill_boundary_gaps_with_rest,
+    find_day_boundary_gaps,
+)
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
@@ -602,7 +605,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 else:
                     # Verify checksum if available
                     try:
-                        from utils.vision_checksum import calculate_sha256_direct
+                        from utils.for_core.vision_checksum import (
+                            calculate_sha256_direct,
+                        )
                         import time
 
                         # Small delay to ensure filesystem sync

@@ -21,7 +21,7 @@ from rich.table import Table
 from core.sync.vision_constraints import get_vision_url, FileType
 from utils.logger_setup import logger
 from utils.validation import DataValidation
-from utils.vision_checksum import verify_file_checksum
+from utils.for_core.vision_checksum import verify_file_checksum
 
 # Console for rich output
 console = Console()

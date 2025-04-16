@@ -72,9 +72,9 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example5 = {
         "title": "Test the Failover Control Protocol (FCP) mechanism",
         "description": "Runs a comprehensive test demonstrating how data is merged from multiple sources",
-        "command": "./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m spot -i 1m -tfp -pc",
+        "command": "./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m spot -i 1m -fcp -pc",
         "explanation": "Demonstrates the full FCP mechanism by pre-populating cache and then retrieving data across multiple sources.",
-        "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m", "-tfp", "-pc"],
+        "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m", "-fcp", "-pc"],
     }
 
     return [example1, example2, example3, example4, example5]
@@ -148,7 +148,7 @@ def display_examples(examples: List[Dict[str, Any]], run_example_func: Callable 
             "1. [green]Cache Management:[/green] Use -cc to clear cache if you suspect stale data\n"
             "2. [green]Debug Mode:[/green] Enable debug logging with -l D to see detailed information\n"
             "3. [green]Symbol Format:[/green] Coin-M futures require _PERP suffix (e.g., BTCUSD_PERP)\n"
-            "4. [green]Test Mode:[/green] Use -tfp to test the full Failover Control Protocol (FCP) process",
+            "4. [green]Test Mode:[/green] Use -fcp to test the full Failover Control Protocol (FCP) process",
             title="Best Practices",
             border_style="yellow",
         )

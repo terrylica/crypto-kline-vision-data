@@ -64,7 +64,7 @@ Force a specific data source:
 ./examples/dsm_sync_simple/fcp_demo.py --enforce-source REST
 ```
 
-Run the special FCP (Parcel Merge) test:
+Run the special FCP test:
 
 ```bash
 ./examples/dsm_sync_simple/fcp_demo.py --test-fcp --prepare-cache
@@ -83,7 +83,7 @@ Run the special FCP (Parcel Merge) test:
 | `--no-cache`       | `-nc`     | Disable caching (cache is enabled by default)               |
 | `--clear-cache`    | `-cc`     | Clear the cache directory before running                    |
 | `--enforce-source` | `-es`     | Force specific data source (AUTO, REST, VISION)             |
-| `--test-fcp`       | `-tfp`    | Run FCP (Parcel Merge) mechanism test                       |
+| `--test-fcp`       | `-fcp`    | Run FCP mechanism test                                      |
 | `--retries`        | `-r`      | Maximum number of retry attempts                            |
 | `--chart-type`     | `-ct`     | Type of chart data (klines, fundingRate)                    |
 | `--log-level`      | `-l`      | Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)       |

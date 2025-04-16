@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
 
-from utils.vision_checksum import extract_checksum_from_file
+from utils.for_core.vision_checksum import extract_checksum_from_file
 from utils.validation import DataValidation
 
 console = Console()

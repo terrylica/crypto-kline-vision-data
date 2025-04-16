@@ -829,7 +829,7 @@ def main_function(
         bool,
         typer.Option(
             "--test-fcp",
-            "-tfp",
+            "-fcp",
             help="Run the special test for Failover Control Protocol (FCP) mechanism",
         ),
     ] = False,
@@ -1196,7 +1196,7 @@ def main(
         bool,
         typer.Option(
             "--test-fcp",
-            "-tfp",
+            "-fcp",
             help="Run the special test for Failover Control Protocol (FCP) mechanism",
         ),
     ] = False,
@@ -1321,9 +1321,9 @@ def examples(
     example5 = {
         "title": "Test the Failover Control Protocol (FCP) mechanism",
         "description": "Runs a comprehensive test demonstrating how data is merged from multiple sources",
-        "command": "./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m spot -i 1m -tfp -pc",
+        "command": "./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m spot -i 1m -fcp -pc",
         "explanation": "Demonstrates the full FCP mechanism by pre-populating cache and then retrieving data across multiple sources.",
-        "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m", "-tfp", "-pc"],
+        "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m", "-fcp", "-pc"],
     }
 
     examples = [example1, example2, example3, example4, example5]
@@ -1377,7 +1377,7 @@ def examples(
             elif arg == "-cc" or arg == "--clear-cache":
                 kwargs["clear_cache"] = True
                 i += 1
-            elif arg == "-tfp" or arg == "--test-fcp":
+            elif arg == "-fcp" or arg == "--test-fcp":
                 kwargs["test_fcp_pm"] = True
                 i += 1
             elif arg == "-pc" or arg == "--prepare-cache":
@@ -1448,7 +1448,7 @@ def examples(
             "1. [green]Cache Management:[/green] Use -cc to clear cache if you suspect stale data\n"
             "2. [green]Debug Mode:[/green] Enable debug logging with -l D to see detailed information\n"
             "3. [green]Symbol Format:[/green] Coin-M futures require _PERP suffix (e.g., BTCUSD_PERP)\n"
-            "4. [green]Test Mode:[/green] Use -tfp to test the full Failover Control Protocol (FCP) process",
+            "4. [green]Test Mode:[/green] Use -fcp to test the full Failover Control Protocol (FCP) process",
             title="Best Practices",
             border_style="yellow",
         )
