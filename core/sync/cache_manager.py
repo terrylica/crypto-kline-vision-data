@@ -221,14 +221,45 @@ class UnifiedCacheManager:
             # Create directory structure
             provider_dir = self.cache_dir / provider.lower()
             chart_dir = provider_dir / chart_type.lower()
-            market_dir = chart_dir / market_type.lower()
-            symbol_dir = market_dir / symbol.upper()
+
+            # For futures markets, we need special handling
+            if market_type.lower().startswith("futures"):
+                if market_type.lower() == "futures_usdt":
+                    market_dir = chart_dir / "futures" / "usdt"
+                elif market_type.lower() == "futures_coin":
+                    market_dir = chart_dir / "futures" / "coin"
+                else:
+                    market_dir = chart_dir / market_type.lower()
+            else:
+                market_dir = chart_dir / market_type.lower()
+
+            # Split symbol into base/quote for proper directory structure
+            if symbol.endswith("USDT") and len(symbol) > 4:
+                base = symbol[:-4].lower()
+                quote = "usdt"
+            elif symbol.endswith("USD") and len(symbol) > 3:
+                base = symbol[:-3].lower()
+                quote = "usd"
+            elif symbol.endswith("PERP"):
+                base = symbol[:-4].lower() if len(symbol) > 4 else symbol.lower()
+                quote = "perp"
+            elif "_" in symbol:
+                base, quote = symbol.lower().split("_", 1)
+            else:
+                base = symbol.lower()
+                quote = ""
+
+            if quote:
+                symbol_dir = market_dir / base / quote
+            else:
+                symbol_dir = market_dir / base
+
             interval_dir = symbol_dir / interval.lower()
 
             # Create directories if they don't exist
             os.makedirs(interval_dir, exist_ok=True)
 
-            # Return full path with .arrow extension
+            # Use the date_str as the filename
             return interval_dir / f"{date_str}.arrow"
 
         except Exception as e:
@@ -265,6 +296,19 @@ class UnifiedCacheManager:
 
         # Get the file path
         cache_path = self._get_cache_path(cache_key)
+
+        # Enhanced logging about the cache path
+        logger.debug(f"Cache key: {cache_key}")
+        logger.debug(f"Looking for cache file at: {cache_path}")
+        logger.debug(f"Cache path exists? {cache_path.exists()}")
+
+        # Check directory contents if the file doesn't exist
+        if not cache_path.exists() and cache_path.parent.exists():
+            try:
+                files = list(cache_path.parent.glob("*.arrow"))
+                logger.debug(f"Directory contents: {[f.name for f in files]}")
+            except Exception as e:
+                logger.debug(f"Error listing directory: {e}")
 
         # Check if the file exists
         if not cache_path.exists():
