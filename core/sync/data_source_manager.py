@@ -566,6 +566,7 @@ class DataSourceManager:
         missing_ranges = []
         last_missing_start = None
         incomplete_days = []
+        all_empty = True
 
         for date in dates:
             df = self.cache_manager.load_from_cache(
@@ -578,6 +579,7 @@ class DataSourceManager:
             )
 
             if df is not None and not df.empty:
+                all_empty = False
                 # Add source information
                 df["_data_source"] = "CACHE"
 
@@ -619,7 +621,7 @@ class DataSourceManager:
             )
 
         # If we have no cached data, return empty DataFrame and the entire range as missing
-        if not cached_dfs:
+        if all_empty or not cached_dfs:
             logger.debug(
                 f"[FCP-PM] No cached data found for entire range. Missing: {aligned_start} to {aligned_end}"
             )
@@ -730,6 +732,12 @@ class DataSourceManager:
             symbol: Symbol the data is for
             interval: Time interval of the data
             source: Data source (VISION, REST, etc.) - used to prioritize Vision API data for caching
+
+        Note:
+            Following the FCP-PM mechanism requirements, Vision data is delivered in daily packs.
+            When Vision data is requested for any part of a day, the entire day's data is
+            downloaded and cached. This ensures complete daily data availability in the cache
+            regardless of the specific time range requested.
         """
         print(
             f"**** SAVING TO CACHE: {symbol} {interval.value} with {len(df)} records, source={source}, use_cache={self.use_cache}"
@@ -827,7 +835,17 @@ class DataSourceManager:
             interval: Time interval between data points
 
         Returns:
-            DataFrame with data from Vision API
+            DataFrame with data from Vision API filtered to the requested time range
+
+        Note:
+            As a core part of the FCP-PM mechanism, this method implements the Daily Pack Caching requirement:
+            1. Regardless of the requested time range (start_time to end_time), the method expands
+               the request to fetch full days of data from Vision API
+            2. The complete daily data is cached to ensure consistent and complete availability
+            3. Only the originally requested time range is returned to the caller
+
+            This ensures that even if a request specifies a start time at the beginning, middle, or end
+            of the day, the entire day's data is cached for future use.
         """
         logger.info(
             f"Fetching data from Vision API for {symbol} from {start_time} to {end_time}"
@@ -860,12 +878,29 @@ class DataSourceManager:
                 start_time, end_time, interval
             )
 
+            # For the FCP-PM mechanism, we need to ensure that the full days' data is downloaded
+            # and cached from Vision API, even if only a partial day is requested
+
+            # Calculate full-day boundaries for Vision API data retrieval
+            # Start from the beginning of the day for start_time
+            vision_start = aligned_start.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            # End at the end of the day for end_time
+            vision_end = aligned_end.replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
+
+            logger.debug(
+                f"[FCP-PM] Expanding Vision API request to full days: {vision_start} to {vision_end}"
+            )
+
             # Vision API has date-based files, fetch with chunking
             df = self.vision_client.fetch(
                 symbol=symbol,
                 interval=interval.value,
-                start_time=aligned_start,
-                end_time=aligned_end,
+                start_time=vision_start,
+                end_time=vision_end,
                 chart_type=self.chart_type,
             )
 
@@ -880,10 +915,25 @@ class DataSourceManager:
                 # Add source information
                 df["_data_source"] = "VISION"
 
-                # Help with debugging
-                logger.info(f"Retrieved {len(df)} records from Vision API")
+                # Save the entire day's data to cache before filtering to the requested range
+                if self.use_cache:
+                    logger.debug(f"[FCP-PM] Caching full day's data from Vision API")
+                    self._save_to_cache(df, symbol, interval, source="VISION")
 
-                return df
+                # Filter the dataframe to the originally requested time range
+                logger.debug(
+                    f"[FCP-PM] Filtering Vision API data to originally requested range: {aligned_start} to {aligned_end}"
+                )
+                filtered_df = filter_dataframe_by_time(
+                    df, aligned_start, aligned_end, "open_time"
+                )
+
+                # Help with debugging
+                logger.info(
+                    f"Retrieved {len(filtered_df)} records from Vision API (after filtering to requested range)"
+                )
+
+                return filtered_df
             else:
                 logger.warning(f"Vision API returned no data for {symbol}")
                 return create_empty_dataframe()
@@ -1219,11 +1269,21 @@ class DataSourceManager:
         """Get data for the specified symbol and time range from the best available source.
 
         This method is the main entry point for retrieving data. It implements the
-        Failover Composition Priority (FCP) strategy:
+        Failover Composition and Parcel Merge (FCP-PM) mechanism with three integrated phases:
 
-        1. Cache (Local Arrow files): Check cached data first
-        2. VISION API: For missing data, try Binance Vision API
-        3. REST API: If Vision fails or returns incomplete data, use REST API
+        1. LOCAL CACHE RETRIEVAL: First check local Apache Arrow files for data
+           - Data successfully retrieved from cache is immediately merged into the output
+           - Missing segments are identified for retrieval from other sources
+
+        2. VISION API RETRIEVAL WITH ITERATIVE MERGE: For missing segments, try Binance Vision API
+           - Vision data is downloaded in full daily packs (core business logic requirement)
+           - Each day's complete data is cached regardless of the specific time range requested
+           - Retrieved Vision data is iteratively merged with available cache data
+
+        3. REST API FALLBACK WITH FINAL MERGE: For any remaining missing segments, use REST API
+           - REST API is queried for the precise missing ranges only
+           - Retrieved REST data is merged with the cumulative dataset
+           - All data is standardized to ensure consistent column formats
 
         Args:
             symbol: Symbol to retrieve data for (e.g., "BTCUSDT")
@@ -1235,7 +1295,7 @@ class DataSourceManager:
             enforce_source: Force specific data source (AUTO, REST, VISION)
 
         Returns:
-            DataFrame with data from the best available source
+            DataFrame with data from the best available source(s), merged according to FCP-PM
         """
         # Use the chart type from parameters or fall back to instance setting
         chart_type = chart_type or self.chart_type
@@ -1376,14 +1436,8 @@ class DataSourceManager:
                                 # Otherwise just use the Vision data
                                 result_df = range_df
 
-                            # Save to cache if enabled
-                            if self.use_cache:
-                                logger.debug(
-                                    f"[FCP-PM] Auto-saving Vision data to cache"
-                                )
-                                self._save_to_cache(
-                                    range_df, symbol, interval, source="VISION"
-                                )
+                            # Save to cache if enabled (removed as it's now handled in _fetch_from_vision)
+                            # Note: Full day's data is now cached directly in _fetch_from_vision
 
                             # Check if Vision API returned all expected records or if there are gaps
                             if not result_df.empty:
