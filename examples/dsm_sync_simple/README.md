@@ -1,8 +1,16 @@
-# Data Source Manager Sync Demo
+# DSM Sync Simple Examples
 
-This directory contains a simple demonstration of the synchronous data retrieval capabilities using the `DataSourceManager` with Failover Composition Priority (FCP) strategy.
+## IMPORTANT: Code Refactoring
+
+**The FCP Demo has been refactored for improved maintainability.**
+
+- The refactored implementation is in `fcp_demo.py`
+- The legacy implementation has been moved to `legacy/fcp_demo_legacy.py`
+- See [README_REFACTORING.md](./README_REFACTORING.md) for details
 
 ## Overview
+
+This directory contains a simple demonstration of the synchronous data retrieval capabilities using the `DataSourceManager` with Failover Composition Priority (FCP) strategy.
 
 The demonstration shows how to retrieve 1-minute candlestick data for Bitcoin in various markets (SPOT, USDT-margined futures, COIN-margined futures) using multiple data sources:
 

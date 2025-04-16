@@ -58,6 +58,7 @@ from pathlib import Path
 import builtins
 import sys
 import pendulum
+import time
 
 try:
     from rich.console import Console
@@ -1257,6 +1258,24 @@ def configure_session_logging(session_name, log_level="DEBUG"):
         str(main_log_path), level=log_level, mode="w", strip_rich_markup=True
     )
     logger.enable_error_logging(str(error_log_path))
+
+    # Verify log files exist
+    # Wait a short time for file handlers to flush
+    time.sleep(0.1)
+    # Check and log file status
+    main_exists = Path(main_log_path).exists()
+    error_exists = Path(error_log_path).exists()
+    main_size = Path(main_log_path).stat().st_size if main_exists else 0
+    error_size = Path(error_log_path).stat().st_size if error_exists else 0
+
+    # Use original print to ensure this message gets through regardless of log level
+    if hasattr(builtins, "_original_print"):
+        builtins._original_print(
+            f"Main log created: {main_exists}, size: {main_size} bytes"
+        )
+        builtins._original_print(
+            f"Error log created: {error_exists}, size: {error_size} bytes"
+        )
 
     # Log initialization
     logger.info(f"Session logging initialized for {session_name}")
