@@ -322,8 +322,12 @@ class UnifiedCacheManager:
             invalid_reason = self.metadata[cache_key].get(
                 "invalid_reason", "Unknown reason"
             )
-            logger.warning(
-                f"Not using invalid cache entry {cache_key}: {invalid_reason}"
+            invalidated_at = self.metadata[cache_key].get(
+                "invalidated_at", "Unknown time"
+            )
+            logger.error(
+                f"Invalid cache entry detected - Key: {cache_key}, Path: {cache_path}, "
+                f"Reason: {invalid_reason}, Invalidated at: {invalidated_at}"
             )
             return None
 
@@ -341,7 +345,9 @@ class UnifiedCacheManager:
 
             # Basic validation on the returned data
             if df.empty:
-                logger.warning(f"Cache file {cache_path} returned empty DataFrame")
+                logger.error(
+                    f"Cache file {cache_path} returned empty DataFrame - Invalidating cache entry"
+                )
                 self._mark_cache_invalid(cache_key, "Empty DataFrame")
                 return None
 
@@ -478,4 +484,11 @@ class UnifiedCacheManager:
             self.metadata[cache_key]["invalidated_at"] = datetime.now(
                 timezone.utc
             ).isoformat()
+
+            # Log cache invalidation as ERROR to ensure it's prominently noticed
+            cache_path = self._get_cache_path(cache_key)
+            logger.error(
+                f"Cache entry invalidated - Key: {cache_key}, Path: {cache_path}, Reason: {reason}"
+            )
+
             self._save_metadata()

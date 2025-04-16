@@ -302,7 +302,6 @@ manager = DataSourceManager.create(
     max_concurrent=50,  # Optional: Max concurrent requests
     retry_count=5,  # Optional: Number of retries
     max_concurrent_downloads=None,  # Optional: Max concurrent downloads
-    cache_expires_minutes=60,  # Optional: Cache expiration time
     use_httpx=False,  # Optional: Use httpx instead of curl_cffi
 )
 

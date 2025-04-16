@@ -65,8 +65,6 @@ class DataSourceConfig:
             Default is True. Set to False to always fetch fresh data.
         retry_count (int): Number of retries for failed requests.
             Default is 5. Increase for less stable networks.
-        cache_expires_minutes (int): Cache expiration time in minutes.
-            Default is 60 minutes. Increase for less frequently updated data.
         use_httpx (bool): Whether to use httpx instead of curl_cffi for HTTP clients.
             Default is False. Set to True if experiencing issues with curl_cffi.
         rest_client (Optional[RestDataClient]): Optional external REST API client.
@@ -84,7 +82,6 @@ class DataSourceConfig:
     cache_dir: Optional[Path] = None
     use_cache: bool = True
     retry_count: int = 5
-    cache_expires_minutes: int = 60
     use_httpx: bool = False
 
     # Advanced parameters (rarely need to be changed)
@@ -113,11 +110,6 @@ class DataSourceConfig:
 
         if self.retry_count < 0:
             raise ValueError(f"retry_count must be >= 0, got {self.retry_count}")
-
-        if self.cache_expires_minutes <= 0:
-            raise ValueError(
-                f"cache_expires_minutes must be > 0, got {self.cache_expires_minutes}"
-            )
 
     @classmethod
     def create(
@@ -419,7 +411,6 @@ class DataSourceManager:
             cache_dir=config.cache_dir,
             use_cache=config.use_cache,
             retry_count=config.retry_count,
-            cache_expires_minutes=config.cache_expires_minutes,
             use_httpx=config.use_httpx,
             rest_client=config.rest_client,
             vision_client=config.vision_client,
@@ -455,22 +446,17 @@ class DataSourceManager:
         chart_type: ChartType = ChartType.KLINES,
         use_httpx: bool = False,
     ):
-        """Initialize the DataSourceManager.
+        """Initialize the data source manager.
 
         Args:
             market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
             provider: Data provider (BINANCE)
-            use_cache: Whether to use caching
-            cache_dir: Directory to store cache files
-            retry_count: Number of retries for failed requests
-            chart_type: Type of chart data to retrieve
-            use_httpx: Whether to use httpx instead of curl_cffi for HTTP clients
+            use_cache: Whether to use local cache
+            cache_dir: Directory to store cache files (default: "./cache")
+            retry_count: Number of retries for network operations
+            chart_type: Chart type (KLINES, FUNDING_RATE)
+            use_httpx: Whether to use httpx instead of curl_cffi
         """
-        logger.info(
-            f"Initialized DataSourceManager with market_type={market_type.name}, provider={provider.name}, use_cache={use_cache}, retry_count={retry_count}"
-        )
-
-        # Basic settings
         self.market_type = market_type
         self.provider = provider
         self.use_cache = use_cache
@@ -478,17 +464,25 @@ class DataSourceManager:
         self.chart_type = chart_type
         self.use_httpx = use_httpx
 
-        # Initialize client objects to None
+        # Set up cache directory
+        if cache_dir is not None:
+            self.cache_dir = Path(cache_dir)
+        else:
+            self.cache_dir = Path("./cache")
+
+        # Initialize cache manager if caching is enabled
+        self.cache_manager = None
+        if self.use_cache:
+            try:
+                self.cache_manager = UnifiedCacheManager(cache_dir=self.cache_dir)
+            except Exception as e:
+                logger.error(f"Failed to initialize cache manager: {e}")
+                logger.warning("Continuing without cache")
+                self.use_cache = False
+
+        # Initialize API clients
         self.rest_client = None
         self.vision_client = None
-        self.cache_manager = None
-
-        # Set up cache if needed
-        if self.use_cache:
-            if cache_dir is None:
-                cache_dir = Path("./cache")
-            self.cache_dir = cache_dir
-            self.cache_manager = UnifiedCacheManager(cache_dir=cache_dir)
 
     def _get_market_type_str(self) -> str:
         """Get string representation of market type for cache keys.
@@ -750,7 +744,7 @@ class DataSourceManager:
             return
 
         if df.empty:
-            logger.warning(f"Empty DataFrame for {symbol} - skipping cache save")
+            logger.error(f"Empty DataFrame for {symbol} - skipping cache save")
             return
 
         # Enhanced debug info about incoming data
