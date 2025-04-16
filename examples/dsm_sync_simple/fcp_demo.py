@@ -59,6 +59,38 @@ app = typer.Typer(
     rich_markup_mode="rich",
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
+    epilog="""
+[bold cyan]Examples:[/bold cyan]
+
+[green]Basic Usage:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py
+  ./examples/dsm_sync_simple/fcp_demo.py --symbol ETHUSDT --market spot
+
+[green]Time Range Options:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -d 7
+
+[green]Market Types:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m um
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSD_PERP -m cm
+
+[green]Different Intervals:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 5m
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 1h
+
+[green]Data Source Options:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -es REST
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -nc
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -cc
+
+[green]Testing FCP-PM Mechanism:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp
+  ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp -pc
+
+[green]Combined Examples:[/green]
+  ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
+  ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -tfp -pc -l D -cc
+""",
 )
 
 
@@ -869,6 +901,37 @@ def main(
     3. REST API
 
     It displays real-time source information about where each data point comes from.
+
+    [bold cyan]Sample Commands:[/bold cyan]
+
+    [green]Basic Usage:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py
+      ./examples/dsm_sync_simple/fcp_demo.py --symbol ETHUSDT --market spot
+
+    [green]Time Range Options:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -d 7
+
+    [green]Market Types:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m um
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSD_PERP -m cm
+
+    [green]Different Intervals:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 5m
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 1h
+
+    [green]Data Source Options:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -es REST
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -nc
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -cc
+
+    [green]Testing FCP-PM Mechanism:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp
+      ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -tfp -pc
+
+    [green]Combined Examples:[/green]
+      ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
+      ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -tfp -pc -l D -cc
     """
     # Convert shorthand log levels to full names
     level = log_level.value
