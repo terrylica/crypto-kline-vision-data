@@ -12,7 +12,7 @@ RESET=$(tput sgr0)
 
 echo "${BOLD}${BLUE}=== Finding dangling Python scripts (not imported/used anywhere) ===${RESET}"
 echo "${BOLD}${CYAN}--- Production Code ---${RESET}"
-fdfind -e py -t f -E "__pycache__" -E "tests/*" -E "examples/*" -E "playground/*" | xargs -I{} bash -c 'file="{}"; 
+fdfind -e py -t f -E "__pycache__" -E "tests/*" -E "examples/*" -E "playground/*" -E "scripts/*" | xargs -I{} bash -c 'file="{}"; 
   basename=$(basename "$file" .py); 
   module_path=$(echo "$file" | sed "s/\.py$//; s/\//./g"); 
   if [[ ! "$file" =~ (__init__|conftest).py$ ]] && 
@@ -76,7 +76,7 @@ echo "${BOLD}${GREEN}To analyze specific files with vulture: ${RESET}${CYAN}vult
 # Add a summary count at the end
 echo ""
 echo "${BOLD}${BLUE}=== Summary ===${RESET}"
-dangling_count=$(fdfind -e py -t f -E "__pycache__" -E "tests/*" -E "examples/*" -E "playground/*" | xargs -I{} bash -c 'file="{}"; 
+dangling_count=$(fdfind -e py -t f -E "__pycache__" -E "tests/*" -E "examples/*" -E "playground/*" -E "scripts/*" | xargs -I{} bash -c 'file="{}"; 
   basename=$(basename "$file" .py); 
   module_path=$(echo "$file" | sed "s/\.py$//; s/\//./g"); 
   if [[ ! "$file" =~ (__init__|conftest).py$ ]] && 
