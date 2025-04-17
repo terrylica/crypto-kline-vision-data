@@ -1003,8 +1003,6 @@ class DataSourceManager:
                     "CRITICAL: Vision API error could not be handled properly"
                 )
 
-            # This line should never be reached due to the raises above
-            return create_empty_dataframe()
 
     def _fetch_from_rest(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
@@ -1116,7 +1114,6 @@ class DataSourceManager:
                 )
 
             # This line should never be reached due to the raises above
-            return create_empty_dataframe()
 
     def _merge_dataframes(self, dfs: List[pd.DataFrame]) -> pd.DataFrame:
         """Merge multiple DataFrames into one, handling overlaps.
