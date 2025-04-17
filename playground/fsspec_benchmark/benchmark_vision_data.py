@@ -8,7 +8,6 @@ import os
 import httpx
 import pandas as pd
 import fsspec
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
 from rich.table import Table
 import typer

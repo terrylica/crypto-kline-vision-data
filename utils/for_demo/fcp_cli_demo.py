@@ -6,7 +6,6 @@ Demo CLI tool for FCP progress utilities
 import time
 import typer
 import pendulum
-from typing import Optional
 from rich.panel import Panel
 from utils.logger_setup import logger
 from utils.for_demo.fcp_progress_utils import with_progress, configure_log_level

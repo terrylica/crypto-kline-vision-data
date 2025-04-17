@@ -61,7 +61,6 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.console import Console
 from rich.syntax import Syntax
-from rich.markdown import Markdown
 
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
 from core.sync.data_source_manager import DataSourceManager, DataSource

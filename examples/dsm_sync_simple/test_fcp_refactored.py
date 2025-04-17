@@ -5,7 +5,6 @@ This script demonstrates importing and using functions from the FCP utility modu
 """
 
 from pathlib import Path
-import pendulum
 import sys
 import os
 
@@ -20,7 +19,7 @@ if not os.path.isdir("utils"):
         )
         sys.exit(1)
 
-from utils.logger_setup import logger, configure_session_logging
+from utils.logger_setup import configure_session_logging
 from rich import print
 from rich.panel import Panel
 
@@ -28,9 +27,7 @@ from rich.panel import Panel
 from utils.for_demo.fcp_time_utils import parse_datetime
 from utils.for_demo.fcp_cache_utils import clear_cache_directory
 from utils.for_demo.fcp_project_utils import verify_project_root
-from utils.for_demo.fcp_display_utils import display_results
 from utils.for_demo.fcp_cli_examples import (
-    display_humanized_help,
     define_example_commands,
 )
 

@@ -3,7 +3,6 @@
 Table display utilities for the Failover Control Protocol (FCP) mechanism.
 """
 
-import pandas as pd
 from rich.table import Table
 from utils.logger_setup import logger
 from rich import print

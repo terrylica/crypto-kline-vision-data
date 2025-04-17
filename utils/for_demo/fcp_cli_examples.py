@@ -7,9 +7,6 @@ from typing import List, Dict, Any, Callable
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.table import Table
-from rich.markdown import Markdown
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
 
 def define_example_commands() -> List[Dict[str, Any]]:

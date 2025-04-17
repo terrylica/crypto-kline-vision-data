@@ -44,7 +44,6 @@ from utils.market_constraints import (
 from utils.time_utils import (
     filter_dataframe_by_time,
     detect_timestamp_unit,
-    enforce_utc_timezone,
 )
 from utils.config import (
     KLINE_COLUMNS,

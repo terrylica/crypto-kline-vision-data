@@ -3,16 +3,11 @@
 import typer
 import pendulum
 from pathlib import Path
-from typing import Optional, List
 import pandas as pd
-import pyarrow as pa
-import pyarrow.ipc
 from rich.console import Console
 from rich.table import Table
-from rich.progress import track
 
-from utils.logger_setup import logger
-from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
+from utils.market_constraints import Interval, MarketType
 from utils.cache_validator import (
     CacheKeyManager,
     CachePathOptions,

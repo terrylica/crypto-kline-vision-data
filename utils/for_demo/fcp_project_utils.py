@@ -4,9 +4,6 @@ Project utilities for the Failover Control Protocol (FCP) mechanism.
 """
 
 import os
-import sys
-from pathlib import Path
-from utils.logger_setup import logger
 from rich import print
 
 
