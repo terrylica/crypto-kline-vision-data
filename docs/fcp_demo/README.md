@@ -1,90 +1,113 @@
-# Failover Control Protocol (FCP) Mechanism
+# FCP Demo CLI Documentation
 
-The Failover Control Protocol (FCP) mechanism is a data retrieval strategy implemented in the `DataSourceManager` that automatically fetches data from multiple sources in a prioritized sequence. This document describes how FCP works, its benefits, and how to use it in your applications.
+Generated on: 2025-04-18 00:38:38.156
 
 ## Overview
 
-FCP automatically retrieves data from different sources following a priority order:
+This documentation was automatically generated from the Typer CLI help text.
 
-1. **Cache** (Local Arrow files) - fastest, but may not have all requested data
-2. **VISION API** - reliable for historical data with higher rate limits
-3. **REST API** - fallback for real-time or missing data
+## Command Line Interface
 
-The mechanism seamlessly combines data from these sources to provide a complete dataset for the requested time period.
-
-## Key Features
-
-- **Automatic Source Selection**: Intelligently chooses the appropriate data source based on availability and completeness
-- **Transparent Source Tracking**: Each data point includes metadata about its source
-- **Efficient Caching**: Saves retrieved data for faster future access
-- **Gap Filling**: Automatically identifies and fills gaps from alternative sources
-- **Error Handling**: Gracefully handles API errors and retries failed requests
-
-## Benefits
-
-- **Reliability**: Multiple data sources ensure maximum data availability
-- **Performance**: Optimizes for speed by prioritizing faster sources
-- **Completeness**: Fills gaps to ensure complete data coverage
-- **Efficiency**: Minimizes API calls by leveraging cached data
-
-## How It Works
-
-1. The system first checks the local cache for the requested data
-2. If any data is missing, it attempts to retrieve it from the VISION API
-3. If VISION API data is still incomplete, it falls back to the REST API
-4. All data sources are merged into a single, coherent DataFrame
-5. Each record includes source information in the `_data_source` column
-
-## Demo Script
-
-The `fcp_demo.py` script demonstrates the FCP mechanism in action. It shows:
-
-- Data retrieval from multiple sources
-- Source breakdown statistics
-- Sample data from each source
-- Timeline visualization of data sources
-
-## Usage Examples
-
-Run the demo with default parameters:
-
-```bash
-./examples/dsm_sync_simple/fcp_demo.py
+```console
+Usage: fcp_demo.py [OPTIONS]                                                                                                                                                                                                               
+                                                                                                                                                                                                                                            
+ FCP Demo: Demonstrates the Failover Control Protocol (FCP) mechanism.                                                                                                                                                                      
+ This script shows how DataSourceManager automatically retrieves data from different sources:                                                                                                                                               
+                                                                                                                                                                                                                                            
+ 1. Cache (Local Arrow files)                                                                                                                                                                                                               
+ 2. VISION API                                                                                                                                                                                                                              
+ 3. REST API                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                            
+ It displays real-time source information about where each data point comes from.                                                                                                                                                           
+                                                                                                                                                                                                                                            
+ Time Range Priority Hierarchy:                                                                                                                                                                                                             
+                                                                                                                                                                                                                                            
+ 1. --days or -d flag (HIGHEST PRIORITY):                                                                                                                                                                                                   
+   - If provided, overrides any --start-time and --end-time values                                                                                                                                                                          
+   - Calculates range as                                                                                                                                                                                                                    
+   - Example: --days 5 will fetch data from 5 days ago until now                                                                                                                                                                            
+                                                                                                                                                                                                                                            
+ 2. --start-time and --end-time (SECOND PRIORITY):                                                                                                                                                                                          
+   - Used only when BOTH are provided AND --days is NOT provided                                                                                                                                                                            
+   - Defines exact time range to fetch data from                                                                                                                                                                                            
+   - Example: --start-time 2025-04-10 --end-time 2025-04-15                                                                                                                                                                                 
+                                                                                                                                                                                                                                            
+ 3. Default Behavior (FALLBACK):                                                                                                                                                                                                            
+   - If neither of the above conditions are met                                                                                                                                                                                             
+   - Uses default days=3 to calculate range as                                                                                                                                                                                              
+                                                                                                                                                                                                                                            
+ Sample Commands:                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                            
+ Basic Usage:                                                                                                                                                                                                                               
+   ./examples/dsm_sync_simple/fcp_demo.py                                                                                                                                                                                                   
+   ./examples/dsm_sync_simple/fcp_demo.py --symbol ETHUSDT --market spot                                                                                                                                                                    
+                                                                                                                                                                                                                                            
+ Time Range Options (By Priority):                                                                                                                                                                                                          
+   # PRIORITY 1: Using --days flag (overrides any start/end times)                                                                                                                                                                          
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -d 7                                                                                                                                                                                   
+                                                                                                                                                                                                                                            
+   # PRIORITY 2: Using start and end times (only if --days is NOT provided)                                                                                                                                                                 
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00                                                                                                                                        
+                                                                                                                                                                                                                                            
+   # FALLBACK: No time flags (uses default days=3)                                                                                                                                                                                          
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT                                                                                                                                                                                        
+                                                                                                                                                                                                                                            
+ Market Types:                                                                                                                                                                                                                              
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -m um                                                                                                                                                                                  
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSD_PERP -m cm                                                                                                                                                                              
+                                                                                                                                                                                                                                            
+ Different Intervals:                                                                                                                                                                                                                       
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 5m                                                                                                                                                                                  
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -i 1h                                                                                                                                                                                  
+   ./examples/dsm_sync_simple/fcp_demo.py -s SOLUSDT -m spot -i 1s  -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01                                                                                                                
+                                                                                                                                                                                                                                            
+ Data Source Options:                                                                                                                                                                                                                       
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -es REST                                                                                                                                                                               
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -nc                                                                                                                                                                                    
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -cc                                                                                                                                                                                    
+                                                                                                                                                                                                                                            
+ Testing FCP Mechanism:                                                                                                                                                                                                                     
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp                                                                                                                                                                                   
+   ./examples/dsm_sync_simple/fcp_demo.py -s BTCUSDT -fcp -pc                                                                                                                                                                               
+                                                                                                                                                                                                                                            
+ Combined Examples:                                                                                                                                                                                                                         
+   ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG                                                                                                                               
+   ./examples/dsm_sync_simple/fcp_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc                                                                                                                                                
+                                                                                                                                                                                                                                            
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --symbol           -s        TEXT                                           Trading symbol (e.g., BTCUSDT) [default: BTCUSDT]                                                                                                            │
+│ --market           -m        [spot|um|cm|futures_usdt|futures_coin]         Market type: spot, um (USDT-M futures), cm (Coin-M futures) [default: spot]                                                                                  │
+│ --interval         -i        TEXT                                           Time interval (e.g., 1m, 5m, 1h) [default: 1m]                                                                                                               │
+│ --chart-type       -ct       [klines|fundingRate]                           Type of chart data [default: klines]                                                                                                                         │
+│ --start-time       -st       TEXT                                           [SECOND PRIORITY] Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Used only if both --start-time AND --end-time are provided AND --days is NOT │
+│                                                                             provided                                                                                                                                                     │
+│                                                                             [default: None]                                                                                                                                              │
+│ --end-time         -et       TEXT                                           [SECOND PRIORITY] End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Used only if both --start-time AND --end-time are provided AND --days is NOT   │
+│                                                                             provided                                                                                                                                                     │
+│                                                                             [default: None]                                                                                                                                              │
+│ --days             -d        INTEGER                                        [HIGHEST PRIORITY] Number of days to fetch from current time. Overrides --start-time/--end-time if provided [default: 3]                                     │
+│ --enforce-source   -es       [AUTO|REST|VISION]                             Force specific data source (default: AUTO) [default: AUTO]                                                                                                   │
+│ --retries          -r        INTEGER                                        Maximum number of retry attempts [default: 3]                                                                                                                │
+│ --no-cache         -nc                                                      Disable caching (cache is enabled by default)                                                                                                                │
+│ --clear-cache      -cc                                                      Clear the cache directory before running                                                                                                                     │
+│ --test-fcp         -fcp                                                     Run the special test for Failover Control Protocol (FCP) mechanism                                                                                           │
+│ --prepare-cache    -pc                                                      Pre-populate cache with the first segment of data (only used with --test-fcp)                                                                                │
+│ --gen-doc          -gd                                                      Generate Markdown documentation from Typer help into docs/fcp_demo/ directory                                                                                │
+│ --gen-lint-config  -glc                                                     Generate markdown linting configuration files along with documentation (only used with --gen-doc)                                                            │
+│ --log-level        -l        [DEBUG|INFO|WARNING|ERROR|CRITICAL|D|I|W|E|C]  Set the log level (default: INFO). Shorthand options: D=DEBUG, I=INFO, W=WARNING, E=ERROR, C=CRITICAL [default: INFO]                                        │
+│ --help             -h                                                       Show this message and exit.                                                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Specify custom parameters:
+## Documentation Generation Examples
+
+For convenience, you can generate this documentation using:
 
 ```bash
-./examples/dsm_sync_simple/fcp_demo.py --symbol ETHUSDT --market um --interval 5m --days 2
+# Generate this documentation
+./examples/dsm_sync_simple/fcp_demo.py --gen-doc
+./examples/dsm_sync_simple/fcp_demo.py -gd
+
+# Generate documentation with linting configuration files
+./examples/dsm_sync_simple/fcp_demo.py -gd -glc
 ```
-
-Force a specific data source:
-
-```bash
-./examples/dsm_sync_simple/fcp_demo.py --enforce-source REST
-```
-
-Run the special FCP test:
-
-```bash
-./examples/dsm_sync_simple/fcp_demo.py --test-fcp --prepare-cache
-```
-
-## Command-Line Options
-
-| Option             | Shorthand | Description                                                 |
-| ------------------ | --------- | ----------------------------------------------------------- |
-| `--symbol`         | `-s`      | Trading symbol (e.g., BTCUSDT)                              |
-| `--market`         | `-m`      | Market type: spot, um (USDT-M futures), cm (Coin-M futures) |
-| `--interval`       | `-i`      | Time interval (e.g., 1m, 5m, 1h)                            |
-| `--start-time`     | `-st`     | Start time in ISO format or YYYY-MM-DD                      |
-| `--end-time`       | `-et`     | End time in ISO format or YYYY-MM-DD                        |
-| `--days`           | `-d`      | Number of days to fetch (if start/end not provided)         |
-| `--no-cache`       | `-nc`     | Disable caching (cache is enabled by default)               |
-| `--clear-cache`    | `-cc`     | Clear the cache directory before running                    |
-| `--enforce-source` | `-es`     | Force specific data source (AUTO, REST, VISION)             |
-| `--test-fcp`       | `-fcp`    | Run FCP mechanism test                                      |
-| `--retries`        | `-r`      | Maximum number of retry attempts                            |
-| `--chart-type`     | `-ct`     | Type of chart data (klines, fundingRate)                    |
-| `--log-level`      | `-l`      | Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)       |
-| `--prepare-cache`  | `-pc`     | Pre-populate cache (for FCP test)                           |

@@ -9,6 +9,11 @@ RUN conda install -y python=3.10
 # Install system dependencies
 RUN apt-get update && apt-get install -y ripgrep fd-find
 
+# Install Node.js for markdown linting
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g markdownlint-cli
+
 # Install Python dependencies
 RUN pip3 install apprise fsspec curl_cffi httpx pendulum pandas tenacity colorlog psutil arrow pyarrow>=19.0.1
 

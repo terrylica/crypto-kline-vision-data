@@ -2,6 +2,10 @@
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including Binance Vision, using Apache Arrow MMAP for optimal performance.
 
+## Important Documentation
+
+- **[FCP Demo Documentation](docs/fcp_demo/README.md)**: Interactive demonstration of the Failover Control Protocol mechanism, the core data retrieval strategy that ensures robust and efficient data collection from multiple sources.
+
 ## Operational
 
 1. Initialization
@@ -15,6 +19,11 @@ A high-performance, robust package for efficient market data retrieval from mult
 - To exclude specific symbols from subsequent operations below, simply remove their corresponding lines from `spot_synchronal.csv`
 
 1. Failover Control Protocol (FCP) Mechanism
+
+   - Run `./examples/dsm_sync_simple/fcp_demo.py` to understand the FCP mechanism through a live demonstration
+   - This interactive tool shows how data is retrieved intelligently from local cache first, then Vision API for historical data, and finally REST API for the most recent data
+   - Type `./examples/dsm_sync_simple/fcp_demo.py -h` for detailed usage and options
+   - Generate comprehensive documentation with `./examples/dsm_sync_simple/fcp_demo.py -gd`
 
 1. Cache Building
 

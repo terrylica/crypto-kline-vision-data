@@ -120,6 +120,19 @@ def get_standard_options() -> Dict[str, Any]:
             "-pc",
             help="Pre-populate cache with the first segment of data (only used with --test-fcp)",
         ),
+        # Documentation options
+        "gen_doc": typer.Option(
+            False,
+            "--gen-doc",
+            "-gd",
+            help="Generate Markdown documentation from Typer help into docs/fcp_demo/ directory",
+        ),
+        "gen_lint_config": typer.Option(
+            False,
+            "--gen-lint-config",
+            "-glc",
+            help="Generate markdown linting configuration files along with documentation (only used with --gen-doc)",
+        ),
         # Other options
         "log_level": typer.Option(
             LogLevel.INFO,

@@ -31,6 +31,7 @@ from utils.for_demo.fcp_cache_utils import clear_cache_directory, verify_project
 from utils.for_demo.fcp_data_fetcher import fetch_data_with_fcp
 from utils.for_demo.fcp_display_utils import display_results
 from utils.for_demo.fcp_test_utils import test_fcp_pm_mechanism
+from utils.for_demo.fcp_doc_utils import generate_markdown_docs
 from utils.for_demo.fcp_cli_utils import (
     resolve_log_level,
     print_intro_panel,
@@ -85,6 +86,9 @@ def main(
     # Test Mode options
     test_fcp_pm: bool = options["test_fcp_pm"],
     prepare_cache: bool = options["prepare_cache"],
+    # Documentation options
+    gen_doc: bool = options["gen_doc"],
+    gen_lint_config: bool = options["gen_lint_config"],
     # Other options
     log_level: LogLevel = options["log_level"],
 ):
@@ -98,6 +102,13 @@ def main(
     logger.info(f"Current time: {pendulum.now().isoformat()}")
 
     try:
+        # Check if we should generate documentation
+        if gen_doc:
+            logger.info("Generating Markdown documentation from Typer help...")
+            doc_path = generate_markdown_docs(app, gen_lint_config=gen_lint_config)
+            logger.info(f"Documentation generated and saved to {doc_path}")
+            return
+
         # Print introductory information
         print_intro_panel()
         print_logging_panel(main_log, error_log)
