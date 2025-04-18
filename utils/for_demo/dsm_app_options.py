@@ -194,48 +194,48 @@ def get_cmd_help_text():
     [bold cyan]Sample Commands:[/bold cyan]
 
     [green]Basic Usage:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py
-      ./examples/dsm_sync_simple/dsm_demo.py --symbol ETHUSDT --market spot
+      ./examples/sync/dsm_demo.py
+      ./examples/sync/dsm_demo.py --symbol ETHUSDT --market spot
 
     [green]Time Range Options (By Priority):[/green]
       # PRIORITY 1: Using --days flag (overrides any start/end times)
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -d 7
+      ./examples/sync/dsm_demo.py -s BTCUSDT -d 7
       
       # PRIORITY 2: Using start and end times (only if --days is NOT provided)
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
+      ./examples/sync/dsm_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
       
       # FALLBACK: No time flags (uses default days=3)
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT
+      ./examples/sync/dsm_demo.py -s BTCUSDT
 
     [green]Market Types:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -m um
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSD_PERP -m cm
+      ./examples/sync/dsm_demo.py -s BTCUSDT -m um
+      ./examples/sync/dsm_demo.py -s BTCUSD_PERP -m cm
 
     [green]Different Intervals:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -i 5m
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -i 1h
-      ./examples/dsm_sync_simple/dsm_demo.py -s SOLUSDT -m spot -i 1s  -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
+      ./examples/sync/dsm_demo.py -s BTCUSDT -i 5m
+      ./examples/sync/dsm_demo.py -s BTCUSDT -i 1h
+      ./examples/sync/dsm_demo.py -s SOLUSDT -m spot -i 1s  -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
 
     [green]Data Source Options:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -es REST
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -nc
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -cc
+      ./examples/sync/dsm_demo.py -s BTCUSDT -es REST
+      ./examples/sync/dsm_demo.py -s BTCUSDT -nc
+      ./examples/sync/dsm_demo.py -s BTCUSDT -cc
 
     [green]Testing FCP Mechanism:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -fcp
-      ./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -fcp -pc
+      ./examples/sync/dsm_demo.py -s BTCUSDT -fcp
+      ./examples/sync/dsm_demo.py -s BTCUSDT -fcp -pc
       
     [green]Documentation Generation:[/green]
       # Generate documentation with typer-cli format (default)
-      ./examples/dsm_sync_simple/dsm_demo.py -gd
+      ./examples/sync/dsm_demo.py -gd
       
       # Generate GitHub-optimized documentation
-      ./examples/dsm_sync_simple/dsm_demo.py -gd -df github
+      ./examples/sync/dsm_demo.py -gd -df github
       
       # Generate documentation with linting configuration files
-      ./examples/dsm_sync_simple/dsm_demo.py -gd -glc
+      ./examples/sync/dsm_demo.py -gd -glc
 
     [green]Combined Examples:[/green]
-      ./examples/dsm_sync_simple/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
-      ./examples/dsm_sync_simple/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
+      ./examples/sync/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
+      ./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
     """

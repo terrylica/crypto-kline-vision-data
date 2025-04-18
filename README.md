@@ -20,10 +20,10 @@ A high-performance, robust package for efficient market data retrieval from mult
 
 1. Failover Control Protocol (FCP) Mechanism
 
-   - Run `./examples/dsm_sync_simple/dsm_demo.py` to understand the FCP mechanism through a live demonstration
+   - Run `./examples/sync/dsm_demo.py` to understand the FCP mechanism through a live demonstration
    - This interactive tool shows how data is retrieved intelligently from local cache first, then Vision API for historical data, and finally REST API for the most recent data
-   - Type `./examples/dsm_sync_simple/dsm_demo.py -h` for detailed usage and options
-   - Generate comprehensive documentation with `./examples/dsm_sync_simple/dsm_demo.py -gd`
+   - Type `./examples/sync/dsm_demo.py -h` for detailed usage and options
+   - Generate comprehensive documentation with `./examples/sync/dsm_demo.py -gd`
 
 1. Cache Building
 

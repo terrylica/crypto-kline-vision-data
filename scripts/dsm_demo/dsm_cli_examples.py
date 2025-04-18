@@ -20,7 +20,7 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example1 = {
         "title": "Fetch recent BTCUSDT 1-minute data from SPOT market",
         "description": "Retrieves 3 days of 1-minute candles for BTCUSDT in SPOT market with default settings",
-        "command": "./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -m spot -i 1m",
+        "command": "./examples/sync/dsm_demo.py -s BTCUSDT -m spot -i 1m",
         "explanation": "This is the simplest form of data retrieval, using default settings for most parameters.",
         "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m"],
     }
@@ -29,7 +29,7 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example2 = {
         "title": "Fetch BTCUSD_PERP from Coin-M futures market with specific date range",
         "description": "Gets data for a specific date range with debug logging enabled",
-        "command": "./examples/dsm_sync_simple/dsm_demo.py -s BTCUSD_PERP -m cm -i 1m -l D -st 2025-04-01 -et 2025-04-05",
+        "command": "./examples/sync/dsm_demo.py -s BTCUSD_PERP -m cm -i 1m -l D -st 2025-04-01 -et 2025-04-05",
         "explanation": "Uses Coin-M futures market (cm) with a specific date range and debug logging enabled.",
         "args": [
             "-s",
@@ -51,7 +51,7 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example3 = {
         "title": "Fetch data from USDT-M futures with cache clearing",
         "description": "Demonstrates how to clear cache before fetching data",
-        "command": "./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -m um -i 1m -cc -d 5",
+        "command": "./examples/sync/dsm_demo.py -s BTCUSDT -m um -i 1m -cc -d 5",
         "explanation": "Clears the cache directory before fetching 5 days of data from USDT-M futures market.",
         "args": ["-s", "BTCUSDT", "-m", "um", "-i", "1m", "-cc", "-d", "5"],
     }
@@ -60,7 +60,7 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example4 = {
         "title": "Force data retrieval from REST API only",
         "description": "Bypasses the standard failover mechanism to use only REST API",
-        "command": "./examples/dsm_sync_simple/dsm_demo.py -s ETHUSDT -m spot -i 1m -es REST -d 2",
+        "command": "./examples/sync/dsm_demo.py -s ETHUSDT -m spot -i 1m -es REST -d 2",
         "explanation": "Forces data retrieval directly from REST API, bypassing cache and Vision API.",
         "args": ["-s", "ETHUSDT", "-m", "spot", "-i", "1m", "-es", "REST", "-d", "2"],
     }
@@ -69,7 +69,7 @@ def define_example_commands() -> List[Dict[str, Any]]:
     example5 = {
         "title": "Test the Failover Control Protocol (FCP) mechanism",
         "description": "Runs a comprehensive test demonstrating how data is merged from multiple sources",
-        "command": "./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -m spot -i 1m -fcp -pc",
+        "command": "./examples/sync/dsm_demo.py -s BTCUSDT -m spot -i 1m -fcp -pc",
         "explanation": "Demonstrates the full FCP mechanism by pre-populating cache and then retrieving data across multiple sources.",
         "args": ["-s", "BTCUSDT", "-m", "spot", "-i", "1m", "-fcp", "-pc"],
     }
@@ -108,7 +108,7 @@ def display_examples(examples: List[Dict[str, Any]], run_example_func: Callable 
         console.print(f"[dim]{example['explanation']}[/dim]")
         if run_example_func:
             console.print(
-                f"[bold green]Run this example:[/bold green] [yellow]python examples/dsm_sync_simple/dsm_demo.py examples --run {i}[/yellow]"
+                f"[bold green]Run this example:[/bold green] [yellow]python examples/sync/dsm_demo.py examples --run {i}[/yellow]"
             )
 
     # Replace markdown with rich formatted text to avoid rendering issues

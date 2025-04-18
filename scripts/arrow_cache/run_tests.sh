@@ -568,7 +568,7 @@ run_dsm_orchestration_tests() {
         
         # Run the historical test
         print_info "Running long-term historical data test for ${market}/${SYMBOL}"
-        DEMO_SCRIPT="${BASE_DIR}/examples/dsm_sync_simple/demo.sh"
+        DEMO_SCRIPT="${BASE_DIR}/examples/sync/demo.sh"
         
         if [ -f "$DEMO_SCRIPT" ]; then
             # First ensure we're running with cache enabled

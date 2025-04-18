@@ -27,6 +27,6 @@ def verify_project_root():
 
     print("[bold red]Error: Unable to locate project root directory[/bold red]")
     print(
-        "Please run this script from either the project root or the examples/dsm_sync_simple directory"
+        "Please run this script from either the project root or the examples/sync directory"
     )
     return False

@@ -215,8 +215,8 @@ def print_rich_output_help():
             "- When log level is DEBUG, INFO, or WARNING: Rich output is visible\n"
             "- When log level is ERROR or CRITICAL: Rich output is suppressed\n\n"
             "Try running with different log levels to see the difference:\n"
-            "  python examples/dsm_sync_simple/dsm_demo.py --log-level ERROR\n"
-            "  python examples/dsm_sync_simple/dsm_demo.py -l E (shorthand for ERROR)\n",
+            "  python examples/sync/dsm_demo.py --log-level ERROR\n"
+            "  python examples/sync/dsm_demo.py -l E (shorthand for ERROR)\n",
             title="Rich Output Control",
             border_style="blue",
         )

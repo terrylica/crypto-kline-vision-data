@@ -176,68 +176,68 @@ It displays real-time source information about where each data point comes from.
 ### Basic Usage
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py
-./examples/dsm_sync_simple/dsm_demo.py --symbol ETHUSDT --market spot
+./examples/sync/dsm_demo.py
+./examples/sync/dsm_demo.py --symbol ETHUSDT --market spot
 ```
 
 ### Time Range Options (By Priority)
 
 ```bash
 # PRIORITY 1: Using --days flag (overrides any start/end times)
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -d 7
+./examples/sync/dsm_demo.py -s BTCUSDT -d 7
   
 # PRIORITY 2: Using start and end times (only if --days is NOT provided)
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
+./examples/sync/dsm_demo.py -s BTCUSDT -st 2025-04-05T00:00:00 -et 2025-04-06T00:00:00
   
 # FALLBACK: No time flags (uses default days=3)
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT
+./examples/sync/dsm_demo.py -s BTCUSDT
 ```
 
 ### Market Types
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -m um
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSD_PERP -m cm
+./examples/sync/dsm_demo.py -s BTCUSDT -m um
+./examples/sync/dsm_demo.py -s BTCUSD_PERP -m cm
 ```
 
 ### Different Intervals
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -i 5m
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -i 1h
-./examples/dsm_sync_simple/dsm_demo.py -s SOLUSDT -m spot -i 1s -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
+./examples/sync/dsm_demo.py -s BTCUSDT -i 5m
+./examples/sync/dsm_demo.py -s BTCUSDT -i 1h
+./examples/sync/dsm_demo.py -s SOLUSDT -m spot -i 1s -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
 ```
 
 ### Data Source Options
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -es REST
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -nc
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -cc
+./examples/sync/dsm_demo.py -s BTCUSDT -es REST
+./examples/sync/dsm_demo.py -s BTCUSDT -nc
+./examples/sync/dsm_demo.py -s BTCUSDT -cc
 ```
 
 ### Testing FCP Mechanism
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -fcp
-./examples/dsm_sync_simple/dsm_demo.py -s BTCUSDT -fcp -pc
+./examples/sync/dsm_demo.py -s BTCUSDT -fcp
+./examples/sync/dsm_demo.py -s BTCUSDT -fcp -pc
 ```
 
 ### Documentation Generation
 
 ```bash
 # Generate documentation with typer-cli format (default)
-./examples/dsm_sync_simple/dsm_demo.py -gd
+./examples/sync/dsm_demo.py -gd
 
 # Generate documentation with linting configuration files
-./examples/dsm_sync_simple/dsm_demo.py -gd -glc
+./examples/sync/dsm_demo.py -gd -glc
 ```
 
 ### Combined Examples
 
 ```bash
-./examples/dsm_sync_simple/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
-./examples/dsm_sync_simple/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
+./examples/sync/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
+./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
 ```"""
 
             markdown_content += examples_section
@@ -277,7 +277,7 @@ def generate_markdown_docs(
 
     Returns:
         Path: Path to the generated documentation file
-        
+
     Raises:
         RuntimeError: When typer-cli is not installed
     """
@@ -285,14 +285,16 @@ def generate_markdown_docs(
     if not is_typer_cli_available():
         logger.error("typer-cli not found. Documentation cannot be generated.")
         logger.error("Please install typer-cli manually with: pip install typer-cli")
-        raise RuntimeError("typer-cli is required for documentation generation but was not found")
+        raise RuntimeError(
+            "typer-cli is required for documentation generation but was not found"
+        )
 
     # Now we're sure typer-cli is available
     logger.info("Using typer-cli for GitHub-friendly documentation")
     result = generate_markdown_docs_with_typer_cli(
         app, output_dir, filename, cli_name=cli_name
     )
-    
+
     if result:
         # Create linting configuration files if requested
         if gen_lint_config:
@@ -301,9 +303,9 @@ def generate_markdown_docs(
             # The json.dumps will convert Python's True/False to JSON true/false
             markdownlint_config = {
                 "MD013": {"code_blocks": False, "tables": False},
-                "MD014": False,  # Disable dollar signs used before commands 
+                "MD014": False,  # Disable dollar signs used before commands
                 "MD040": False,  # Disable requiring language in code blocks
-                "MD047": False   # Disable requiring single newline at end of file
+                "MD047": False,  # Disable requiring single newline at end of file
             }
             config_file = output_path / ".markdownlint.json"
             config_file.write_text(json.dumps(markdownlint_config, indent=2))
