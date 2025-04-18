@@ -114,9 +114,6 @@ fcp-demo [OPTIONS]
 # Generate documentation with typer-cli format (default)
 ./examples/dsm_sync_simple/fcp_demo.py -gd
 
-# Generate GitHub-optimized documentation
-./examples/dsm_sync_simple/fcp_demo.py -gd -df github
-
 # Generate documentation with linting configuration files
 ./examples/dsm_sync_simple/fcp_demo.py -gd -glc
 ```
