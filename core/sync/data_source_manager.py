@@ -1721,196 +1721,49 @@ class DataSourceManager:
         end_time: datetime,
         interval: Interval,
     ) -> List[Tuple[datetime, datetime]]:
-        """Identify missing segments in the data.
-
-        Args:
-            df: The retrieved DataFrame
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
-            interval: Time interval between data points
-
-        Returns:
-            List of missing segments as (start, end) tuples
-        """
+        """Identify missing segments in the data using gap_detector."""
         logger.debug(
             f"[FCP] Identifying missing segments between {start_time} and {end_time}"
         )
-
         if df.empty:
-            # If the dataframe is empty, the entire range is missing
-            logger.debug(f"[FCP] DataFrame is empty, entire range is missing")
+            logger.debug("[FCP] DataFrame is empty, entire range is missing")
             return [(start_time, end_time)]
 
-        # Ensure we have open_time as a datetime column
         df = ensure_open_time_as_column(df)
-
-        # Validate that open_time is a datetime column
         if not pd.api.types.is_datetime64_any_dtype(df["open_time"]):
-            logger.warning("[FCP] open_time is not a datetime column, converting...")
+            logger.warning("[FCP] open_time not datetime, converting...")
             df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
-
-        # Sort by open_time to ensure chronological order
         df = df.sort_values("open_time")
 
-        # Log the actual data boundaries
-        min_time = df["open_time"].min()
-        max_time = df["open_time"].max()
-        logger.debug(f"[FCP] Actual data spans from {min_time} to {max_time}")
+        min_time, max_time = df["open_time"].min(), df["open_time"].max()
+        logger.debug(f"[FCP] Data spans from {min_time} to {max_time}")
 
-        # Use the gap detector module for more robust gap detection
-        try:
-            from utils.gap_detector import detect_gaps
+        from utils.gap_detector import detect_gaps
 
-            # Set a lower gap threshold for FCP to ensure we catch all gaps
-            gap_threshold = 0.1  # 10% threshold
-            day_boundary_threshold = 1.0  # 100% threshold for day boundaries
-
-            # Don't enforce minimum span requirement since we might be dealing with smaller chunks
-            enforce_min_span = False
-
-            # Detect gaps using the specialized gap detector
-            gaps, stats = detect_gaps(
-                df=df,
-                interval=interval,
-                time_column="open_time",
-                gap_threshold=gap_threshold,
-                day_boundary_threshold=day_boundary_threshold,
-                enforce_min_span=enforce_min_span,
-            )
-
-            logger.debug(f"[FCP] Gap detector found {stats['total_gaps']} gaps")
-
-            # Convert gaps to the required format (list of (start, end) tuples)
-            missing_segments = []
-            for gap in gaps:
-                # We need to adjust start and end times slightly to capture full interval
-                # Start from the end of the first interval
-                segment_start = gap.start_time + timedelta(
-                    seconds=interval.to_seconds()
-                )
-                # End at the beginning of the second interval
-                segment_end = gap.end_time
-                missing_segments.append((segment_start, segment_end))
-
-            # Handle start and end boundaries if data doesn't cover the full range
-            if min_time > start_time:
-                logger.debug(
-                    f"[FCP] Adding missing start segment: {start_time} to {min_time}"
-                )
-                missing_segments.append((start_time, min_time))
-
-            if max_time < end_time:
-                # Adjust max_time to the end of its interval
-                complete_interval_end = max_time + timedelta(
-                    seconds=interval.to_seconds()
-                )
-                if complete_interval_end < end_time:
-                    logger.debug(
-                        f"[FCP] Adding missing end segment: {complete_interval_end} to {end_time}"
-                    )
-                    missing_segments.append((complete_interval_end, end_time))
-
-            # Sort segments by start time
-            missing_segments.sort(key=lambda x: x[0])
-
-            # Merge adjacent or overlapping segments
-            if missing_segments:
-                missing_segments = self._merge_adjacent_ranges(
-                    missing_segments, interval
-                )
-
-            # Log segment details for debugging
-            logger.debug(f"[FCP] Final missing segments count: {len(missing_segments)}")
-            for i, (seg_start, seg_end) in enumerate(missing_segments):
-                if i < 3 or i >= len(missing_segments) - 3:  # Show first and last 3
-                    duration = (seg_end - seg_start).total_seconds() / 60
-                    logger.debug(
-                        f"[FCP] Missing segment {i+1}/{len(missing_segments)}: {seg_start} to {seg_end} ({duration:.1f} minutes)"
-                    )
-                elif i == 3 and len(missing_segments) > 6:
-                    logger.debug(
-                        f"[FCP] ... {len(missing_segments) - 6} more segments ..."
-                    )
-
-            return missing_segments
-
-        except ImportError:
-            logger.warning(
-                "[FCP] utils.gap_detector not available, falling back to standard method"
-            )
-            # Fall back to the original implementation if gap_detector is not available
-
-        # Generate the expected timestamps for the given interval
-        interval_seconds = interval.to_seconds()
-        expected_timestamps = []
-        current = start_time
-
-        while current <= end_time:
-            expected_timestamps.append(current)
-            current += timedelta(seconds=interval_seconds)
-
-        logger.debug(
-            f"[FCP] Expected {len(expected_timestamps)} timestamps from {start_time} to {end_time}"
+        gaps, stats = detect_gaps(
+            df=df,
+            interval=interval,
+            time_column="open_time",
+            gap_threshold=0.1,
+            day_boundary_threshold=1.0,
+            enforce_min_span=False,
         )
+        logger.debug(f"[FCP] Gap detector found {stats['total_gaps']} gaps")
 
-        # Convert expected timestamps to a set for faster lookups
-        expected_set = set(pd.DatetimeIndex(expected_timestamps))
+        missing_segments: List[Tuple[datetime, datetime]] = []
+        for gap in gaps:
+            start = gap.start_time + timedelta(seconds=interval.to_seconds())
+            end = gap.end_time
+            missing_segments.append((start, end))
 
-        # Find actual timestamps in the DataFrame
-        actual_set = set(df["open_time"])
-        logger.debug(f"[FCP] Found {len(actual_set)} actual timestamps in data")
+        if min_time > start_time:
+            missing_segments.insert(0, (start_time, min_time))
+        if max_time < end_time:
+            boundary_end = max_time + timedelta(seconds=interval.to_seconds())
+            if boundary_end < end_time:
+                missing_segments.append((boundary_end, end_time))
 
-        # Find missing timestamps
-        missing_timestamps = sorted(list(expected_set - actual_set))
-        logger.debug(
-            f"[FCP] Identified {len(missing_timestamps)} individual missing timestamps"
-        )
-
-        # Log a few examples of missing timestamps (if any)
-        if missing_timestamps and len(missing_timestamps) > 0:
-            sample_count = min(5, len(missing_timestamps))
-            logger.debug(
-                f"[FCP] First {sample_count} missing timestamps: {missing_timestamps[:sample_count]}"
-            )
-            logger.debug(
-                f"[FCP] Last {sample_count} missing timestamps: {missing_timestamps[-sample_count:]}"
-            )
-
-        # Group consecutive missing timestamps into segments
-        missing_segments = []
-        if missing_timestamps:
-            segment_start = missing_timestamps[0]
-            prev_timestamp = segment_start
-
-            for timestamp in missing_timestamps[1:]:
-                # Check if timestamps are consecutive
-                if (timestamp - prev_timestamp).total_seconds() > interval_seconds:
-                    # End the current segment and start a new one
-                    segment_end = prev_timestamp + timedelta(seconds=interval_seconds)
-                    missing_segments.append((segment_start, segment_end))
-                    segment_start = timestamp
-
-                prev_timestamp = timestamp
-
-            # Add the last segment
-            segment_end = prev_timestamp + timedelta(seconds=interval_seconds)
-            missing_segments.append((segment_start, segment_end))
-
-        logger.debug(
-            f"[FCP] Consolidated into {len(missing_segments)} missing segments"
-        )
-
-        # Log segment details for debugging
         if missing_segments:
-            for i, (seg_start, seg_end) in enumerate(missing_segments):
-                if i < 3 or i >= len(missing_segments) - 3:  # Show first and last 3
-                    duration = (seg_end - seg_start).total_seconds() / 60
-                    logger.debug(
-                        f"[FCP] Missing segment {i+1}/{len(missing_segments)}: {seg_start} to {seg_end} ({duration:.1f} minutes)"
-                    )
-                elif i == 3 and len(missing_segments) > 6:
-                    logger.debug(
-                        f"[FCP] ... {len(missing_segments) - 6} more segments ..."
-                    )
-
+            missing_segments = self._merge_adjacent_ranges(missing_segments, interval)
+        logger.debug(f"[FCP] Final missing segments count: {len(missing_segments)}")
         return missing_segments
