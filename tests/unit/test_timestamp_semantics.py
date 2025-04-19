@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Test timestamp semantics preservation in VisionDataClient."""
+"""Test timestamp semantics preservation in Vision API timestamp processing."""
 
 from datetime import datetime, timezone, timedelta
 import unittest
@@ -8,7 +8,7 @@ import pandas as pd
 from utils.market_constraints import Interval, MarketType
 from utils.time_utils import filter_dataframe_by_time
 from utils.config import KLINE_COLUMNS
-from core.sync.vision_data_client import VisionDataClient
+from utils.for_core.vision_timestamp import process_timestamp_columns
 
 
 class TestTimestampSemantics(unittest.TestCase):
@@ -77,41 +77,35 @@ class TestTimestampSemantics(unittest.TestCase):
                 # Create DataFrame with column names
                 df = pd.DataFrame(raw_data, columns=KLINE_COLUMNS)
 
-                # Create VisionDataClient
-                with VisionDataClient(
-                    symbol="BTCUSDT",
-                    interval=interval.value,
-                    market_type=MarketType.SPOT,
-                ) as client:
-                    # Process the timestamps
-                    processed_df = client._process_timestamp_columns(df)
+                # Process the timestamps using the utility function
+                processed_df = process_timestamp_columns(df, interval.value)
 
-                    # Verify that timestamps preserve their semantic meaning
-                    # First timestamp should match start_time exactly (beginning of period)
-                    self.assertEqual(
-                        processed_df["open_time"].iloc[0].timestamp(),
-                        start_time.timestamp(),
-                        f"First open_time incorrect for {interval.value}",
-                    )
+                # Verify that timestamps preserve their semantic meaning
+                # First timestamp should match start_time exactly (beginning of period)
+                self.assertEqual(
+                    processed_df["open_time"].iloc[0].timestamp(),
+                    start_time.timestamp(),
+                    f"First open_time incorrect for {interval.value}",
+                )
 
-                    # Second timestamp should match second_timestamp exactly
-                    self.assertEqual(
-                        processed_df["open_time"].iloc[1].timestamp(),
-                        second_timestamp.timestamp(),
-                        f"Second open_time incorrect for {interval.value}",
-                    )
+                # Second timestamp should match second_timestamp exactly
+                self.assertEqual(
+                    processed_df["open_time"].iloc[1].timestamp(),
+                    second_timestamp.timestamp(),
+                    f"Second open_time incorrect for {interval.value}",
+                )
 
-                    # Filter by time and verify we don't lose the first record
-                    filtered_df = filter_dataframe_by_time(
-                        processed_df,
-                        start_time,
-                        start_time + timedelta(seconds=interval_seconds * 2),
-                    )
-                    self.assertEqual(
-                        len(filtered_df),
-                        2,
-                        f"Time filtering lost records for {interval.value}",
-                    )
+                # Filter by time and verify we don't lose the first record
+                filtered_df = filter_dataframe_by_time(
+                    processed_df,
+                    start_time,
+                    start_time + timedelta(seconds=interval_seconds * 2),
+                )
+                self.assertEqual(
+                    len(filtered_df),
+                    2,
+                    f"Time filtering lost records for {interval.value}",
+                )
 
     def test_real_world_timestamps(self):
         """Test timestamp semantics with realistic 2025 data format."""
@@ -152,40 +146,36 @@ class TestTimestampSemantics(unittest.TestCase):
         # Create DataFrame with column names
         df = pd.DataFrame(raw_data, columns=KLINE_COLUMNS)
 
-        # Create VisionDataClient
-        with VisionDataClient(
-            symbol="BTCUSDT", interval="1m", market_type=MarketType.SPOT
-        ) as client:
-            # Process the timestamps
-            processed_df = client._process_timestamp_columns(df)
+        # Process the timestamps using the utility function
+        processed_df = process_timestamp_columns(df, "1m")
 
-            # Check that open_time is correctly interpreted as period start
-            first_candle_start = datetime(2025, 3, 15, 0, 0, 0, tzinfo=timezone.utc)
-            second_candle_start = datetime(2025, 3, 15, 0, 1, 0, tzinfo=timezone.utc)
+        # Check that open_time is correctly interpreted as period start
+        first_candle_start = datetime(2025, 3, 15, 0, 0, 0, tzinfo=timezone.utc)
+        second_candle_start = datetime(2025, 3, 15, 0, 1, 0, tzinfo=timezone.utc)
 
-            # Verify first candle
-            self.assertEqual(
-                processed_df["open_time"].iloc[0].timestamp(),
-                first_candle_start.timestamp(),
-                "First candle open_time should be 2025-03-15 00:00:00",
-            )
+        # Verify first candle
+        self.assertEqual(
+            processed_df["open_time"].iloc[0].timestamp(),
+            first_candle_start.timestamp(),
+            "First candle open_time should be 2025-03-15 00:00:00",
+        )
 
-            # Verify second candle
-            self.assertEqual(
-                processed_df["open_time"].iloc[1].timestamp(),
-                second_candle_start.timestamp(),
-                "Second candle open_time should be 2025-03-15 00:01:00",
-            )
+        # Verify second candle
+        self.assertEqual(
+            processed_df["open_time"].iloc[1].timestamp(),
+            second_candle_start.timestamp(),
+            "Second candle open_time should be 2025-03-15 00:01:00",
+        )
 
-            # Filter by exact times and verify both candles are included
-            filtered_df = filter_dataframe_by_time(
-                processed_df,
-                first_candle_start,
-                second_candle_start + timedelta(seconds=59.999999),
-            )
-            self.assertEqual(
-                len(filtered_df), 2, "Time filtering should include both candles"
-            )
+        # Filter by exact times and verify both candles are included
+        filtered_df = filter_dataframe_by_time(
+            processed_df,
+            first_candle_start,
+            second_candle_start + timedelta(seconds=59.999999),
+        )
+        self.assertEqual(
+            len(filtered_df), 2, "Time filtering should include both candles"
+        )
 
 
 if __name__ == "__main__":

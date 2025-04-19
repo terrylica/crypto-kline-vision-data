@@ -6,12 +6,12 @@ This document summarizes the implementation of the fix for the Vision API timest
 
 ## Implementation Details
 
-### 1. Fixed `_process_timestamp_columns` Method in VisionDataClient
+### 1. Fixed Timestamp Processing with Utility Function
 
-The core fix was implemented in the `_process_timestamp_columns` method of `VisionDataClient`:
+The core fix was implemented in the `process_timestamp_columns` utility function in `utils/for_core/vision_timestamp.py`:
 
 ```python
-def _process_timestamp_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFrame:
     """Process timestamp columns in the dataframe, handling various formats.
 
     This method preserves the semantic meaning of timestamps:
@@ -20,6 +20,7 @@ def _process_timestamp_columns(self, df: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         df: DataFrame with timestamp columns to process
+        interval_str: Interval string (e.g., "1s", "1m", "1h")
 
     Returns:
         DataFrame with processed timestamp columns
@@ -63,7 +64,7 @@ if "open_time_us" not in filtered_df.columns and "open_time" in filtered_df.colu
 
 This ensures that when creating a `TimestampedDataFrame`, the `open_time` field is correctly used as the index, preserving its meaning as the start of the candle period.
 
-### 4. Added Clear Documentation
+### 3. Added Clear Documentation
 
 Documentation was added throughout the codebase to clarify the semantics of timestamps:
 
@@ -78,7 +79,7 @@ Important note on timestamp semantics:
 
 This ensures that future developers understand the intended semantics of timestamps in the system.
 
-### 5. Created Comprehensive Tests
+### 4. Created Comprehensive Tests
 
 A comprehensive test suite was created to verify that timestamp semantics are preserved across all interval types:
 
@@ -93,18 +94,6 @@ def test_timestamp_semantics_across_intervals(self):
 ```
 
 This ensures that the fix works correctly for all interval types defined in `market_constraints.py`.
-
-### 6. Created a Demonstration Script
-
-A demonstration script was created to visualize the fix in action:
-
-```python
-def demonstrate_timestamp_interpretation():
-    """Demonstrate correct timestamp interpretation."""
-    # ... implementation ...
-```
-
-This provides a clear visual demonstration of how timestamps are now correctly interpreted.
 
 ## Impact of the Fix
 
@@ -142,6 +131,6 @@ This fix may also help resolve other timestamp-related issues in the codebase:
 
 ## Conclusion
 
-Following the minimalist approach outlined in the original issue document, this fix correctly interprets timestamps in the `_process_timestamp_columns` method without modifying their values, preserving their semantic meaning. The implementation is compatible with all interval types defined in `market_constraints.py` while making minimal changes to the codebase.
+Following the minimalist approach outlined in the original issue document, this fix correctly interprets timestamps in the `process_timestamp_columns` utility function without modifying their values, preserving their semantic meaning. The implementation is compatible with all interval types defined in `market_constraints.py` while making minimal changes to the codebase.
 
 By maintaining the Liskov substitution principle, this solution ensures that existing code that relies on the timestamp behavior continues to work correctly, with the only difference being that timestamps now accurately represent the beginning of each candle period across all interval types.
