@@ -198,41 +198,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         validator = DataFrameValidator(df)
         return validator.validate_klines_data()
 
-    def _get_interval_seconds(self, interval: str) -> int:
-        """Get interval duration in seconds from interval string.
-
-        This method handles converting string intervals directly to seconds
-        without requiring the MarketInterval enum object.
-
-        Args:
-            interval: Interval string (e.g., "1s", "1m", "1h")
-
-        Returns:
-            Number of seconds in the interval
-        """
-        # Parse interval value and unit
-        match = re.match(r"(\d+)([smhdwM])", interval)
-        if not match:
-            raise ValueError(f"Invalid interval format: {interval}")
-
-        num, unit = match.groups()
-        num = int(num)
-
-        # Define multipliers for each unit
-        multipliers = {
-            "s": 1,
-            "m": 60,
-            "h": 3600,
-            "d": 86400,
-            "w": 604800,
-            "M": 2592000,  # Approximate - using 30 days
-        }
-
-        if unit not in multipliers:
-            raise ValueError(f"Unknown interval unit: {unit}")
-
-        return num * multipliers[unit]
-
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -481,18 +446,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         csv_path = os.path.join(temp_dir, csv_file)
 
                         # Read the CSV file
-                        # DEBUG: Log the first few lines of the raw CSV to check content
                         with open(csv_path, "r") as f:
                             first_lines = [next(f) for _ in range(3)]
-                            logger.debug(f"[CSV TRACE] First few lines of raw CSV:")
-                            for i, line in enumerate(first_lines):
-                                logger.debug(f"[CSV TRACE] Line {i}: {line.strip()}")
 
                             # Check if the first line contains headers (e.g., 'high' keyword)
                             has_header = any(
                                 "high" in line.lower() for line in first_lines[:1]
                             )
-                            logger.debug(f"[CSV TRACE] Headers detected: {has_header}")
+                            logger.debug(f"Headers detected: {has_header}")
 
                             # Reopen the file to read from the beginning
                             f.seek(0)
@@ -514,21 +475,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                 f"No headers detected in CSV, reading with header=None"
                             )
                             df = pd.read_csv(csv_path, header=None, names=KLINE_COLUMNS)
-
-                        # DEBUG: Check if first row contains 00:00:00 timestamp
-                        if not df.empty:
-                            first_ts = df.iloc[0, 0]  # First column is open_time
-                            first_ts_dt = datetime.fromtimestamp(
-                                (
-                                    first_ts / 1000000
-                                    if len(str(int(first_ts))) >= 16
-                                    else first_ts / 1000
-                                ),
-                                tz=timezone.utc,
-                            )
-                            logger.debug(
-                                f"[CSV TRACE] First timestamp in loaded CSV: {first_ts} ({first_ts_dt})"
-                            )
 
                         logger.debug(f"Read {len(df)} rows from CSV")
 
@@ -598,11 +544,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         """
         logger.info(
             f"Downloading data for {self._symbol} {self._interval_str} from {start_time.isoformat()} to {end_time.isoformat()}"
-        )
-
-        # Debug: Log exact timestamps for requested range
-        logger.debug(
-            f"[TIMESTAMP TRACE] Requested time range: start={start_time.isoformat()} end={end_time.isoformat()}"
         )
 
         # Convert start and end times to date objects for file-based lookups
@@ -743,19 +684,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         # Concatenate all dataframes
         concatenated_df = pd.concat(downloaded_dfs, ignore_index=True)
 
-        # Debug: Log the first few rows after concatenation
-        if not concatenated_df.empty:
-            logger.debug(
-                f"[TIMESTAMP TRACE] After concatenation: {len(concatenated_df)} rows total"
-            )
-            for i in range(min(3, len(concatenated_df))):
-                if "open_time" in concatenated_df.columns:
-                    logger.debug(
-                        f"[TIMESTAMP TRACE] Concatenated row {i}: open_time={concatenated_df['open_time'].iloc[i]}, close={concatenated_df.iloc[i, concatenated_df.columns.get_loc('close')]}"
-                    )
-        else:
-            logger.debug("[TIMESTAMP TRACE] Concatenated DataFrame is empty")
-
         # If the dataframe is empty, return early
         if concatenated_df.empty:
             logger.warning("No data in downloaded files")
@@ -774,83 +702,10 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 drop=True
             )
 
-        # Debug: Log data before filtering
-        logger.debug(
-            f"[TIMESTAMP TRACE] Before time filtering: {len(concatenated_df)} rows"
-        )
-        if not concatenated_df.empty:
-            min_time = concatenated_df["open_time"].min()
-            max_time = concatenated_df["open_time"].max()
-            logger.debug(
-                f"[TIMESTAMP TRACE] Time range in data before filtering: {min_time} to {max_time}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Time range requested: {start_time} to {end_time}"
-            )
-
-            # Log first few rows before filtering
-            for i in range(min(3, len(concatenated_df))):
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Before filtering row {i}: open_time={concatenated_df['open_time'].iloc[i]}, close={concatenated_df.iloc[i, concatenated_df.columns.get_loc('close')]}"
-                )
-
-            # Check specifically for the exact start time
-            exact_match_rows = concatenated_df[
-                concatenated_df["open_time"] == start_time
-            ]
-            if not exact_match_rows.empty:
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Found {len(exact_match_rows)} rows exactly matching start_time={start_time}"
-                )
-            else:
-                closest_time_idx = (
-                    (concatenated_df["open_time"] - start_time).abs().idxmin()
-                )
-                closest_time = concatenated_df.iloc[closest_time_idx]["open_time"]
-                logger.debug(
-                    f"[TIMESTAMP TRACE] No exact match for start_time. Closest time is {closest_time}"
-                )
-
-                # Check for rows at the expected interval boundaries
-                boundary_rows = concatenated_df[
-                    (concatenated_df["open_time"].dt.minute == 0)
-                    & (concatenated_df["open_time"].dt.second == 0)
-                ]
-                if not boundary_rows.empty:
-                    logger.debug(
-                        f"[TIMESTAMP TRACE] Found {len(boundary_rows)} rows at exact interval boundaries (minute=0, second=0)"
-                    )
-                    for j in range(min(3, len(boundary_rows))):
-                        logger.debug(
-                            f"[TIMESTAMP TRACE] Boundary row {j}: {boundary_rows.iloc[j]['open_time']}"
-                        )
-
-        # Filter by the exact time range requested - make sure we include start_time exactly
-        # This is critical for proper alignment with interval boundaries
+        # Filter data to requested time range
         logger.debug(
             f"Filtering dataframe with time range: {start_time} (inclusive) to {end_time} (inclusive)"
         )
-
-        # Debug: Check inclusion criteria before filtering
-        if not concatenated_df.empty:
-            would_include_first = concatenated_df["open_time"].min() >= start_time
-            would_include_last = concatenated_df["open_time"].max() <= end_time
-            logger.debug(
-                f"[TIMESTAMP TRACE] Would include first timestamp: {would_include_first}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Would include last timestamp: {would_include_last}"
-            )
-
-            # Check for timestamps exactly at boundaries
-            start_boundary_match = (concatenated_df["open_time"] == start_time).any()
-            end_boundary_match = (concatenated_df["open_time"] == end_time).any()
-            logger.debug(
-                f"[TIMESTAMP TRACE] Exact match at start_time: {start_boundary_match}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Exact match at end_time: {end_boundary_match}"
-            )
 
         # Filter data to requested time range
         filtered_df = filter_dataframe_by_time(
@@ -860,18 +715,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         # Log filtering results for debugging
         if not filtered_df.empty:
             logger.debug(f"Filtered dataframe contains {len(filtered_df)} rows")
-            logger.debug(
-                f"First timestamp after filtering: {filtered_df['open_time'].min()}"
-            )
-            logger.debug(
-                f"Last timestamp after filtering: {filtered_df['open_time'].max()}"
-            )
-
-            # Debug DataFrame structure
             logger.debug(f"DataFrame columns: {list(filtered_df.columns)}")
-            logger.debug(f"DataFrame dtypes: {filtered_df.dtypes}")
-            logger.debug(f"DataFrame index name: {filtered_df.index.name}")
-            logger.debug(f"DataFrame index type: {type(filtered_df.index)}")
         else:
             logger.warning(
                 "Filtered dataframe is empty - no data within requested time range"
@@ -1005,14 +849,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             "open_time_us" not in filtered_df.columns
             and "open_time" in filtered_df.columns
         ):
-            logger.debug(
-                f"[TIMESTAMP TRACE] Creating TimestampedDataFrame using open_time as index"
-            )
-            if not filtered_df.empty:
-                for i in range(min(3, len(filtered_df))):
-                    logger.debug(
-                        f"[TIMESTAMP TRACE] Before index creation row {i}: open_time={filtered_df['open_time'].iloc[i]}, close={filtered_df.iloc[i, filtered_df.columns.get_loc('close')]}"
-                    )
+            logger.debug(f"Creating TimestampedDataFrame using open_time as index")
 
             # Create a copy to maintain the original dataframe
             df_for_index = filtered_df.copy()
@@ -1030,26 +867,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     f"Last index timestamp: {df_for_index.index[-1]} (represents BEGINNING of candle)"
                 )
 
-                # Debug: Log after setting index
-                for i in range(min(3, len(df_for_index))):
-                    logger.debug(
-                        f"[TIMESTAMP TRACE] After index creation row {i}: index={df_for_index.index[i]}, close={df_for_index.iloc[i]['close']}"
-                    )
-
             # Create TimestampedDataFrame preserving exact timestamps and their semantic meaning
             timestamped_df = TimestampedDataFrame(df_for_index)
-
-            # Debug: Final check on TimestampedDataFrame
-            if not timestamped_df.empty:
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Final TimestampedDataFrame has {len(timestamped_df)} rows"
-                )
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Final index (first): {timestamped_df.index[0]}"
-                )
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Final index (last): {timestamped_df.index[-1]}"
-                )
 
             return timestamped_df
         elif "open_time_us" in filtered_df.columns:
