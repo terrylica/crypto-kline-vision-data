@@ -122,7 +122,7 @@ async def basic_example():
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
-from core.data_source_manager import DataSourceManager, DataSourceConfig, DataQueryConfig
+from core.data_source_manager import DataSourceManager
 
 # Set time range for data retrieval
 end_time = datetime.now(timezone.utc)
@@ -199,7 +199,7 @@ async def futures_example():
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
-from core.data_source_manager import DataSourceManager, DataQueryConfig
+from core.data_source_manager import DataSourceManager
 
 # Set time range for data retrieval
 end_time = datetime.now(timezone.utc)
@@ -213,16 +213,13 @@ async def funding_rate_example():
         cache_dir=Path("./cache"),
         use_httpx=True,  # Use httpx instead of curl_cffi for better stability
     ) as dsm:
-        # Create query configuration
-        query = DataQueryConfig.create(
+        # Fetch funding rate data
+        df = await dsm.get_data(
             symbol="BTCUSDT",
             start_time=start_time,
             end_time=end_time,
             interval=Interval.HOUR_8,  # Funding rates typically use 8h interval
         )
-
-        # Fetch funding rate data
-        df = await dsm.query_data(query)
 
         print(f"Retrieved {len(df)} funding rate records")
         print(df.head())
