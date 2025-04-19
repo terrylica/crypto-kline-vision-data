@@ -8,7 +8,7 @@ This tool allows you to download funding rate history data from Binance Futures 
 - Convert data to CSV format with proper headers
 - Save with consistent naming pattern: `Funding Rate History_SYMBOL Perpetual_DATE.csv`
 - Run as a one-time download or schedule regular downloads
-- Process multiple symbols in parallel
+- Process multiple symbols sequentially
 
 ## Usage
 
@@ -70,8 +70,7 @@ When running in continuous mode, the script will run at the specified interval, 
 
 - Python 3.7+
 - pandas
-- curl_cffi
-- asyncio
+- httpx
 
 ## Directory Structure
 

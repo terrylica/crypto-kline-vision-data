@@ -2,32 +2,30 @@
 
 from utils.logger_setup import logger
 import pandas as pd
-import asyncio
-from curl_cffi.requests import AsyncSession
+import httpx
 import os
 from datetime import datetime
 
 # No need to initialize logger with get_logger anymore
 
 
-async def fetch_funding_rate_history(symbol="BTCUSDT", limit=1000):
-    """Fetch funding rate history from Binance API using curl_cffi"""
+def fetch_funding_rate_history(symbol="BTCUSDT", limit=1000):
+    """Fetch funding rate history from Binance API using httpx"""
     try:
         url = f"https://fapi.binance.com/fapi/v1/fundingRate"
         params = {"symbol": symbol, "limit": limit}
 
         logger.info(f"Fetching funding rate history for {symbol} with limit {limit}")
-        async with AsyncSession() as session:
-            response = await session.get(url, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                logger.info(f"Successfully fetched {len(data)} funding rate records")
-                return data
-            else:
-                logger.error(
-                    f"Error fetching funding rate: {response.status_code} - {response.text}"
-                )
-                return None
+        response = httpx.get(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            logger.info(f"Successfully fetched {len(data)} funding rate records")
+            return data
+        else:
+            logger.error(
+                f"Error fetching funding rate: {response.status_code} - {response.text}"
+            )
+            return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history: {e}")
         return None
@@ -87,12 +85,12 @@ def save_to_csv(df, symbol, output_dir="tmp"):
         return None
 
 
-async def main():
+def main():
     # Fetch funding rate history for BTC/USDT
     symbol = "BTCUSDT"
     logger.info(f"Starting funding rate history download for {symbol}")
 
-    data = await fetch_funding_rate_history(symbol=symbol, limit=1000)
+    data = fetch_funding_rate_history(symbol=symbol, limit=1000)
 
     if data:
         # Convert to CSV format
@@ -116,4 +114,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

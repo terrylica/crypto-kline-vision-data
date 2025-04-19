@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Example demonstrating direct funding rate history download from Binance API."""
 
-import asyncio
 import sys
 from pathlib import Path
 
@@ -21,7 +20,7 @@ from scripts.funding_rate_downloader.download_funding_rate import (
 # No need to initialize logger with get_logger anymore
 
 
-async def download_funding_rate_example():
+def download_funding_rate_example():
     """Example of downloading funding rate history directly from Binance API."""
 
     # Define symbols to download
@@ -40,7 +39,7 @@ async def download_funding_rate_example():
         logger.info(f"Processing {symbol}...")
 
         # Fetch the data from Binance API
-        data = await fetch_funding_rate_history(symbol=symbol, limit=100)
+        data = fetch_funding_rate_history(symbol=symbol, limit=100)
 
         if data:
             # Convert to dataframe
@@ -83,4 +82,4 @@ async def download_funding_rate_example():
 
 
 if __name__ == "__main__":
-    asyncio.run(download_funding_rate_example())
+    download_funding_rate_example()

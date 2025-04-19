@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Example demonstrating automated funding rate history download from Binance API."""
 
-import asyncio
 import sys
 import os
 from pathlib import Path
@@ -19,7 +18,7 @@ from scripts.funding_rate_downloader.automate_funding_rate_download import (
 )
 
 
-async def run_automated_download_example():
+def run_automated_download_example():
     """Example of using the automated funding rate downloader."""
 
     # Override sys.argv to simulate command-line arguments
@@ -45,7 +44,7 @@ async def run_automated_download_example():
     logger.info(f"Output directory: {args.output_dir}")
 
     # Download the data (run once)
-    summary = await process_all_symbols(args.symbols, args.output_dir)
+    summary = process_all_symbols(args.symbols, args.output_dir)
 
     # Log summary
     success_count = sum(1 for result in summary.values() if result)
@@ -65,4 +64,4 @@ async def run_automated_download_example():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_automated_download_example())
+    run_automated_download_example()

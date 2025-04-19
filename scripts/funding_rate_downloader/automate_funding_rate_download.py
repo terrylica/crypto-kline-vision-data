@@ -3,19 +3,19 @@
 from utils.logger_setup import logger
 import pandas as pd
 import asyncio
-from curl_cffi.requests import AsyncSession
 import os
 from datetime import datetime
 import argparse
 import time
 from typing import List, Dict, Any, Optional
+import httpx
 
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
 DEFAULT_INTERVAL_MINUTES = 60  # Default to download every hour
 DEFAULT_OUTPUT_DIR = "tmp/funding_rate_history"
 
 
-async def fetch_funding_rate_history(
+def fetch_funding_rate_history(
     symbol: str, limit: int = 1000
 ) -> Optional[List[Dict[str, Any]]]:
     """Fetch funding rate history from Binance API using curl_cffi"""
@@ -24,19 +24,18 @@ async def fetch_funding_rate_history(
         params = {"symbol": symbol, "limit": limit}
 
         logger.info(f"Fetching funding rate history for {symbol} with limit {limit}")
-        async with AsyncSession() as session:
-            response = await session.get(url, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                logger.info(
-                    f"Successfully fetched {len(data)} funding rate records for {symbol}"
-                )
-                return data
-            else:
-                logger.error(
-                    f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}"
-                )
-                return None
+        response = httpx.get(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            logger.info(
+                f"Successfully fetched {len(data)} funding rate records for {symbol}"
+            )
+            return data
+        else:
+            logger.error(
+                f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}"
+            )
+            return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history for {symbol}: {e}")
         return None
@@ -100,9 +99,9 @@ def save_to_csv(
         return None
 
 
-async def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> bool:
+def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> bool:
     """Process a single symbol - fetch, convert and save funding rate history"""
-    data = await fetch_funding_rate_history(symbol=symbol, limit=1000)
+    data = fetch_funding_rate_history(symbol=symbol, limit=1000)
 
     if data:
         # Convert to CSV format
@@ -129,19 +128,18 @@ async def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> b
         return False
 
 
-async def process_all_symbols(
+def process_all_symbols(
     symbols: List[str], output_dir: str = DEFAULT_OUTPUT_DIR
 ) -> Dict[str, bool]:
     """Process multiple symbols in parallel"""
-    tasks = [process_symbol(symbol, output_dir) for symbol in symbols]
-    results = await asyncio.gather(*tasks)
+    results = [process_symbol(symbol, output_dir) for symbol in symbols]
 
     # Create results summary
     summary = {symbol: result for symbol, result in zip(symbols, results)}
     return summary
 
 
-async def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
+def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
     """Main loop that runs indefinitely, downloading data at regular intervals"""
     while True:
         start_time = time.time()
@@ -149,7 +147,7 @@ async def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
             f"Starting funding rate history download for symbols: {', '.join(symbols)}"
         )
 
-        summary = await process_all_symbols(symbols, output_dir)
+        summary = process_all_symbols(symbols, output_dir)
 
         # Log summary
         success_count = sum(1 for result in summary.values() if result)
@@ -168,7 +166,7 @@ async def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
         logger.info(
             f"Next download scheduled at {next_run_str} (in {sleep_time/60:.1f} minutes)"
         )
-        await asyncio.sleep(sleep_time)
+        time.sleep(sleep_time)
 
 
 def parse_arguments():
@@ -203,7 +201,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-async def main():
+def main():
     args = parse_arguments()
 
     # Ensure output directory exists
@@ -214,7 +212,7 @@ async def main():
         logger.info(
             f"Starting one-time funding rate history download for symbols: {', '.join(args.symbols)}"
         )
-        summary = await process_all_symbols(args.symbols, args.output_dir)
+        summary = process_all_symbols(args.symbols, args.output_dir)
 
         # Log summary
         success_count = sum(1 for result in summary.values() if result)
@@ -230,7 +228,7 @@ async def main():
         logger.info(f"Output directory: {args.output_dir}")
 
         try:
-            await main_loop(args.symbols, args.interval, args.output_dir)
+            main_loop(args.symbols, args.interval, args.output_dir)
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received. Shutting down...")
         except Exception as e:
@@ -239,4 +237,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
