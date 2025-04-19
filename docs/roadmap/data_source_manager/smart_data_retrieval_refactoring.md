@@ -22,25 +22,13 @@ The goal is to optimize data retrieval by automatically using the most appropria
 
 ### Current Source Selection Logic
 
-The `_should_use_vision_api` method currently uses the following rules to decide whether to use Vision API:
+The `_should_use_vision_api` method has been simplified to always return `True` following the Failover Control Protocol (FCP), which means:
 
-1. Use REST API for small intervals like 1s that Vision doesn't support
-   - Note: This is incorrect for SPOT markets, which DO support 1s intervals in Vision API
-2. Use Vision API for large time ranges that would exceed REST API's chunk limits:
+1. Always try Vision API first as the preferred source after cache
+2. Only fall back to REST API if Vision API fails or data is too recent
+3. The method was eventually removed as it was redundant (always returning True)
 
-   ```python
-   if data_points > self.REST_CHUNK_SIZE * self.REST_MAX_CHUNKS:
-       # Use Vision API
-   ```
-
-3. Use Vision API for historical data older than the VISION_DATA_DELAY_HOURS threshold:
-
-   ```python
-   if end_time < vision_threshold:  # vision_threshold = now - VISION_DATA_DELAY_HOURS
-       # Use Vision API
-   ```
-
-4. Default to REST API for recent data
+This simplification follows the core FCP principle of Cache → Vision API → REST API in order of preference.
 
 The fallback mechanism (if Vision API fails, try REST API) is already implemented but only works after a full Vision API failure.
 
@@ -83,12 +71,28 @@ The fallback mechanism (if Vision API fails, try REST API) is already implemente
        return True
    ```
 
-2. This simplified logic:
-   - Enforces a minimum interval of 1m for non-SPOT markets, rejecting requests for 1s intervals.
-   - Removes the arbitrary historical data threshold (`VISION_DATA_DELAY_HOURS`).
-   - Always prefers Vision API as the primary source after cache.
-   - Maintains the fallback mechanism where REST API is used if Vision API fails.
-   - Supports the Failover Control Protocol (FCP) approach.
+### 1. Redesign Source Selection Logic 01
+
+**Main Change**: Remove the historical data threshold rule and simplify the Failover Control Protocol (FCP) concept by always using Vision API first.
+
+1. The `_should_use_vision_api` method has been removed as it was redundant (always returning `True`).
+
+2. The DataSourceManager code now directly uses Vision API for all missing segments without conditional logic:
+
+   ```python
+   # All missing ranges are processed by Vision API
+   vision_ranges_to_fetch = missing_ranges.copy()
+
+   # Process Vision API ranges
+   if vision_ranges_to_fetch and enforce_source != DataSource.REST:
+       # ...process ranges with Vision API...
+   ```
+
+3. This simplification:
+   - Removes unnecessary conditional logic
+   - Fully embraces the Failover Control Protocol (FCP) approach
+   - Always tries Vision API first, with automatic fallback to REST API if needed
+   - Maintains more complex validation elsewhere in the code (e.g., 1s interval validation)
 
 ### 2. Design Updated Data Flow with Failover Control Protocol (FCP)
 

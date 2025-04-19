@@ -70,14 +70,12 @@ flowchart TD
 ```mermaid
 graph TD
     A[Application] --> B[DataSourceManager]
-    B --> C{DataSourceManager._should_use_vision_api?}
-    C -->|Yes| D[Create client via DataClientFactory]
-    C -->|No| E[Create client via DataClientFactory]
+    B --> D[Create client via DataClientFactory]
 
     D -->|VisionClient| F[Vision API Client]
-    E -->|RestClient| G[REST API Client]
-    E -->|FundingRateClient| H[Funding Rate Client]
-    E -->|CustomClientType| I[Other Specialized Clients]
+    D -->|RestClient| G[REST API Client]
+    D -->|FundingRateClient| H[Funding Rate Client]
+    D -->|CustomClientType| I[Other Specialized Clients]
 
     F --> J[Check Cache]
     G --> K[Check Cache]

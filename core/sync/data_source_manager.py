@@ -492,25 +492,6 @@ class DataSourceManager:
         """
         return get_market_type_str(self.market_type)
 
-    def _should_use_vision_api(self, start_time: datetime, end_time: datetime) -> bool:
-        """Determine if Vision API should be used based on time range.
-
-        According to the Failover Control Protocol (FCP) strategy,
-        we should always attempt to use Vision API first before falling back to REST.
-
-        This function now returns True to enforce using Vision API as the preferred
-        source for all missing data, regardless of how recent it is.
-
-        Args:
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
-
-        Returns:
-            True to always try Vision API first
-        """
-        # According to FCP, always attempt Vision API first
-        return True
-
     def _get_from_cache(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
     ) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
@@ -1374,16 +1355,9 @@ class DataSourceManager:
                 logger.info(f"[FCP] STEP 2: Checking Vision API for missing data")
 
                 # Process each missing range
-                vision_ranges_to_fetch = []
-
-                for miss_start, miss_end in missing_ranges:
-                    # Check if we should try Vision API for this range
-                    if self._should_use_vision_api(miss_start, miss_end):
-                        vision_ranges_to_fetch.append((miss_start, miss_end))
-                    else:
-                        logger.debug(
-                            f"[FCP] Range too recent for Vision API: {miss_start} to {miss_end}"
-                        )
+                vision_ranges_to_fetch = (
+                    missing_ranges.copy()
+                )  # All ranges will be processed by Vision API
 
                 # Process Vision API ranges
                 if vision_ranges_to_fetch and enforce_source != DataSource.REST:
