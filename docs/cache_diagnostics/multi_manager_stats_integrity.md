@@ -88,7 +88,6 @@ graph TD
     end
 
     subgraph "Cache Operations"
-        LFC["load_from_cache()"]
         STC["save_to_cache()"]
         GCS["get_cache_stats()"]
         CS["_cache_stats counter"]
@@ -100,8 +99,7 @@ graph TD
     UCM -->|"Tracks metadata"| CI
     DSM -->|"Maintains"| CS
     CS -->|"Exposes"| GCS
-    DSM -->|"Calls"| LFC
-    DSM -->|"Calls"| STC
+    DSM -->|"Cache operations"| UCM
 
     CT1 -->|"Validates\ncache hit"| DSM
     CT2 -->|"Verifies specific\ncache files"| DSM

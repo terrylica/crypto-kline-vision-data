@@ -1003,7 +1003,6 @@ class DataSourceManager:
                     "CRITICAL: Vision API error could not be handled properly"
                 )
 
-
     def _fetch_from_rest(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
     ) -> pd.DataFrame:
@@ -1633,80 +1632,6 @@ class DataSourceManager:
 
         return merged
 
-    def analyze_merged_data(
-        self,
-        df: pd.DataFrame,
-        cache_start: datetime,
-        vision_start: datetime,
-        rest_start: datetime,
-        rest_end: datetime,
-    ) -> Dict[str, int]:
-        """Analyze the merged data to determine the source of each record.
-
-        Args:
-            df: The merged DataFrame
-            cache_start: Start time for cache data
-            vision_start: Start time for Vision API data
-            rest_start: Start time for REST API data
-            rest_end: End time for REST API data
-
-        Returns:
-            Dict with count of records from each source
-        """
-        if df.empty:
-            return {"cache": 0, "vision": 0, "rest": 0, "gap": 0}
-
-        # If we have the _data_source column, use it directly
-        if "_data_source" in df.columns:
-            source_counts = df["_data_source"].value_counts().to_dict()
-            return {
-                "cache": source_counts.get("CACHE", 0),
-                "vision": source_counts.get("VISION", 0),
-                "rest": source_counts.get("REST", 0),
-                "gap": 0,  # No gap with direct source tracking
-            }
-
-        # Legacy fallback to timestamp-based classification
-        # (This should only be used if _data_source is not available)
-        # Calculate cache_end as the time before vision_start
-        cache_end = vision_start
-        vision_end = rest_start
-
-        # Convert to UTC timestamps for comparison
-        cache_ts = int(cache_start.timestamp() * 1000)
-        cache_end_ts = int(cache_end.timestamp() * 1000)
-        vision_ts = int(vision_start.timestamp() * 1000)
-        vision_end_ts = int(vision_end.timestamp() * 1000)
-        rest_ts = int(rest_start.timestamp() * 1000)
-        rest_end_ts = int(rest_end.timestamp() * 1000)
-
-        # Count records from each source
-        cache_count = len(
-            df[(df["open_time"] >= cache_ts) & (df["open_time"] < cache_end_ts)]
-        )
-        vision_count = len(
-            df[(df["open_time"] >= vision_ts) & (df["open_time"] < vision_end_ts)]
-        )
-        rest_count = len(
-            df[(df["open_time"] >= rest_ts) & (df["open_time"] < rest_end_ts)]
-        )
-
-        # Calculate gap filling (records outside the specified ranges)
-        total = len(df)
-        gap_count = total - (cache_count + vision_count + rest_count)
-
-        logger.warning(
-            "Using legacy timestamp-based source classification. "
-            "This is less accurate than using the _data_source column."
-        )
-
-        return {
-            "cache": cache_count,
-            "vision": vision_count,
-            "rest": rest_count,
-            "gap": gap_count,
-        }
-
     def __enter__(self):
         """Context manager entry."""
         return self
@@ -1788,83 +1713,6 @@ class DataSourceManager:
             df = standardize_timestamp_precision(df)
 
         return df
-
-    def _load_from_cache(
-        self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> pd.DataFrame:
-        """Load data from cache.
-
-        Args:
-            symbol: Symbol to retrieve data for
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
-            interval: Time interval between data points
-
-        Returns:
-            DataFrame with data from cache
-        """
-        logger.info(
-            f"Loading data from cache for {symbol} from {start_time} to {end_time}"
-        )
-
-        # Create a cache manager if not already created
-        if self.cache_manager is None:
-            self.cache_manager = UnifiedCacheManager()
-
-        # Convert interval to string value
-        interval_str = interval.value
-
-        # Get market type string
-        market_type_str = self._get_market_type_str()
-
-        # Determine date range to load
-        start_date = start_time.date()
-        end_date = end_time.date()
-        date_range = []
-        current_date = start_date
-        while current_date <= end_date:
-            date_range.append(current_date)
-            current_date = (
-                datetime.combine(current_date, datetime.min.time(), timezone.utc)
-                + timedelta(days=1)
-            ).date()
-
-        # Load data for each date in range
-        all_dfs = []
-        for date in date_range:
-            # Convert date to datetime at midnight UTC
-            date_dt = datetime.combine(date, datetime.min.time(), timezone.utc)
-
-            # Try to load from cache
-            df = self.cache_manager.load_from_cache(
-                symbol=symbol,
-                interval=interval_str,
-                date=date_dt,
-                provider=self.provider.name,
-                chart_type=self.chart_type.name,
-                market_type=market_type_str,
-            )
-            if df is not None and not df.empty:
-                # Apply standardization to ensure consistent format including timestamp normalization
-                df = self._standardize_columns(df)
-
-                # Add source information
-                df["_data_source"] = "CACHE"
-                all_dfs.append(df)
-
-        # If no data was loaded from cache, return empty DataFrame
-        if not all_dfs:
-            logger.info(f"No cache data found for {symbol}")
-            return create_empty_dataframe()
-
-        # Concatenate all loaded DataFrames
-        combined_df = pd.concat(all_dfs)
-
-        # Filter data to requested time range
-        filtered_df = filter_dataframe_by_time(combined_df, start_time, end_time)
-
-        logger.info(f"Successfully loaded {len(filtered_df)} records from cache")
-        return filtered_df
 
     def _identify_missing_segments(
         self,
