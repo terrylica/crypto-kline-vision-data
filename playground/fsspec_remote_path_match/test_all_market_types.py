@@ -128,14 +128,14 @@ def main(
     # Test CM Futures
     remote_url, local_path, mapped_remote, mapped_local = test_market_mapping(
         market_type=MarketType.FUTURES_COIN,
-        symbol="BTCUSD",
+        symbol="BTCUSD_PERP",
         interval=interval,
         date_str=date_str,
         base_cache_dir=base_cache_dir,
     )
     print_test_results(
         "Coin-margined Futures (CM)",
-        "BTCUSD",
+        "BTCUSD_PERP",
         remote_url,
         local_path,
         mapped_remote,

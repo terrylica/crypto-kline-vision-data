@@ -111,6 +111,29 @@ print(f"Remote URL: {remote_url}")
 print(f"Local Path: {local_path}")
 ```
 
+### Coin-Margined Futures Example
+
+```python
+# Create path components for Coin-Margined Futures
+cm_components = mapper.create_components_from_params(
+    symbol="BTCUSD_PERP",  # Note: CM symbols should include _PERP suffix
+    interval="1m",
+    date="2025-04-16",
+    market_type=MarketType.FUTURES_COIN
+)
+
+# Get remote URL and local path
+cm_remote_url = mapper.get_remote_url(cm_components)
+cm_local_path = mapper.get_local_path(cm_components)
+
+print(f"CM Remote URL: {cm_remote_url}")
+print(f"CM Local Path: {cm_local_path}")
+
+# The safe_symbol property ensures correct symbol format
+# If you provide "BTCUSD" without the _PERP suffix, it will be added automatically
+# for CM markets, but best practice is to include it explicitly
+```
+
 ### Direct URL to Path Conversion
 
 ```python

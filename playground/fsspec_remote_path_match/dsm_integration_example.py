@@ -154,7 +154,7 @@ def demo_all_market_types(
     markets = [
         {"type": MarketType.SPOT, "name": "SPOT", "symbol": "BTCUSDT"},
         {"type": MarketType.FUTURES_USDT, "name": "UM", "symbol": "BTCUSDT"},
-        {"type": MarketType.FUTURES_COIN, "name": "CM", "symbol": "BTCUSD"},
+        {"type": MarketType.FUTURES_COIN, "name": "CM", "symbol": "BTCUSD_PERP"},
     ]
 
     # Run for each market type
@@ -283,7 +283,7 @@ def main(
     elif market_type.lower() in ["cm", "futures_coin"]:
         market_enum = MarketType.FUTURES_COIN
         if symbol == "BTCUSDT":
-            symbol = "BTCUSD"
+            symbol = "BTCUSD_PERP"
             console.print(
                 f"[yellow]Auto-corrected symbol to {symbol} for CM market[/yellow]"
             )
