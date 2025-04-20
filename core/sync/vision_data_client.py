@@ -48,7 +48,7 @@ from utils.config import (
     FileType,
 )
 from utils.dataframe_types import TimestampedDataFrame
-from core.sync.vision_constraints import get_vision_url
+from core.sync.vision_constraints import get_vision_url, is_date_too_fresh_for_vision
 from utils.gap_detector import detect_gaps
 from utils.dataframe_utils import ensure_open_time_as_column
 from core.sync.data_client_interface import DataClientInterface
@@ -194,6 +194,24 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         validator = DataFrameValidator(df)
         return validator.validate_klines_data()
 
+    def _should_skip_retry_for_fresh_date(self, date: datetime) -> bool:
+        """Check if retries should be skipped for a date that might be too fresh.
+
+        Args:
+            date: The date to check
+
+        Returns:
+            bool: True if retries should be skipped, False otherwise
+        """
+        # Skip retries for dates within the freshness window
+        if is_date_too_fresh_for_vision(date):
+            logger.warning(
+                f"Skipping retry for {date.date()} as it's within the Vision data delay window "
+                f"({VISION_DATA_DELAY_HOURS} hours). This failure is expected for fresh data."
+            )
+            return True
+        return False
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -288,9 +306,23 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             # Download the data file
             response = self._client.get(url)
             if response.status_code == 404:
+                # For 404 errors, check if the date is too fresh
+                if self._should_skip_retry_for_fresh_date(date):
+                    # If date is too fresh, don't retry and return gracefully
+                    return (
+                        None,
+                        f"404: Data not available for {date.date()} - within freshness window",
+                    )
                 return None, f"404: Data not available for {date.date()}"
 
             if response.status_code != 200:
+                # For non-200 responses, also check if the date is too fresh
+                if self._should_skip_retry_for_fresh_date(date):
+                    # If date is too fresh, don't retry and return gracefully
+                    return (
+                        None,
+                        f"HTTP error {response.status_code} for {date.date()} - within freshness window",
+                    )
                 return None, f"HTTP error {response.status_code} for {date.date()}"
 
             # Save to the temporary file
@@ -366,6 +398,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                             f"Expected: {expected_checksum}, Actual: {actual_checksum}"
                                         )
                                         checksum_failed = True
+
+                                        # Check if the date is too fresh before treating checksum failures as critical
+                                        if self._should_skip_retry_for_fresh_date(date):
+                                            # For fresh dates, just log the warning and continue
+                                            logger.warning(
+                                                f"Checksum verification failed for recent data ({date.date()}). "
+                                                f"This may be expected for data within the freshness window."
+                                            )
                         except Exception as extract_e:
                             # Extraction failed, but we can still self-verify
                             logger.debug(
@@ -384,6 +424,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     # Find the CSV file in the zip
                     csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
                     if not csv_files:
+                        # Check if date is too fresh when no CSV files found
+                        if self._should_skip_retry_for_fresh_date(date):
+                            return (
+                                None,
+                                f"No CSV file found in zip for {date.date()} - within freshness window",
+                            )
                         return None, f"No CSV file found in zip for {date.date()}"
 
                     csv_file = csv_files[0]  # Take the first CSV file
@@ -505,6 +551,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         downloaded_dfs = []
         warning_messages = []  # Collect warning messages
         checksum_failures = []  # Track checksum failures
+        fresh_date_failures = []  # Track date failures due to freshness
 
         # For very short intervals like 1s, avoid too many concurrent downloads
         if self._interval_str == "1s" and max_workers > 10:
@@ -537,8 +584,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     try:
                         df, warning = future.result()
                         if warning:
+                            # Handle warnings about fresh data differently
+                            if "freshness window" in warning:
+                                fresh_date_failures.append((date, warning))
+                                logger.info(
+                                    f"Expected failure for {date}: {warning} (within VISION_DATA_DELAY_HOURS window)"
+                                )
                             # Only track actual checksum failures as warnings
-                            if (
+                            elif (
                                 "Checksum verification failed" in warning
                                 and "extraction" not in warning
                             ):
@@ -558,9 +611,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                 df = df.sort_values("open_time").reset_index(drop=True)
                             downloaded_dfs.append(df)
                     except Exception as exc:
-                        logger.error(
-                            f"Error downloading data for {date}: {exc} - This date will be treated as unavailable"
-                        )
+                        # Check if this date is too fresh
+                        if self._should_skip_retry_for_fresh_date(date):
+                            fresh_date_failures.append((date, f"Error: {exc}"))
+                            logger.info(
+                                f"Expected failure for {date}: {exc} - Date is within the freshness window, skipping retries"
+                            )
+                        else:
+                            logger.error(
+                                f"Error downloading data for {date}: {exc} - This date will be treated as unavailable"
+                            )
 
             # After all downloads, check if there were any checksum failures
             if checksum_failures:
@@ -573,6 +633,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 logger.warning(
                     "Proceeding with data despite checksum verification failures"
                 )
+
+            # Report on fresh date failures, but treat them as expected
+            if fresh_date_failures:
+                fresh_dates = [d.strftime("%Y-%m-%d") for d, _ in fresh_date_failures]
+                logger.info(
+                    f"Expected failures for {len(fresh_date_failures)} recent dates: {', '.join(fresh_dates)}. "
+                    f"These dates are within the {VISION_DATA_DELAY_HOURS}h freshness window. "
+                    f"Higher-level components may fall back to REST API."
+                )
+
         except Exception as e:
             logger.error(f"Error in ThreadPoolExecutor: {e}")
             # Re-raise if this was a checksum failure

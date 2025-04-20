@@ -6,8 +6,8 @@ Vision API, leveraging centralized definitions from the utils modules for common
 functionality to maintain DRY principles.
 """
 
-from typing import TypeVar, NewType, Final, NamedTuple, Dict
-from datetime import datetime, timedelta
+from typing import TypeVar, NewType, Final, NamedTuple, Dict, Optional, Union, Tuple
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 from pathlib import Path
 from enum import Enum, auto
@@ -26,8 +26,6 @@ from utils.time_utils import (
     TimestampUnit,
     MILLISECOND_DIGITS,
     MICROSECOND_DIGITS,
-    detect_timestamp_unit,
-    validate_timestamp_unit,
 )
 from utils.config import (
     CANONICAL_INDEX_NAME,
@@ -35,9 +33,7 @@ from utils.config import (
     ERROR_TYPES,
     CONSOLIDATION_DELAY,
     FileType,
-    MIN_VALID_FILE_SIZE,
-    MAX_CACHE_AGE,
-    METADATA_UPDATE_INTERVAL,
+    VISION_DATA_DELAY_HOURS,
 )
 
 # Type definitions for semantic clarity and safety
@@ -161,11 +157,46 @@ def classify_error(error: Exception) -> str:
         return ERROR_TYPES["VALIDATION"]
 
 
+def is_date_too_fresh_for_vision(
+    date: datetime, current_time: Optional[datetime] = None
+) -> bool:
+    """Check if a date is too recent for reliable Vision API data.
+
+    The Vision API typically has a delay of VISION_DATA_DELAY_HOURS before data is available.
+    This function helps determine if a date is within that window, indicating that
+    failures for that date are expected and should not be treated as critical errors
+    or trigger excessive retries.
+
+    Args:
+        date: The date to check (will be treated as the end of the period)
+        current_time: Optional current time for testing, defaults to now() in UTC
+
+    Returns:
+        bool: True if the date is too fresh (within VISION_DATA_DELAY_HOURS of current time),
+              False if the date is expected to be available in Vision API
+    """
+    if current_time is None:
+        current_time = datetime.now(timezone.utc)
+
+    # Convert to timezone-aware datetimes if they're not already
+    if date.tzinfo is None:
+        date = date.replace(tzinfo=timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+
+    # Calculate the cutoff time for "freshness"
+    vision_delay = timedelta(hours=VISION_DATA_DELAY_HOURS)
+    cutoff_time = current_time - vision_delay
+
+    # Return True if date is fresher than the cutoff time
+    return date > cutoff_time
+
+
 def get_vision_url(
     symbol: str,
     interval: str,
     date: datetime,
-    file_type: FileType,
+    file_type: FileType = FileType.DATA,
     market_type: str = "spot",
 ) -> str:
     """Get Binance Vision API URL for the given parameters.

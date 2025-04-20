@@ -2,7 +2,7 @@
 """Data source manager that mediates between different data sources."""
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional, Tuple, TypeVar, Type, List
+from typing import Dict, Optional, Tuple, TypeVar, Type, List, Union
 from enum import Enum, auto
 import pandas as pd
 from pathlib import Path
@@ -32,6 +32,7 @@ from utils.dataframe_utils import (
 from core.sync.rest_data_client import RestDataClient
 from core.sync.vision_data_client import VisionDataClient
 from core.sync.cache_manager import UnifiedCacheManager
+from core.sync.vision_constraints import is_date_too_fresh_for_vision
 
 
 class DataSource(Enum):
@@ -735,6 +736,19 @@ class DataSourceManager:
                 return filtered_df
             else:
                 logger.warning(f"Vision API returned no data for {symbol}")
+                # Check if end_time is within the Vision API delay window using our centralized function
+                if is_date_too_fresh_for_vision(end_time):
+                    logger.warning(
+                        f"No data returned from Vision API - end_time {end_time.isoformat()} "
+                        f"is within the {VISION_DATA_DELAY_HOURS}h delay window. "
+                        f"This is expected for recent data. Trying REST API."
+                    )
+                else:
+                    logger.warning(
+                        f"No data returned from Vision API for {symbol} despite being outside "
+                        f"the {VISION_DATA_DELAY_HOURS}h delay window. "
+                        f"This is unexpected for historical data. Trying REST API as fallback."
+                    )
                 return create_empty_dataframe()
 
         except Exception as e:
@@ -754,15 +768,12 @@ class DataSourceManager:
                     logger.critical(f"Vision API critical error: {safe_error_message}")
                     raise  # Re-raise to trigger failover
 
-                # Check if the request is within the allowed delay window for Vision API
-                # Only tolerate failures for recent data that may not be available yet
-                current_time = datetime.now(timezone.utc)
-                vision_delay = timedelta(hours=self.VISION_DATA_DELAY_HOURS)
-
-                if end_time > (current_time - vision_delay):
+                # Check if the request is within the allowed delay window for Vision API using our centralized function
+                if is_date_too_fresh_for_vision(end_time):
                     # This falls within the allowable delay window for Vision API
                     logger.warning(
-                        f"Error fetching recent data from Vision API (within {self.VISION_DATA_DELAY_HOURS}h delay window): {safe_error_message}"
+                        f"Error fetching recent data from Vision API "
+                        f"(within {self.VISION_DATA_DELAY_HOURS}h delay window): {safe_error_message}"
                     )
                     return create_empty_dataframe()
 
