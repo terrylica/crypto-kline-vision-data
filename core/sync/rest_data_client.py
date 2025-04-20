@@ -2,7 +2,7 @@
 """Client for fetching market data from REST APIs with synchronous implementation."""
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
