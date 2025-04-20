@@ -25,7 +25,6 @@ from utils.config import (
     REST_MAX_CHUNKS,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
 )
-from utils.hardware_monitor import HardwareMonitor
 from core.sync.data_client_interface import DataClientInterface
 
 # Define the column names as a constant since they aren't in config.py
@@ -204,12 +203,6 @@ class RestDataClient(DataClientInterface):
             self.base_url = "https://dapi.binance.com"
         else:
             raise ValueError(f"Unsupported market type: {market_type}")
-
-        # Constants for chunking and pagination
-        self.CHUNK_SIZE = 1000  # Maximum number of records per request
-
-        # Initialize hardware monitor
-        self.hw_monitor = HardwareMonitor()
 
         # Set up proper endpoint based on market type
         self._endpoint = self._get_klines_endpoint()
@@ -514,43 +507,6 @@ class RestDataClient(DataClientInterface):
 
         # Return the interval duration
         return interval_map.get(interval, 60 * 1000)  # Default to 1 minute if unknown
-
-    def _validate_bar_duration(self, open_time: datetime, interval: Interval) -> float:
-        """Validate the expected duration of a single bar.
-
-        Args:
-            open_time: Bar open time
-            interval: Time interval
-
-        Returns:
-            Expected bar duration in seconds
-        """
-        # Implementation omitted, retained as a placeholder for future use
-        return 0.0
-
-    def _validate_historical_bars(
-        self, df: pd.DataFrame, current_time: datetime
-    ) -> int:
-        """Validate and count historical bars.
-
-        Args:
-            df: DataFrame with bar data
-            current_time: Current time
-
-        Returns:
-            Number of historical bars
-        """
-        # Implementation omitted, retained as a placeholder for future use
-        return 0
-
-    def _validate_bar_alignment(self, df: pd.DataFrame, interval: Interval) -> None:
-        """Validate that bars are properly aligned to interval boundaries.
-
-        Args:
-            df: DataFrame with bar data
-            interval: Time interval
-        """
-        # Implementation omitted, retained as a placeholder for future use
 
     def _align_interval_boundaries(
         self, start_time: datetime, end_time: datetime, interval: Interval
