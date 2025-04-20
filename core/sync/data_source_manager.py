@@ -65,12 +65,6 @@ class DataSourceConfig:
             Default is True. Set to False to always fetch fresh data.
         retry_count (int): Number of retries for failed requests.
             Default is 5. Increase for less stable networks.
-        use_httpx (bool): Whether to use httpx instead of curl_cffi for HTTP clients.
-            Default is False. Set to True if experiencing issues with curl_cffi.
-        rest_client (Optional[RestDataClient]): Optional external REST API client.
-            Default is None (auto-created). Only provide if you need custom REST client behavior.
-        vision_client (Optional[VisionDataClient]): Optional external Vision API client.
-            Default is None (auto-created). Only provide if you need custom Vision API behavior.
     """
 
     # Mandatory parameters
@@ -82,11 +76,6 @@ class DataSourceConfig:
     cache_dir: Optional[Path] = None
     use_cache: bool = True
     retry_count: int = 5
-    use_httpx: bool = False
-
-    # Advanced parameters (rarely need to be changed)
-    rest_client: Optional[RestDataClient] = None
-    vision_client: Optional[VisionDataClient] = None
 
     def __post_init__(self):
         """Validate parameters after initialization."""
@@ -135,12 +124,11 @@ class DataSourceConfig:
             # Basic config for SPOT market with Binance provider
             config = DataSourceConfig.create(MarketType.SPOT, DataProvider.BINANCE)
 
-            # Config for FUTURES with custom cache directory and HTTP client
+            # Config for FUTURES with custom cache directory
             config = DataSourceConfig.create(
                 MarketType.FUTURES_USDT,
                 DataProvider.BINANCE,
-                cache_dir=Path("./my_cache"),
-                use_httpx=True
+                cache_dir=Path("./my_cache")
             )
         """
         if not isinstance(market_type, MarketType):
@@ -237,8 +225,7 @@ class DataSourceManager:
                 MarketType.FUTURES_USDT,
                 DataProvider.BINANCE,
                 chart_type=ChartType.FUNDING_RATE,
-                cache_dir=Path("./my_cache"),
-                use_httpx=True
+                cache_dir=Path("./my_cache")
             )
         """
         # Use the configured default market type if none provided
@@ -258,9 +245,6 @@ class DataSourceManager:
             cache_dir=config.cache_dir,
             use_cache=config.use_cache,
             retry_count=config.retry_count,
-            use_httpx=config.use_httpx,
-            rest_client=config.rest_client,
-            vision_client=config.vision_client,
         )
 
     @classmethod
@@ -291,7 +275,6 @@ class DataSourceManager:
         cache_dir: Optional[Path] = None,
         retry_count: int = 3,
         chart_type: ChartType = ChartType.KLINES,
-        use_httpx: bool = False,
     ):
         """Initialize the data source manager.
 
@@ -302,14 +285,12 @@ class DataSourceManager:
             cache_dir: Directory to store cache files (default: "./cache")
             retry_count: Number of retries for network operations
             chart_type: Chart type (KLINES, FUNDING_RATE)
-            use_httpx: Whether to use httpx instead of curl_cffi
         """
         self.market_type = market_type
         self.provider = provider
         self.use_cache = use_cache
         self.retry_count = retry_count
         self.chart_type = chart_type
-        self.use_httpx = use_httpx
 
         # Set up cache directory
         if cache_dir is not None:
@@ -561,10 +542,6 @@ class DataSourceManager:
             downloaded and cached. This ensures complete daily data availability in the cache
             regardless of the specific time range requested.
         """
-        print(
-            f"**** SAVING TO CACHE: {symbol} {interval.value} with {len(df)} records, source={source}, use_cache={self.use_cache}"
-        )
-
         if not self.use_cache or self.cache_manager is None:
             logger.debug(
                 "Caching disabled or cache manager is None - skipping cache save"
@@ -939,8 +916,6 @@ class DataSourceManager:
                 raise RuntimeError(
                     "CRITICAL: REST API error could not be handled properly"
                 )
-
-            # This line should never be reached due to the raises above
 
     def _merge_dataframes(self, dfs: List[pd.DataFrame]) -> pd.DataFrame:
         """Merge multiple DataFrames into one, handling overlaps.
