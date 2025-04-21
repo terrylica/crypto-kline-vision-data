@@ -51,11 +51,13 @@ class LogLevel(str, Enum):
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
-    D = "DEBUG"  # Shorthand
-    I = "INFO"  # Shorthand
-    W = "WARNING"  # Shorthand
-    E = "ERROR"  # Shorthand
-    C = "CRITICAL"  # Shorthand
+
+    # Add shorthand values explicitly to the enum
+    D = "D"
+    I = "I"
+    W = "W"
+    E = "E"
+    C = "C"
 
 
 def resolve_log_level(level):
@@ -260,7 +262,7 @@ def adjust_symbol_for_market(symbol, market_type):
         str: Adjusted symbol
     """
     # For Coin-M futures, we might need to adjust the symbol format
-    if market_type == MarketType.CM:
+    if market_type == MarketType.FUTURES_COIN:
         # If the symbol doesn't have _PERP suffix and doesn't contain a digit (quarterly future),
         # add _PERP suffix
         if not symbol.endswith("_PERP") and not any(c.isdigit() for c in symbol):
@@ -282,12 +284,12 @@ def convert_source_choice(enforce_source):
         enforce_source: DataSourceChoice enum value
 
     Returns:
-        DataSource: Corresponding DataSource enum value or None
+        DataSource: Corresponding DataSource enum value
     """
     if enforce_source == DataSourceChoice.AUTO:
-        return None
+        return DataSource.AUTO
     elif enforce_source == DataSourceChoice.REST:
         return DataSource.REST
     elif enforce_source == DataSourceChoice.VISION:
         return DataSource.VISION
-    return None
+    return DataSource.AUTO

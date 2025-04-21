@@ -7,7 +7,6 @@ This module contains Typer app options and argument definitions for DSM Demo CLI
 
 from typing import Dict, Any
 import typer
-from enum import Enum
 
 from utils.for_demo.dsm_cli_utils import (
     MarketTypeChoice,
@@ -140,6 +139,7 @@ def get_standard_options() -> Dict[str, Any]:
             CLI_OPTIONS["log_level"]["long_flag"],
             CLI_OPTIONS["log_level"]["short_flag"],
             help=CLI_OPTIONS["log_level"]["help"],
+            case_sensitive=False,
         ),
     }
 

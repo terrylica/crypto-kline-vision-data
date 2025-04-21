@@ -59,8 +59,10 @@ def fetch_data_with_fcp(
     logger.info(f"Time range: {start_time.isoformat()} to {end_time.isoformat()}")
     logger.info(f"Cache enabled: {use_cache}")
 
-    if enforce_source != DataSource.AUTO:
+    if enforce_source is not None:
         logger.info(f"Enforcing data source: {enforce_source.name}")
+    else:
+        logger.info(f"Using AUTO source selection (FCP: Cache → Vision → REST)")
 
     logger.info(
         f"[bold red]Attempting[/bold red] to fetch data from {start_time.isoformat()} to {end_time.isoformat()}..."
@@ -73,18 +75,6 @@ def fetch_data_with_fcp(
     logger.debug(
         f"Expected record count: {expected_records} for {expected_seconds} seconds range"
     )
-
-    # Enhanced logging for the enforce_source parameter
-    if enforce_source == DataSource.REST:
-        logger.info(
-            f"Explicitly enforcing REST API as the data source (bypassing Vision API)"
-        )
-    elif enforce_source == DataSource.VISION:
-        logger.info(
-            f"Explicitly enforcing VISION API as the data source (no REST fallback)"
-        )
-    else:
-        logger.info(f"Using AUTO source selection (FCP: Cache → Vision → REST)")
 
     try:
         with Progress(
