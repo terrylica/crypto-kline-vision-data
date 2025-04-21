@@ -14,8 +14,6 @@ import random
 
 import pandas as pd
 
-# Import curl_cffi for HTTP client implementation
-
 from utils.logger_setup import logger
 from utils.market_constraints import MarketType, Interval, ChartType, get_endpoint_url
 from utils.time_utils import (
@@ -57,7 +55,7 @@ class ApiBoundaryValidator:
             raise ValueError(f"Unsupported market type: {market_type}")
 
         self.market_type = market_type
-        # Use curl_cffi by default through create_client function
+        # Use httpx client
         self.http_client = create_client(timeout=10.0)
         logger.debug(f"Initialized ApiBoundaryValidator for {market_type} market")
 
@@ -481,33 +479,22 @@ class ApiBoundaryValidator:
 
                 response = await self.http_client.get(base_url, params=params)
 
-                # Handle different client types
-                if hasattr(response, "json") and callable(response.json):
-                    # curl_cffi style response
-                    if response.status_code == RATE_LIMIT_STATUS:
-                        retry_after = int(response.headers.get("Retry-After", 1))
-                        logger.warning(
-                            f"Rate limited by API. Retry after {retry_after}s"
-                        )
-                        await asyncio.sleep(retry_after)
-                        retries += 1
-                        continue
+                # Handle response
+                if response.status_code == RATE_LIMIT_STATUS:
+                    retry_after = int(response.headers.get("Retry-After", 1))
+                    logger.warning(f"Rate limited by API. Retry after {retry_after}s")
+                    await asyncio.sleep(retry_after)
+                    retries += 1
+                    continue
 
-                    if response.status_code >= 400:
-                        logger.error(
-                            f"API error {response.status_code}: {response.text}"
-                        )
-                        raise Exception(
-                            f"API error {response.status_code}: {response.text}"
-                        )
+                if response.status_code >= 400:
+                    logger.error(f"API error {response.status_code}: {response.text}")
+                    raise Exception(
+                        f"API error {response.status_code}: {response.text}"
+                    )
 
-                    # Parse the data from curl_cffi response
-                    data = response.json()
-
-                else:
-                    # This shouldn't happen as we only use curl_cffi now
-                    logger.error("Invalid response type from HTTP client")
-                    raise TypeError("Invalid response type from HTTP client")
+                # Parse the response data
+                data = response.json()
 
                 logger.debug(f"API returned {len(data)} records")
                 return data

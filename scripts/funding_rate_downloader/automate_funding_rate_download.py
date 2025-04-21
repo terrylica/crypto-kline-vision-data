@@ -17,7 +17,7 @@ DEFAULT_OUTPUT_DIR = "tmp/funding_rate_history"
 def fetch_funding_rate_history(
     symbol: str, limit: int = 1000
 ) -> Optional[List[Dict[str, Any]]]:
-    """Fetch funding rate history from Binance API using curl_cffi"""
+    """Fetch funding rate history from Binance API using httpx"""
     try:
         url = f"https://fapi.binance.com/fapi/v1/fundingRate"
         params = {"symbol": symbol, "limit": limit}

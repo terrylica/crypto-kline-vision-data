@@ -8,7 +8,7 @@ data points without specifying time ranges.
 
 import asyncio
 import time
-from curl_cffi import AsyncSession
+import httpx
 from rich.console import Console
 from utils.logger_setup import logger
 from rich import print
@@ -70,7 +70,7 @@ class RateLimitTracker:
 
 async def fetch_klines(symbol, interval="1s", limit=1000):
     """Fetch klines data directly from Binance API without specifying time ranges."""
-    async with AsyncSession() as session:
+    async with httpx.AsyncClient() as client:
         # Build parameters without start/end time
         params = {
             "symbol": symbol.upper(),
@@ -82,7 +82,7 @@ async def fetch_klines(symbol, interval="1s", limit=1000):
         endpoint_url = "https://api.binance.com/api/v3/klines"
 
         # Make the API request
-        response = await session.get(endpoint_url, params=params)
+        response = await client.get(endpoint_url, params=params)
 
         # Extract rate limit info
         weight = int(response.headers.get("x-mbx-used-weight-1m", "0"))

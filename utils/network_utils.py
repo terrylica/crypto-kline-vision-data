@@ -25,9 +25,6 @@ import json
 import platform
 import gc
 
-# Import curl_cffi for HTTP client implementation
-# from curl_cffi.requests import AsyncSession
-
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -165,7 +162,7 @@ def create_client(
         )
 
 
-def create_curl_cffi_client(
+def create_legacy_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_connections: int = 50,
     headers: Optional[Dict[str, str]] = None,
@@ -186,11 +183,11 @@ def create_curl_cffi_client(
         httpx.AsyncClient configured with the provided settings
     """
     logger.warning(
-        "create_curl_cffi_client is deprecated and now redirects to create_httpx_client. "
+        "create_legacy_client is deprecated. "
         "Please update your code to use create_httpx_client or create_client directly."
     )
 
-    # Remove curl_cffi-specific parameters
+    # Remove legacy-specific parameters
     if "impersonate" in kwargs:
         logger.warning(
             "Parameter 'impersonate' is not supported by httpx and will be ignored"
@@ -545,7 +542,7 @@ async def make_api_request(
 
     while attempt < retries:
         try:
-            # Use curl_cffi client
+            # Use httpx client
             if method == "GET":
                 response = await client.get(
                     url, headers=headers, params=params, timeout=timeout_value

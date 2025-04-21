@@ -20,7 +20,7 @@ from pathlib import Path
 import logging
 
 import pyarrow as pa
-from curl_cffi.requests.errors import RequestsError
+import httpx
 
 # Import centralized validation utilities
 from utils.validation import DataValidation, DataFrameValidator
@@ -122,7 +122,7 @@ def classify_error(error: Exception) -> str:
     Returns:
         Standardized error type string
     """
-    if isinstance(error, (RequestsError,)):
+    if isinstance(error, (httpx.HTTPError,)):
         return ERROR_TYPES["NETWORK"]
     elif isinstance(error, OSError):
         return ERROR_TYPES["FILE_SYSTEM"]

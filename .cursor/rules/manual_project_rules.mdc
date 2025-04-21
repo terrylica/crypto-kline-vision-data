@@ -29,8 +29,8 @@ alwaysApply: false
 - Implement guard clause pattern for cleaner control flow
 - Use full project-relative paths for file operations
 - Move or rename files and directories with git mv
-- Assume `curl_cffi` and `httpx` is installed and available for import so no need to try importing it
-- Prefer `curl_cffi` over httpx, requests, aiohttp, and pycurl for HTTP client implementations
+- Assume `httpx` is installed and available for import so no need to try importing it
+- Use `httpx` for HTTP client implementations
 
 ## Code Quality
 

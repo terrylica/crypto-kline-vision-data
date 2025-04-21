@@ -133,7 +133,7 @@ def config_example():
     config = DataSourceConfig.create(
         market_type=MarketType.SPOT,   # Required: Market type
         cache_dir=Path("./cache"),     # Optional: Cache directory
-        use_httpx=True,                # Optional: Use httpx instead of curl_cffi
+        use_httpx=True,                # Optional: Kept for backward compatibility, httpx is always used
     )
 
     # Initialize DataSourceManager with configuration
@@ -211,7 +211,7 @@ def funding_rate_example():
         market_type=MarketType.FUTURES_USDT,
         chart_type=ChartType.FUNDING_RATE,
         cache_dir=Path("./cache"),
-        use_httpx=True,  # Use httpx instead of curl_cffi for better stability
+        use_httpx=True,  # Kept for backward compatibility, httpx is always used
     ) as dsm:
         # Fetch funding rate data
         df = dsm.get_data(
@@ -308,7 +308,7 @@ manager = DataSourceManager.create(
     max_concurrent=50,  # Optional: Max concurrent requests
     retry_count=5,  # Optional: Number of retries
     max_concurrent_downloads=None,  # Optional: Max concurrent downloads
-    use_httpx=False,  # Optional: Use httpx instead of curl_cffi
+    use_httpx=True,  # Optional: Kept for backward compatibility, httpx is always used
 )
 
 # Query data with the manager
