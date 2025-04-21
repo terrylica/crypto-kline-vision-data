@@ -148,6 +148,8 @@ It displays real-time source information about where each data point comes from.
                 # Format as bullet point with bold option
                 options_formatted.append(f"- **`{option}`**: {description}")
 
+            options_formatted.append("- **`-h, --help`**: Show this message and exit.")
+
             options_text = "\n".join(options_formatted)
             markdown_content += f"{options_text}\n\n"
 

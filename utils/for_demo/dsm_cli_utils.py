@@ -44,18 +44,18 @@ class ChartTypeChoice(str, Enum):
 
 
 class LogLevel(str, Enum):
-    """Log level choices for CLI arguments with shorthand options."""
+    """Log level choices."""
 
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
-    D = "D"
-    I = "I"
-    W = "W"
-    E = "E"
-    C = "C"
+    D = "DEBUG"  # Shorthand
+    I = "INFO"  # Shorthand
+    W = "WARNING"  # Shorthand
+    E = "ERROR"  # Shorthand
+    C = "CRITICAL"  # Shorthand
 
 
 def resolve_log_level(level):

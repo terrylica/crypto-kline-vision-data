@@ -22,14 +22,6 @@ from utils.for_demo.dsm_help_content import (
 )
 
 
-class DocFormatChoice(str, Enum):
-    """Documentation format choices."""
-
-    TYPER_CLI = "typer-cli"
-    GITHUB = "github"
-    CONSOLE = "console"
-
-
 def create_typer_app(app_name="DSM Demo"):
     """Create a preconfigured Typer app with consistent styling and settings.
 
@@ -141,12 +133,6 @@ def get_standard_options() -> Dict[str, Any]:
             CLI_OPTIONS["gen_lint_config"]["long_flag"],
             CLI_OPTIONS["gen_lint_config"]["short_flag"],
             help=CLI_OPTIONS["gen_lint_config"]["help"],
-        ),
-        "doc_format": typer.Option(
-            DocFormatChoice.TYPER_CLI,
-            CLI_OPTIONS["doc_format"]["long_flag"],
-            CLI_OPTIONS["doc_format"]["short_flag"],
-            help=CLI_OPTIONS["doc_format"]["help"],
         ),
         # Other options
         "log_level": typer.Option(

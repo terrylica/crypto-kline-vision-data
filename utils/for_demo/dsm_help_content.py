@@ -119,11 +119,8 @@ It displays real-time source information about where each data point comes from.
   ./examples/sync/dsm_demo.py -s BTCUSDT -cc
   
 [green]Documentation Generation[/green]
-  > Generate documentation with typer-cli format (default)
+  > Generate documentation
   ./examples/sync/dsm_demo.py -gd
-  
-  > Generate GitHub-optimized documentation
-  ./examples/sync/dsm_demo.py -gd -df github
   
   > Generate documentation with linting configuration files
   ./examples/sync/dsm_demo.py -gd -glc
@@ -218,12 +215,6 @@ CLI_OPTIONS = {
         "short_flag": "-glc",
         "help": "Generate markdown linting configuration files along with documentation (only used with --gen-doc)",
         "default": False,
-    },
-    "doc_format": {
-        "long_flag": "--doc-format",
-        "short_flag": "-df",
-        "help": "Documentation format to use (typer-cli, github, console). typer-cli uses the official Typer CLI tool, github optimizes for GitHub display, console uses plain console output.",
-        "default": "typer-cli",  # DocFormatChoice.TYPER_CLI
     },
     # Other options
     "log_level": {
