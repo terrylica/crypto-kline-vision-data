@@ -5,9 +5,8 @@ Application options for DSM Demo CLI applications.
 This module contains Typer app options and argument definitions for DSM Demo CLI tools.
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 import typer
-from typing_extensions import Annotated
 from enum import Enum
 
 from utils.for_demo.dsm_cli_utils import (

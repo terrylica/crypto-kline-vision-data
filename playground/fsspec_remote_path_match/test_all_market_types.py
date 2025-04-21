@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 import typer
-from rich import print
 from rich.console import Console
 from rich.table import Table
 import pendulum
-from typing import List, Tuple
+from typing import Tuple
 from pathlib import Path
 
-from utils.logger_setup import logger
 from utils.market_constraints import MarketType
 
 from vision_path_mapper import VisionPathMapper, FSSpecVisionHandler

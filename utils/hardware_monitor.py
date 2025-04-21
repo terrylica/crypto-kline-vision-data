@@ -9,9 +9,8 @@ import os
 import time
 import psutil
 import requests
-import random
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 from utils.logger_setup import logger
 

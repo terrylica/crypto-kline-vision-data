@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import unittest
 import pandas as pd
 
-from utils.market_constraints import Interval, MarketType
+from utils.market_constraints import Interval
 from utils.time_utils import filter_dataframe_by_time
 from utils.config import KLINE_COLUMNS
 from utils.for_core.vision_timestamp import process_timestamp_columns

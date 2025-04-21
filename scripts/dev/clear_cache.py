@@ -9,7 +9,6 @@ import typer
 from pathlib import Path
 import json
 from typing import List
-from utils.logger_setup import logger
 from rich import print
 
 
@@ -19,7 +18,6 @@ app = typer.Typer(help="Clear cache and log directories utility")
 @app.callback(context_settings={"help_option_names": ["--help", "-h"]})
 def callback():
     """Clear cache and log directories utility."""
-    pass
 
 
 @app.command()

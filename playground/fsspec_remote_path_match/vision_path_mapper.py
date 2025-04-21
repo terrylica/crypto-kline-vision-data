@@ -3,15 +3,13 @@
 from pathlib import Path
 import fsspec
 from dataclasses import dataclass
-from typing import Optional, Dict, Tuple, Union
+from typing import Dict, Tuple, Union
 import re
 import pendulum
-from enum import Enum
 import typer
 from rich import print
 from utils.logger_setup import logger
-from utils.market_constraints import MarketType, Interval, ChartType
-import os
+from utils.market_constraints import MarketType, ChartType
 
 
 @dataclass

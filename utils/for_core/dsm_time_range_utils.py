@@ -2,7 +2,7 @@
 """Utility functions for DataSourceManager time range and data segment operations."""
 
 from datetime import datetime, timedelta
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 import pandas as pd
 
 from utils.logger_setup import logger

@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-"""Network utilities for handling HTTP client creation and file downloads.
+"""Network utilities for HTTP requests, downloads, and connectivity testing.
 
-This module centralizes network-related functionality, including:
-1. HTTP client creation with standardized configuration using curl_cffi
-2. Download handling with progress tracking and retry logic
-3. Rate limiting management and stall detection
-
-By consolidating these utilities, we ensure consistent network behavior across the application.
+This module provides:
+1. HTTP client creation with standardized configuration using httpx
+2. Download functions (both single and concurrent) with optimized handling
+3. Connection testing and validation
+4. API request helpers with retry logic and response handling
 """
 
 import asyncio
@@ -23,12 +22,11 @@ from typing import (
 )
 import os
 import json
-import inspect
 import platform
 import gc
 
 # Import curl_cffi for HTTP client implementation
-from curl_cffi.requests import AsyncSession
+# from curl_cffi.requests import AsyncSession
 
 from tenacity import (
     retry,
@@ -39,11 +37,15 @@ from tenacity import (
 )
 
 from utils.config import (
-    DEFAULT_USER_AGENT,
-    DEFAULT_ACCEPT_HEADER,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
 )
 from utils.logger_setup import logger
+
+# Import httpx for HTTP client implementation
+import httpx
+
+# For backwards compatibility, define AsyncSession as an alias to httpx.AsyncClient
+AsyncSession = httpx.AsyncClient
 
 
 # ----- HTTP Client Factory Functions -----
@@ -55,7 +57,7 @@ def create_httpx_client(
     headers: Optional[Dict[str, str]] = None,
     **kwargs: Any,
 ) -> Any:
-    """Create an httpx AsyncClient as an alternative to curl_cffi.
+    """Create an httpx AsyncClient for high-performance HTTP requests.
 
     Args:
         timeout: Request timeout in seconds
@@ -124,19 +126,19 @@ def create_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_connections: Optional[int] = None,
     headers: Optional[Dict[str, str]] = None,
-    use_httpx: bool = False,
+    use_httpx: bool = True,  # Default to using httpx now
     **kwargs: Any,
 ) -> Any:
     """Create a client for making HTTP requests.
 
-    This function provides a unified interface for creating HTTP clients,
-    with curl_cffi as the primary implementation for stability.
+    This function provides a unified interface for creating HTTP clients
+    using httpx, which provides better stability and compatibility.
 
     Args:
         timeout: Request timeout in seconds
         max_connections: Maximum number of connections
         headers: Optional headers to include in all requests
-        use_httpx: DEPRECATED - Always uses curl_cffi regardless of this parameter for stability
+        use_httpx: Ignored parameter, maintained for backward compatibility. Always uses httpx.
         **kwargs: Additional keyword arguments to pass to the client
 
     Returns:
@@ -145,34 +147,21 @@ def create_client(
     if max_connections is None:
         max_connections = 50  # Default to 50 connections
 
-    # Filter kwargs for curl_cffi
-    curl_kwargs = kwargs.copy()
-
-    # Parameters specific to httpx that curl_cffi doesn't support
-    HTTPX_SPECIFIC_PARAMS = {"http2", "follow_redirects", "h2", "trust_env"}
-
-    # Filter parameters that are not supported by curl_cffi
-    for param in HTTPX_SPECIFIC_PARAMS:
-        if param in curl_kwargs:
-            curl_kwargs.pop(param)
-
-    if use_httpx:
+    if not use_httpx:
         logger.warning(
-            "The use_httpx parameter is deprecated - using curl_cffi instead for stability"
+            "The use_httpx parameter is deprecated - always using httpx for stability"
         )
 
-    # Only try curl_cffi
+    # Create httpx client
     try:
-        logger.debug(
-            f"Creating curl_cffi client with {len(curl_kwargs)} additional parameters"
-        )
-        return create_curl_cffi_client(timeout, max_connections, headers, **curl_kwargs)
+        logger.debug(f"Creating httpx client with {len(kwargs)} additional parameters")
+        return create_httpx_client(timeout, max_connections, headers, **kwargs)
     except ImportError:
         logger.error(
-            "curl_cffi is not available. Please install curl_cffi: pip install curl-cffi>=0.5.7"
+            "httpx is not available. Please install httpx: pip install httpx>=0.24.0"
         )
         raise ImportError(
-            "curl_cffi is required but not available. Install with: pip install curl-cffi>=0.5.7"
+            "httpx is required but not available. Install with: pip install httpx>=0.24.0"
         )
 
 
@@ -181,8 +170,11 @@ def create_curl_cffi_client(
     max_connections: int = 50,
     headers: Optional[Dict[str, str]] = None,
     **kwargs: Any,
-) -> AsyncSession:
-    """Factory function to create a pre-configured curl_cffi AsyncSession.
+) -> Any:
+    """Deprecated function that now creates an httpx client instead.
+
+    This function is maintained for backwards compatibility only. All code should
+    use create_httpx_client or create_client directly.
 
     Args:
         timeout: Total timeout in seconds
@@ -191,46 +183,23 @@ def create_curl_cffi_client(
         **kwargs: Additional client configuration options
 
     Returns:
-        Configured curl_cffi AsyncSession with standardized settings
+        httpx.AsyncClient configured with the provided settings
     """
-    client_headers = {
-        "Accept": DEFAULT_ACCEPT_HEADER,
-        "User-Agent": DEFAULT_USER_AGENT,
-    }
+    logger.warning(
+        "create_curl_cffi_client is deprecated and now redirects to create_httpx_client. "
+        "Please update your code to use create_httpx_client or create_client directly."
+    )
 
-    if headers:
-        client_headers.update(headers)
+    # Remove curl_cffi-specific parameters
+    if "impersonate" in kwargs:
+        logger.warning(
+            "Parameter 'impersonate' is not supported by httpx and will be ignored"
+        )
+        kwargs.pop("impersonate")
 
-    # Log the kwargs being passed to identify issues
-    logger.debug(f"Creating curl_cffi AsyncSession with kwargs: {kwargs}")
-
-    # Remove any incompatible kwargs that might be passed from httpx configuration
-    for param in ["http2", "follow_redirects", "h2", "trust_env"]:
-        if param in kwargs:
-            logger.debug(
-                f"Removing unsupported parameter '{param}' from curl_cffi client creation"
-            )
-            kwargs.pop(param)
-
-    # Special handling for 'impersonate' which is only in curl_cffi
-    impersonate = kwargs.pop("impersonate", None)
-    if impersonate:
-        logger.debug(f"Using impersonate={impersonate} for curl_cffi client")
-
-    client_kwargs = {
-        "timeout": timeout,
-        "headers": client_headers,
-        "max_clients": max_connections,
-    }
-
-    # Add the impersonate parameter back if it was provided
-    if impersonate:
-        client_kwargs["impersonate"] = impersonate
-
-    # Add any additional kwargs
-    client_kwargs.update(kwargs)
-
-    return AsyncSession(**client_kwargs)
+    return create_httpx_client(
+        timeout=timeout, max_connections=max_connections, headers=headers, **kwargs
+    )
 
 
 # ----- Download Handling -----
@@ -331,7 +300,7 @@ class DownloadHandler:
         """Initialize download handler.
 
         Args:
-            client: HTTP client (curl_cffi AsyncSession recommended)
+            client: HTTP client (httpx.AsyncClient recommended)
             max_retries: Maximum number of retry attempts
             min_wait: Minimum wait time between retries in seconds
             max_wait: Maximum wait time between retries in seconds
@@ -470,17 +439,17 @@ async def download_files_concurrently(
     max_concurrent: int = 50,
     **download_kwargs: Any,
 ) -> List[bool]:
-    """Download multiple files concurrently with rate limiting.
+    """Download multiple files concurrently using httpx.AsyncClient.
 
     Args:
-        client: HTTP client (curl_cffi AsyncSession recommended)
+        client: HTTP client (httpx.AsyncClient recommended)
         urls: List of URLs to download
-        local_paths: List of paths to save files to
+        local_paths: List of local paths to save files to
         max_concurrent: Maximum number of concurrent downloads
-        **download_kwargs: Additional arguments to pass to DownloadHandler.download_file
+        **download_kwargs: Additional keyword arguments to pass to download_file
 
     Returns:
-        List of download results (True for success, False for failure)
+        List of booleans indicating success or failure for each download
     """
     if len(urls) != len(local_paths):
         logger.error(
@@ -549,25 +518,22 @@ async def make_api_request(
     retry_delay: float = 1.0,
     raise_for_status: bool = True,
 ) -> Tuple[int, Dict]:
-    """Make an API request with retry logic and timeout handling.
+    """Make an API request with retry logic and error handling.
 
     Args:
-        client: HTTP client (curl_cffi AsyncSession recommended)
-        url: URL to request
-        headers: Optional request headers
+        client: HTTP client (httpx.AsyncClient recommended)
+        url: URL to make the request to
+        headers: Optional headers to include in the request
         params: Optional query parameters
         method: HTTP method (GET, POST, etc.)
-        json_data: Optional JSON payload for POST requests
-        timeout: Request timeout in seconds
+        json_data: Optional JSON data for POST/PUT requests
+        timeout: Request timeout in seconds (overrides client timeout)
         retries: Number of retry attempts
-        retry_delay: Base delay between retries
-        raise_for_status: Whether to raise an exception for error status codes
+        retry_delay: Delay between retries in seconds
+        raise_for_status: Whether to raise an exception for HTTP errors
 
     Returns:
         Tuple of (status_code, response_data)
-
-    Raises:
-        Exception: For network errors or HTTP errors if raise_for_status is True
     """
     headers = headers or {}
     params = params or {}
@@ -659,12 +625,12 @@ class VisionDownloadManager:
         interval: str,
         market_type: str = "spot",
     ):
-        """Initialize the download manager.
+        """Initialize the Vision Download Manager.
 
         Args:
-            client: HTTP client for downloads (curl_cffi AsyncSession)
-            symbol: Trading pair symbol
-            interval: Time interval
+            client: HTTP client (httpx.AsyncClient recommended)
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval (e.g., "1m", "1h")
             market_type: Market type (spot, futures_usdt, futures_coin)
         """
         self.client = client
@@ -820,7 +786,7 @@ class VisionDownloadManager:
         temp_dir = Path(tempfile.mkdtemp(dir="./tmp"))
 
         # Get URLs for Vision API
-        from core.sync.vision_constraints import get_vision_url, FileType
+        from utils.for_core.vision_constraints import get_vision_url, FileType
 
         data_url = get_vision_url(
             self.symbol, self.interval, date, FileType.DATA, self.market_type
@@ -1065,199 +1031,58 @@ class VisionDownloadManager:
 
 
 async def safely_close_client(client):
-    """Safely close a client with proper error handling and cleanup.
+    """Safely close an HTTP client, with special handling for different client types.
+
+    This function handles safely closing HTTP clients, with proper error handling
+    and cleanup of resources.
 
     Args:
-        client: HTTP client to close
-
-    This attempts to close the client using multiple methods while preventing
-    exceptions from propagating.
+        client: The HTTP client to close (httpx.AsyncClient)
     """
     if client is None:
         return
 
-    client_type = type(client).__name__
-    logger.debug(f"[ProgressIndicator] Safely closing client of type {client_type}")
+    # Get client type name for better error messages
+    client_type = client.__class__.__name__
+    logger.debug(f"[ProgressIndicator] Closing HTTP client of type {client_type}")
 
-    # First, pre-emptively break any circular references
     try:
-        if hasattr(client, "_curlm") and client._curlm is not None:
-            logger.debug(
-                "[ProgressIndicator] Pre-emptively cleaning _curlm reference to prevent hanging"
-            )
-            # Use del instead of setting to None to avoid ctype issues
-            if hasattr(client, "_curlm"):
-                try:
-                    # Always use delattr for C-pointer attributes to prevent type errors
-                    delattr(client, "_curlm")
-                    logger.debug(
-                        "[ProgressIndicator] Successfully deleted _curlm attribute"
-                    )
-                except Exception as e:
-                    logger.debug(
-                        f"[ProgressIndicator] Could not delete _curlm attribute: {e}"
-                    )
-                    # Alternative approach - only set to None if it's not a cdata pointer
-                    import ctypes
-
-                    if not isinstance(client._curlm, ctypes._CData):
-                        client._curlm = None
-    except Exception as e:
-        logger.warning(f"[ProgressIndicator] Error clearing _curlm reference: {e}")
-
-    # Also clear _timeout_handle if it exists
-    try:
-        if hasattr(client, "_timeout_handle") and client._timeout_handle is not None:
-            logger.debug(
-                "[ProgressIndicator] Pre-emptively cleaning _timeout_handle to prevent hanging"
-            )
-            try:
-                # Always use delattr for C-pointer attributes to prevent type errors
-                delattr(client, "_timeout_handle")
+        # Try close() method first (available on most HTTP clients)
+        if hasattr(client, "close") and callable(client.close):
+            # Check if it's an async method
+            if asyncio.iscoroutinefunction(client.close):
+                await client.close()
                 logger.debug(
-                    "[ProgressIndicator] Successfully deleted _timeout_handle attribute"
+                    f"[ProgressIndicator] Closed {client_type} with await client.close()"
                 )
-            except Exception as e:
-                logger.debug(
-                    f"[ProgressIndicator] Could not delete _timeout_handle attribute: {e}"
-                )
-                # Alternative approach
-                if not isinstance(
-                    getattr(client, "_timeout_handle", None), ctypes._CData
-                ):
-                    client._timeout_handle = None
-    except Exception as e:
-        logger.warning(f"[ProgressIndicator] Error clearing _timeout_handle: {e}")
-
-    # Cancel any force_timeout tasks
-    cancelled_tasks = 0
-    try:
-        # Find all force_timeout tasks
-        force_timeout_tasks = []
-        for task in asyncio.all_tasks():
-            task_str = str(task)
-            if "_force_timeout" in task_str and not task.done():
-                force_timeout_tasks.append(task)
-
-        # Cancel all found tasks
-        if force_timeout_tasks:
-            logger.debug(
-                f"[ProgressIndicator] Cancelling {len(force_timeout_tasks)} force_timeout tasks during client cleanup"
-            )
-            for task in force_timeout_tasks:
-                task.cancel()
-            cancelled_tasks = len(force_timeout_tasks)
-
-            # Wait for cancellation to complete with timeout
-            try:
-                await asyncio.wait(force_timeout_tasks, timeout=0.5)
-            except Exception as e:
-                logger.warning(f"Error waiting for task cancellation: {e}")
-    except Exception as e:
-        logger.warning(f"Error cancelling force_timeout tasks: {e}")
-
-    # Then try different closing methods with error handling
-    try:
-        # Try close() method first (used by curl_cffi.AsyncSession)
-        if hasattr(client, "close"):
-            if inspect.iscoroutinefunction(client.close):
-                try:
-                    logger.debug(
-                        "[ProgressIndicator] Closing client with async close()"
-                    )
-                    await asyncio.wait_for(client.close(), timeout=2.0)
-                    logger.debug(
-                        "[ProgressIndicator] Successfully closed client with async close()"
-                    )
-                    return
-                except asyncio.TimeoutError:
-                    logger.warning("Timeout while closing client with async close()")
-                except Exception as e:
-                    logger.warning(f"Exception during async client.close(): {e}")
             else:
-                # Synchronous close
-                try:
-                    logger.debug("[ProgressIndicator] Closing client with sync close()")
-                    client.close()
-                    logger.debug(
-                        "[ProgressIndicator] Successfully closed client with sync close()"
-                    )
-                    return
-                except Exception as e:
-                    logger.warning(f"Exception during sync client.close(): {e}")
-
-        # Try aclose() method (used by some other clients)
-        if hasattr(client, "aclose") and inspect.iscoroutinefunction(client.aclose):
-            try:
-                logger.debug("[ProgressIndicator] Closing client with aclose()")
-                await asyncio.wait_for(client.aclose(), timeout=2.0)
+                client.close()
                 logger.debug(
-                    "[ProgressIndicator] Successfully closed client with aclose()"
+                    f"[ProgressIndicator] Closed {client_type} with client.close()"
                 )
-                return
-            except asyncio.TimeoutError:
-                logger.warning("Timeout while closing client with aclose()")
-            except Exception as e:
-                logger.warning(f"Exception during client.aclose(): {e}")
+            return
 
-        # For curl_cffi AsyncSession, try directly accessing the AsyncCurl and closing it
-        if client_type == "AsyncSession" and hasattr(client, "_asynccurl"):
-            try:
-                logger.debug(
-                    "[ProgressIndicator] Closing curl_cffi AsyncSession via _asynccurl.close()"
-                )
-                if hasattr(client._asynccurl, "close") and callable(
-                    client._asynccurl.close
-                ):
-                    client._asynccurl.close()
-                    logger.debug(
-                        "[ProgressIndicator] Successfully closed client via _asynccurl.close()"
-                    )
-                    return
-            except Exception as e:
-                logger.warning(f"Exception during _asynccurl.close(): {e}")
+        # Handle httpx.AsyncClient special case
+        if client_type == "AsyncClient" and hasattr(client, "aclose"):
+            await client.aclose()
+            logger.debug(f"[ProgressIndicator] Closed {client_type} via aclose()")
+            return
 
-        # For httpx.AsyncClient, try __aexit__
-        if hasattr(client, "__aexit__"):
-            try:
-                logger.debug("[ProgressIndicator] Closing client with __aexit__()")
-                await client.__aexit__(None, None, None)
-                logger.debug(
-                    "[ProgressIndicator] Successfully closed client with __aexit__()"
-                )
-                return
-            except Exception as e:
-                logger.warning(f"Exception during client.__aexit__(): {e}")
+        # For older versions of httpx
+        if hasattr(client, "transport") and hasattr(client.transport, "close"):
+            client.transport.close()
+            logger.debug(f"[ProgressIndicator] Closed {client_type}.transport")
+            return
 
-        # Last resort: safely clear attributes to help garbage collection
-        try:
-            # Don't blindly set attributes to None which can cause issues with ctypes
-            for attr_name in dir(client):
-                if not attr_name.startswith("__") and hasattr(client, attr_name):
-                    try:
-                        # Only modify attributes that don't look like C pointers
-                        attr_val = getattr(client, attr_name, None)
-                        if attr_val is not None and not str(
-                            type(attr_val)
-                        ).lower().endswith("data"):
-                            setattr(client, attr_name, None)
-                    except (AttributeError, TypeError):
-                        pass
-        except Exception as e:
-            logger.warning(f"[ProgressIndicator] Error during attribute cleanup: {e}")
-
-        logger.debug(
-            "[ProgressIndicator] Manually cleared client attributes to help with garbage collection"
+        # If we get here, we don't know how to close this client
+        logger.warning(
+            f"[ProgressIndicator] Don't know how to close client of type {client_type}"
         )
 
-        # Force garbage collection
-        gc.collect()
-
-        return
-
     except Exception as e:
-        logger.error(f"Unexpected error during client cleanup: {e}")
-        # Force garbage collection as a last resort
+        logger.warning(f"[ProgressIndicator] Error closing {client_type}: {e}")
+    finally:
+        # Suggest garbage collection to clean up resources
         gc.collect()
 
 
@@ -1267,19 +1092,16 @@ async def test_connectivity(
     timeout: float = 10.0,
     retry_count: int = 2,
 ) -> bool:
-    """Test connectivity to a specific URL.
-
-    This function can be used to verify network connectivity before
-    making API requests, helping to diagnose network issues early.
+    """Test connectivity to a URL.
 
     Args:
-        client: HTTP client to use for the test. If None, a new client will be created.
+        client: Optional httpx.AsyncClient to use (new one is created if None)
         url: URL to test connectivity to
         timeout: Request timeout in seconds
         retry_count: Number of retry attempts
 
     Returns:
-        True if connection succeeds, False otherwise
+        True if connectivity test passes, False otherwise
     """
     # Create a client if not provided
     should_close_client = False

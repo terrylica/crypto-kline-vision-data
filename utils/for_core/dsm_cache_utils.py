@@ -2,12 +2,11 @@
 """Utility functions for DataSourceManager cache operations."""
 
 from datetime import datetime, timezone, timedelta
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 import pandas as pd
-from pathlib import Path
 
 from utils.logger_setup import logger
-from utils.market_constraints import Interval, ChartType
+from utils.market_constraints import Interval
 from utils.time_utils import filter_dataframe_by_time, align_time_boundaries
 from utils.config import create_empty_dataframe
 

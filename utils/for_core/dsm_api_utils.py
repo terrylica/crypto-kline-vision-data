@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Utility functions for DataSourceManager API operations."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 import traceback
 from typing import Optional
