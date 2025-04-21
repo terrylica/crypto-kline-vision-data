@@ -131,8 +131,6 @@ def print_config_table(
     retries,
     no_cache,
     clear_cache,
-    test_fcp,
-    prepare_cache,
     log_level,
 ):
     """Print a formatted table of configuration settings.
@@ -170,12 +168,6 @@ def print_config_table(
     args_table.add_row(
         "Cache Control",
         f"[dark_orange]No cache: {no_cache} | Clear cache: {clear_cache}[/dark_orange]",
-    )
-
-    # Test Mode row with purple color
-    args_table.add_row(
-        "Test Mode",
-        f"[orchid]Test FCP: {test_fcp} | Prepare cache: {prepare_cache}[/orchid]",
     )
 
     # Other row with dark slate gray

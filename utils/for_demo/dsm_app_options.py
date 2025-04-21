@@ -115,19 +115,6 @@ def get_standard_options() -> Dict[str, Any]:
             "-cc",
             help="Clear the cache directory before running",
         ),
-        # Test Mode options
-        "test_fcp": typer.Option(
-            False,
-            "--test-fcp",
-            "-fcp",
-            help="Run the special test for Failover Control Protocol (FCP) mechanism",
-        ),
-        "prepare_cache": typer.Option(
-            False,
-            "--prepare-cache",
-            "-pc",
-            help="Pre-populate cache with the first segment of data (only used with --test-fcp)",
-        ),
         # Documentation options
         "gen_doc": typer.Option(
             False,
@@ -219,10 +206,6 @@ def get_cmd_help_text():
       ./examples/sync/dsm_demo.py -s BTCUSDT -es REST
       ./examples/sync/dsm_demo.py -s BTCUSDT -nc
       ./examples/sync/dsm_demo.py -s BTCUSDT -cc
-
-    [green]Testing FCP Mechanism:[/green]
-      ./examples/sync/dsm_demo.py -s BTCUSDT -fcp
-      ./examples/sync/dsm_demo.py -s BTCUSDT -fcp -pc
       
     [green]Documentation Generation:[/green]
       # Generate documentation with typer-cli format (default)
@@ -236,5 +219,5 @@ def get_cmd_help_text():
 
     [green]Combined Examples:[/green]
       ./examples/sync/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
-      ./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -fcp -pc -l D -cc
+      ./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
     """

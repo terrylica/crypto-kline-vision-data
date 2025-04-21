@@ -58,6 +58,35 @@ def display_results(
 
         print(source_table)
 
+        # Show timeline visualization of source distribution
+        print("\n[bold cyan]Source Distribution Timeline:[/bold cyan]")
+
+        # First, create a new column with the date part only
+        df["date"] = df["open_time"].dt.date
+        date_groups = (
+            df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
+        )
+
+        # Display timeline visualization
+        timeline_table = Table(title="Sources by Date")
+        timeline_table.add_column("Date", style="cyan")
+
+        # Add columns for each source found
+        for source in source_counts.index:
+            timeline_table.add_column(source, style="green", justify="right")
+
+        # Add rows for each date
+        for date, row in date_groups.iterrows():
+            values = [str(date)]
+            for source in source_counts.index:
+                if source in row:
+                    values.append(f"{row[source]:,}")
+                else:
+                    values.append("0")
+            timeline_table.add_row(*values)
+
+        print(timeline_table)
+
         # Show sample data from each source
         print(f"\n[bold cyan]Sample Data by Source:[/bold cyan]")
         for source in source_counts.index:

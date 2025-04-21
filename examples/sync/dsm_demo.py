@@ -12,7 +12,7 @@ following the Failover Control Protocol (FCP) strategy:
 3. REST API
 
 It shows real-time source information about where each data point comes from,
-and provides a summary of the data source breakdown.
+and provides a summary of the data source breakdown with timeline visualization.
 """
 
 from pathlib import Path
@@ -31,7 +31,6 @@ from utils.for_demo.dsm_datetime_parser import parse_datetime, calculate_date_ra
 from utils.for_demo.dsm_cache_utils import clear_cache_directory, verify_project_root
 from utils.for_demo.dsm_data_fetcher import fetch_data_with_fcp
 from utils.for_demo.dsm_display_utils import display_results
-from utils.for_demo.dsm_test_utils import test_fcp_mechanism
 from utils.for_demo.dsm_doc_utils import generate_markdown_docs
 from utils.for_demo.dsm_cli_utils import (
     resolve_log_level,
@@ -84,9 +83,6 @@ def main(
     # Cache Control options
     no_cache: bool = options["no_cache"],
     clear_cache: bool = options["clear_cache"],
-    # Test Mode options
-    test_fcp: bool = options["test_fcp"],
-    prepare_cache: bool = options["prepare_cache"],
     # Documentation options
     gen_doc: bool = options["gen_doc"],
     gen_lint_config: bool = options["gen_lint_config"],
@@ -165,57 +161,12 @@ def main(
             retries,
             no_cache,
             clear_cache,
-            test_fcp,
-            prepare_cache,
             level,
         )
 
         # Clear cache if requested
         if clear_cache:
             clear_cache_directory(CACHE_DIR)
-
-        # Check if we should run the FCP test
-        if test_fcp:
-            # Add debug logging
-            logger.debug(f"Running FCP test with:")
-            logger.debug(f"  Symbol: {symbol}")
-            logger.debug(f"  Market: {market.value} (converting to enum)")
-            logger.debug(f"  Interval: {interval}")
-            logger.debug(f"  Start time: {start_time!r}")
-            logger.debug(f"  End time: {end_time!r}")
-            logger.debug(f"  Days: {days}")
-            logger.debug(f"  Prepare cache: {prepare_cache}")
-
-            # Calculate dates based on days parameter if provided
-            days_provided = "--days" in sys.argv or "-d" in sys.argv
-            if days_provided:
-                start_datetime, end_datetime = calculate_date_range(None, None, days)
-                logger.debug(f"Using calculated date range based on days={days}")
-                logger.debug(f"Calculated start time: {start_datetime.isoformat()}")
-                logger.debug(f"Calculated end time: {end_datetime.isoformat()}")
-                pass_start_date = start_datetime.isoformat()
-                pass_end_date = end_datetime.isoformat()
-            else:
-                # Use the provided start_time and end_time
-                pass_start_date = start_time
-                pass_end_date = end_time
-
-            # Run the FCP mechanism test
-            test_fcp_mechanism(
-                symbol=symbol,
-                market_type=MarketType.from_string(market.value),
-                interval=Interval(interval),
-                chart_type=ChartType.from_string(chart_type.value),
-                start_date=pass_start_date,
-                end_date=pass_end_date,
-                days=days,
-                prepare_cache=prepare_cache,
-                cache_dir=CACHE_DIR,
-                performance_timer_start=start_time_perf,
-            )
-            # Return from function after running test_fcp_mechanism
-            # to avoid duplicating performance output
-            return
 
         # Validate and process arguments
         try:
@@ -263,7 +214,7 @@ def main(
                 max_retries=retries,
             )
 
-            # Display results
+            # Display results with enhanced visualizations
             display_results(
                 df,
                 symbol_adjusted,

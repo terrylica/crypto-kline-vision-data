@@ -9,6 +9,7 @@ mechanism, which automatically selects the appropriate data source based on avai
 import pandas as pd
 import time
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.panel import Panel
 import pendulum
 
 from utils.logger_setup import logger
@@ -144,6 +145,20 @@ def fetch_data_with_fcp(
 
         # Log DataFrame structure information for debugging
         log_dataframe_info(df)
+
+        # Show a summary panel
+        print(
+            Panel(
+                "[bold green]FCP Mechanism Complete[/bold green]\n"
+                "The DataSourceManager automatically:\n"
+                "1. Retrieved data from local cache when available\n"
+                "2. Retrieved missing data from Vision API\n"
+                "3. Retrieved remaining data from REST API\n"
+                "4. Merged all data sources into a single coherent DataFrame",
+                title="Summary",
+                border_style="green",
+            )
+        )
 
         return df
     except Exception as e:
