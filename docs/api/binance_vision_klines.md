@@ -8,7 +8,7 @@ The following intervals are available for historical kline data on Binance Visio
 
 | Interval | Description      | URL Path Component | Status    |
 | -------- | ---------------- | ------------------ | --------- |
-| 1s       | 1 second         | 1s                 | Available |
+| 1s       | 1 second         | 1s                 | SPOT only |
 | 1m       | 1 minute         | 1m                 | Available |
 | 3m       | 3 minutes        | 3m                 | Available |
 | 5m       | 5 minutes        | 5m                 | Available |

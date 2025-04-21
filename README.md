@@ -1,11 +1,18 @@
 # Binance Data Service
 
-A high-performance, robust package for efficient market data retrieval from multiple data providers, including Binance Vision, using Apache Arrow MMAP for optimal performance.
+A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
 ## Important Documentation
 
 - **[DSM Demo Documentation](docs/dsm_demo/README.md)**: Interactive demonstration of the Failover Control Protocol mechanism, the core data retrieval strategy that ensures robust and efficient data collection from multiple sources.
 - **[Always Focus Demo Rule](.cursor/rules/always_focus_demo.mdc)**: The authoritative instruction file guiding the Cursor Agent to strictly adhere to the demo plan and maintain focus on the Failover Control Protocol demonstration.
+
+## API Documentation
+
+The `docs/api` folder provides in-depth documentation on data source characteristics and retrieval mechanisms, including:
+
+- **[Binance Vision Klines API](docs/api/binance_vision_klines.md)**: Source of Vision API kline data retrieval details.
+- **[Binance REST Klines API](docs/api/binance_rest_klines.md)**: Source of REST API kline data retrieval details.
 
 ## Data Initialization and Shortlisting
 
