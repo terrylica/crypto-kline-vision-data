@@ -82,7 +82,7 @@ limit-inference-results=100
 
 # List of plugins (as comma separated values of python module names) to load,
 # usually to register additional checkers.
-load-plugins=
+load-plugins=pylint.extensions.docparams,pylint.extensions.mccabe
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -644,3 +644,12 @@ init-import=no
 # List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules=six.moves,past.builtins,future.builtins,builtins,io
+
+# Add custom checks for critical code blocks
+[CUSTOM]
+critical-code-markers=@critical_optimization:
+
+# Don't allow removing code marked with critical annotations
+[CRITICAL CODE]
+missing-critical-code=Warning: This change removes or modifies code marked with @critical_optimization. 
+  These blocks are critical to system performance and should not be modified without test validation.

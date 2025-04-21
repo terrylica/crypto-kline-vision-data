@@ -8,7 +8,7 @@ import pandas as pd
 from utils.logger_setup import logger
 from utils.market_constraints import Interval
 from utils.time_utils import filter_dataframe_by_time, align_time_boundaries
-from utils.config import create_empty_dataframe
+from utils.config import create_empty_dataframe, FEATURE_FLAGS
 
 
 def save_to_cache(
@@ -289,10 +289,43 @@ def get_from_cache(
                     if day_end.date() == aligned_end.date():
                         day_end = aligned_end
 
-                    logger.debug(
-                        f"[FCP] Adding incomplete day to missing ranges: {day_start} to {day_end} ({record_count}/1440 records)"
-                    )
-                    missing_ranges.append((day_start, day_end))
+                    # @critical_optimization: TEST_CASE_ID:CACHE-OPT-001
+                    # BUSINESS REQUIREMENT: This block prevents wasteful API calls
+                    # DO NOT REMOVE OR MODIFY without updating unit tests.
+                    # This ensures partial days aren't refetched when they already contain all required data.
+                    if FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True):
+                        day_data = filter_dataframe_by_time(
+                            combined_df, day_start, day_end, "open_time"
+                        )
+
+                        # Calculate expected records for this time range based on interval
+                        expected_intervals = (
+                            int(
+                                (day_end - day_start).total_seconds()
+                                / interval.to_seconds()
+                            )
+                            + 1
+                        )
+
+                        # Only add to missing ranges if we have actual gaps
+                        if len(day_data) < expected_intervals:
+                            logger.debug(
+                                f"[FCP] Adding incomplete day to missing ranges: {day_start} to {day_end} "
+                                f"(missing {expected_intervals - len(day_data)} out of {expected_intervals} expected records)"
+                            )
+                            missing_ranges.append((day_start, day_end))
+                        else:
+                            logger.debug(
+                                f"[FCP] Day {date.date()} has all {len(day_data)}/{expected_intervals} records needed "
+                                f"for requested time range - no need to refetch"
+                            )
+                    else:
+                        # Legacy behavior - always refetch incomplete days
+                        logger.debug(
+                            f"[FCP] Using legacy behavior (OPTIMIZE_CACHE_PARTIAL_DAYS=False): "
+                            f"Refetching incomplete day {date.date()} with {record_count}/1440 records"
+                        )
+                        missing_ranges.append((day_start, day_end))
 
     # Merge overlapping or adjacent ranges
     if missing_ranges:

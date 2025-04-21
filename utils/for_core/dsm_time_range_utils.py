@@ -240,10 +240,26 @@ def merge_dataframes(dfs: List[pd.DataFrame]) -> pd.DataFrame:
     merged = pd.concat(dfs, ignore_index=True)
 
     # Set source priority for resolving duplicates (higher number = higher priority)
+    # IMPORTANT: This priority order is critical for the FCP mechanism:
+    # - REST (3): Highest priority as it always has the most up-to-date data from the exchange
+    # - CACHE (2): Second priority to prefer local data over network calls when available
+    # - VISION (1): Lower priority than CACHE to minimize unnecessary network calls
+    # - UNKNOWN (0): Lowest priority for data with unknown origin
+    #
+    # How conflict resolution works:
+    # 1. When multiple data sources have records for the same timestamp, these priority values
+    #    are used to determine which one to keep
+    # 2. The DataFrame is sorted by open_time and then by _source_priority (ascending order)
+    # 3. drop_duplicates(subset=["open_time"], keep="last") is called, which keeps the LAST
+    #    occurrence of each timestamp - which will be the one with the HIGHEST priority value
+    #    because of the sorting order
+    #
+    # Do not change this ordering without careful consideration of the FCP workflow.
+    # Reversing CACHE and VISION would result in always preferring network calls over local cache.
     source_priority = {
         "UNKNOWN": 0,
-        "CACHE": 1,
-        "VISION": 2,
+        "VISION": 1,
+        "CACHE": 2,
         "REST": 3,
     }
 

@@ -236,6 +236,14 @@ class FeatureFlags:
                 setattr(cls, key, value)
 
 
+# Feature flags for critical optimizations
+FEATURE_FLAGS = {
+    # Prevents refetching days that have all required data for the requested time range
+    # even if they are incomplete compared to a full day
+    "OPTIMIZE_CACHE_PARTIAL_DAYS": True,
+}
+
+
 # Create a standard empty DataFrame with proper structure
 def create_empty_dataframe(chart_type=None) -> pd.DataFrame:
     """Create an empty DataFrame with the standard market data structure.
