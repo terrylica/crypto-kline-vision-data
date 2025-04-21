@@ -1,0 +1,8 @@
+---
+description: markdown
+globs: 
+alwaysApply: false
+---
+= Conform to the GitHub Flavored Markdown with all internal links URL-ed together.
+
+- Review careflly of the dir and file locations before making the link.
