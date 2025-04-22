@@ -8,38 +8,6 @@ This CLI tool retrieves data from multiple sources:
 
 It displays real-time source information about where each data point comes from.
 
-## Time Range Options
-
-### Priority and Calculation Details
-
-#### 1. End Time with Days
-
-- **Usage:** Use --end-time with --days to fetch data backward from a specific end time
-- **Calculation:** Calculates range as `[end_time - days, end_time]`
-- **Example:** --end-time 2025-04-15 --days 5 will fetch data from April 10-15, 2025
-
-#### 2. Start Time with Days
-
-- **Usage:** Use --start-time with --days to fetch data forward from a specific start time
-- **Calculation:** Calculates range as `[start_time, start_time + days]`
-- **Example:** --start-time 2025-04-10 --days 5 will fetch data from April 10-15, 2025
-
-#### 3. Exact Time Range
-
-- **Usage:** Provide both --start-time and --end-time for an exact time range
-- **Example:** --start-time 2025-04-10 --end-time 2025-04-15
-
-#### 4. Days Only
-
-- **Usage:** Use --days alone to fetch data relative to current time
-- **Calculation:** Calculates range as `[current_time - days, current_time]`
-- **Example:** --days 5 will fetch data from 5 days ago until now
-
-#### 5. Default Behavior (No Options)
-
-- **Condition:** If no time options provided, uses default of 3 days from current time
-- **Equivalent:** to --days 3
-
 ## Usage
 
 ```bash
