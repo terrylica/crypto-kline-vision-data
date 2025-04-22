@@ -84,9 +84,9 @@ It displays real-time source information about where each data point comes from.
 
 [bold cyan]Sample Commands[/bold cyan]
 
-[green]Basic Usage Examples[/green]
-  ./examples/sync/dsm_demo.py
-  ./examples/sync/dsm_demo.py --symbol ETHUSDT --market spot
+[green]End Time Backward Retrieval with Log Control[/green]
+  > End time with days and ERROR log level (complex case)
+  ./examples/sync/dsm_demo.py -s BTCUSDT -et 2025-04-14T15:59:59 -i 3m -d 5 -l E
 
 [green]Time Range CLI Examples[/green]
   > End time with days (fetch backward from end time)

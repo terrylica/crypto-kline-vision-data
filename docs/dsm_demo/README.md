@@ -62,17 +62,18 @@ dsm_demo [OPTIONS]
 - **`-cc, --clear-cache`**: Clear the cache directory before running
 - **`-gd, --gen-doc`**: Generate Markdown documentation from Typer help into docs/dsm_demo/ directory
 - **`-glc, --gen-lint-config`**: Generate markdown linting configuration files along with documentation (only used with --gen-doc)
-- **`-l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]`**: Set the log level (default: INFO). Shorthand options: D=DEBUG, I=INFO, W=WARNING, E=ERROR, C=CRITICAL  [default: INFO]
+- **`-l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL|D|I|W|E|C]`**: Set the log level (default: INFO). Shorthand options: D=DEBUG, I=INFO, W=WARNING, E=ERROR, C=CRITICAL  [default: INFO]
 - **`--help`**: Show this message and exit.
 - **`-h, --help`**: Show this message and exit.
 
 ## Examples
 
-### Basic Usage Examples
+### End Time Backward Retrieval with Log Control
+
+#### End time with days and ERROR log level (complex case)
 
 ```bash
-./examples/sync/dsm_demo.py
-./examples/sync/dsm_demo.py --symbol ETHUSDT --market spot
+./examples/sync/dsm_demo.py -s BTCUSDT -et 2025-04-14T15:59:59 -i 3m -d 5 -l E
 ```
 
 ### Time Range CLI Examples
