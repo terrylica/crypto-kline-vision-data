@@ -16,6 +16,7 @@ from utils.logger_setup import logger
 from utils.market_constraints import (
     get_market_symbol_format,
     validate_symbol_for_market_type,
+    MarketType,
 )
 from core.sync.data_source_manager import DataSource
 from utils.for_demo.dsm_help_content import INTRO_PANEL_TEXT, RICH_OUTPUT_HELP_TEXT
@@ -138,6 +139,12 @@ def print_config_table(
     Args:
         Various configuration parameters to display
     """
+    # Convert market string to MarketType enum
+    market_type = MarketType.from_string(market)
+
+    # Get the properly formatted symbol for this market
+    display_symbol = get_market_symbol_format(symbol, market_type)
+
     args_table = Table(
         title="[bold cyan]Configuration Settings[/bold cyan]",
         show_header=False,
@@ -149,7 +156,7 @@ def print_config_table(
     # Data Selection row with teal color
     args_table.add_row(
         "Data Selection",
-        f"[spring_green3]Provider: {provider} | Market: {market} | Chart type: {chart_type} | Symbol: {symbol} | Interval: {interval}[/spring_green3]",
+        f"[spring_green3]Provider: {provider} | Market: {market} | Chart type: {chart_type} | Symbol: {display_symbol} | Interval: {interval}[/spring_green3]",
     )
 
     # Time Range row with slate blue color
@@ -267,22 +274,21 @@ def adjust_symbol_for_market(symbol, market_type):
     Raises:
         ValueError: If the symbol is invalid for the market type
     """
-    # First validate the symbol for the market type
-    try:
-        # Validate first to catch incompatible symbol-market combinations
-        validate_symbol_for_market_type(symbol, market_type)
-    except ValueError as e:
-        # Log the error and re-raise
-        logger.error(f"Symbol validation error: {str(e)}")
-        raise
-
-    # Use the centralized function from market_constraints.py
+    # First transform the symbol using the centralized function
     adjusted_symbol = get_market_symbol_format(symbol, market_type)
 
     if adjusted_symbol != symbol:
         logger.debug(
             f"Adjusted symbol for {market_type.name} market: {adjusted_symbol}"
         )
+
+    # Then validate the adjusted symbol
+    try:
+        validate_symbol_for_market_type(adjusted_symbol, market_type)
+    except ValueError as e:
+        # Log the error and re-raise
+        logger.error(f"Symbol validation error: {str(e)}")
+        raise
 
     return adjusted_symbol
 

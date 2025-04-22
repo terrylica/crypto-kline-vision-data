@@ -267,6 +267,7 @@ class MarketCapabilities:
     description: str  # Detailed description of market capabilities
     max_limit: int  # Maximum number of records per request
     endpoint_reliability: str  # Description of endpoint reliability
+    default_symbol: str  # Default symbol for this market type
 
     @property
     def api_base_url(self) -> str:
@@ -302,6 +303,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1000,
         endpoint_reliability="All endpoints (primary, backup, and data-only) are reliable and support all features.",
+        default_symbol="BTCUSDT",  # Default symbol for SPOT market
     ),
     MarketType.FUTURES_USDT: MarketCapabilities(
         primary_endpoint="https://fapi.binance.com",
@@ -323,6 +325,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1500,
         endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
+        default_symbol="BTCUSDT",  # Default symbol for USDT-margined futures
     ),
     MarketType.FUTURES_COIN: MarketCapabilities(
         primary_endpoint="https://dapi.binance.com",
@@ -345,6 +348,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1500,
         endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
+        default_symbol="BTCUSD_PERP",  # Default symbol for coin-margined futures
     ),
     # Keep legacy FUTURES type for backward compatibility
     MarketType.FUTURES: MarketCapabilities(
@@ -368,6 +372,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1500,
         endpoint_reliability="Primary and backup endpoints are reliable and support all features.",
+        default_symbol="BTCUSDT",  # Default symbol for legacy futures
     ),
     # Add Options market type
     MarketType.OPTIONS: MarketCapabilities(
@@ -390,6 +395,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ),
         max_limit=1000,
         endpoint_reliability="Primary endpoints are reliable for options data.",
+        default_symbol="BTC-230630-60000-C",  # Default symbol for options
     ),
 }
 
@@ -461,22 +467,38 @@ def safe_enum_compare(enum1: Enum, enum2: Enum) -> bool:
     return enum1.name == enum2.name
 
 
-def get_market_symbol_format(symbol: str, market_type: MarketType) -> str:
+def get_default_symbol(market_type: MarketType) -> str:
+    """Get the default symbol for a specific market type.
+
+    Args:
+        market_type: Market type to get default symbol for
+
+    Returns:
+        str: Default symbol for the market type
+
+    Raises:
+        ValueError: If the market type is not found in capabilities dictionary
+    """
+    capabilities = get_market_capabilities(market_type)
+    return capabilities.default_symbol
+
+
+def get_market_symbol_format(symbol: str | None, market_type: MarketType) -> str:
     """Transform a standard symbol to the format required by the specified market type.
 
     This function serves as the single source of truth for symbol transformations
     across all market types.
 
     Args:
-        symbol: Base symbol (e.g., "BTCUSDT")
+        symbol: Base symbol (e.g., "BTCUSDT") or None for default
         market_type: Target market type
 
     Returns:
         str: Properly formatted symbol for the specified market type
     """
-    # If symbol is already in the correct format, return as is
+    # If symbol is None or empty, use default symbol for the market type
     if not symbol:
-        return symbol
+        return get_default_symbol(market_type)
 
     # Get the capabilities for the market type to access the expected format
     capabilities = get_market_capabilities(market_type)
@@ -500,7 +522,7 @@ def get_market_symbol_format(symbol: str, market_type: MarketType) -> str:
 
         # BTCUSD format -> BTCUSD_PERP
         elif symbol.endswith("USD"):
-            return symbol[:-3] + "_PERP"
+            return symbol + "_PERP"
 
         # Other format -> symbol_PERP
         else:
@@ -511,14 +533,16 @@ def get_market_symbol_format(symbol: str, market_type: MarketType) -> str:
     return symbol
 
 
-def validate_symbol_for_market_type(symbol: str, market_type: MarketType) -> bool:
+def validate_symbol_for_market_type(
+    symbol: str | None, market_type: MarketType
+) -> bool:
     """Validate that a symbol is appropriate for the specified market type.
 
     This function checks if the symbol format matches the expected pattern for
     the given market type and raises an exception if there's a mismatch.
 
     Args:
-        symbol: Trading symbol to validate
+        symbol: Trading symbol to validate, or None to use default
         market_type: Market type to validate against
 
     Returns:
@@ -527,8 +551,9 @@ def validate_symbol_for_market_type(symbol: str, market_type: MarketType) -> boo
     Raises:
         ValueError: If the symbol is not valid for the specified market type
     """
+    # If symbol is None or empty, use default symbol for validation
     if not symbol:
-        raise ValueError("Symbol cannot be empty")
+        symbol = get_default_symbol(market_type)
 
     # Get the expected format from market capabilities
     capabilities = get_market_capabilities(market_type)

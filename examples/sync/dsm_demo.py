@@ -15,11 +15,14 @@ from utils.logger_setup import logger, configure_session_logging
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
 
 # Import utility modules for DSM Demo
-from utils.for_demo.dsm_datetime_parser import parse_datetime
 from utils.for_demo.dsm_cache_utils import clear_cache_directory, verify_project_root
 from utils.for_demo.dsm_data_fetcher import fetch_data_with_fcp
 from utils.for_demo.dsm_display_utils import display_results
-from utils.for_demo.dsm_doc_utils import generate_markdown_docs
+from utils.for_demo.dsm_doc_utils import (
+    generate_markdown_docs,
+    verify_and_install_typer_cli,
+)
+from utils.for_demo.dsm_validation_utils import validate_interval, calculate_date_range
 from utils.for_demo.dsm_cli_utils import (
     resolve_log_level,
     print_intro_panel,
@@ -94,27 +97,7 @@ def main(
             logger.info("Generating Markdown documentation from Typer help...")
 
             # Check if typer-cli is installed
-            try:
-                import shutil
-
-                typer_cli_available = shutil.which("typer") is not None
-
-                if not typer_cli_available:
-                    logger.info(
-                        "typer-cli not found. Installing typer-cli for optimal documentation..."
-                    )
-                    import subprocess
-
-                    subprocess.run(
-                        [sys.executable, "-m", "pip", "install", "typer-cli"],
-                        check=True,
-                        capture_output=True,
-                    )
-                    logger.info("typer-cli installed successfully")
-                    typer_cli_available = True
-            except Exception as e:
-                logger.warning(f"Could not install typer-cli: {e}")
-                typer_cli_available = False
+            typer_cli_available = verify_and_install_typer_cli()
 
             # Generate documentation
             doc_path = generate_markdown_docs(
@@ -175,48 +158,13 @@ def main(
             # Convert interval string to enum
             interval_enum = Interval(interval)
 
-            # Check if interval is supported by the selected market type
-            from utils.market_constraints import (
-                is_interval_supported,
-                get_market_capabilities,
+            # Validate interval support
+            validate_interval(market_type, interval_enum)
+
+            # Calculate time range
+            start_datetime, end_datetime = calculate_date_range(
+                start_time, end_time, days, interval_enum
             )
-            from rich.console import Console
-
-            if not is_interval_supported(market_type, interval_enum):
-                console = Console()
-                capabilities = get_market_capabilities(market_type)
-                supported = [i.value for i in capabilities.supported_intervals]
-
-                console.print(
-                    f"[bold red]ERROR: Interval {interval_enum.value} is not supported by {market_type.name} market.[/bold red]"
-                )
-                console.print(
-                    f"[yellow]Supported intervals: {', '.join(supported)}[/yellow]"
-                )
-                console.print(
-                    "[cyan]Please choose a supported interval and try again.[/cyan]"
-                )
-
-                logger.error(
-                    f"Interval {interval_enum.value} not supported by {market_type.name} market. Supported intervals: {supported}"
-                )
-                sys.exit(1)
-
-            # Use the core DataSourceManager utility to calculate time range
-            try:
-                # Parse datetime strings if provided
-                st = parse_datetime(start_time) if start_time else None
-                et = parse_datetime(end_time) if end_time else None
-
-                # Use the core data source manager utility
-                from core.sync.data_source_manager import DataSourceManager
-
-                start_datetime, end_datetime = DataSourceManager.calculate_time_range(
-                    start_time=st, end_time=et, days=days, interval=interval_enum
-                )
-            except Exception as e:
-                print(f"[bold red]Error calculating date range: {e}[/bold red]")
-                sys.exit(1)
 
             # Process caching option
             use_cache = not no_cache

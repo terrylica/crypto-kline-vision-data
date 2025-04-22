@@ -327,3 +327,35 @@ def generate_markdown_docs(
     console.print(Markdown(output_file.read_text()))
 
     return result
+
+
+def verify_and_install_typer_cli() -> bool:
+    """Verify typer-cli is installed and install if needed.
+
+    Returns:
+        bool: True if typer-cli is available after verification/installation
+    """
+    import shutil
+    import subprocess
+    import sys
+    from utils.logger_setup import logger
+
+    typer_cli_available = shutil.which("typer") is not None
+
+    if not typer_cli_available:
+        logger.info(
+            "typer-cli not found. Installing typer-cli for optimal documentation..."
+        )
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "typer-cli"],
+                check=True,
+                capture_output=True,
+            )
+            logger.info("typer-cli installed successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"Could not install typer-cli: {e}")
+            return False
+
+    return True
