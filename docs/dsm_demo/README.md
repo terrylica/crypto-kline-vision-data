@@ -49,10 +49,11 @@ dsm_demo [OPTIONS]
 
 ## Options
 
-- **`-s, --symbol TEXT`**: Symbol to fetch data for  [default: BTCUSDT]
+- **`-p, --provider [binance]`**: Data provider (binance, tradestation)  [default: binance]
 - **`-m, --market [spot|um|cm|futures_usdt|futures_coin]`**: Market type (spot, um, cm)  [default: spot]
-- **`-i, --interval TEXT`**: Time interval for klines/premiums  [default: 1m]
 - **`-ct, --chart-type [klines|fundingRate]`**: Chart type (klines, premiums)  [default: klines]
+- **`-s, --symbol TEXT`**: Symbol to fetch data for  [default: BTCUSDT]
+- **`-i, --interval TEXT`**: Time interval for klines/premiums  [default: 1m]
 - **`-st, --start-time TEXT`**: Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Can be used alone with --days to fetch forward, or with --end-time for exact range
 - **`-et, --end-time TEXT`**: End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Can be used alone with --days to fetch backward, or with --start-time for exact range
 - **`-d, --days INTEGER`**: Number of days of data to fetch. If used with --end-time, fetches data backward from end time. If used with --start-time, fetches data forward from start time. If used alone, fetches data backward from current time  [default: 3]
@@ -115,6 +116,13 @@ dsm_demo [OPTIONS]
 ./examples/sync/dsm_demo.py -s BTCUSD_PERP -m cm
 ```
 
+### Data Provider Options
+
+```bash
+./examples/sync/dsm_demo.py -s BTCUSDT -p binance
+./examples/sync/dsm_demo.py -s BTCUSDT -p tradestation
+```
+
 ### Different Intervals
 
 ```bash
@@ -150,4 +158,5 @@ dsm_demo [OPTIONS]
 ```bash
 ./examples/sync/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
 ./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
+./examples/sync/dsm_demo.py -s BTCUSDT -p binance -es VISION -m spot -i 1m -st 2025-04-01 -et 2025-04-03
 ```
