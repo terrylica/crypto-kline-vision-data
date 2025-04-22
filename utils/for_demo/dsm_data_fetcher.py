@@ -11,9 +11,11 @@ import time
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
 import pendulum
+from rich.console import Console
 
 from utils.logger_setup import logger
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
+from utils.market_constraints import is_interval_supported, get_market_capabilities
 from core.sync.data_source_manager import DataSourceManager, DataSource
 from utils_for_debug.data_integrity import analyze_data_integrity
 from utils_for_debug.dataframe_output import (
@@ -53,6 +55,23 @@ def fetch_data_with_fcp(
     Returns:
         Pandas DataFrame containing the retrieved data
     """
+    # Validate if interval is supported by the market type
+    if not is_interval_supported(market_type, interval):
+        capabilities = get_market_capabilities(market_type)
+        supported = [i.value for i in capabilities.supported_intervals]
+
+        console = Console()
+        console.print(
+            f"[bold red]ERROR: Interval {interval.value} is not supported by {market_type.name} market.[/bold red]"
+        )
+        console.print(f"[yellow]Supported intervals: {', '.join(supported)}[/yellow]")
+        console.print("[cyan]Please choose a supported interval and try again.[/cyan]")
+
+        logger.error(
+            f"Interval {interval.value} not supported by {market_type.name} market. Supported intervals: {supported}"
+        )
+        return pd.DataFrame()
+
     logger.info(
         f"Retrieving {interval.value} {chart_type.name} data for {symbol} in {market_type.name} market"
     )

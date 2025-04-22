@@ -506,39 +506,57 @@ class DataSourceManager:
         include_source_info: bool = True,
         enforce_source: DataSource = DataSource.AUTO,
     ) -> pd.DataFrame:
-        """Get data for the specified symbol and time range from the best available source.
+        """Retrieve data with the optimal retrieval strategy.
 
-        This method is the main entry point for retrieving data. It implements the
-        Failover Control Protocol (FCP) mechanism with three integrated phases:
+        This method applies the Failover Control Protocol (FCP) to retrieve data
+        in the most efficient way:
 
-        1. LOCAL CACHE RETRIEVAL: First check local Apache Arrow files for data
-           - Data successfully retrieved from cache is immediately merged into the output
-           - Missing segments are identified for retrieval from other sources
-
-        2. VISION API RETRIEVAL WITH ITERATIVE MERGE: For missing segments, try Binance Vision API
-           - Vision data is downloaded in full daily packs (core business logic requirement)
-           - Each day's complete data is cached regardless of the specific time range requested
-           - Retrieved Vision data is iteratively merged with available cache data
-
-        3. REST API FALLBACK WITH FINAL MERGE: For any remaining missing segments, use REST API
-           - REST API is queried for the precise missing ranges only
-           - Retrieved REST data is merged with the cumulative dataset
-           - All data is standardized to ensure consistent column formats
+        1. First, check local cache (if enabled)
+        2. For missing data, try Binance VISION API (highly performant)
+        3. If Vision API fails or is unavailable, use REST API as fallback
 
         Args:
-            symbol: Symbol to retrieve data for (e.g., "BTCUSDT")
-            start_time: Start time for data retrieval
-            end_time: End time for data retrieval
-            interval: Time interval between data points
-            chart_type: Type of chart data to retrieve (overrides the instance setting)
-            include_source_info: Whether to include _data_source column in output
-            enforce_source: Force specific data source (AUTO, REST, VISION)
+            symbol: Trading symbol (e.g., BTCUSDT)
+            start_time: Start time for data window
+            end_time: End time for data window
+            interval: Data interval (1m, 5m, 1h, etc.)
+            chart_type: Chart type to retrieve (klines, etc.)
+            include_source_info: Whether to include source information
+            enforce_source: Optional override to enforce specific data source
 
         Returns:
-            DataFrame with data from the best available source(s), merged according to FCP
+            DataFrame with aligned data from the selected sources
         """
-        # Use the chart type from parameters or fall back to instance setting
-        chart_type = chart_type or self.chart_type
+        # Import needed at function level to avoid circular imports
+        from utils.market_constraints import (
+            is_interval_supported,
+            get_market_capabilities,
+        )
+        from utils.for_core.vision_exceptions import UnsupportedIntervalError
+
+        # Validate that the interval is supported by the market type
+        if not is_interval_supported(self.market_type, interval):
+            capabilities = get_market_capabilities(self.market_type)
+            supported_intervals = [i.value for i in capabilities.supported_intervals]
+
+            # Find the minimum supported interval for suggestion
+            min_interval = min(
+                capabilities.supported_intervals, key=lambda x: x.to_seconds()
+            )
+
+            error_msg = (
+                f"Interval {interval.value} is not supported by {self.market_type.name} market. "
+                f"Supported intervals: {supported_intervals}. "
+                f"Consider using {min_interval.value} (minimum supported interval) "
+                f"or another interval from the list."
+            )
+
+            logger.error(error_msg)
+            raise UnsupportedIntervalError(error_msg)
+
+        # Use chart_type from instance if None is provided
+        if chart_type is None:
+            chart_type = self.chart_type
 
         try:
             logger.debug(

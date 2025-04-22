@@ -175,6 +175,33 @@ def main(
             # Convert interval string to enum
             interval_enum = Interval(interval)
 
+            # Check if interval is supported by the selected market type
+            from utils.market_constraints import (
+                is_interval_supported,
+                get_market_capabilities,
+            )
+            from rich.console import Console
+
+            if not is_interval_supported(market_type, interval_enum):
+                console = Console()
+                capabilities = get_market_capabilities(market_type)
+                supported = [i.value for i in capabilities.supported_intervals]
+
+                console.print(
+                    f"[bold red]ERROR: Interval {interval_enum.value} is not supported by {market_type.name} market.[/bold red]"
+                )
+                console.print(
+                    f"[yellow]Supported intervals: {', '.join(supported)}[/yellow]"
+                )
+                console.print(
+                    "[cyan]Please choose a supported interval and try again.[/cyan]"
+                )
+
+                logger.error(
+                    f"Interval {interval_enum.value} not supported by {market_type.name} market. Supported intervals: {supported}"
+                )
+                sys.exit(1)
+
             # Use the core DataSourceManager utility to calculate time range
             try:
                 # Parse datetime strings if provided

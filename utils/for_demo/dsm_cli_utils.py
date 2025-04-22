@@ -13,7 +13,7 @@ import rich.box as box
 from pathlib import Path
 
 from utils.logger_setup import logger
-from utils.market_constraints import MarketType, get_market_symbol_format
+from utils.market_constraints import get_market_symbol_format
 from core.sync.data_source_manager import DataSource
 from utils.for_demo.dsm_help_content import INTRO_PANEL_TEXT, RICH_OUTPUT_HELP_TEXT
 

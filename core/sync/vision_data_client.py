@@ -277,14 +277,29 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
                 # Validate if interval is supported by market type
                 if interval_enum not in market_caps.supported_intervals:
-                    logger.warning(
+                    supported_intervals = [
+                        i.value for i in market_caps.supported_intervals
+                    ]
+                    error_msg = (
                         f"Interval {self._interval_str} not supported by {market_type_enum.name} market. "
-                        f"Supported intervals: {[i.value for i in market_caps.supported_intervals]}"
+                        f"Supported intervals: {supported_intervals}"
                     )
-                    return (
-                        None,
-                        f"Interval {self._interval_str} not supported by {market_type_enum.name} market",
+                    logger.error(error_msg)
+
+                    # Create a detailed error message with suggestions
+                    min_interval = min(
+                        market_caps.supported_intervals, key=lambda x: x.to_seconds()
                     )
+                    suggestion = (
+                        f"Consider using {min_interval.value} (minimum supported interval) "
+                        f"or another supported interval from the list."
+                    )
+
+                    from utils.for_core.vision_exceptions import (
+                        UnsupportedIntervalError,
+                    )
+
+                    raise UnsupportedIntervalError(f"{error_msg} {suggestion}")
 
                 # Use the validated interval for URL construction
                 base_interval = self._interval_str
