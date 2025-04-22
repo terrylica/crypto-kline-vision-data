@@ -2,9 +2,16 @@
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
-## Important Documentation
+## Data Service Manager (DSM) Demo
 
-- **[DSM Demo Documentation](docs/dsm_demo/README.md)**: Interactive demonstration of the Failover Control Protocol mechanism, the core data retrieval strategy that ensures robust and efficient data collection from multiple sources.
+### Quick Start
+
+- **[DSM Demo Documentation](examples/sync/README.md)**: Interactive demonstration of the Failover Control Protocol mechanism, the core data retrieval strategy that ensures robust and efficient data collection from multiple sources.
+
+## Development Guidelines
+
+### Core Principles
+
 - **[Always Focus Demo Rule](.cursor/rules/always_focus_demo.mdc)**: The authoritative instruction file guiding the Cursor Agent to strictly adhere to the demo plan and maintain focus on the Failover Control Protocol demonstration.
 
 ## API Documentation
