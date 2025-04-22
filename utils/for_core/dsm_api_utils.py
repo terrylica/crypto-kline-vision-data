@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 import traceback
 from typing import Optional
+from pathlib import Path
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, ChartType, MarketType
@@ -22,6 +23,7 @@ def fetch_from_vision(
     chart_type: ChartType,
     use_cache: bool,
     save_to_cache_func=None,
+    fs_handler=None,
 ) -> pd.DataFrame:
     """Fetch data from the Vision API.
 
@@ -34,6 +36,7 @@ def fetch_from_vision(
         chart_type: Type of chart data
         use_cache: Whether to use caching
         save_to_cache_func: Function to save data to cache
+        fs_handler: FSSpecVisionHandler instance (optional)
 
     Returns:
         DataFrame with data from Vision API filtered to the requested time range
@@ -72,6 +75,12 @@ def fetch_from_vision(
         logger.debug(
             f"[FCP] Expanding Vision API request to full days: {vision_start} to {vision_end}"
         )
+
+        # If we have an FSSpecVisionHandler, use it for direct path mapping
+        if fs_handler is not None:
+            logger.debug(f"Using FSSpecVisionHandler for consistency in path mapping")
+            # This indicates we can directly use the fs_handler for path operations
+            # Note: The actual implementation would handle the Vision API downloads
 
         # Vision API has date-based files, fetch with chunking
         df = vision_client.fetch(
@@ -306,47 +315,107 @@ def create_client_if_needed(
     interval: Optional[str] = None,
     market_type: Optional[MarketType] = None,
     retry_count: Optional[int] = None,
+    chart_type: Optional[ChartType] = None,
+    cache_dir: Optional[Path] = None,
 ):
-    """Create or reconfigure API client if needed.
+    """Create or reconfigure client if needed.
 
     Args:
-        client: Existing client instance or None
-        client_class: Class to instantiate if client is None
+        client: Existing client to reuse or reconfigure
+        client_class: Client class to instantiate
         symbol: Symbol for the client
         interval: Interval for the client
         market_type: Market type for the client
         retry_count: Number of retries for the client
+        chart_type: Chart type for the client
+        cache_dir: Cache directory for the client
 
     Returns:
-        New or existing client instance
+        New or reconfigured client
     """
-    is_vision_client = client_class.__name__ == "VisionDataClient"
-
-    if client is None:
-        if is_vision_client:
-            logger.debug("Creating new Vision API client")
-            return client_class(
-                symbol=symbol,
-                interval=interval,
-                market_type=market_type,
-            )
-        else:
-            logger.debug("Initialized RestDataClient")
-            return client_class(
-                market_type=market_type,
-                retry_count=retry_count,
-            )
-    elif is_vision_client and client.symbol != symbol:
-        # If client exists but for a different symbol, reconfigure it
-        logger.debug("Reconfiguring Vision API client for new symbol")
-        # Close existing client if needed
-        if hasattr(client, "close"):
-            client.close()
-        # Create new client
-        return client_class(
-            symbol=symbol,
-            interval=interval,
-            market_type=market_type,
+    # Check if this is a RestDataClient
+    if client_class.__name__ == "RestDataClient":
+        logger.debug(
+            f"Setting up {client_class.__name__} with market_type={market_type}, retry_count={retry_count}"
         )
 
-    return client
+        # Only create a new client if needed
+        if client is None or not isinstance(client, client_class):
+            # Rest client needs at least market_type
+            if market_type is None:
+                raise ValueError(
+                    "market_type is required for creating a new RestDataClient"
+                )
+
+            # Pass retry_count if provided
+            kwargs = {}
+            if retry_count is not None:
+                kwargs["retry_count"] = retry_count
+
+            return client_class(market_type=market_type, **kwargs)
+        else:
+            # Already have a client, check if it needs reconfiguration
+            if market_type is not None and client.market_type != market_type:
+                logger.debug(
+                    f"Reconfiguring RestDataClient with market_type={market_type}"
+                )
+                # Need a new client for different market type
+                kwargs = {}
+                if retry_count is not None:
+                    kwargs["retry_count"] = retry_count
+                return client_class(market_type=market_type, **kwargs)
+            else:
+                # Same market type, can reuse
+                return client
+
+    # Check if this is a VisionDataClient
+    elif client_class.__name__ == "VisionDataClient":
+        logger.debug(
+            f"Setting up {client_class.__name__} with symbol={symbol}, interval={interval}, market_type={market_type}, chart_type={chart_type}"
+        )
+
+        # Vision client needs symbol, interval, and market_type
+        if symbol is None or interval is None or market_type is None:
+            raise ValueError(
+                "symbol, interval, and market_type are required for creating a new VisionDataClient"
+            )
+
+        # Only create a new client if needed
+        if client is None or not isinstance(client, client_class):
+            # Create new client with required params
+            kwargs = {}
+            if chart_type is not None:
+                kwargs["chart_type"] = chart_type
+            if cache_dir is not None:
+                kwargs["cache_dir"] = cache_dir
+
+            return client_class(
+                symbol=symbol, interval=interval, market_type=market_type, **kwargs
+            )
+        else:
+            # Already have a client, check if it needs reconfiguration
+            if (
+                client.symbol != symbol
+                or client.interval != interval
+                or client.market_type_str != str(market_type).lower()
+            ):
+                logger.debug(
+                    f"Reconfiguring VisionDataClient with new parameters: "
+                    f"symbol={symbol}, interval={interval}, market_type={market_type}"
+                )
+                # Need a new client for different parameters
+                kwargs = {}
+                if chart_type is not None:
+                    kwargs["chart_type"] = chart_type
+                if cache_dir is not None:
+                    kwargs["cache_dir"] = cache_dir
+
+                return client_class(
+                    symbol=symbol, interval=interval, market_type=market_type, **kwargs
+                )
+            else:
+                # Same parameters, can reuse
+                return client
+    else:
+        # Unknown client type
+        raise ValueError(f"Unsupported client class: {client_class.__name__}")

@@ -15,7 +15,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     npm install -g markdownlint-cli
 
 # Install Python dependencies
-RUN pip3 install apprise fsspec httpx pendulum pandas tenacity colorlog psutil arrow pyarrow>=19.0.1
+RUN pip3 install apprise httpx fsspec aiohttp requests pendulum pandas tenacity colorlog psutil arrow pyarrow>=19.0.1
 
 # Install Python dependencies for development
 RUN pip3 install twine typer pytest pytest-asyncio pytest-cov pytest-xdist pytest-profiling pylint autoflake vulture

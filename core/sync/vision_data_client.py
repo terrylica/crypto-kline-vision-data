@@ -60,6 +60,9 @@ from utils.for_core.vision_file_utils import (
     fill_boundary_gaps_with_rest,
     find_day_boundary_gaps,
 )
+from core.sync.vision_path_mapper import (
+    FSSpecVisionHandler,
+)
 
 # Define the type variable for VisionDataClient
 T = TypeVar("T")
@@ -79,49 +82,52 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         symbol: str,
         interval: str = "1s",
         market_type: Union[str, MarketType] = MarketType.SPOT,
+        chart_type: ChartType = ChartType.KLINES,
+        base_url: str = "https://data.binance.vision",
+        cache_dir: Optional[Union[str, Path]] = None,
     ):
         """Initialize Vision Data Client.
 
         Args:
-            symbol: Trading symbol e.g. 'BTCUSDT'
+            symbol: Trading pair to retrieve data for
             interval: Kline interval e.g. '1s', '1m'
             market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
+            chart_type: Chart type (KLINES, FUNDING_RATE)
+            base_url: Base URL for Binance Vision API
+            cache_dir: Directory to store cached files
         """
         self._symbol = symbol.upper()
         self._interval_str = interval
         self.market_type = market_type
+        self._chart_type = chart_type  # Store chart_type as instance variable
+        self.base_url = base_url
 
         # Convert MarketType enum to string if needed
-        market_type_str = market_type
         if isinstance(market_type, MarketType):
+            self._market_type_str = market_type.name
+            self._market_type_obj = market_type
+        else:
+            self._market_type_str = market_type
             try:
-                market_name = market_type.name
-                if market_name == "SPOT":
-                    market_type_str = "spot"
-                elif market_name == "FUTURES_USDT":
-                    market_type_str = "futures_usdt"
-                elif market_name == "FUTURES_COIN":
-                    market_type_str = "futures_coin"
-                elif market_name == "FUTURES":
-                    market_type_str = "futures_usdt"  # Default to USDT for legacy type
-                else:
-                    raise ValueError(f"Unsupported market type: {market_type}")
-            except (AttributeError, TypeError):
-                # Fallback to string representation for safer comparison
-                market_str = str(market_type).upper()
-                if "SPOT" in market_str:
-                    market_type_str = "spot"
-                elif "FUTURES_USDT" in market_str or "FUTURES" == market_str:
-                    market_type_str = "futures_usdt"
-                elif "FUTURES_COIN" in market_str:
-                    market_type_str = "futures_coin"
-                else:
-                    raise ValueError(f"Unsupported market type: {market_type}")
-
-        self.market_type_str = market_type_str
+                self._market_type_obj = MarketType[market_type.upper()]
+            except (KeyError, AttributeError):
+                try:
+                    self._market_type_obj = MarketType.from_string(market_type)
+                except ValueError:
+                    logger.error(f"Invalid market type: {market_type}")
+                    raise ValueError(f"Invalid market type: {market_type}")
 
         # Parse interval string to Interval object using imported function
         self.interval_obj = parse_interval(interval)
+
+        # Set up cache directory
+        if cache_dir is not None:
+            self.cache_dir = Path(cache_dir)
+        else:
+            self.cache_dir = Path("./cache")
+
+        # Initialize FSSpecVisionHandler for path handling
+        self.fs_handler = FSSpecVisionHandler(base_cache_dir=self.cache_dir)
 
         # Create httpx client instead of requests Session
         self._client = httpx.Client(
@@ -131,6 +137,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 "Accept": "application/json, application/zip",
             },
             follow_redirects=True,  # Automatically follow redirects
+        )
+        logger.debug(
+            f"Initialized Vision client for {self._symbol} {self._interval_str} ({self._market_type_str})"
         )
 
     def __enter__(self) -> "VisionDataClient":
@@ -159,18 +168,28 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
     @property
     def chart_type(self) -> ChartType:
-        """Get the chart type for this client."""
-        return ChartType.KLINES
+        """Get chart type."""
+        return self._chart_type
 
     @property
     def symbol(self) -> str:
-        """Get the symbol for this client."""
+        """Get symbol."""
         return self._symbol
 
     @property
-    def interval(self) -> Union[str, object]:
-        """Get the interval for this client."""
+    def interval(self) -> str:
+        """Get interval string."""
         return self._interval_str
+
+    @property
+    def market_type_str(self) -> str:
+        """Get market type string."""
+        return self._market_type_str
+
+    @property
+    def market_type_obj(self) -> MarketType:
+        """Get market type object."""
+        return self._market_type_obj
 
     def create_empty_dataframe(self) -> pd.DataFrame:
         """Create an empty dataframe with the correct structure.

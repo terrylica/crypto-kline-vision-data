@@ -210,61 +210,59 @@ class UnifiedCacheManager:
             if len(components) < 6:
                 raise ValueError(f"Invalid cache key format: {cache_key}")
 
-            provider = components[0]
-            chart_type = components[1]
-            market_type = components[2]
-            symbol = components[3]
-            interval = components[4]
+            provider = components[0].lower()
+            chart_type = components[1].lower()
+            market_type = components[2].lower()
+            symbol = components[3].lower()
+            interval = components[4].lower()
             date_str = components[5]
 
-            # Create directory structure
-            provider_dir = self.cache_dir / provider.lower()
-            chart_dir = provider_dir / chart_type.lower()
+            # Format date for filename (YYYY-MM-DD format)
+            formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
 
-            # For futures markets, we need special handling
-            if market_type.lower().startswith("futures"):
-                if market_type.lower() == "futures_usdt":
-                    market_dir = chart_dir / "futures" / "usdt"
-                elif market_type.lower() == "futures_coin":
-                    market_dir = chart_dir / "futures" / "coin"
-                else:
-                    market_dir = chart_dir / market_type.lower()
+            # Determine market path according to Vision API path structure
+            if market_type == "spot":
+                market_path = "spot"
+            elif market_type in ("futures_usdt", "um"):
+                market_path = "futures/um"
+            elif market_type in ("futures_coin", "cm"):
+                market_path = "futures/cm"
             else:
-                market_dir = chart_dir / market_type.lower()
+                market_path = market_type
 
-            # Split symbol into base/quote for proper directory structure
-            if symbol.endswith("USDT") and len(symbol) > 4:
-                base = symbol[:-4].lower()
-                quote = "usdt"
-            elif symbol.endswith("USD") and len(symbol) > 3:
-                base = symbol[:-3].lower()
-                quote = "usd"
-            elif symbol.endswith("PERP"):
-                base = symbol[:-4].lower() if len(symbol) > 4 else symbol.lower()
-                quote = "perp"
-            elif "_" in symbol:
-                base, quote = symbol.lower().split("_", 1)
+            # Handle special symbols for coin-margined futures
+            if market_type in ("futures_coin", "cm") and not symbol.endswith("_perp"):
+                symbol_safe = f"{symbol}_perp"
             else:
-                base = symbol.lower()
-                quote = ""
+                symbol_safe = symbol
 
-            if quote:
-                symbol_dir = market_dir / base / quote
-            else:
-                symbol_dir = market_dir / base
+            # Create path components similar to Vision API structure
+            path_components = [
+                provider,
+                chart_type,
+                market_path,
+                "daily",
+                chart_type,
+                symbol_safe,
+                interval,
+                f"{symbol_safe.upper()}-{interval}-{formatted_date}.arrow",
+            ]
 
-            interval_dir = symbol_dir / interval.lower()
+            # Build and return the path
+            result_path = self.cache_dir.joinpath(*path_components)
 
-            # Create directories if they don't exist
-            interval_dir.mkdir(parents=True, exist_ok=True)
+            # Ensure the directory exists
+            result_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use the date_str as the filename
-            return interval_dir / f"{date_str}.arrow"
+            logger.debug(f"Cache path: {result_path}")
+            return result_path
 
         except Exception as e:
-            logger.error(f"Error generating cache path for {cache_key}: {e}")
-            # Default to a safe location in case of error
-            return self.cache_dir / f"{cache_key}.arrow"
+            logger.error(f"Error generating cache path for key {cache_key}: {e}")
+            # Fallback to a simple path if we can't parse the key
+            fallback_path = self.cache_dir / "fallback" / f"{cache_key}.arrow"
+            fallback_path.parent.mkdir(parents=True, exist_ok=True)
+            return fallback_path
 
     def load_from_cache(
         self,

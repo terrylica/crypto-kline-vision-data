@@ -10,7 +10,6 @@ from dataclasses import dataclass
 
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType, ChartType, DataProvider
-from utils.market_utils import get_market_type_str
 from utils.time_utils import align_time_boundaries
 from utils.config import (
     OUTPUT_DTYPES,
@@ -23,15 +22,12 @@ from utils.config import (
 from core.sync.rest_data_client import RestDataClient
 from core.sync.vision_data_client import VisionDataClient
 from core.sync.cache_manager import UnifiedCacheManager
+from core.sync.vision_path_mapper import FSSpecVisionHandler
 from utils.for_core.dsm_time_range_utils import (
     merge_adjacent_ranges,
     standardize_columns,
     identify_missing_segments,
     merge_dataframes,
-)
-from utils.for_core.dsm_cache_utils import (
-    save_to_cache,
-    get_from_cache,
 )
 from utils.for_core.dsm_api_utils import (
     fetch_from_vision,
@@ -347,65 +343,107 @@ class DataSourceManager:
         else:
             self.cache_dir = Path("./cache")
 
-        # Initialize cache manager if caching is enabled
+        # Initialize FSSpecVisionHandler for cache operations
+        self.fs_handler = None
+        if self.use_cache:
+            try:
+                self.fs_handler = FSSpecVisionHandler(base_cache_dir=self.cache_dir)
+                logger.info(
+                    f"Initialized FSSpecVisionHandler with cache_dir={self.cache_dir}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize FSSpecVisionHandler: {e}")
+                logger.warning("Continuing without cache")
+                self.use_cache = False
+
+        # Legacy cache manager (kept for backward compatibility but not used for new code paths)
         self.cache_manager = None
         if self.use_cache:
             try:
                 self.cache_manager = UnifiedCacheManager(cache_dir=self.cache_dir)
+                logger.debug(
+                    f"Legacy cache manager initialized (for backward compatibility)"
+                )
             except Exception as e:
-                logger.error(f"Failed to initialize cache manager: {e}")
-                logger.warning("Continuing without cache")
-                self.use_cache = False
+                logger.warning(f"Failed to initialize legacy cache manager: {e}")
 
         # Initialize API clients
         self.rest_client = None
         self.vision_client = None
 
-    def _get_market_type_str(self) -> str:
-        """Get string representation of market type for cache keys.
+    def _get_market_type_str(self) -> MarketType:
+        """Get the market type enum.
 
         Returns:
-            String representation of market type
+            MarketType enum
         """
-        return get_market_type_str(self.market_type)
+        return self.market_type
 
     def _get_from_cache(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
     ) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
-        """Retrieve data from cache and identify missing ranges using the utility function."""
-        if not self.use_cache:
-            logger.debug(
-                f"Cache disabled. Returning entire range as missing: {start_time} to {end_time}"
-            )
+        """Get data from cache and identify missing time ranges.
+
+        Args:
+            symbol: Symbol to retrieve data for
+            start_time: Start time for data retrieval
+            end_time: End time for data retrieval
+            interval: Time interval between data points
+
+        Returns:
+            Tuple of (cached DataFrame, list of missing date ranges)
+        """
+        from utils.for_core.dsm_cache_utils import get_from_cache
+
+        if not self.use_cache or self.cache_dir is None:
+            # Return empty DataFrame and the entire date range as missing
             return create_empty_dataframe(), [(start_time, end_time)]
 
+        logger.info(f"Checking cache for {symbol} from {start_time} to {end_time}")
+
+        # Use the new cache utils implementation with FSSpecVisionHandler
         return get_from_cache(
             symbol=symbol,
             start_time=start_time,
             end_time=end_time,
             interval=interval,
-            cache_manager=self.cache_manager,
-            provider=self.provider.name,
-            chart_type=self.chart_type.name,
-            market_type=self._get_market_type_str(),
+            cache_dir=self.cache_dir,
+            market_type=self.market_type,
+            chart_type=self.chart_type,
+            provider=self.provider,
         )
 
     def _save_to_cache(
         self, df: pd.DataFrame, symbol: str, interval: Interval, source: str = None
     ) -> None:
-        """Save data to cache using the utility function."""
-        if not self.use_cache:
+        """Save data to cache.
+
+        Args:
+            df: DataFrame to cache
+            symbol: Symbol the data is for
+            interval: Time interval of the data
+            source: Data source (VISION, REST, etc.)
+        """
+        from utils.for_core.dsm_cache_utils import save_to_cache
+
+        if not self.use_cache or self.cache_dir is None:
             return
 
+        if df.empty:
+            logger.warning(f"Empty DataFrame for {symbol} - skipping cache save")
+            return
+
+        logger.info(f"Saving {len(df)} records for {symbol} to cache")
+
+        # Use the new cache utils implementation with FSSpecVisionHandler
         save_to_cache(
             df=df,
             symbol=symbol,
             interval=interval,
-            cache_manager=self.cache_manager,
-            provider=self.provider.name,
-            chart_type=self.chart_type.name,
-            market_type=self._get_market_type_str(),
-            source=source,
+            market_type=self.market_type,
+            cache_dir=self.cache_dir,
+            chart_type=self.chart_type,
+            provider=self.provider,
         )
 
     def _fetch_from_vision(
@@ -419,6 +457,8 @@ class DataSourceManager:
             symbol=symbol,
             interval=interval.value,
             market_type=self.market_type,
+            chart_type=self.chart_type,
+            cache_dir=self.cache_dir,
         )
 
         # Call the extracted utility function
@@ -431,6 +471,7 @@ class DataSourceManager:
             chart_type=self.chart_type,
             use_cache=self.use_cache,
             save_to_cache_func=self._save_to_cache if self.use_cache else None,
+            fs_handler=self.fs_handler,
         )
 
     def _fetch_from_rest(
