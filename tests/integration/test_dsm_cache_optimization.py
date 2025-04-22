@@ -4,16 +4,12 @@
 import unittest
 import pandas as pd
 import pendulum
-import os
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
 from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
 from utils.config import FEATURE_FLAGS
 from core.sync.data_source_manager import DataSourceManager
-from core.sync.vision_data_client import VisionDataClient
-from core.sync.rest_data_client import RestDataClient
 from utils.for_core.dsm_cache_utils import get_from_cache
 
 
@@ -180,7 +176,7 @@ class TestDsmCacheOptimization(unittest.TestCase):
         """Set up test environment."""
         # Create a test cache directory
         self.cache_dir = Path("./test_cache")
-        os.makedirs(self.cache_dir, exist_ok=True)
+        self.cache_dir.mkdir(exist_ok=True, parents=True)
 
         # Create mock cache manager and clients
         self.cache_manager = MagicMock()
