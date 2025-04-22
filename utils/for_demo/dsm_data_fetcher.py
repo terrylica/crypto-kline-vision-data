@@ -24,13 +24,13 @@ from utils_for_debug.dataframe_output import (
 
 
 def fetch_data_with_fcp(
-    market_type: MarketType,
-    symbol: str,
-    start_time: pendulum.DateTime,
-    end_time: pendulum.DateTime,
-    interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
+    market_type: MarketType = MarketType.SPOT,
     chart_type: ChartType = ChartType.KLINES,
+    symbol: str = "BTCUSDT",
+    interval: Interval = Interval.MINUTE_1,
+    start_time: pendulum.DateTime = None,
+    end_time: pendulum.DateTime = None,
     use_cache: bool = True,
     enforce_source: DataSource = DataSource.AUTO,
     max_retries: int = 3,
@@ -39,13 +39,13 @@ def fetch_data_with_fcp(
     Fetch data using Failover Control Protocol (FCP) mechanism.
 
     Args:
+        provider: Data provider (currently only BINANCE is supported)
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         symbol: Symbol to retrieve data for (e.g., "BTCUSDT")
+        interval: Time interval between data points
         start_time: Start time for data retrieval
         end_time: End time for data retrieval
-        interval: Time interval between data points
-        provider: Data provider (currently only BINANCE is supported)
-        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         use_cache: Whether to use caching
         enforce_source: Force specific data source (AUTO, REST, VISION)
         max_retries: Maximum number of retry attempts
@@ -88,8 +88,8 @@ def fetch_data_with_fcp(
 
             # Create a DataSourceManager instance with the specified parameters
             with DataSourceManager(
-                market_type=market_type,
                 provider=provider,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=use_cache,
                 retry_count=max_retries,
@@ -112,13 +112,15 @@ def fetch_data_with_fcp(
         if df is None or df.empty:
             logger.warning(f"No data retrieved for {symbol}")
             print_no_data_message(
-                symbol,
-                market_type,
-                interval,
-                start_time,
-                end_time,
-                enforce_source,
-                use_cache,
+                provider=provider,
+                market_type=market_type,
+                chart_type=chart_type,
+                symbol=symbol,
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+                enforce_source=enforce_source,
+                use_cache=use_cache,
             )
             return pd.DataFrame()
 

@@ -264,7 +264,9 @@ class TestDsmCacheOptimization(unittest.TestCase):
         ):
 
             # Initialize DSM directly
-            dsm = DataSourceManager(cache_dir=self.cache_dir)
+            dsm = DataSourceManager(
+                provider=DataProvider.BINANCE, cache_dir=self.cache_dir
+            )
 
             # Get data for the time range
             df = dsm.get_data(
@@ -386,7 +388,9 @@ class TestDsmCacheOptimization(unittest.TestCase):
         ):
 
             # Initialize DSM directly
-            dsm = DataSourceManager(cache_dir=self.cache_dir)
+            dsm = DataSourceManager(
+                provider=DataProvider.BINANCE, cache_dir=self.cache_dir
+            )
 
             # Get data for the time range
             df = dsm.get_data(

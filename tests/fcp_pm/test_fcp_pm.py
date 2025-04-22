@@ -65,23 +65,21 @@ def test_fcp_mechanism():
 
             start_time_retrieval = time.time()
 
-            # Create DataSourceManager with cache disabled
+            # Initialize a DataSourceManager instance with caching disabled
             with DataSourceManager(
-                market_type=market_type,
                 provider=DataProvider.BINANCE,
+                market_type=market_type,
                 chart_type=chart_type,
-                use_cache=use_cache,
-                retry_count=3,
+                symbol=symbol,
+                interval=interval,
+                use_cache=False,
             ) as manager:
                 print("[bold yellow]Fetching data with FCP...[/bold yellow]")
 
                 # Use AUTO mode to enable the FCP mechanism
                 df = manager.get_data(
-                    symbol=symbol,
                     start_time=start_time,
                     end_time=end_time,
-                    interval=interval,
-                    chart_type=chart_type,
                     enforce_source=DataSource.AUTO,  # Use AUTO to enable FCP
                     include_source_info=True,  # Include source information
                 )

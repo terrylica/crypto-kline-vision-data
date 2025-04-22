@@ -22,13 +22,13 @@ from utils_for_debug.dataframe_output import (
 
 
 def fetch_data_with_fcp(
-    market_type: MarketType,
-    symbol: str,
-    start_time: pendulum.DateTime,
-    end_time: pendulum.DateTime,
-    interval: Interval = Interval.MINUTE_1,
     provider: DataProvider = DataProvider.BINANCE,
+    market_type: MarketType = None,
     chart_type: ChartType = ChartType.KLINES,
+    symbol: str = None,
+    interval: Interval = Interval.MINUTE_1,
+    start_time: pendulum.DateTime = None,
+    end_time: pendulum.DateTime = None,
     use_cache: bool = True,
     enforce_source: DataSource = DataSource.AUTO,
     max_retries: int = 3,
@@ -37,13 +37,13 @@ def fetch_data_with_fcp(
     Fetch data using Failover Control Protocol (FCP) mechanism.
 
     Args:
+        provider: Data provider (currently only BINANCE is supported)
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         symbol: Symbol to retrieve data for (e.g., "BTCUSDT")
+        interval: Time interval between data points
         start_time: Start time for data retrieval
         end_time: End time for data retrieval
-        interval: Time interval between data points
-        provider: Data provider (currently only BINANCE is supported)
-        chart_type: Type of chart data to retrieve (KLINES, FUNDING_RATE)
         use_cache: Whether to use caching
         enforce_source: Force specific data source (AUTO, REST, VISION)
         max_retries: Maximum number of retry attempts
@@ -57,11 +57,13 @@ def fetch_data_with_fcp(
     logger.info(f"Time range: {start_time.isoformat()} to {end_time.isoformat()}")
     logger.info(f"Cache enabled: {use_cache}")
 
-    if enforce_source != DataSource.AUTO:
+    if enforce_source is not None:
         logger.info(f"Enforcing data source: {enforce_source.name}")
+    else:
+        logger.info(f"Using AUTO source selection (FCP: Cache → Vision → REST)")
 
     logger.info(
-        f"[bold red]Attempting[/bold red] to fetch data from {start_time.isoformat()} to {end_time.isoformat()}..."
+        f"Attempting to fetch data from {start_time.isoformat()} to {end_time.isoformat()}..."
     )
 
     # Calculate expected record count for validation
@@ -71,18 +73,6 @@ def fetch_data_with_fcp(
     logger.debug(
         f"Expected record count: {expected_records} for {expected_seconds} seconds range"
     )
-
-    # Enhanced logging for the enforce_source parameter
-    if enforce_source == DataSource.REST:
-        logger.info(
-            f"Explicitly enforcing REST API as the data source (bypassing Vision API)"
-        )
-    elif enforce_source == DataSource.VISION:
-        logger.info(
-            f"Explicitly enforcing VISION API as the data source (no REST fallback)"
-        )
-    else:
-        logger.info(f"Using AUTO source selection (FCP: Cache → Vision → REST)")
 
     try:
         with Progress(
@@ -96,8 +86,8 @@ def fetch_data_with_fcp(
 
             # Create a DataSourceManager instance with the specified parameters
             with DataSourceManager(
-                market_type=market_type,
                 provider=provider,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=use_cache,
                 retry_count=max_retries,
@@ -120,13 +110,15 @@ def fetch_data_with_fcp(
         if df is None or df.empty:
             logger.warning(f"No data retrieved for {symbol}")
             print_no_data_message(
-                symbol,
-                market_type,
-                interval,
-                start_time,
-                end_time,
-                enforce_source,
-                use_cache,
+                provider=provider,
+                market_type=market_type,
+                chart_type=chart_type,
+                symbol=symbol,
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+                enforce_source=enforce_source,
+                use_cache=use_cache,
             )
             return pd.DataFrame()
 
@@ -154,10 +146,11 @@ def fetch_data_with_fcp(
 
 
 def test_fcp_mechanism(
-    symbol: str = "BTCUSDT",
+    provider: DataProvider = DataProvider.BINANCE,
     market_type: MarketType = MarketType.SPOT,
-    interval: Interval = Interval.MINUTE_1,
     chart_type: ChartType = ChartType.KLINES,
+    symbol: str = "BTCUSDT",
+    interval: Interval = Interval.MINUTE_1,
     start_date: str = None,
     end_date: str = None,
     days: int = 5,
@@ -178,10 +171,11 @@ def test_fcp_mechanism(
     3. Show detailed logs of each merge operation
 
     Args:
-        symbol: Trading symbol (e.g., "BTCUSDT")
+        provider: Data provider
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
-        interval: Time interval between data points
         chart_type: Type of chart data
+        symbol: Trading symbol (e.g., "BTCUSDT")
+        interval: Time interval between data points
         start_date: Start date in YYYY-MM-DD format or full ISO format (optional)
         end_date: End date in YYYY-MM-DD format or full ISO format (optional)
         days: Number of days to fetch if start_date/end_date not provided
@@ -279,8 +273,8 @@ def test_fcp_mechanism(
 
             # Create DataSourceManager with caching enabled
             with DataSourceManager(
-                market_type=market_type,
                 provider=DataProvider.BINANCE,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=True,
                 retry_count=3,
@@ -331,8 +325,8 @@ def test_fcp_mechanism(
 
             # Create a fresh DataSourceManager (this will use the cache we prepared)
             with DataSourceManager(
-                market_type=market_type,
                 provider=DataProvider.BINANCE,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=True,
                 retry_count=3,

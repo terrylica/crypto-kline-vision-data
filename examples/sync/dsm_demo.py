@@ -34,6 +34,7 @@ from utils.for_demo.dsm_cli_utils import (
     DataSourceChoice,
     ChartTypeChoice,
     LogLevel,
+    DataProviderChoice,
 )
 from utils.for_demo.dsm_app_options import (
     create_typer_app,
@@ -57,10 +58,11 @@ options = get_standard_options()
 @app.command(help=get_cmd_help_text())
 def main(
     # Data Selection
-    symbol: str = options["symbol"],
+    provider: DataProviderChoice = options["provider"],
     market: MarketTypeChoice = options["market"],
-    interval: str = options["interval"],
     chart_type: ChartTypeChoice = options["chart_type"],
+    symbol: str = options["symbol"],
+    interval: str = options["interval"],
     # Time Range options
     start_time: Optional[str] = options["start_time"],
     end_time: Optional[str] = options["end_time"],
@@ -140,10 +142,11 @@ def main(
 
         # Display configuration
         print_config_table(
-            symbol,
+            provider.value,
             market.value,
-            interval,
             chart_type.value,
+            symbol,
+            interval,
             start_time,
             end_time,
             days,
@@ -160,14 +163,17 @@ def main(
 
         # Validate and process arguments
         try:
+            # Convert provider string to enum
+            provider_enum = DataProvider.from_string(provider.value)
+
             # Convert market type string to enum
             market_type = MarketType.from_string(market.value)
 
-            # Convert interval string to enum
-            interval_enum = Interval(interval)
-
             # Convert chart type string to enum
             chart_type_enum = ChartType.from_string(chart_type.value)
+
+            # Convert interval string to enum
+            interval_enum = Interval(interval)
 
             # Use the core DataSourceManager utility to calculate time range
             try:
@@ -196,13 +202,13 @@ def main(
 
             # Fetch data using FCP
             df = fetch_data_with_fcp(
+                provider=provider_enum,
                 market_type=market_type,
+                chart_type=chart_type_enum,
                 symbol=symbol_adjusted,
+                interval=interval_enum,
                 start_time=start_datetime,
                 end_time=end_datetime,
-                interval=interval_enum,
-                provider=DataProvider.BINANCE,
-                chart_type=chart_type_enum,
                 use_cache=use_cache,
                 enforce_source=enforce_source_enum,
                 max_retries=retries,

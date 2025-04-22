@@ -20,8 +20,8 @@ def fetch_funding_rates():
 
     # Create a DataSourceManager configured for funding rate data
     with DataSourceManager(
-        market_type=MarketType.FUTURES_USDT,
         provider=DataProvider.BINANCE,
+        market_type=MarketType.FUTURES_USDT,
         chart_type=ChartType.FUNDING_RATE,
         cache_dir=cache_dir,
         use_cache=True,

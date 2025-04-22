@@ -27,10 +27,11 @@ from utils_for_debug.dataframe_output import (
 
 
 def test_fcp_mechanism(
-    symbol: str = "BTCUSDT",
+    provider: DataProvider = DataProvider.BINANCE,
     market_type: MarketType = MarketType.SPOT,
-    interval: Interval = Interval.MINUTE_1,
     chart_type: ChartType = ChartType.KLINES,
+    symbol: str = "BTCUSDT",
+    interval: Interval = Interval.MINUTE_1,
     start_date: str = None,
     end_date: str = None,
     days: int = 5,
@@ -38,7 +39,8 @@ def test_fcp_mechanism(
     cache_dir: Path = Path("./cache"),
     performance_timer_start=None,
 ):
-    """Test the Failover Control Protocol (FCP) mechanism.
+    """
+    Test the Failover Control Protocol (FCP) mechanism.
 
     This function demonstrates how DataSourceManager combines data from multiple sources:
     1. First retrieves data from local cache
@@ -51,16 +53,17 @@ def test_fcp_mechanism(
     3. Show detailed logs of each merge operation
 
     Args:
-        symbol: Trading symbol (e.g., "BTCUSDT")
+        provider: Data provider
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
-        interval: Time interval between data points
         chart_type: Type of chart data
+        symbol: Trading symbol (e.g., "BTCUSDT")
+        interval: Time interval between data points
         start_date: Start date in YYYY-MM-DD format or full ISO format (optional)
         end_date: End date in YYYY-MM-DD format or full ISO format (optional)
         days: Number of days to fetch if start_date/end_date not provided
         prepare_cache: Whether to prepare cache with partial data first
-        cache_dir: Path to the cache directory
-        performance_timer_start: Optional start time for performance measurement
+        cache_dir: Path object pointing to the cache directory
+        performance_timer_start: Optional performance timer start time
     """
     # Use calculated_date_range from our utility module
     start_time, end_time = calculate_date_range(start_date, end_date, days)
@@ -121,8 +124,8 @@ def test_fcp_mechanism(
 
             # Create DataSourceManager with caching enabled
             with DataSourceManager(
-                market_type=market_type,
                 provider=DataProvider.BINANCE,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=True,
                 retry_count=3,
@@ -169,8 +172,8 @@ def test_fcp_mechanism(
 
             # Create a fresh DataSourceManager (this will use the cache we prepared)
             with DataSourceManager(
-                market_type=market_type,
                 provider=DataProvider.BINANCE,
+                market_type=market_type,
                 chart_type=chart_type,
                 use_cache=True,
                 retry_count=3,

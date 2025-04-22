@@ -124,13 +124,23 @@ def save_dataframe_to_csv(
 
 
 def print_no_data_message(
-    symbol, market_type, interval, start_time, end_time, enforce_source, use_cache
+    provider=None,
+    market_type=None,
+    chart_type=None,
+    symbol=None,
+    interval=None,
+    start_time=None,
+    end_time=None,
+    enforce_source=None,
+    use_cache=None,
 ):
     """Print a user-friendly message when no data is retrieved.
 
     Args:
-        symbol: Symbol string
+        provider: Data provider
         market_type: Market type object
+        chart_type: Chart type
+        symbol: Symbol string
         interval: Interval string
         start_time: Start time datetime
         end_time: End time datetime
@@ -147,15 +157,32 @@ def print_no_data_message(
     print("2. There's no data available for this symbol in this time range")
     print("3. Both REST and VISION APIs failed to provide data")
     print("\n[bold cyan]Debugging information:[/bold cyan]")
-    print(f"Symbol: {symbol}")
-    print(f"Market type: {market_type.name}")
-    print(f"Interval: {interval.value if hasattr(interval, 'value') else interval}")
-    print(f"Start time: {start_time.isoformat()}")
-    print(f"End time: {end_time.isoformat()}")
-    print(
-        f"Enforced source: {enforce_source.name if hasattr(enforce_source, 'name') else enforce_source}"
-    )
-    print(f"Cache enabled: {use_cache}")
+
+    # Print in the hierarchical order
+    if provider:
+        print(f"Provider: {provider.name if hasattr(provider, 'name') else provider}")
+    if market_type:
+        print(
+            f"Market type: {market_type.name if hasattr(market_type, 'name') else market_type}"
+        )
+    if chart_type:
+        print(
+            f"Chart type: {chart_type.name if hasattr(chart_type, 'name') else chart_type}"
+        )
+    if symbol:
+        print(f"Symbol: {symbol}")
+    if interval:
+        print(f"Interval: {interval.value if hasattr(interval, 'value') else interval}")
+    if start_time:
+        print(f"Start time: {start_time.isoformat()}")
+    if end_time:
+        print(f"End time: {end_time.isoformat()}")
+    if enforce_source:
+        print(
+            f"Enforced source: {enforce_source.name if hasattr(enforce_source, 'name') else enforce_source}"
+        )
+    if use_cache is not None:
+        print(f"Cache enabled: {use_cache}")
 
 
 def print_always_visible(message):

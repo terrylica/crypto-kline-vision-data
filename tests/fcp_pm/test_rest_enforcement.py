@@ -53,8 +53,8 @@ def test_rest_enforcement():
     try:
         # Create DataSourceManager with cache disabled
         with DataSourceManager(
-            market_type=market_type,
             provider=DataProvider.BINANCE,
+            market_type=market_type,
             chart_type=chart_type,
             use_cache=use_cache,
             retry_count=3,

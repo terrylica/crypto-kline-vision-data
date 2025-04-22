@@ -117,10 +117,11 @@ def print_logging_panel(main_log, error_log):
 
 
 def print_config_table(
-    symbol,
+    provider,
     market,
-    interval,
     chart_type,
+    symbol,
+    interval,
     start_time,
     end_time,
     days,
@@ -146,7 +147,7 @@ def print_config_table(
     # Data Selection row with teal color
     args_table.add_row(
         "Data Selection",
-        f"[spring_green3]Symbol: {symbol} | Market: {market} | Interval: {interval} | Chart type: {chart_type}[/spring_green3]",
+        f"[spring_green3]Provider: {provider} | Market: {market} | Chart type: {chart_type} | Symbol: {symbol} | Interval: {interval}[/spring_green3]",
     )
 
     # Time Range row with slate blue color

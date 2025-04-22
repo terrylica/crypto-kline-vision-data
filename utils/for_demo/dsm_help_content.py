@@ -108,6 +108,10 @@ It displays real-time source information about where each data point comes from.
   ./examples/sync/dsm_demo.py -s BTCUSDT -m um
   ./examples/sync/dsm_demo.py -s BTCUSD_PERP -m cm
 
+[green]Data Provider Options[/green]
+  ./examples/sync/dsm_demo.py -s BTCUSDT -p binance
+  ./examples/sync/dsm_demo.py -s BTCUSDT -p tradestation
+
 [green]Different Intervals[/green]
   ./examples/sync/dsm_demo.py -s BTCUSDT -i 5m
   ./examples/sync/dsm_demo.py -s BTCUSDT -i 1h
@@ -128,6 +132,7 @@ It displays real-time source information about where each data point comes from.
 [green]Combined Examples[/green]
   ./examples/sync/dsm_demo.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l DEBUG
   ./examples/sync/dsm_demo.py -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
+  ./examples/sync/dsm_demo.py -s BTCUSDT -p binance -es VISION -m spot -i 1m -st 2025-04-01 -et 2025-04-03
 """
 
 # CLI Option Definitions
@@ -145,6 +150,12 @@ CLI_OPTIONS = {
         "short_flag": "-m",
         "help": "Market type (spot, um, cm)",
         "default": "spot",  # MarketTypeChoice.SPOT
+    },
+    "provider": {
+        "long_flag": "--provider",
+        "short_flag": "-p",
+        "help": "Data provider (binance, tradestation)",
+        "default": "binance",  # DataProviderChoice.BINANCE
     },
     "interval": {
         "long_flag": "--interval",

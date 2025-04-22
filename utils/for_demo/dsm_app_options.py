@@ -9,8 +9,9 @@ from typing import Dict, Any
 import typer
 
 from utils.for_demo.dsm_cli_utils import (
-    MarketTypeChoice,
+    DataProviderChoice,
     DataSourceChoice,
+    MarketTypeChoice,
     ChartTypeChoice,
     LogLevel,
 )
@@ -51,11 +52,11 @@ def get_standard_options() -> Dict[str, Any]:
     """
     return {
         # Data Selection options
-        "symbol": typer.Option(
-            CLI_OPTIONS["symbol"]["default"],
-            CLI_OPTIONS["symbol"]["long_flag"],
-            CLI_OPTIONS["symbol"]["short_flag"],
-            help=CLI_OPTIONS["symbol"]["help"],
+        "provider": typer.Option(
+            DataProviderChoice.BINANCE,
+            CLI_OPTIONS["provider"]["long_flag"],
+            CLI_OPTIONS["provider"]["short_flag"],
+            help=CLI_OPTIONS["provider"]["help"],
         ),
         "market": typer.Option(
             MarketTypeChoice.SPOT,
@@ -63,17 +64,23 @@ def get_standard_options() -> Dict[str, Any]:
             CLI_OPTIONS["market"]["short_flag"],
             help=CLI_OPTIONS["market"]["help"],
         ),
-        "interval": typer.Option(
-            CLI_OPTIONS["interval"]["default"],
-            CLI_OPTIONS["interval"]["long_flag"],
-            CLI_OPTIONS["interval"]["short_flag"],
-            help=CLI_OPTIONS["interval"]["help"],
-        ),
         "chart_type": typer.Option(
             ChartTypeChoice.KLINES,
             CLI_OPTIONS["chart_type"]["long_flag"],
             CLI_OPTIONS["chart_type"]["short_flag"],
             help=CLI_OPTIONS["chart_type"]["help"],
+        ),
+        "symbol": typer.Option(
+            CLI_OPTIONS["symbol"]["default"],
+            CLI_OPTIONS["symbol"]["long_flag"],
+            CLI_OPTIONS["symbol"]["short_flag"],
+            help=CLI_OPTIONS["symbol"]["help"],
+        ),
+        "interval": typer.Option(
+            CLI_OPTIONS["interval"]["default"],
+            CLI_OPTIONS["interval"]["long_flag"],
+            CLI_OPTIONS["interval"]["short_flag"],
+            help=CLI_OPTIONS["interval"]["help"],
         ),
         # Time Range options
         "start_time": typer.Option(

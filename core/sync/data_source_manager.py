@@ -112,15 +112,15 @@ class DataSourceConfig:
 
     @classmethod
     def create(
-        cls: Type[T], market_type: MarketType, provider: DataProvider, **kwargs
+        cls: Type[T], provider: DataProvider, market_type: MarketType, **kwargs
     ) -> T:
-        """Create a DataSourceConfig with the given market_type, provider and optional overrides.
+        """Create a DataSourceConfig with the given provider, market_type and optional overrides.
 
         This is a convenience builder method that allows for a more fluent interface.
 
         Args:
-            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
             provider: Data provider (BINANCE)
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
             **kwargs: Optional parameter overrides
 
         Returns:
@@ -132,22 +132,22 @@ class DataSourceConfig:
 
         Examples:
             # Basic config for SPOT market with Binance provider
-            config = DataSourceConfig.create(MarketType.SPOT, DataProvider.BINANCE)
+            config = DataSourceConfig.create(DataProvider.BINANCE, MarketType.SPOT)
 
             # Config for FUTURES with custom cache directory
             config = DataSourceConfig.create(
-                MarketType.FUTURES_USDT,
                 DataProvider.BINANCE,
+                MarketType.FUTURES_USDT,
                 cache_dir=Path("./my_cache")
             )
         """
-        if not isinstance(market_type, MarketType):
-            raise TypeError(
-                f"market_type must be a MarketType enum, got {type(market_type)}"
-            )
         if not isinstance(provider, DataProvider):
             raise TypeError(
                 f"provider must be a DataProvider enum, got {type(provider)}"
+            )
+        if not isinstance(market_type, MarketType):
+            raise TypeError(
+                f"market_type must be a MarketType enum, got {type(market_type)}"
             )
         return cls(market_type=market_type, provider=provider, **kwargs)
 
@@ -243,8 +243,8 @@ class DataSourceManager:
     @classmethod
     def create(
         cls,
-        market_type: Optional[MarketType] = None,
         provider: Optional[DataProvider] = None,
+        market_type: Optional[MarketType] = None,
         **kwargs,
     ):
         """Create a DataSourceManager with a more Pythonic interface.
@@ -253,10 +253,10 @@ class DataSourceManager:
         with proper default values and documentation.
 
         Args:
-            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
-                If None, uses the class's DEFAULT_MARKET_TYPE
             provider: Data provider (BINANCE)
                 If None, raises ValueError as provider is now mandatory
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+                If None, uses the class's DEFAULT_MARKET_TYPE
             **kwargs: Additional parameters as needed
 
         Returns:
@@ -267,29 +267,29 @@ class DataSourceManager:
 
         Examples:
             # Create a manager for spot market with Binance provider
-            manager = DataSourceManager.create(MarketType.SPOT, DataProvider.BINANCE)
+            manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
 
             # Create a manager for futures with custom settings
             manager = DataSourceManager.create(
-                MarketType.FUTURES_USDT,
                 DataProvider.BINANCE,
+                MarketType.FUTURES_USDT,
                 chart_type=ChartType.FUNDING_RATE,
                 cache_dir=Path("./my_cache")
             )
         """
+        # Provider is now mandatory
+        if provider is None:
+            raise ValueError("Data provider must be specified")
+
         # Use the configured default market type if none provided
         if market_type is None:
             market_type = cls.DEFAULT_MARKET_TYPE
             logger.debug(f"Using default market type: {market_type.name}")
 
-        # Provider is now mandatory
-        if provider is None:
-            raise ValueError("Data provider must be specified")
-
-        config = DataSourceConfig.create(market_type, provider, **kwargs)
+        config = DataSourceConfig.create(provider, market_type, **kwargs)
         return cls(
-            market_type=config.market_type,
             provider=config.provider,
+            market_type=config.market_type,
             chart_type=config.chart_type,
             cache_dir=config.cache_dir,
             use_cache=config.use_cache,
@@ -318,28 +318,28 @@ class DataSourceManager:
 
     def __init__(
         self,
-        market_type: MarketType = MarketType.SPOT,
         provider: DataProvider = DataProvider.BINANCE,
+        market_type: MarketType = MarketType.SPOT,
+        chart_type: ChartType = ChartType.KLINES,
         use_cache: bool = True,
         cache_dir: Optional[Path] = None,
         retry_count: int = 3,
-        chart_type: ChartType = ChartType.KLINES,
     ):
         """Initialize the data source manager.
 
         Args:
-            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
             provider: Data provider (BINANCE)
+            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+            chart_type: Chart type (KLINES, FUNDING_RATE)
             use_cache: Whether to use local cache
             cache_dir: Directory to store cache files (default: "./cache")
             retry_count: Number of retries for network operations
-            chart_type: Chart type (KLINES, FUNDING_RATE)
         """
-        self.market_type = market_type
         self.provider = provider
+        self.market_type = market_type
+        self.chart_type = chart_type
         self.use_cache = use_cache
         self.retry_count = retry_count
-        self.chart_type = chart_type
 
         # Set up cache directory
         if cache_dir is not None:
