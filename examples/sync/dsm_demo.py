@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+DSM Demo CLI: Command-line interface for data source management demo.
+This module provides a CLI wrapper around the core DSM functionality.
+"""
+
 from utils.for_demo.dsm_help_content import MAIN_DOCSTRING
 
 __doc__ = MAIN_DOCSTRING
@@ -12,17 +17,13 @@ import pendulum
 # Import the logger or logging and rich formatting
 from utils.logger_setup import logger, configure_session_logging
 
-from utils.market_constraints import MarketType, Interval, DataProvider, ChartType
 
 # Import utility modules for DSM Demo
-from utils.for_demo.dsm_cache_utils import clear_cache_directory, verify_project_root
-from utils.for_demo.dsm_data_fetcher import fetch_data_with_fcp
 from utils.for_demo.dsm_display_utils import display_results
 from utils.for_demo.dsm_doc_utils import (
     generate_markdown_docs,
     verify_and_install_typer_cli,
 )
-from utils.for_demo.dsm_validation_utils import validate_interval, calculate_date_range
 from utils.for_demo.dsm_cli_utils import (
     resolve_log_level,
     print_intro_panel,
@@ -31,8 +32,6 @@ from utils.for_demo.dsm_cli_utils import (
     print_performance_panel,
     print_rich_output_help,
     handle_error,
-    adjust_symbol_for_market,
-    convert_source_choice,
     MarketTypeChoice,
     DataSourceChoice,
     ChartTypeChoice,
@@ -43,6 +42,13 @@ from utils.for_demo.dsm_app_options import (
     create_typer_app,
     get_standard_options,
     get_cmd_help_text,
+)
+
+# Import library functions
+from dsm_demo_lib import (
+    setup_environment,
+    process_market_parameters,
+    fetch_market_data,
 )
 
 # Start the performance timer at module initialization
@@ -119,8 +125,8 @@ def main(
         print_intro_panel()
         print_logging_panel(main_log, error_log)
 
-        # Verify project root
-        if not verify_project_root():
+        # Set up environment
+        if not setup_environment(clear_cache):
             sys.exit(1)
 
         # Display configuration
@@ -140,52 +146,34 @@ def main(
             level,
         )
 
-        # Clear cache if requested
-        if clear_cache:
-            clear_cache_directory(CACHE_DIR)
-
-        # Validate and process arguments
         try:
-            # Convert provider string to enum
-            provider_enum = DataProvider.from_string(provider.value)
-
-            # Convert market type string to enum
-            market_type = MarketType.from_string(market.value)
-
-            # Convert chart type string to enum
-            chart_type_enum = ChartType.from_string(chart_type.value)
-
-            # Convert interval string to enum
-            interval_enum = Interval(interval)
-
-            # Validate interval support
-            validate_interval(market_type, interval_enum)
-
-            # Calculate time range
-            start_datetime, end_datetime = calculate_date_range(
-                start_time, end_time, days, interval_enum
+            # Process market parameters
+            (
+                provider_enum,
+                market_type,
+                chart_type_enum,
+                symbol_adjusted,
+                interval_enum,
+            ) = process_market_parameters(
+                provider.value,
+                market.value,
+                chart_type.value,
+                symbol,
+                interval,
             )
 
-            # Process caching option
-            use_cache = not no_cache
-
-            # Process enforce source option
-            enforce_source_enum = convert_source_choice(enforce_source)
-
-            # Adjust symbol for market type if needed
-            symbol_adjusted = adjust_symbol_for_market(symbol, market_type)
-
-            # Fetch data using FCP
-            df = fetch_data_with_fcp(
+            # Fetch market data
+            df, elapsed_time, records_count = fetch_market_data(
                 provider=provider_enum,
                 market_type=market_type,
                 chart_type=chart_type_enum,
                 symbol=symbol_adjusted,
                 interval=interval_enum,
-                start_time=start_datetime,
-                end_time=end_datetime,
-                use_cache=use_cache,
-                enforce_source=enforce_source_enum,
+                start_time=start_time,
+                end_time=end_time,
+                days=days,
+                use_cache=not no_cache,
+                enforce_source=enforce_source.value,
                 max_retries=retries,
             )
 
@@ -202,12 +190,7 @@ def main(
             # Add info about rich output and log levels
             print_rich_output_help()
 
-            # Calculate and display script execution time
-            end_time_perf = perf_counter()
-            elapsed_time = end_time_perf - start_time_perf
-
-            # Calculate and display performance metrics
-            records_count = 0 if df is None or df.empty else len(df)
+            # Display performance metrics
             print_performance_panel(elapsed_time, records_count)
 
         except ValueError as e:
