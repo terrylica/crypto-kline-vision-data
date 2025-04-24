@@ -24,7 +24,7 @@ Below are three complementary strategies to tighten the loop between the Python 
 
    {{ intro_paragraph }}
 
-   ## Options
+   ## Option
    {% for opt in options %}
    - **`{{ opt.flag }}`**: {{ opt.description }}
    {% endfor %}

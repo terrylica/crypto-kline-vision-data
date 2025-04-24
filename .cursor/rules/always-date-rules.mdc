@@ -3,7 +3,8 @@ description:
 globs: 
 alwaysApply: true
 ---
-## Date & Time
+# Date & Time
+
 - Always prefer the `pendulum` library for all datetime parsing, formatting, timezone handling, arithmetic, and comparisons.
 - `datetime` module is only allowed for compatibility with legacy code (when explicitly required).
 - `pendulum.parse()` must be used for string parsing; always make date strings timezone-aware unless absolutely specified as naive.
