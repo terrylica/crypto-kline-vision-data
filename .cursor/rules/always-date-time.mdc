@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## Date & Time
+- Always prefer the `pendulum` library for all datetime parsing, formatting, timezone handling, arithmetic, and comparisons.
+- `datetime` module is only allowed for compatibility with legacy code (when explicitly required).
+- `pendulum.parse()` must be used for string parsing; always make date strings timezone-aware unless absolutely specified as naive.
+- Always apply UTC as the default base timezone unless the local timezone is explicitly required.
+- Default output formatting for display must include **milliseconds**, using:
+  ```python
+  .format("YYYY-MM-DD HH:mm:ss.SSS")
+  ```

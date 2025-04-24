@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Python Preference
+
+- Python 3.11 compatible functionality.
+- Always create demo or test as self-executable, shebang-enabled Python CLI tool (`#!/usr/bin/env python3`), designed with typer for command-line flag parsing (with enforced shorthand flags for all options where semantically appropriate), and requires executable permissions (chmod +x) to run directly without invoking the Python interpreter explicitly.
+- Every one of the CLI flags should contain shorthand, including `-h` for `--help`.
+- Only use terminal-based tools, such as `rich` Library, to generate statistics.
+- Prefer `Pathlib` to `os`.
+- Use `fsspec` for remote file and local path matching.
+- Prefer `httpx` to `requests` as http client.
