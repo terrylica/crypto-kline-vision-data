@@ -1,7 +1,7 @@
 ---
-description: 
+description: output date time on the terminal or log files
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 # Date & Time
 
