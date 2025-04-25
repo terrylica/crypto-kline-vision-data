@@ -18,6 +18,7 @@ from core.sync.dsm_lib import (
     fetch_market_data,
 )
 from utils.deprecation_rules import Interval as DeprecationInterval
+from utils.for_demo.dsm_display_utils import display_results
 
 
 def showcase_backward_retrieval(
@@ -85,6 +86,20 @@ def showcase_backward_retrieval(
         print(
             f"[green]✓ Successfully fetched {records:,} records in {elapsed_time:.2f} seconds[/green]"
         )
+
+        # Use the display_results function for consistent display with dsm_demo_cli.py
+        timestamp = pendulum.now().format("YYYYMMDD_HHmmss")
+        display_results(
+            df,
+            symbol,
+            market_type,
+            interval_enum.value,
+            chart_type_enum.name.lower(),
+            timestamp,
+            "dsm_demo_module",
+        )
+
+        # Show data range summary
         print("\n[cyan]Data Range Summary:[/cyan]")
 
         # Convert index to datetime if it's not already
@@ -122,8 +137,9 @@ def showcase_backward_retrieval(
 def main():
     """Run the backward retrieval showcase example."""
     # Configure logging with ERROR level
+    current_time = pendulum.now()
+    logger.info(f"Starting showcase at {current_time.isoformat()}")
     configure_session_logging("dsm_showcase", "ERROR")
-    logger.info(f"Starting showcase at {pendulum.now().isoformat()}")
 
     # Set up environment
     if not setup_environment():
