@@ -15,7 +15,11 @@
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
   // Use 'postCreateCommand' to run commands after the container is created.
-  // "postCreateCommand": "",
+  "postCreateCommand": "export PATH=$PATH:/home/vscode/.local/bin && pip install -e . && pip install -e '.[dev]'",
+  // Set environment variables
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+  },
   // Configure tool-specific properties.
   "customizations": {
     "vscode": {

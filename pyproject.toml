@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "binance-data-services"
+version = "0.1.0"
+description = "High-performance package for efficient market data retrieval from Binance"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Eon Labs"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11"
+]
+dependencies = [
+    "pandas",
+    "pendulum",
+    "httpx>=0.24.0",
+    "fsspec",
+    "aiohttp",
+    "requests",
+    "tenacity",
+    "colorlog",
+    "psutil",
+    "arrow",
+    "pyarrow>=19.0.1",
+    "typer",
+    "rich"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
+    "pytest-profiling",
+    "pylint",
+    "autoflake",
+    "vulture",
+    "twine"
+]
+
+# Command-line scripts defined here
+[project.scripts]
+dsm-demo-cli = "examples.sync.dsm_demo_cli:app"
+dsm-demo-module = "examples.lib_module.dsm_demo_module:main"
+
+[tool.setuptools]
+packages = ["core", "utils", "examples"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*" 

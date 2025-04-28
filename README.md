@@ -2,6 +2,47 @@
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
+## Installation
+
+You can quickly get started with Binance Data Service using pip:
+
+```bash
+# Clone the repository
+git clone https://github.com/Eon-Labs/binance-data-services.git
+cd binance-data-services
+
+# Install the package (in development mode)
+pip install -e .
+
+# For development dependencies (optional)
+pip install -e ".[dev]"
+```
+
+## Running the Demos
+
+Once installed, you can run the demos using the command-line tools:
+
+### DSM Demo CLI
+
+The CLI demonstration provides an interactive way to explore the Failover Control Protocol:
+
+```bash
+# Run the DSM Demo CLI with default parameters
+dsm-demo-cli
+
+# Run with specific parameters (get BTC data for a 10-day period)
+dsm-demo-cli -s BTCUSDT -i 1m -d 10
+```
+
+### DSM Demo Module
+
+The module demo provides a programmatic interface:
+
+```bash
+# Run the DSM Demo Module with default parameters
+dsm-demo-module
+```
+
 ## Data Service Manager (DSM) Demo
 
 ### Quick Start
