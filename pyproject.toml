@@ -51,7 +51,7 @@ dsm-demo-cli = "examples.sync.dsm_demo_cli:app"
 dsm-demo-module = "examples.lib_module.dsm_demo_module:main"
 
 [tool.setuptools]
-packages = ["core", "utils", "examples"]
+packages = ["core", "utils", "examples", "utils_for_debug"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
