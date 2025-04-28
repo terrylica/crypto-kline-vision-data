@@ -10,7 +10,11 @@ from pathlib import Path
 import json
 from typing import List
 from rich import print
+import sys
+from utils.logger_setup import logger
+import logging
 
+logger.setLevel(logging.DEBUG)
 
 app = typer.Typer(help="Clear cache and log directories utility")
 
@@ -58,6 +62,9 @@ def clear(
         "-v",
         help="Show version information and exit",
     ),
+    create_if_missing: bool = typer.Option(
+        False, "--create", "-c", help="Create directories if they don't exist"
+    ),
 ):
     """
     Clear specified directories by removing all files while preserving directory structure.
@@ -69,11 +76,16 @@ def clear(
 
     Supports various filesystem types via fsspec (local, S3, GCS, etc.).
     """
+    logger.debug(f"Invoked with arguments: {sys.argv}")
+    logger.debug(f"Directories to clear: {dirs}")
     if version:
         print("Clear Cache Utility v1.1.0")
         return
 
     directories = dirs if dirs else ["cache", "logs"]
+
+    for dir_path in directories:
+        logger.debug(f"Checking if directory exists: {dir_path}")
 
     # Parse storage options if provided
     options = {}
@@ -101,7 +113,13 @@ def clear(
 
     # Process each directory
     for dir_path in directories:
-        clear_directory(dir_path, filesystem, options, test_mode=test_mode)
+        clear_directory(
+            dir_path,
+            filesystem,
+            options,
+            test_mode=test_mode,
+            create_if_missing=create_if_missing,
+        )
 
 
 def clear_directory(
@@ -109,6 +127,7 @@ def clear_directory(
     protocol: str = "file",
     storage_options: dict = None,
     test_mode: bool = False,
+    create_if_missing: bool = False,
 ):
     """Clear all files and empty subdirectories in the given directory using fsspec."""
     if storage_options is None:
@@ -120,8 +139,14 @@ def clear_directory(
 
         # Check if directory exists
         if not fs.exists(directory):
-            print(f"[yellow]Directory {directory} does not exist[/yellow]")
-            return
+            if create_if_missing:
+                fs.makedirs(directory, exist_ok=True)
+                logger.debug(f"Created directory: {directory}")
+            else:
+                logger.debug(
+                    f"Directory {directory} does not exist and will be skipped"
+                )
+                return
 
         # Ensure directory exists (create if it doesn't)
         fs.makedirs(directory, exist_ok=True)
@@ -230,4 +255,9 @@ def clear_directory(
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 1:  # Check if no arguments are provided
+        sys.argv.append("clear")  # Append the default command
+        logger.debug(
+            "No arguments provided; defaulting to 'clear' command for cache and logs directories"
+        )
     app()
