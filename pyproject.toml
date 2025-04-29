@@ -17,19 +17,20 @@ classifiers = [
     "Programming Language :: Python :: 3.11"
 ]
 dependencies = [
-    "pandas",
-    "pendulum",
-    "httpx>=0.24.0",
-    "fsspec",
-    "aiohttp",
-    "requests",
-    "tenacity",
-    "colorlog",
-    "psutil",
-    "arrow",
-    "pyarrow>=19.0.1",
-    "typer",
-    "rich"
+    "pyarrow>=19.0.1", # for local cache files in MMAP Array format
+    "polars", # resample and aggregate data faster than pandas
+    "pandas", # compatbility with existing code
+    "numpy", # for numerical operations
+    "fsspec", # for downloading remote files and local file hyrarchy matching of remote files
+    "requests", # fsspec compatible HTTP client
+    "httpx>=0.24.0", # as preferred HTTP client
+    "aiohttp", # for HTTP requests
+    "tenacity", # for retrying operations
+    "colorlog", # for colored logging
+    "psutil", # for system monitoring
+    "typer", # for CLI
+    "rich", # for elegant logging and CLI output
+    "pendulum" # for date and time operations
 ]
 
 [project.optional-dependencies]
