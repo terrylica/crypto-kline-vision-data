@@ -4,7 +4,7 @@ This document provides information about the available kline (candlestick) data 
 
 ## Available Kline Intervals
 
-The following intervals are available for historical kline data on Binance Vision API:
+This section lists the historical kline data intervals available specifically on the Binance Vision API. For the complete list and definitions of intervals used within the project, please refer to [`utils/market_constraints.py`](../../utils/market_constraints.py).
 
 | Interval | Description      | URL Path Component | Status    |
 | -------- | ---------------- | ------------------ | --------- |

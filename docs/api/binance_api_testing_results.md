@@ -63,6 +63,8 @@ This document summarizes the empirical testing conducted on various Binance API 
 
 ## 3. Rate Limit Testing
 
+This section summarizes the observed weight consumption for various endpoints during testing. For a comprehensive guide on Binance API rate limits, including rate limit types, tracking headers, error responses, and optimization strategies, please refer to [Binance API Rate Limits](binance_rate_limits.md).
+
 ### 3.1 Weight Consumption by Endpoint
 
 | Endpoint                 | Weight (Single Symbol) | Weight (All Symbols) | Notes                              |

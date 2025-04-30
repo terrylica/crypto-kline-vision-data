@@ -4,6 +4,10 @@ Based on extensive empirical testing and analysis, this document provides best p
 
 ## 1. Rate Limit Management
 
+Effective rate limit management is crucial for maintaining consistent access to the Binance API and avoiding IP bans. For a detailed explanation of Binance API rate limits, including different rate limit types (REQUEST_WEIGHT, ORDERS, RAW_REQUESTS), their limits across various markets, tracking headers (`x-mbx-used-weight-1m`, `x-mbx-used-weight`, etc.), and common error responses (e.g., 429 Too Many Requests), please refer to [Binance API Rate Limits](binance_rate_limits.md).
+
+This section focuses on practical strategies and code examples for managing your request weight and order counts to stay within these limits.
+
 ### 1.1 Weight Tracking
 
 Binance uses a weight-based system for rate limiting. Each request consumes a weight, and you have a limit of 6000 weight per minute by default.
@@ -207,6 +211,10 @@ def get_klines(symbol, interval, limit, market_type="spot"):
 ```
 
 ## 4. Error Handling Best Practices
+
+Robust error handling is essential for building reliable API consumers. For a list of common Binance API error codes and their trigger conditions observed during testing, please refer to the [Error Handling Testing section in Binance API Testing Results](binance_api_testing_results.md#5-error-handling-testing).
+
+This section outlines best practices for implementing error handling in your application, focusing on strategies like retries, parameter validation, and circuit breakers.
 
 ### 4.1 Retry with Exponential Backoff
 
