@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "binance-data-services"
+name = "raw-data-services"
 version = "0.1.0"
 description = "High-performance package for efficient market data retrieval from Binance"
 readme = "README.md"

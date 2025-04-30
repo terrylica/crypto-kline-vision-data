@@ -1,15 +1,15 @@
-# Binance Data Service
+# Raw Data Service
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
 ## Installation
 
-You can quickly get started with Binance Data Service using pip:
+You can quickly get started with Raw Data Service using pip:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Eon-Labs/binance-data-services.git
-cd binance-data-services
+git clone https://github.com/Eon-Labs/raw-data-services.git
+cd raw-data-services
 
 # Create and activate a virtual environment (recommended)
 python3 -m venv venv

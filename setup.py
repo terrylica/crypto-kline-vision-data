@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Setup configuration for binance-data-services."""
+"""Setup configuration for raw-data-services."""
 
 from setuptools import setup
 
