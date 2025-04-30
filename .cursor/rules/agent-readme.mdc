@@ -3,4 +3,10 @@ description: README
 globs: 
 alwaysApply: false
 ---
-Do not directly modify `docs/dsm_demo_cli/README.md` because it is geenrated by `./examples/sync/dsm_demo_cli.py --gen-doc`
+# Markdown File Handling
+
+- GitHub Flavored Markdown (GFM) format only
+
+- Prefer linking to a directory path (e.g., `docs/`) rather than its `README.md` (e.g., `docs/README.md`) in Markdown, since GitHub auto-renders the directory by loading `README.md` implicitly.
+
+- Do not directly modify `docs/dsm_demo_cli/README.md` because it is geenrated by `./examples/sync/dsm_demo_cli.py --gen-doc`
