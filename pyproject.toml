@@ -65,7 +65,7 @@ python_functions = "test_*"
 
 [tool.ruff]
 # Enable Pyflakes, pycodestyle, import sorting, and more
-lint.select = ["E", "F", "W", "I001"]
+lint.select = ["E", "F401", "F841", "F601", "F631", "F632", "F634", "F821", "F822", "F823", "W", "I001"]
 lint.ignore = ["E501"]
 # Align with project.requires-python (>=3.11)
 # Ruff comment - this cannot be inherited automatically
@@ -82,4 +82,18 @@ lint.exclude = ["playground/", "tests/", ".git/", "__pycache__/"]
 [tool.ruff.lint.isort]
 # Note: This cannot automatically inherit from project dependencies.
 # Make sure to keep this list in sync with [project] dependencies and [project.optional-dependencies]
-known-third-party = ["pandas", "numpy", "polars", "pyarrow", "httpx", "tenacity", "rich", "typer", "pytest", "gitpython", "rope", "pylint", "autoflake", "vulture", "twine"] 
+known-third-party = ["pandas", "numpy", "polars", "pyarrow", "httpx", "tenacity", "rich", "typer", "pytest", "gitpython", "rope", "pylint", "autoflake", "vulture", "twine"]
+
+[tool.vulture]
+# Paths to scan for dead code
+paths = ["utils/", "core/", "scripts/"]  
+# Exclude test-related files
+exclude = ["tests/", "*/test_*.py", "*/conftest.py"]
+# Minimum confidence threshold (0-100)
+min_confidence = 80
+# Sort by size to focus on larger unused functions first
+sort_by_size = true
+# Ignore certain naming patterns that might be used for required interfaces
+ignore_names = ["__*__", "setup_*", "teardown_*"]
+# Ignore certain decorators that might create false positives
+ignore_decorators = ["@app.route", "@property", "@classmethod", "@staticmethod"] 
