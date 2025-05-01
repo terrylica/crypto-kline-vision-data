@@ -40,6 +40,7 @@ dev = [
     "pytest-cov",
     "pytest-xdist",
     "pytest-profiling",
+    "gitpython", # for git operations
     "rope", # for refactoring imports
     "ruff", # for linting and formatting
     "pylint", # for linting
