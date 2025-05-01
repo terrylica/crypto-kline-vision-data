@@ -25,7 +25,7 @@
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.pylance",
+        // "ms-python.pylance", use ruff instead
         "ms-python.black-formatter",
         "esbenp.prettier-vscode",
         "ms-azuretools.vscode-docker",
