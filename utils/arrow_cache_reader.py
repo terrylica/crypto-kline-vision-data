@@ -166,7 +166,7 @@ class ArrowCacheReader:
                 f"""
                 SELECT date, num_records, path
                 FROM cache_entries
-                WHERE symbol = ? AND interval = ? AND date IN ({placeholders}) 
+                WHERE symbol = ? AND interval = ? AND date IN ({placeholders})
                 AND path LIKE ?
                 """,
                 [symbol, interval_str] + all_dates + [path_pattern],
@@ -361,8 +361,8 @@ class ArrowCacheReader:
         # Count by market type (inferred from path)
         cursor.execute(
             """
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN path LIKE '%/spot/%' THEN 'SPOT'
                     WHEN path LIKE '%/futures_um/%' THEN 'FUTURES_USDT'
                     WHEN path LIKE '%/futures_cm/%' THEN 'FUTURES_COIN'
@@ -495,7 +495,7 @@ class ArrowCacheReader:
 
         cursor.execute(
             """
-            SELECT date FROM cache_entries 
+            SELECT date FROM cache_entries
             WHERE symbol = ? AND interval = ? AND path LIKE ?
             ORDER BY date
             """,
@@ -517,8 +517,8 @@ class ArrowCacheReader:
 
         cursor.execute(
             """
-            SELECT DISTINCT 
-                CASE 
+            SELECT DISTINCT
+                CASE
                     WHEN path LIKE '%/spot/%' THEN 'SPOT'
                     WHEN path LIKE '%/futures_um/%' THEN 'FUTURES_USDT'
                     WHEN path LIKE '%/futures_cm/%' THEN 'FUTURES_COIN'

@@ -249,7 +249,7 @@ def test_real_checksum_extraction(
                     decoded_preview = decoded[:60] if len(decoded) > 60 else decoded
                     rprint("\n[bold]Decoded content preview:[/bold]")
                     rprint(f"{decoded_preview}" + ("..." if len(decoded) > 60 else ""))
-                except:
+                except Exception:
                     pass
 
         # Extract checksum from the file

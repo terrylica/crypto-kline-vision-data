@@ -9,6 +9,14 @@ from typing import Any, Dict, Optional, Tuple, Union
 import pandas as pd
 
 from utils.api_boundary_validator import ApiBoundaryValidator
+from utils.config import (
+    CANONICAL_INDEX_NAME,
+    DEFAULT_TIMEZONE,
+    MAX_CACHE_AGE,
+    MIN_VALID_FILE_SIZE,
+    OUTPUT_DTYPES,
+    TIMESTAMP_PRECISION,
+)
 from utils.logger_setup import logger
 from utils.market_constraints import Interval
 
@@ -32,16 +40,6 @@ SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{1,20}(USDT|BTC|ETH|BNB)$")  # Trading pa
 INTERVAL_PATTERN = re.compile(
     r"^(1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M)$"
 )  # Valid intervals
-
-
-from utils.config import (
-    CANONICAL_INDEX_NAME,
-    DEFAULT_TIMEZONE,
-    MAX_CACHE_AGE,
-    MIN_VALID_FILE_SIZE,
-    OUTPUT_DTYPES,
-    TIMESTAMP_PRECISION,
-)
 
 
 class ValidationError(Exception):

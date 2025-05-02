@@ -929,7 +929,7 @@ from utils.logger_setup import logger
 
 def test_from_another_file():
     logger.info("Log from another file")
-    
+
 if __name__ == "__main__":
     test_from_another_file()
 """

@@ -140,7 +140,7 @@ def get_standard_options() -> Dict[str, Any]:
         ),
         # Other options
         "log_level": typer.Option(
-            LogLevel.I,
+            LogLevel.INFO,
             CLI_OPTIONS["log_level"]["long_flag"],
             CLI_OPTIONS["log_level"]["short_flag"],
             help=CLI_OPTIONS["log_level"]["help"],

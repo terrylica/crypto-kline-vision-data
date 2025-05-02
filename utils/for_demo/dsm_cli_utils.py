@@ -56,11 +56,11 @@ class LogLevel(str, Enum):
     """Log level choices."""
 
     # Shorthand values for log levels
-    D = "D"  # DEBUG
-    I = "I"  # INFO
-    W = "W"  # WARNING
-    E = "E"  # ERROR
-    C = "C"  # CRITICAL
+    DEBUG = "D"
+    INFO = "I"
+    WARNING = "W"
+    ERROR = "E"
+    CRITICAL = "C"
 
 
 def resolve_log_level(level):
@@ -253,7 +253,7 @@ def handle_error(error, start_time_perf=None):
                     border_style="red",
                 )
             )
-    except:
+    except Exception:
         # Last resort if even error handling fails
         print("An error occurred, but the error handler encountered an exception.")
         import traceback

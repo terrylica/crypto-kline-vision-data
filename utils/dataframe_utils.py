@@ -283,7 +283,7 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
             # Last resort, try a simple set_index operation
             try:
                 df = df.set_index(CANONICAL_INDEX_NAME)
-            except:
+            except Exception:
                 pass
         else:
             logger.warning("Fallback: Creating a new synthetic index despite error")

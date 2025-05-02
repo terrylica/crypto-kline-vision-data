@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 """Example demonstrating direct funding rate history download from Binance API."""
 
+# Standard library imports
 import sys
 from pathlib import Path
 
-# Add project root to path for imports
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
+# Set up path to allow imports from parent directory
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
-# Import the download function from the scripts
+# Local imports - must come after path setup
 from scripts.funding_rate_downloader.download_funding_rate import (
     convert_to_csv,
     fetch_funding_rate_history,

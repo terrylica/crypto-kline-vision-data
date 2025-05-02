@@ -263,7 +263,7 @@ def preview_zip_content(zip_path: Path) -> None:
                                 console.print(
                                     f"[bold]Time Range[/bold]: {min_time} - {max_time}"
                                 )
-                            except:
+                            except Exception:
                                 pass
 
     except Exception as e:

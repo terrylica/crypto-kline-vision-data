@@ -88,23 +88,23 @@ SAMPLE_COMMANDS = """[bold cyan]Sample Commands[/bold cyan]
 [green]Time Range CLI Examples[/green]
   > End time with days (fetch backward from end time)
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -et 2025-04-15 -d 7
-  
+
   > Start time with days (fetch forward from start time)
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -st 2025-04-05 -d 10
-  
+
   > Exact time range (start time to end time)
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -st 2025-04-05 -et 2025-04-15
-  
+
   > Days only (fetch backward from current time)
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -d 7
-  
+
   > Default (3 days backward from current time)
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT
 
 [green]Market Types[/green]
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -m um
   ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm
-  
+
   > Note: Coin-margined futures (-m cm) require symbols with USD_PERP format (e.g., BTCUSD_PERP, not BTCUSDT)
   ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm -d 1 -et 2025-03-01
 
@@ -121,11 +121,11 @@ SAMPLE_COMMANDS = """[bold cyan]Sample Commands[/bold cyan]
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -es REST
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -nc
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -cc
-  
+
 [green]Documentation Generation[/green]
   > Generate documentation
   ./examples/sync/dsm_demo_cli.py -gd
-  
+
   > Generate documentation with linting configuration files
   ./examples/sync/dsm_demo_cli.py -gd -glc
 
@@ -133,7 +133,7 @@ SAMPLE_COMMANDS = """[bold cyan]Sample Commands[/bold cyan]
   ./examples/sync/dsm_demo_cli.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l D
   ./examples/sync/dsm_demo_cli.py -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
   ./examples/sync/dsm_demo_cli.py -s BTCUSDT -p binance -es VISION -m spot -i 1m -st 2025-04-01 -et 2025-04-03
-  
+
   > Bitcoin historical data for coin-margined futures (using required USD_PERP format)
   ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm -i 15m -d 7 -et 2025-03-01 -l D -cc
 """
@@ -246,7 +246,7 @@ CLI_OPTIONS = {
         "long_flag": "--log-level",
         "short_flag": "-l",
         "help": "Set the log level (default: I). D, I, W, E, C",
-        "default": "I",  # LogLevel.I
+        "default": "I",  # LogLevel.INFO
     },
     "help": {
         "long_flag": "--help",
