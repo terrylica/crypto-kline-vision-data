@@ -20,6 +20,36 @@ logger.setLevel(logging.DEBUG)
 
 app = typer.Typer(help="Clear cache and log directories utility")
 
+# Pre-define options to avoid function call in default arguments
+DEFAULT_DIRS = ["cache", "logs"]
+DEFAULT_FILESYSTEM = "file"
+
+# Define typer options as module-level variables
+dirs_option = typer.Option(
+    DEFAULT_DIRS,
+    "--dirs",
+    "-d",
+    help="Directories to clear (default: cache, logs)",
+)
+filesystem_option = typer.Option(
+    DEFAULT_FILESYSTEM,
+    "--filesystem",
+    "-f",
+    help="Filesystem protocol (file, s3, gs, etc.)",
+)
+storage_options_option = typer.Option(
+    None,
+    "--storage-options",
+    "-s",
+    help='Storage options as JSON string (e.g. \'{"key": "value"}\')',
+)
+test_mode_option = typer.Option(
+    False,
+    "--test",
+    "-t",
+    help="Run in test mode (simulate operations without deleting files)",
+)
+
 
 @app.callback(context_settings={"help_option_names": ["--help", "-h"]})
 def callback():
@@ -28,30 +58,10 @@ def callback():
 
 @app.command()
 def clear(
-    dirs: List[str] = typer.Option(
-        ["cache", "logs"],
-        "--dirs",
-        "-d",
-        help="Directories to clear (default: cache, logs)",
-    ),
-    filesystem: str = typer.Option(
-        "file",
-        "--filesystem",
-        "-f",
-        help="Filesystem protocol (file, s3, gs, etc.)",
-    ),
-    storage_options: str = typer.Option(
-        None,
-        "--storage-options",
-        "-s",
-        help='Storage options as JSON string (e.g. \'{"key": "value"}\')',
-    ),
-    test_mode: bool = typer.Option(
-        False,
-        "--test",
-        "-t",
-        help="Run in test mode (simulate operations without deleting files)",
-    ),
+    dirs: List[str] = dirs_option,
+    filesystem: str = filesystem_option,
+    storage_options: str = storage_options_option,
+    test_mode: bool = test_mode_option,
     yes: bool = typer.Option(
         False,
         "--yes",
