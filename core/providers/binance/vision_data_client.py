@@ -37,8 +37,13 @@ from core.providers.binance.vision_path_mapper import (
     FSSpecVisionHandler,
 )
 from utils.config import (
+    CONCURRENT_DOWNLOADS_LIMIT_1S,
+    HTTP_NOT_FOUND,
+    HTTP_OK,
     KLINE_COLUMNS,
+    LARGE_REQUEST_DAYS,
     MAXIMUM_CONCURRENT_DOWNLOADS,
+    MIN_CHECKSUM_SIZE,
     VISION_DATA_DELAY_HOURS,
     FileType,
 )
@@ -342,7 +347,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
             # Download the data file
             response = self._client.get(url)
-            if response.status_code == 404:
+            if response.status_code == HTTP_NOT_FOUND:
                 # For 404 errors, check if the date is too fresh
                 if self._should_skip_retry_for_fresh_date(date):
                     # If date is too fresh, don't retry and return gracefully
@@ -352,7 +357,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     )
                 return None, f"404: Data not available for {date.date()}"
 
-            if response.status_code != 200:
+            if response.status_code != HTTP_OK:
                 # For non-200 responses, also check if the date is too fresh
                 if self._should_skip_retry_for_fresh_date(date):
                     # If date is too fresh, don't retry and return gracefully
@@ -368,9 +373,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
             # Download the checksum file
             checksum_response = self._client.get(checksum_url)
-            if checksum_response.status_code == 404:
+            if checksum_response.status_code == HTTP_NOT_FOUND:
                 logger.warning(f"Checksum file not available for {date.date()}")
-            elif checksum_response.status_code != 200:
+            elif checksum_response.status_code != HTTP_OK:
                 logger.warning(
                     f"HTTP error {checksum_response.status_code} when getting checksum for {date.date()}"
                 )
@@ -386,7 +391,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 checksum_file_size = temp_checksum_path.stat().st_size
 
                 # If the checksum file is not empty or too small, verify checksum
-                if checksum_file_size >= 10:
+                if checksum_file_size >= MIN_CHECKSUM_SIZE:
                     # Verify checksum if available
                     try:
                         import time
@@ -592,8 +597,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         fresh_date_failures = []  # Track date failures due to freshness
 
         # For very short intervals like 1s, avoid too many concurrent downloads
-        if self._interval_str == "1s" and max_workers > 10:
-            max_workers = 10
+        if self._interval_str == "1s" and max_workers > CONCURRENT_DOWNLOADS_LIMIT_1S:
+            max_workers = CONCURRENT_DOWNLOADS_LIMIT_1S
             logger.info(
                 f"Limited concurrent downloads to {max_workers} for 1s interval"
             )
@@ -948,7 +953,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             delta_days = (end_time - start_time).days + 1
 
             # Log if it's a large request
-            if delta_days > 90:
+            if delta_days > LARGE_REQUEST_DAYS:
                 logger.info(
                     f"Processing a large date range of {delta_days} days with parallel downloads."
                 )
@@ -1051,7 +1056,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         delta_days = (end_time - start_time).days + 1
 
         # Log large requests but don't limit them
-        if delta_days > 90:
+        if delta_days > LARGE_REQUEST_DAYS:
             logger.info(
                 f"Processing a large date range of {delta_days} days for {len(symbols)} symbols with parallel downloads."
             )

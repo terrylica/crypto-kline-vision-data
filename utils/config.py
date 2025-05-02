@@ -344,3 +344,18 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
             df = df.drop(columns=[old_name])
 
     return df
+
+
+# HTTP Status Codes
+HTTP_OK: Final[int] = 200
+HTTP_NOT_FOUND: Final[int] = 404
+HTTP_BAD_REQUEST: Final[int] = 400
+HTTP_RATE_LIMITED: Final[int] = 429
+HTTP_SERVER_ERROR: Final[int] = 500
+
+# File size thresholds for validation
+MIN_CHECKSUM_SIZE: Final[int] = 10  # Minimum size in bytes for a valid checksum file
+
+# Large request thresholds
+LARGE_REQUEST_DAYS: Final[int] = 90
+CONCURRENT_DOWNLOADS_LIMIT_1S: Final[int] = 10  # Limit for 1s interval downloads
