@@ -21,6 +21,7 @@ import psutil
 import typer
 from rich.console import Console
 from rich.table import Table
+import traceback
 
 # Ensure parent directory is in path
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -30,7 +31,8 @@ from rich import print
 from utils.logger_setup import logger
 
 app = typer.Typer(
-    help="Benchmark ZIP file handling methods for Binance Vision API data"
+    help="Benchmark ZIP file handling methods for Binance Vision API data",
+    context_settings={"help_option_names": ["--help", "-h"]},
 )
 
 
@@ -278,7 +280,13 @@ class BenchmarkRunner:
 
                     # Read the CSV file (check for headers)
                     with open(csv_path, "r") as f:
-                        first_lines = [next(f) for _ in range(3) if f]
+                        first_lines = []
+                        for _ in range(3):
+                            try:
+                                line = next(f)
+                                first_lines.append(line)
+                            except StopIteration:
+                                break
                         has_header = any(
                             "high" in line.lower() for line in first_lines[:1]
                         )
@@ -304,7 +312,7 @@ class BenchmarkRunner:
                         ]
                         df = pd.read_csv(csv_path, header=None, names=columns)
         except Exception as e:
-            logger.error(f"Error in original method: {e}")
+            logger.error(f"Error in original method: {e}\n{traceback.format_exc()}")
             raise
 
         elapsed = time.perf_counter() - start_time
@@ -421,16 +429,20 @@ def run_benchmark_case(
         f"Runs: {runs}, Warmup runs: {warmup_runs}, Validate checksum: {validate_checksum}"
     )
 
+    # Initialize results list to store benchmark metrics
     results = []
     expected_checksum = None
 
     try:
         with BenchmarkRunner(symbol, interval, date, market_type) as runner:
-            # Download the ZIP file
+            # Download the ZIP file and store path for later reference
             zip_path = runner.download_zip_file()
+            logger.debug(f"Downloaded ZIP file to {zip_path}")
 
             # Get file stats
             file_stats = runner.get_file_stats()
+            # Add file stats to results for reporting
+            results.append({"file_stats": file_stats})
 
             # Get checksum once at the beginning if needed
             if validate_checksum:
@@ -484,7 +496,13 @@ def run_benchmark_case(
                                     csv_path = os.path.join(temp_dir, csv_file)
 
                                     with open(csv_path, "r") as f:
-                                        first_lines = [next(f) for _ in range(3) if f]
+                                        first_lines = []
+                                        for _ in range(3):
+                                            try:
+                                                line = next(f)
+                                                first_lines.append(line)
+                                            except StopIteration:
+                                                break
                                         has_header = any(
                                             "high" in line.lower()
                                             for line in first_lines[:1]
@@ -893,7 +911,7 @@ def benchmark_all(
         None, "--output", "-o", help="Output JSON file for detailed results"
     ),
     measure_memory: bool = typer.Option(
-        False, "--memory", "-m", help="Measure memory usage (may affect timing results)"
+        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
     ),
     validate_checksum: bool = typer.Option(
         False, "--checksum", "-c", help="Validate checksum during benchmark"
@@ -1101,7 +1119,9 @@ def benchmark(
     warmup_runs: int = typer.Option(
         3, "--warmup", "-w", help="Number of warmup runs to perform"
     ),
-    measure_memory: bool = typer.Option(False, "--memory", help="Measure memory usage"),
+    measure_memory: bool = typer.Option(
+        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
+    ),
     validate_checksum: bool = typer.Option(
         False, "--checksum", "-c", help="Validate checksum during benchmark"
     ),
@@ -1151,7 +1171,9 @@ def benchmark_checksum(
     warmup_runs: int = typer.Option(
         3, "--warmup", "-w", help="Number of warmup runs to perform"
     ),
-    measure_memory: bool = typer.Option(False, "--memory", help="Measure memory usage"),
+    measure_memory: bool = typer.Option(
+        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
+    ),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Output JSON file for detailed results"
     ),
