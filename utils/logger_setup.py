@@ -705,7 +705,7 @@ class LoggerProxy:
             # Use console for better rendering of rich objects
             console = Console()
             for arg in args:
-                console.print(arg)
+                console.print(arg, **kwargs)  # Pass kwargs to console.print
 
     def progress(self, *args, **kwargs):
         """
@@ -735,11 +735,22 @@ class LoggerProxy:
                 def __exit__(self, _exc_type, _exc_val, _exc_tb):
                     pass
 
-                def add_task(self, *args, **kwargs):
+                def add_task(self, *_args, **_kwargs):
+                    """No-op implementation of add_task that simply returns a task ID of 0.
+
+                    Args:
+                        *_args: Positional arguments required for API compatibility with Progress.add_task
+                        **_kwargs: Keyword arguments required for API compatibility with Progress.add_task
+                    """
                     return 0
 
-                def update(self, *args, **kwargs):
-                    pass
+                def update(self, *_args, **_kwargs):
+                    """No-op implementation of update that does nothing.
+
+                    Args:
+                        *_args: Positional arguments required for API compatibility with Progress.update
+                        **_kwargs: Keyword arguments required for API compatibility with Progress.update
+                    """
 
             return NoOpProgress()
 
@@ -769,7 +780,6 @@ class LoggerProxy:
                     # Use our shared console for consistent rendering
                     # Extract file and end parameters as they're not supported by console.print
                     file = kwargs.pop("file", None)
-                    end = kwargs.pop("end", None)
 
                     # If output is being redirected to a file (like in exception handling),
                     # use the original print function
@@ -861,7 +871,6 @@ logger.enable_smart_print(True)
 # Add these to __all__ to make them available when importing
 __all__ = [
     "logger",
-    "show_filename",
     "use_rich_logging",
     "log_timeout",
     "set_timeout_log_file",
