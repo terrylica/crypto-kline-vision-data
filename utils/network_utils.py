@@ -32,7 +32,11 @@ from tenacity import (
 )
 
 from utils.config import (
+    API_MAX_RETRIES,
+    API_RETRY_DELAY,
+    API_TIMEOUT,
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+    MAXIMUM_CONCURRENT_DOWNLOADS,
 )
 from utils.logger_setup import logger
 
@@ -117,7 +121,6 @@ def create_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_connections: Optional[int] = None,
     headers: Optional[Dict[str, str]] = None,
-    use_httpx: bool = True,  # Default to using httpx now
     **kwargs: Any,
 ) -> Any:
     """Create a client for making HTTP requests.
@@ -129,7 +132,6 @@ def create_client(
         timeout: Request timeout in seconds
         max_connections: Maximum number of connections
         headers: Optional headers to include in all requests
-        use_httpx: Ignored parameter, maintained for backward compatibility. Always uses httpx.
         **kwargs: Additional keyword arguments to pass to the client
 
     Returns:
@@ -137,11 +139,6 @@ def create_client(
     """
     if max_connections is None:
         max_connections = 50  # Default to 50 connections
-
-    if not use_httpx:
-        logger.warning(
-            "The use_httpx parameter is deprecated - always using httpx for stability"
-        )
 
     # Create httpx client
     try:
@@ -283,24 +280,15 @@ class DownloadHandler:
     def __init__(
         self,
         client=None,
-        max_retries: int = 3,
-        min_wait: int = 1,
-        max_wait: int = 60,
-        timeout: float = 60.0,
+        timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     ):
         """Initialize download handler.
 
         Args:
             client: HTTP client
-            max_retries: Maximum number of retry attempts
-            min_wait: Minimum wait time between retries in seconds
-            max_wait: Maximum wait time between retries in seconds
             timeout: Download timeout in seconds
         """
         self.client = client
-        self.max_retries = max_retries
-        self.min_wait = min_wait
-        self.max_wait = max_wait
         self.timeout = timeout
         self._client_is_external = client is not None
 
@@ -312,14 +300,14 @@ class DownloadHandler:
         return self
 
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
-        """Exit context manager."""
-        if self.client and not self._client_is_external:
-            safely_close_client(self.client)
-            self.client = None
+        """Context manager exit method."""
+        self._close_client()
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_incrementing(start=1, increment=1, max=3),
+        stop=stop_after_attempt(API_MAX_RETRIES),
+        wait=wait_incrementing(
+            start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3
+        ),
         retry=retry_if_exception_type(
             (
                 DownloadStalledException,
@@ -329,18 +317,16 @@ class DownloadHandler:
             )
         ),
         before_sleep=lambda retry_state: logger.warning(
-            f"Retry attempt {retry_state.attempt_number}/3 for download after error: {retry_state.outcome.exception()} - "
-            f"waiting {retry_state.attempt_number} seconds"
+            f"Retry attempt {retry_state.attempt_number}/{API_MAX_RETRIES} for download after error: {retry_state.outcome.exception()} - "
+            f"waiting {retry_state.attempt_number * API_RETRY_DELAY} seconds"
         ),
     )
     def download_file(
         self,
         url: str,
         local_path: Path,
-        timeout: float = 60.0,
-        _verify_ssl: bool = True,
+        timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
         expected_size: Optional[int] = None,
-        _stall_timeout: int = 30,
     ) -> bool:
         """Download a file with retry logic, progress tracking and validation.
 
@@ -348,9 +334,7 @@ class DownloadHandler:
             url: URL to download
             local_path: Local path to save the file
             timeout: Download timeout in seconds
-            _verify_ssl: Whether to verify SSL certificates (unused)
             expected_size: Expected file size for validation
-            _stall_timeout: Time in seconds before considering download stalled (unused)
 
         Returns:
             True on success, False on failure
@@ -365,9 +349,6 @@ class DownloadHandler:
             client_created = True
 
         try:
-            # Create progress tracker
-            tracker = DownloadProgressTracker(total_size=expected_size)
-
             logger.debug(f"Starting download from {url} to {local_path}")
 
             # Perform download with the client
@@ -422,6 +403,12 @@ class DownloadHandler:
                 safely_close_client(self.client)
                 self.client = None
 
+    def _close_client(self):
+        """Safely close the HTTP client if we own it."""
+        if self.client and not self._client_is_external:
+            safely_close_client(self.client)
+            self.client = None
+
 
 # ----- Batch Download Handling -----
 
@@ -430,7 +417,7 @@ def download_files_concurrently(
     client,
     urls: List[str],
     local_paths: List[Path],
-    max_concurrent: int = 50,
+    max_concurrent: int = MAXIMUM_CONCURRENT_DOWNLOADS,
     **download_kwargs: Any,
 ) -> List[bool]:
     """Download multiple files concurrently using ThreadPoolExecutor.
@@ -510,11 +497,14 @@ def download_files_concurrently(
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_incrementing(start=1, increment=1, max=3),
+    stop=stop_after_attempt(API_MAX_RETRIES),
+    wait=wait_incrementing(
+        start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3
+    ),
     retry=retry_if_exception_type((json.JSONDecodeError, TimeoutError)),
     before_sleep=lambda retry_state: logger.warning(
-        f"API request failed (attempt {retry_state.attempt_number}/3): {retry_state.outcome.exception()}"
+        f"API request failed (attempt {retry_state.attempt_number}/{API_MAX_RETRIES}): {retry_state.outcome.exception()} - "
+        f"waiting {retry_state.attempt_number * API_RETRY_DELAY} seconds"
     ),
 )
 def make_api_request(
@@ -525,8 +515,6 @@ def make_api_request(
     method: str = "GET",
     json_data: Optional[Dict] = None,
     timeout: Optional[float] = None,
-    retries: int = 3,  # Kept for backward compatibility but not used
-    retry_delay: float = 1.0,  # Kept for backward compatibility but not used
     raise_for_status: bool = True,
 ) -> Tuple[int, Dict]:
     """Make an API request with retry logic and error handling.
@@ -539,8 +527,6 @@ def make_api_request(
         method: HTTP method (GET, POST, etc.)
         json_data: Optional JSON data for POST/PUT requests
         timeout: Request timeout in seconds (overrides client timeout)
-        retries: Number of retries (kept for backward compatibility but not used)
-        retry_delay: Delay between retries (kept for backward compatibility but not used)
         raise_for_status: Whether to raise an exception for HTTP errors
 
     Returns:
@@ -624,7 +610,7 @@ class VisionDownloadManager:
         self.symbol = symbol
         self.interval = interval
         self.market_type = market_type
-        self.download_handler = DownloadHandler(client, max_retries=3, timeout=3.0)
+        self.download_handler = DownloadHandler(client, timeout=API_TIMEOUT)
         self._external_client = client is not None
         self._current_tasks = []
         self._temp_files = []
@@ -789,7 +775,7 @@ class VisionDownloadManager:
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Exit context manager. Clean up resources."""
         self._cleanup_resources()
 
@@ -814,8 +800,8 @@ def safely_close_client(client):
 def test_connectivity(
     client=None,
     url: str = "https://data.binance.vision/",
-    timeout: float = 10.0,
-    retry_count: int = 2,
+    timeout: float = API_TIMEOUT,
+    retry_count: int = API_MAX_RETRIES - 1,
 ) -> bool:
     """Test connectivity to a URL.
 
@@ -848,19 +834,19 @@ def test_connectivity(
                     if attempt < retry_count:
                         wait_time = 1 + attempt  # 1s, 2s, etc.
                         logger.info(
-                            f"Retrying in {wait_time}s... (attempt {attempt+1}/{retry_count})"
+                            f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
                         )
                         time.sleep(wait_time)
             except Exception as e:
-                logger.warning(f"Connection test attempt {attempt+1} failed: {e}")
+                logger.warning(f"Connection test attempt {attempt + 1} failed: {e}")
                 if attempt < retry_count:
                     wait_time = 1 + attempt
                     logger.info(
-                        f"Retrying in {wait_time}s... (attempt {attempt+1}/{retry_count})"
+                        f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
                     )
                     time.sleep(wait_time)
 
-        logger.error(f"Failed to connect to {url} after {retry_count+1} attempts")
+        logger.error(f"Failed to connect to {url} after {retry_count + 1} attempts")
         return False
     finally:
         if client_created and client:
