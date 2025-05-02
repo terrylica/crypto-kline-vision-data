@@ -10,8 +10,11 @@ import pendulum
 
 from core.sync.data_source_manager import DataSourceManager
 from utils.config import FEATURE_FLAGS
-from utils.for_core.dsm_cache_utils import get_from_cache
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+
+from utils.logger_setup import logger
+
+logger.setup_root(level="DEBUG")
 
 
 class TestDsmCacheUtils(unittest.TestCase):
@@ -20,9 +23,9 @@ class TestDsmCacheUtils(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.symbol = "BTCUSDT"
-        self.provider = "BINANCE"
-        self.chart_type = "KLINES"
-        self.market_type = "SPOT"
+        self.provider = DataProvider.BINANCE
+        self.chart_type = ChartType.KLINES
+        self.market_type = MarketType.SPOT
         self.interval = Interval("5m")
 
         # Create a mock cache manager
@@ -43,67 +46,103 @@ class TestDsmCacheUtils(unittest.TestCase):
         This test validates the business requirement that partial days shouldn't be
         refetched when they already contain all data needed for the requested time range.
         """
-        # Create test data for two days
-        # Day 1: 50% complete but has all records for the requested time range
-        day1 = pendulum.datetime(2025, 4, 13, 0, 0, 0, tz="UTC")
-        day1_records = []
+        # Create a temporary directory for the test
+        import tempfile
+        import shutil
+        from pathlib import Path
 
-        # Create only records from 12:00 to 23:55 (half a day - incomplete)
-        for i in range(12 * 12):  # 12 hours * 12 5-min intervals
-            timestamp = day1.add(hours=12).add(minutes=i * 5)
-            day1_records.append(
-                {
-                    "open_time": timestamp,
-                    "close_time": timestamp.add(minutes=5).subtract(microseconds=1),
-                    "open": 100.0,
-                    "high": 101.0,
-                    "low": 99.0,
-                    "close": 100.5,
-                    "volume": 100.0,
-                    "quote_asset_volume": 10050.0,
-                    "count": 100,
-                    "taker_buy_volume": 50.0,
-                    "taker_buy_quote_volume": 5025.0,
-                    "ignore": 0,
-                }
-            )
-
-        day1_df = pd.DataFrame(day1_records)
-
-        # Day 2: 50% complete but has all records for the requested time range
-        day2 = pendulum.datetime(2025, 4, 14, 0, 0, 0, tz="UTC")
-        day2_records = []
-
-        # Create only records from 00:00 to 15:55
-        for i in range(16 * 12):  # 16 hours * 12 5-min intervals
-            timestamp = day2.add(minutes=i * 5)
-            day2_records.append(
-                {
-                    "open_time": timestamp,
-                    "close_time": timestamp.add(minutes=5).subtract(microseconds=1),
-                    "open": 100.0,
-                    "high": 101.0,
-                    "low": 99.0,
-                    "close": 100.5,
-                    "volume": 100.0,
-                    "quote_asset_volume": 10050.0,
-                    "count": 100,
-                    "taker_buy_volume": 50.0,
-                    "taker_buy_quote_volume": 5025.0,
-                    "ignore": 0,
-                }
-            )
-
-        day2_df = pd.DataFrame(day2_records)
-
-        # Setup mock returns
-        self.cache_manager.load_from_cache.side_effect = [day1_df, day2_df]
-
-        # Make sure the feature flag is enabled for this test
-        original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
-        FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = True
-
+        test_cache_dir = Path(tempfile.mkdtemp())
         try:
+            # Create test data for two days
+            # Day 1: 50% complete but has all records for the requested time range
+            day1 = pendulum.datetime(2025, 4, 13, 0, 0, 0, tz="UTC")
+            day1_records = []
+
+            # Create only records from 12:00 to 23:55 (half a day - incomplete)
+            for i in range(12 * 12):  # 12 hours * 12 5-min intervals
+                timestamp = day1.add(hours=12).add(minutes=i * 5)
+                day1_records.append(
+                    {
+                        "open_time": timestamp,
+                        "close_time": timestamp.add(minutes=5).subtract(microseconds=1),
+                        "open": 100.0,
+                        "high": 101.0,
+                        "low": 99.0,
+                        "close": 100.5,
+                        "volume": 100.0,
+                        "quote_asset_volume": 10050.0,
+                        "count": 100,
+                        "taker_buy_volume": 50.0,
+                        "taker_buy_quote_volume": 5025.0,
+                        "ignore": 0,
+                    }
+                )
+
+            day1_df = pd.DataFrame(day1_records)
+
+            # Day 2: 50% complete but has all records for the requested time range
+            day2 = pendulum.datetime(2025, 4, 14, 0, 0, 0, tz="UTC")
+            day2_records = []
+
+            # Create only records from 00:00 to 15:55
+            for i in range(16 * 12):  # 16 hours * 12 5-min intervals
+                timestamp = day2.add(minutes=i * 5)
+                day2_records.append(
+                    {
+                        "open_time": timestamp,
+                        "close_time": timestamp.add(minutes=5).subtract(microseconds=1),
+                        "open": 100.0,
+                        "high": 101.0,
+                        "low": 99.0,
+                        "close": 100.5,
+                        "volume": 100.0,
+                        "quote_asset_volume": 10050.0,
+                        "count": 100,
+                        "taker_buy_volume": 50.0,
+                        "taker_buy_quote_volume": 5025.0,
+                        "ignore": 0,
+                    }
+                )
+
+            day2_df = pd.DataFrame(day2_records)
+
+            # Initialize FSSpecVisionHandler for cache operations
+            from core.sync.vision_path_mapper import FSSpecVisionHandler
+
+            fs_handler = FSSpecVisionHandler(base_cache_dir=test_cache_dir)
+
+            # Save the test data to cache files
+            from utils.for_core.dsm_cache_utils import save_to_cache
+
+            # Save day1 data to cache
+            save_to_cache(
+                df=day1_df,
+                symbol=self.symbol,
+                interval=self.interval,
+                market_type=self.market_type,
+                cache_dir=test_cache_dir,
+                chart_type=self.chart_type,
+                provider=self.provider,
+            )
+
+            # Save day2 data to cache
+            save_to_cache(
+                df=day2_df,
+                symbol=self.symbol,
+                interval=self.interval,
+                market_type=self.market_type,
+                cache_dir=test_cache_dir,
+                chart_type=self.chart_type,
+                provider=self.provider,
+            )
+
+            # Make sure the feature flag is enabled for this test
+            original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
+            FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = True
+
+            # Import the actual get_from_cache function
+            from utils.for_core.dsm_cache_utils import get_from_cache
+
             # Request data from 13th 15:35 to 14th 15:30 (our test case)
             # Day 1 should have all records needed for 15:35-23:55
             # Day 2 should have all records needed for 00:00-15:30
@@ -112,7 +151,7 @@ class TestDsmCacheUtils(unittest.TestCase):
                 start_time=self.start_time,
                 end_time=self.end_time,
                 interval=self.interval,
-                cache_manager=self.cache_manager,
+                cache_dir=test_cache_dir,
                 provider=self.provider,
                 chart_type=self.chart_type,
                 market_type=self.market_type,
@@ -126,26 +165,7 @@ class TestDsmCacheUtils(unittest.TestCase):
                 "Expected no missing ranges when cache has all required records",
             )
 
-            # 2. Both days should be retrieved from cache even though they're incomplete
-            self.cache_manager.load_from_cache.assert_any_call(
-                symbol=self.symbol,
-                interval=self.interval.value,
-                date=day1,
-                provider=self.provider,
-                chart_type=self.chart_type,
-                market_type=self.market_type,
-            )
-
-            self.cache_manager.load_from_cache.assert_any_call(
-                symbol=self.symbol,
-                interval=self.interval.value,
-                date=day2,
-                provider=self.provider,
-                chart_type=self.chart_type,
-                market_type=self.market_type,
-            )
-
-            # 3. Verify we got a complete dataset back
+            # 2. Verify we got a complete dataset back
             # The number of 5-min intervals between 2025-04-13 15:35 and 2025-04-14 15:30
             expected_intervals = (
                 int(
@@ -160,6 +180,8 @@ class TestDsmCacheUtils(unittest.TestCase):
                 f"Expected {expected_intervals} records in the result DataFrame",
             )
         finally:
+            # Clean up the temporary directory
+            shutil.rmtree(test_cache_dir)
             # Restore the original feature flag value
             FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = original_flag_value
 
@@ -219,11 +241,27 @@ class TestDsmCacheOptimization(unittest.TestCase):
         # Mock the API calls to track if they're made
         api_called = {"vision": False, "rest": False}
 
-        def mock_vision_get(*args, **kwargs):
+        def mock_vision_get(*_args, **_kwargs):
+            """
+            Mock Vision API call that records the call was made
+            without using the parameters (params are only passed to match the API)
+
+            Args:
+                *_args: Positional arguments required for API compatibility with the actual Vision API method
+                **_kwargs: Keyword arguments required for API compatibility with the actual Vision API method
+            """
             api_called["vision"] = True
             return pd.DataFrame()  # Empty DataFrame
 
-        def mock_rest_get(*args, **kwargs):
+        def mock_rest_get(*_args, **_kwargs):
+            """
+            Mock REST API call that records the call was made
+            without using the parameters (params are only passed to match the API)
+
+            Args:
+                *_args: Positional arguments required for API compatibility with the actual REST API method
+                **_kwargs: Keyword arguments required for API compatibility with the actual REST API method
+            """
             api_called["rest"] = True
             return pd.DataFrame()  # Empty DataFrame
 
@@ -252,14 +290,17 @@ class TestDsmCacheOptimization(unittest.TestCase):
         complete_df = pd.DataFrame(all_records)
 
         # Create a DSM instance with patched methods
-        with patch.object(
-            DataSourceManager, "_get_from_cache", return_value=(complete_df, [])
-        ), patch.object(
-            DataSourceManager, "_fetch_from_vision", side_effect=mock_vision_get
-        ), patch.object(
-            DataSourceManager, "_fetch_from_rest", side_effect=mock_rest_get
+        with (
+            patch.object(
+                DataSourceManager, "_get_from_cache", return_value=(complete_df, [])
+            ),
+            patch.object(
+                DataSourceManager, "_fetch_from_vision", side_effect=mock_vision_get
+            ),
+            patch.object(
+                DataSourceManager, "_fetch_from_rest", side_effect=mock_rest_get
+            ),
         ):
-
             # Initialize DSM directly
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE, cache_dir=self.cache_dir
@@ -365,25 +406,44 @@ class TestDsmCacheOptimization(unittest.TestCase):
 
         # Skip Vision API completely and go straight to REST
         # Instead of failing with an error, we'll just return an empty DataFrame
-        def mock_vision_get(*args, **kwargs):
+        def mock_vision_get(*_args, **_kwargs):
+            """
+            Mock Vision API call that records the call was made
+            without using the parameters (params are only passed to match the API)
+
+            Args:
+                *_args: Positional arguments required for API compatibility with the actual Vision API method
+                **_kwargs: Keyword arguments required for API compatibility with the actual Vision API method
+            """
             api_called["vision"] = True
             return pd.DataFrame()  # Empty DataFrame to trigger REST fallback
 
-        def mock_rest_get(*args, **kwargs):
+        def mock_rest_get(*_args, **_kwargs):
+            """
+            Mock REST API call that records the call was made
+            without using the parameters (params are only passed to match the API)
+
+            Args:
+                *_args: Positional arguments required for API compatibility with the actual REST API method
+                **_kwargs: Keyword arguments required for API compatibility with the actual REST API method
+            """
             api_called["rest"] = True
-            return rest_df
+            return rest_df  # Return the test data
 
         # Create a DSM instance with patched methods
-        with patch.object(
-            DataSourceManager,
-            "_get_from_cache",
-            return_value=(incomplete_df, missing_ranges),
-        ), patch.object(
-            DataSourceManager, "_fetch_from_vision", side_effect=mock_vision_get
-        ), patch.object(
-            DataSourceManager, "_fetch_from_rest", side_effect=mock_rest_get
+        with (
+            patch.object(
+                DataSourceManager,
+                "_get_from_cache",
+                return_value=(incomplete_df, missing_ranges),
+            ),
+            patch.object(
+                DataSourceManager, "_fetch_from_vision", side_effect=mock_vision_get
+            ),
+            patch.object(
+                DataSourceManager, "_fetch_from_rest", side_effect=mock_rest_get
+            ),
         ):
-
             # Initialize DSM directly
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE, cache_dir=self.cache_dir
