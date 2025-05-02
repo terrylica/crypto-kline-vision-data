@@ -15,3 +15,11 @@ alwaysApply: false
 
 - `utils/config.py` is the single source of truth of for parameters
 - `utils/market_constraints.py` is single source of truth for data types
+
+# Single Source of Truth Configurations
+
+Always deep dive into the existing SoT files as follows before modifying them:
+
+- `utils/market_constraints.py` is single source of truth for data types
+- `utils/config.py` is the single source of truth of for parameters and magic values.
+- interval eum in the `utils/market_constraints.py` must be used as the only interval in all codes.
