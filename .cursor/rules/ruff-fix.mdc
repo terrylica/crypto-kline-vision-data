@@ -1,0 +1,17 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+1. Run: `ruff check --fix .` in the terminal as-is without piping to `cat`.
+
+2. Categorize the output.
+
+3. Identify only one of the most low hanging fruit categories of errors to correct.
+
+4. No need for me to confirm. Just correct that category of errors.
+
+5. Note the following Single Source of Truth Configurations when you're seeking solutions to correct:
+
+- `utils/config.py` is the single source of truth of for parameters
+- `utils/market_constraints.py` is single source of truth for data types
