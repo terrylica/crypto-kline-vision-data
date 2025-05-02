@@ -45,7 +45,7 @@ def print_integrity_results(integrity_result):
         None
     """
     # Use print directly when smart_print is enabled
-    print(f"\n[bold cyan]Data Integrity Analysis:[/bold cyan]")
+    print("\n[bold cyan]Data Integrity Analysis:[/bold cyan]")
     print(f"Expected records: {integrity_result['expected_records']}")
     print(f"Actual records: {integrity_result['actual_records']}")
     print(

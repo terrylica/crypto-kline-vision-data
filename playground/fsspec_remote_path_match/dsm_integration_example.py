@@ -262,7 +262,7 @@ def main(
         return
 
     console = Console()
-    console.print(f"[bold green]DataSourceManager Integration Example[/bold green]")
+    console.print("[bold green]DataSourceManager Integration Example[/bold green]")
     console.print("")
 
     # Parse market type

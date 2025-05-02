@@ -94,7 +94,7 @@ def display_results(
         print(timeline_table)
 
         # Show sample data from each source
-        print(f"\n[bold cyan]Sample Data by Source:[/bold cyan]")
+        print("\n[bold cyan]Sample Data by Source:[/bold cyan]")
         for source in source_counts.index:
             source_df = df[df["_data_source"] == source].head(2)
             if not source_df.empty:
@@ -232,13 +232,13 @@ def display_results(
 
                     # Run ls -la on the directory
                     ls_cmd = ["ls", "-la", str(log_dir)]
-                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True)
+                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True, check=False)
                     logger.debug(f"Directory listing:\n{ls_result.stdout}")
 
                     # Try to stat the file directly
                     stat_cmd = ["stat", str(main_log_path)]
                     stat_result = subprocess.run(
-                        stat_cmd, capture_output=True, text=True
+                        stat_cmd, capture_output=True, text=True, check=False
                     )
                     if stat_result.returncode == 0:
                         logger.debug(
@@ -359,13 +359,13 @@ def display_results(
 
                     # Run ls -la on the directory
                     ls_cmd = ["ls", "-la", str(error_log_dir)]
-                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True)
+                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True, check=False)
                     logger.debug(f"Error directory listing:\n{ls_result.stdout}")
 
                     # Try to stat the file directly
                     stat_cmd = ["stat", str(error_log_path)]
                     stat_result = subprocess.run(
-                        stat_cmd, capture_output=True, text=True
+                        stat_cmd, capture_output=True, text=True, check=False
                     )
                     if stat_result.returncode == 0:
                         logger.debug(

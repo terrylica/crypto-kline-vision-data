@@ -65,8 +65,8 @@ def main():
     # Create and print a rich panel
     panel = Panel(
         "[bold yellow]Smart Print Demo[/bold yellow]\n"
-        f"[cyan]Simply import logger and enable_smart_print()[/cyan]\n"
-        f"[green]All print statements become beautiful and log-level aware[/green]",
+        "[cyan]Simply import logger and enable_smart_print()[/cyan]\n"
+        "[green]All print statements become beautiful and log-level aware[/green]",
         title="Smart Print in Action",
         border_style="blue",
     )

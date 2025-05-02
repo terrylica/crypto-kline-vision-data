@@ -155,7 +155,7 @@ def show_checksums_for_symbol(
                 content = f.read()
                 content_length = len(content)
                 preview_length = min(40, content_length)
-                console.print(f"\n[bold]Raw checksum file content preview:[/bold]")
+                console.print("\n[bold]Raw checksum file content preview:[/bold]")
                 console.print(
                     f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)"
                 )

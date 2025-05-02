@@ -239,7 +239,7 @@ def test_real_checksum_extraction(
                 content = f.read()
                 content_length = len(content)
                 preview_length = min(40, content_length)
-                rprint(f"\n[bold]Raw checksum file content preview:[/bold]")
+                rprint("\n[bold]Raw checksum file content preview:[/bold]")
                 rprint(
                     f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)"
                 )
@@ -247,7 +247,7 @@ def test_real_checksum_extraction(
                 try:
                     decoded = content.decode("utf-8", errors="replace")
                     decoded_preview = decoded[:60] if len(decoded) > 60 else decoded
-                    rprint(f"\n[bold]Decoded content preview:[/bold]")
+                    rprint("\n[bold]Decoded content preview:[/bold]")
                     rprint(f"{decoded_preview}" + ("..." if len(decoded) > 60 else ""))
                 except:
                     pass

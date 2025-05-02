@@ -106,7 +106,7 @@ def fill_boundary_gaps_with_rest(
 
                 gap_dfs.append(gap_data)
             else:
-                logger.warning(f"No data retrieved from REST API for gap")
+                logger.warning("No data retrieved from REST API for gap")
 
         # If we have gap data, merge it with the original data
         if len(gap_dfs) > 1:  # More than just the original df

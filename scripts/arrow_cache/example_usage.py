@@ -34,7 +34,7 @@ def main():
     )
     is_available = file_path is not None
 
-    print(f"[bold cyan]Data availability check:[/bold cyan]")
+    print("[bold cyan]Data availability check:[/bold cyan]")
     print(f"- Provider: {provider.name}")
     print(f"- Chart Type: {chart_type.name}")
     print(f"- Market Type: {market_type.name}")
@@ -48,12 +48,12 @@ def main():
         # Using read_arrow_file instead of read
         df = reader.read_arrow_file(file_path)
 
-        print(f"\n[bold cyan]Data sample:[/bold cyan]")
+        print("\n[bold cyan]Data sample:[/bold cyan]")
         print(df.head(5))
 
         # Get cache statistics
         stats = reader.get_cache_statistics()
-        print(f"\n[bold cyan]Cache Statistics:[/bold cyan]")
+        print("\n[bold cyan]Cache Statistics:[/bold cyan]")
         print(f"- Total entries: {stats['total_entries']}")
         print(f"- Total size: {stats['total_size_mb']:.2f} MB")
     else:

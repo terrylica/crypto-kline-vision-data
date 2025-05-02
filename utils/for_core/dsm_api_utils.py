@@ -79,7 +79,7 @@ def fetch_from_vision(
 
         # If we have an FSSpecVisionHandler, use it for direct path mapping
         if fs_handler is not None:
-            logger.debug(f"Using FSSpecVisionHandler for consistency in path mapping")
+            logger.debug("Using FSSpecVisionHandler for consistency in path mapping")
             # This indicates we can directly use the fs_handler for path operations
             # Note: The actual implementation would handle the Vision API downloads
 
@@ -105,7 +105,7 @@ def fetch_from_vision(
 
             # Save the entire day's data to cache before filtering to the requested range
             if use_cache and save_to_cache_func is not None:
-                logger.debug(f"[FCP] Caching full day's data from Vision API")
+                logger.debug("[FCP] Caching full day's data from Vision API")
                 save_to_cache_func(df, symbol, interval, source="VISION")
 
             # Filter the dataframe to the originally requested time range
@@ -354,20 +354,19 @@ def create_client_if_needed(
                 kwargs["retry_count"] = retry_count
 
             return client_class(market_type=market_type, **kwargs)
+        # Already have a client, check if it needs reconfiguration
+        elif market_type is not None and client.market_type != market_type:
+            logger.debug(
+                f"Reconfiguring RestDataClient with market_type={market_type}"
+            )
+            # Need a new client for different market type
+            kwargs = {}
+            if retry_count is not None:
+                kwargs["retry_count"] = retry_count
+            return client_class(market_type=market_type, **kwargs)
         else:
-            # Already have a client, check if it needs reconfiguration
-            if market_type is not None and client.market_type != market_type:
-                logger.debug(
-                    f"Reconfiguring RestDataClient with market_type={market_type}"
-                )
-                # Need a new client for different market type
-                kwargs = {}
-                if retry_count is not None:
-                    kwargs["retry_count"] = retry_count
-                return client_class(market_type=market_type, **kwargs)
-            else:
-                # Same market type, can reuse
-                return client
+            # Same market type, can reuse
+            return client
 
     # Check if this is a VisionDataClient
     elif client_class.__name__ == "VisionDataClient":
@@ -393,30 +392,29 @@ def create_client_if_needed(
             return client_class(
                 symbol=symbol, interval=interval, market_type=market_type, **kwargs
             )
-        else:
-            # Already have a client, check if it needs reconfiguration
-            if (
-                client.symbol != symbol
-                or client.interval != interval
-                or client.market_type_str != str(market_type).lower()
-            ):
-                logger.debug(
-                    f"Reconfiguring VisionDataClient with new parameters: "
-                    f"symbol={symbol}, interval={interval}, market_type={market_type}"
-                )
-                # Need a new client for different parameters
-                kwargs = {}
-                if chart_type is not None:
-                    kwargs["chart_type"] = chart_type
-                if cache_dir is not None:
-                    kwargs["cache_dir"] = cache_dir
+        # Already have a client, check if it needs reconfiguration
+        elif (
+            client.symbol != symbol
+            or client.interval != interval
+            or client.market_type_str != str(market_type).lower()
+        ):
+            logger.debug(
+                f"Reconfiguring VisionDataClient with new parameters: "
+                f"symbol={symbol}, interval={interval}, market_type={market_type}"
+            )
+            # Need a new client for different parameters
+            kwargs = {}
+            if chart_type is not None:
+                kwargs["chart_type"] = chart_type
+            if cache_dir is not None:
+                kwargs["cache_dir"] = cache_dir
 
-                return client_class(
-                    symbol=symbol, interval=interval, market_type=market_type, **kwargs
-                )
-            else:
-                # Same parameters, can reuse
-                return client
+            return client_class(
+                symbol=symbol, interval=interval, market_type=market_type, **kwargs
+            )
+        else:
+            # Same parameters, can reuse
+            return client
     else:
         # Unknown client type
         raise ValueError(f"Unsupported client class: {client_class.__name__}")

@@ -154,7 +154,7 @@ class RestMetricsTracker:
         """Log current metrics to the logger."""
         metrics = self.get_metrics()
 
-        logger.info(f"REST API Metrics Summary:")
+        logger.info("REST API Metrics Summary:")
         logger.info(f"  Total calls: {metrics['total_calls']}")
         logger.info(f"  Success rate: {metrics['success_rate']:.2f}%")
         logger.info(f"  Avg response time: {metrics['avg_response_time_ms']:.2f}ms")

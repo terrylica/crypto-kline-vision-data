@@ -56,8 +56,8 @@ def showcase_backward_retrieval(
         f"Starting showcase_backward_retrieval with symbol={symbol}, interval={interval}, days={days}"
     )
 
-    print(f"\n[bold blue]Backward Data Retrieval Example[/bold blue]")
-    print(f"[cyan]Configuration:[/cyan]")
+    print("\n[bold blue]Backward Data Retrieval Example[/bold blue]")
+    print("[cyan]Configuration:[/cyan]")
     print(f"• Symbol: {symbol}")
     print(f"• End Time: {end_time}")
     print(f"• Interval: {interval}")
@@ -84,7 +84,7 @@ def showcase_backward_retrieval(
     start_dt = end_dt.subtract(days=days)
     logger.debug(f"Time range: {start_dt.isoformat()} to {end_dt.isoformat()}")
 
-    print(f"[yellow]Time Range:[/yellow]")
+    print("[yellow]Time Range:[/yellow]")
     print(f"From: {start_dt.format('YYYY-MM-DD HH:mm:ss')}")
     print(f"To:   {end_dt.format('YYYY-MM-DD HH:mm:ss')}\n")
 

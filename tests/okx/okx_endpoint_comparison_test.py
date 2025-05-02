@@ -475,7 +475,7 @@ def print_results_table(title, data):
 
 def run_all_tests(instrument="BTC-USDT", interval="1m"):
     """Run all tests with a single instrument and interval."""
-    print(f"[bold green]Running OKX Endpoint Comparison Tests[/bold green]")
+    print("[bold green]Running OKX Endpoint Comparison Tests[/bold green]")
     print(f"[bold]Instrument:[/bold] {instrument}, [bold]Interval:[/bold] {interval}")
 
     # Test 1: Boundary Overlap

@@ -109,7 +109,7 @@ def clear(
             return
 
     if test_mode:
-        print(f"[yellow]TEST MODE: No files will actually be deleted[/yellow]")
+        print("[yellow]TEST MODE: No files will actually be deleted[/yellow]")
         yes = True  # Skip confirmation in test mode
 
     if not yes:

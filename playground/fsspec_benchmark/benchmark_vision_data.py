@@ -421,7 +421,7 @@ def run_benchmark_case(
     validate_checksum: bool = False,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Run a single benchmark case with the given parameters."""
-    print(f"[bold cyan]Running benchmark case[/bold cyan]")
+    print("[bold cyan]Running benchmark case[/bold cyan]")
     print(
         f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}"
     )
@@ -448,7 +448,7 @@ def run_benchmark_case(
             if validate_checksum:
                 expected_checksum = runner.download_checksum()
                 print(
-                    f"\n[yellow]Downloaded and verified checksum for all test runs[/yellow]"
+                    "\n[yellow]Downloaded and verified checksum for all test runs[/yellow]"
                 )
                 checksum_valid = runner.verify_checksum(
                     runner.zip_path, expected_checksum
@@ -1180,7 +1180,7 @@ def benchmark_checksum(
 ):
     """Run benchmark with and without checksum validation for direct comparison."""
 
-    print(f"[bold]Benchmarking with and without checksum validation[/bold]")
+    print("[bold]Benchmarking with and without checksum validation[/bold]")
     print(
         f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}"
     )

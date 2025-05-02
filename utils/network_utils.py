@@ -629,7 +629,7 @@ class VisionDownloadManager:
         try:
             if hasattr(self, "_current_tasks") and self._current_tasks:
                 logger.debug(
-                    f"[ProgressIndicator] VisionDownloadManager: Cancelling remaining download tasks"
+                    "[ProgressIndicator] VisionDownloadManager: Cancelling remaining download tasks"
                 )
                 # For synchronous tasks, we can't really cancel them, but we can clear the list
                 self._current_tasks = []

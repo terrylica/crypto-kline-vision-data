@@ -740,47 +740,46 @@ def validate_symbol_for_market_type(
             )
 
     # Binance symbol validation
-    else:
-        # Special validation for FUTURES_COIN market
-        if market_name == "FUTURES_COIN":
-            # Check if symbol has PERP suffix for perpetual contracts
-            if not symbol.endswith("_PERP") and not any(c.isdigit() for c in symbol):
-                suggested_symbol = get_market_symbol_format(
-                    symbol, market_type, data_provider
-                )
-                raise ValueError(
-                    f"Invalid symbol format for {market_name} market: '{symbol}'. "
-                    f"FUTURES_COIN symbols should end with '_PERP' for perpetual contracts. "
-                    f"Try using '{suggested_symbol}' instead."
-                )
+    # Special validation for FUTURES_COIN market
+    elif market_name == "FUTURES_COIN":
+        # Check if symbol has PERP suffix for perpetual contracts
+        if not symbol.endswith("_PERP") and not any(c.isdigit() for c in symbol):
+            suggested_symbol = get_market_symbol_format(
+                symbol, market_type, data_provider
+            )
+            raise ValueError(
+                f"Invalid symbol format for {market_name} market: '{symbol}'. "
+                f"FUTURES_COIN symbols should end with '_PERP' for perpetual contracts. "
+                f"Try using '{suggested_symbol}' instead."
+            )
 
-        # Special validation for SPOT market
-        elif market_name == "SPOT":
-            # SPOT symbols should not have _PERP suffix
-            if symbol.endswith("_PERP"):
-                # Strip _PERP suffix to suggest a valid SPOT symbol
-                suggested_symbol = symbol[:-5]
-                if suggested_symbol.endswith("USD"):
-                    suggested_symbol += "T"  # Convert BTCUSD to BTCUSDT for SPOT
+    # Special validation for SPOT market
+    elif market_name == "SPOT":
+        # SPOT symbols should not have _PERP suffix
+        if symbol.endswith("_PERP"):
+            # Strip _PERP suffix to suggest a valid SPOT symbol
+            suggested_symbol = symbol[:-5]
+            if suggested_symbol.endswith("USD"):
+                suggested_symbol += "T"  # Convert BTCUSD to BTCUSDT for SPOT
 
-                raise ValueError(
-                    f"Invalid symbol format for {market_name} market: '{symbol}'. "
-                    f"'{symbol}' appears to be a FUTURES_COIN symbol. "
-                    f"For SPOT market, try using '{suggested_symbol}' instead."
-                )
+            raise ValueError(
+                f"Invalid symbol format for {market_name} market: '{symbol}'. "
+                f"'{symbol}' appears to be a FUTURES_COIN symbol. "
+                f"For SPOT market, try using '{suggested_symbol}' instead."
+            )
 
-        # Special validation for OPTIONS market
-        elif market_name == "OPTIONS":
-            # Options symbols should follow the BTC-YYMMDD-STRIKE-C/P format
-            if not (
-                "-" in symbol
-                and (symbol.endswith("-C") or symbol.endswith("-P"))
-                and len(symbol.split("-")) == 4
-            ):
-                raise ValueError(
-                    f"Invalid symbol format for {market_name} market: '{symbol}'. "
-                    f"OPTIONS symbols should follow the format: BTC-YYMMDD-STRIKE-C/P"
-                )
+    # Special validation for OPTIONS market
+    elif market_name == "OPTIONS":
+        # Options symbols should follow the BTC-YYMMDD-STRIKE-C/P format
+        if not (
+            "-" in symbol
+            and (symbol.endswith("-C") or symbol.endswith("-P"))
+            and len(symbol.split("-")) == 4
+        ):
+            raise ValueError(
+                f"Invalid symbol format for {market_name} market: '{symbol}'. "
+                f"OPTIONS symbols should follow the format: BTC-YYMMDD-STRIKE-C/P"
+            )
 
     return True
 

@@ -317,7 +317,7 @@ async def main():
                 pass
 
     # Print test configuration
-    print(f"Test configuration:")
+    print("Test configuration:")
     print(f"- Duration: {duration} seconds")
     print(f"- Limit: {limit} data points per symbol")
     print(f"- Symbols: {len(symbols)} symbols")

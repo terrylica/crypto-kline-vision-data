@@ -617,7 +617,7 @@ def filter_dataframe_by_time(
                         f"First timestamp ({min_ts}) is later than requested start time ({start_time}), diff: {time_diff} seconds"
                     )
                     logger.debug(
-                        f"[TIMESTAMP TRACE] First candle is missing from result! This may indicate a timestamp interpretation issue."
+                        "[TIMESTAMP TRACE] First candle is missing from result! This may indicate a timestamp interpretation issue."
                     )
 
                 # Check if the last expected timestamp is present
@@ -665,7 +665,7 @@ def filter_dataframe_by_time(
             )
             if start_match_in_input and not start_match_in_output:
                 logger.warning(
-                    f"[TIMESTAMP TRACE] Critical issue: Row with exact start_time existed in input but not in output!"
+                    "[TIMESTAMP TRACE] Critical issue: Row with exact start_time existed in input but not in output!"
                 )
 
     return filtered_df
@@ -783,8 +783,7 @@ def estimate_record_count(
         return 0  # No records for future dates
 
     # Limit end_time to current time as future data isn't available
-    if end_time > now:
-        end_time = now
+    end_time = min(end_time, now)
 
     # Get aligned boundaries
     aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)

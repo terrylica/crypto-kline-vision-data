@@ -363,7 +363,7 @@ class DataSourceManager:
             try:
                 self.cache_manager = UnifiedCacheManager(cache_dir=self.cache_dir)
                 logger.debug(
-                    f"Legacy cache manager initialized (for backward compatibility)"
+                    "Legacy cache manager initialized (for backward compatibility)"
                 )
             except Exception as e:
                 logger.warning(f"Failed to initialize legacy cache manager: {e}")
@@ -649,7 +649,7 @@ class DataSourceManager:
             # STEP 2: Vision API Retrieval with Iterative Merge
             # ----------------------------------------------------------------
             if enforce_source != DataSource.REST and missing_ranges:
-                logger.info(f"[FCP] STEP 2: Checking Vision API for missing data")
+                logger.info("[FCP] STEP 2: Checking Vision API for missing data")
 
                 # Process each missing range
                 vision_ranges_to_fetch = (
@@ -706,11 +706,11 @@ class DataSourceManager:
                                     remaining_ranges.extend(missing_segments)
                                 else:
                                     logger.debug(
-                                        f"[FCP] Vision API provided complete coverage for this range"
+                                        "[FCP] Vision API provided complete coverage for this range"
                                     )
                         else:
                             # Vision API returned no data for this range
-                            logger.debug(f"[FCP] Vision API returned no data for range")
+                            logger.debug("[FCP] Vision API returned no data for range")
                             remaining_ranges.append((miss_start, miss_end))
 
                     # Update missing_ranges to only include what's still missing after Vision API
@@ -724,7 +724,7 @@ class DataSourceManager:
                         )
                     else:
                         missing_ranges = []
-                        logger.debug(f"[FCP] No missing ranges after Vision API")
+                        logger.debug("[FCP] No missing ranges after Vision API")
 
             # ----------------------------------------------------------------
             # STEP 3: REST API Fallback with Final Merge
@@ -766,7 +766,7 @@ class DataSourceManager:
 
                         # Save to cache if enabled
                         if self.use_cache:
-                            logger.debug(f"[FCP] Auto-saving REST data to cache")
+                            logger.debug("[FCP] Auto-saving REST data to cache")
                             self._save_to_cache(
                                 rest_df, symbol, interval, source="REST"
                             )

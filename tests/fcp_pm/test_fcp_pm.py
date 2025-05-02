@@ -47,13 +47,13 @@ def test_fcp_mechanism():
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(days=3)
 
-    print(f"[bold cyan]Test Configuration:[/bold cyan]")
+    print("[bold cyan]Test Configuration:[/bold cyan]")
     print(f"Symbol: {symbol}")
     print(f"Market Type: {market_type.name}")
     print(f"Interval: {interval.value}")
     print(f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}")
     print(f"Cache Enabled: {use_cache}")
-    print(f"Enforce Source: AUTO (FCP: Cache → Vision → REST)\n")
+    print("Enforce Source: AUTO (FCP: Cache → Vision → REST)\n")
 
     try:
         with Progress(
@@ -107,7 +107,7 @@ def test_fcp_mechanism():
 
         # Analyze data integrity
         integrity_result = analyze_data_integrity(df, start_time, end_time, interval)
-        print(f"\n[bold cyan]Data Integrity Analysis:[/bold cyan]")
+        print("\n[bold cyan]Data Integrity Analysis:[/bold cyan]")
 
         # Use try-except to handle potential missing keys in integrity_result
         try:
@@ -180,7 +180,7 @@ def test_fcp_mechanism():
         print(timeline_table)
 
         # Display sample data from each source
-        print(f"\n[bold cyan]Sample Data by Source:[/bold cyan]")
+        print("\n[bold cyan]Sample Data by Source:[/bold cyan]")
         for source in source_counts.index:
             source_df = df[df["_data_source"] == source].head(2)
             if not source_df.empty:

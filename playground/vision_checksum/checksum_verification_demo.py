@@ -389,9 +389,9 @@ def display_results(results: List[Dict[str, Any]]) -> None:
             continue
 
         validation_title = (
-            f"[green]✓ VALID CHECKSUM[/green]"
+            "[green]✓ VALID CHECKSUM[/green]"
             if result["validation_success"]
-            else f"[red]✗ INVALID CHECKSUM[/red]"
+            else "[red]✗ INVALID CHECKSUM[/red]"
         )
 
         detail_table = Table(
@@ -441,7 +441,7 @@ def main() -> int:
     if args.verbose:
         rprint(
             Panel.fit(
-                f"[bold]Binance Data Download and Validation[/bold]",
+                "[bold]Binance Data Download and Validation[/bold]",
                 subtitle=f"Date: {args.date} | Interval: {args.interval} | Market: {args.market}",
             )
         )

@@ -523,7 +523,7 @@ def main():
     # Display cutoff date if we found it
     if "cutoff_date" in all_results:
         cutoff = all_results["cutoff_date"]
-        print(f"\n[bold cyan]Data Retention Boundary[/bold cyan]")
+        print("\n[bold cyan]Data Retention Boundary[/bold cyan]")
         print(f"- Cutoff date: {cutoff['cutoff_date']}")
         print(
             f"- Days of 1s data available: approximately {cutoff['days_of_data']} days"

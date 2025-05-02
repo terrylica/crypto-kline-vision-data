@@ -394,7 +394,7 @@ class BinanceFundingRateClient(DataClientInterface):
                 data = response.json()
 
                 if not data:
-                    logger.debug(f"No more funding rate data available")
+                    logger.debug("No more funding rate data available")
                     break
 
                 # Process results

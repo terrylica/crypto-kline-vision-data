@@ -158,7 +158,7 @@ def get_from_cache(
 
     # Log summary
     if result_df.empty:
-        logger.info(f"No data found in cache for the requested time range")
+        logger.info("No data found in cache for the requested time range")
     else:
         logger.info(f"Loaded {len(result_df)} total records from cache")
 
@@ -193,7 +193,7 @@ def save_to_cache(
         True if successful, False otherwise
     """
     if df.empty:
-        logger.warning(f"Cannot save empty DataFrame to cache")
+        logger.warning("Cannot save empty DataFrame to cache")
         return False
 
     try:

@@ -192,7 +192,7 @@ def main():
     print("\n[bold blue]Data Format Analysis (SPOT)[/bold blue]")
     result = test_candles_endpoint(SPOT_INSTRUMENT, "1m", 1)
     if result["sample"]:
-        print(f"[bold]Sample data structure:[/bold]")
+        print("[bold]Sample data structure:[/bold]")
         for i, field in enumerate(result["sample"]):
             print(f"Field {i}: {field} ({type(field).__name__})")
 

@@ -493,7 +493,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         # Read CSV with or without header based on detection
                         if has_header:
                             logger.info(
-                                f"Headers detected in CSV, reading with header=0"
+                                "Headers detected in CSV, reading with header=0"
                             )
                             df = pd.read_csv(csv_path, header=0)
                             # Map column names to standard names if needed
@@ -504,7 +504,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         else:
                             # No headers detected, use the standard column names
                             logger.info(
-                                f"No headers detected in CSV, reading with header=None"
+                                "No headers detected in CSV, reading with header=None"
                             )
                             df = pd.read_csv(csv_path, header=None, names=KLINE_COLUMNS)
 

@@ -21,7 +21,7 @@ def fetch_funding_rate_history(
 ) -> Optional[List[Dict[str, Any]]]:
     """Fetch funding rate history from Binance API using httpx"""
     try:
-        url = f"https://fapi.binance.com/fapi/v1/fundingRate"
+        url = "https://fapi.binance.com/fapi/v1/fundingRate"
         params = {"symbol": symbol, "limit": limit}
 
         logger.info(f"Fetching funding rate history for {symbol} with limit {limit}")
@@ -224,7 +224,7 @@ def main():
             logger.info(f"  {symbol}: {status}")
     else:
         # Run continuously
-        logger.info(f"Starting automated funding rate history download")
+        logger.info("Starting automated funding rate history download")
         logger.info(f"Symbols: {', '.join(args.symbols)}")
         logger.info(f"Interval: {args.interval} minutes")
         logger.info(f"Output directory: {args.output_dir}")

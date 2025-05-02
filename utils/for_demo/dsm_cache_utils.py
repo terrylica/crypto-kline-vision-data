@@ -32,7 +32,7 @@ def clear_cache_directory(cache_dir=DEFAULT_CACHE_DIR):
         print(f"[bold yellow]Removing cache directory: {cache_path}[/bold yellow]")
         try:
             shutil.rmtree(cache_path, ignore_errors=True)
-            print(f"[bold green]Cache directory removed successfully[/bold green]")
+            print("[bold green]Cache directory removed successfully[/bold green]")
             return True
         except Exception as e:
             logger.error(f"Error removing cache directory: {e}")

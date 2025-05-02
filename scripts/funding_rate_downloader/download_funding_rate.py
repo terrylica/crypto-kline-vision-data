@@ -14,7 +14,7 @@ from utils.logger_setup import logger
 def fetch_funding_rate_history(symbol="BTCUSDT", limit=1000):
     """Fetch funding rate history from Binance API using httpx"""
     try:
-        url = f"https://fapi.binance.com/fapi/v1/fundingRate"
+        url = "https://fapi.binance.com/fapi/v1/fundingRate"
         params = {"symbol": symbol, "limit": limit}
 
         logger.info(f"Fetching funding rate history for {symbol} with limit {limit}")

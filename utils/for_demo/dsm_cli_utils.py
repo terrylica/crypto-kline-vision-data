@@ -8,8 +8,7 @@ This module provides common CLI setup and display functions for DSM Demo scripts
 from enum import Enum
 from pathlib import Path
 
-import rich.box as box
-from rich import print
+from rich import box, print
 from rich.panel import Panel
 from rich.table import Table
 

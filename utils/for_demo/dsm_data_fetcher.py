@@ -88,7 +88,7 @@ def fetch_data_with_fcp(
     if enforce_source is not None:
         logger.info(f"Enforcing data source: {enforce_source.name}")
     else:
-        logger.info(f"Using AUTO source selection (FCP: Cache → Vision → REST)")
+        logger.info("Using AUTO source selection (FCP: Cache → Vision → REST)")
 
     logger.info(
         f"[bold red]Attempting[/bold red] to fetch data from {start_time.isoformat()} to {end_time.isoformat()}..."

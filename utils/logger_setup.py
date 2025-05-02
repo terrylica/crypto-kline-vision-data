@@ -808,11 +808,10 @@ class LoggerProxy:
                     builtins._original_print(
                         "Smart print enabled - print output will be suppressed at current log level"
                     )
-        else:
-            # Restore original print if we have it stored
-            if hasattr(builtins, "_original_print"):
-                builtins.print = builtins._original_print
-                self.debug("Smart print disabled - print statements restored to normal")
+        # Restore original print if we have it stored
+        elif hasattr(builtins, "_original_print"):
+            builtins.print = builtins._original_print
+            self.debug("Smart print disabled - print statements restored to normal")
 
         return self
 

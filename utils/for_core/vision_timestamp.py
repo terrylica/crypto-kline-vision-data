@@ -120,8 +120,8 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                         )
 
                     logger.debug(
-                        f"Timestamps converted preserving their semantic meaning: "
-                        f"open_time=BEGINNING of candle, close_time=END of candle"
+                        "Timestamps converted preserving their semantic meaning: "
+                        "open_time=BEGINNING of candle, close_time=END of candle"
                     )
 
             except ValueError as e:

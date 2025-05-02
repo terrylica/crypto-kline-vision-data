@@ -297,7 +297,7 @@ def main(
     ),
 ):
     """Test the Vision Path Mapper."""
-    print(f"[bold green]Testing VisionPathMapper[/bold green]")
+    print("[bold green]Testing VisionPathMapper[/bold green]")
 
     # Parse market type
     market_enum = None
@@ -329,7 +329,7 @@ def main(
     remote_url = mapper.get_remote_url(components)
     local_path = mapper.get_local_path(components)
 
-    print(f"[bold blue]Components[/bold blue]")
+    print("[bold blue]Components[/bold blue]")
     print(f"Exchange: {components.exchange}")
     print(f"Market Type: {components.market_type}")
     print(f"Chart Type: {components.chart_type}")
@@ -339,11 +339,11 @@ def main(
     print(f"File Extension: {components.file_extension}")
     print()
 
-    print(f"[bold blue]Remote URL[/bold blue]")
+    print("[bold blue]Remote URL[/bold blue]")
     print(remote_url)
     print()
 
-    print(f"[bold blue]Local Path[/bold blue]")
+    print("[bold blue]Local Path[/bold blue]")
     print(local_path)
     print()
 
@@ -351,26 +351,26 @@ def main(
     mapped_local = mapper.map_remote_to_local(remote_url)
     mapped_remote = mapper.map_local_to_remote(local_path)
 
-    print(f"[bold blue]Mapped Remote URL -> Local Path[/bold blue]")
+    print("[bold blue]Mapped Remote URL -> Local Path[/bold blue]")
     print(mapped_local)
     print()
 
-    print(f"[bold blue]Mapped Local Path -> Remote URL[/bold blue]")
+    print("[bold blue]Mapped Local Path -> Remote URL[/bold blue]")
     print(mapped_remote)
     print()
 
     # Check if mappings match
     if str(mapped_local) == str(local_path):
-        print(f"[bold green]✓ Remote->Local mapping is consistent[/bold green]")
+        print("[bold green]✓ Remote->Local mapping is consistent[/bold green]")
     else:
-        print(f"[bold red]✗ Remote->Local mapping is inconsistent[/bold red]")
+        print("[bold red]✗ Remote->Local mapping is inconsistent[/bold red]")
         print(f"Original: {local_path}")
         print(f"Mapped:   {mapped_local}")
 
     if mapped_remote == remote_url:
-        print(f"[bold green]✓ Local->Remote mapping is consistent[/bold green]")
+        print("[bold green]✓ Local->Remote mapping is consistent[/bold green]")
     else:
-        print(f"[bold red]✗ Local->Remote mapping is inconsistent[/bold red]")
+        print("[bold red]✗ Local->Remote mapping is inconsistent[/bold red]")
         print(f"Original: {remote_url}")
         print(f"Mapped:   {mapped_remote}")
 

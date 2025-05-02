@@ -42,13 +42,13 @@ def test_rest_enforcement():
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=1)
 
-    print(f"[bold cyan]Test Configuration:[/bold cyan]")
+    print("[bold cyan]Test Configuration:[/bold cyan]")
     print(f"Symbol: {symbol}")
     print(f"Market Type: {market_type.name}")
     print(f"Interval: {interval.value}")
     print(f"Time Range: {start_time.isoformat()} to {end_time.isoformat()}")
     print(f"Cache Enabled: {use_cache}")
-    print(f"Enforce Source: REST\n")
+    print("Enforce Source: REST\n")
 
     try:
         # Create DataSourceManager with cache disabled

@@ -84,7 +84,7 @@ def test_bar_parameter_requirement():
     This tests whether 'bar' parameter is required as stated in docs or if it's
     actually optional as the OKX Data Guide suggests.
     """
-    print(f"\n[bold blue]Testing 'bar' Parameter Requirement[/bold blue]")
+    print("\n[bold blue]Testing 'bar' Parameter Requirement[/bold blue]")
 
     # Test cases
     test_cases = [
@@ -175,7 +175,7 @@ def test_one_second_interval_availability():
     Test the actual availability window of 1-second interval data.
     The guide mentions "~20 days" but testing showed "up to approximately one month".
     """
-    print(f"\n[bold blue]Testing 1-Second Interval Data Availability[/bold blue]")
+    print("\n[bold blue]Testing 1-Second Interval Data Availability[/bold blue]")
 
     # Test data availability at different historical points
     current_time = datetime.now()
@@ -251,7 +251,7 @@ def test_historical_data_availability():
     Test the actual availability of 1D (daily) historical data across both endpoints.
     This verifies the earliest dates claimed in the documentation.
     """
-    print(f"\n[bold blue]Testing Historical 1D Data Availability[/bold blue]")
+    print("\n[bold blue]Testing Historical 1D Data Availability[/bold blue]")
 
     # Key dates to test from the documentation
     test_dates = [
@@ -334,7 +334,7 @@ def test_endpoint_record_limits():
     Test the actual record limits per request for both endpoints.
     The documentation states limits of 300 for candles and 100 for history-candles.
     """
-    print(f"\n[bold blue]Testing Endpoint Record Limits[/bold blue]")
+    print("\n[bold blue]Testing Endpoint Record Limits[/bold blue]")
 
     # Test various limit values
     test_limits = [1, 50, 99, 100, 101, 200, 299, 300, 301, 500]
