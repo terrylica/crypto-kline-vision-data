@@ -732,7 +732,7 @@ class LoggerProxy:
                 def __enter__(self):
                     return self
 
-                def __exit__(self, exc_type, exc_val, exc_tb):
+                def __exit__(self, _exc_type, _exc_val, _exc_tb):
                     pass
 
                 def add_task(self, *args, **kwargs):
@@ -1124,7 +1124,11 @@ def enable_error_logging(error_log_file=None):
     Returns:
         bool: True if successful
     """
-    global _error_log_file, _error_logger_configured, _error_logger, _error_logging_enabled
+    global \
+        _error_log_file, \
+        _error_logger_configured, \
+        _error_logger, \
+        _error_logging_enabled
 
     # Update log file path if provided
     if error_log_file:
