@@ -271,7 +271,6 @@ def test_timestamp_handling(instrument="BTC-USDT", interval="1m", limit=5):
     if not ref_data.get("data") or len(ref_data["data"]) < MIN_RECORDS_FOR_COMPARISON:
         return {
             "test": "timestamp_handling",
-            "status": "fail",
             "status": "error",
             "message": "Failed to get enough reference data",
         }
