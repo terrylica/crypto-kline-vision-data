@@ -104,18 +104,16 @@ The `docs/api` folder provides in-depth documentation on data source characteris
 
    - To exclude specific symbols from subsequent operations below, simply remove their corresponding lines from `spot_synchronal.csv`
 
-## Troubleshooting
+## Development Scripts
 
-### Common Issues
+The `scripts/dev` directory contains a collection of utility scripts designed to assist with various development, testing, and maintenance tasks. These scripts leverage modern Python tooling and practices to streamline workflows.
 
-- **Import Errors**: If you encounter `ModuleNotFoundError: No module named 'utils_for_debug'` or similar, check that `pyproject.toml` includes all necessary packages under `[tool.setuptools]`.
-- **Vision API Data Limitations**: Data from the past 48 hours is typically not available through the Vision API. The DSM will automatically fall back to REST API for recent data.
-- **Python Version**: The package requires Python 3.11 or higher.
+Some of the key tools and libraries used across these scripts include:
 
-### Output and Logging
+- **Ruff**: For fast linting and code formatting.
+- **Vulture**: To identify dead code.
+- **pytest-xdist**: For parallel test execution.
+- **rope**: For Python code refactoring, used in conjunction with `git mv` for moving files.
+- **fsspec**: For seamless interaction with various filesystems.
 
-Both command-line tools provide detailed logs that can be helpful for debugging:
-
-- Logs are stored in `logs/dsm_demo_cli_logs/` and `logs/dsm_demo_module_logs/`
-- Error logs can be found in `logs/error_logs/`
-- Retrieved data is saved to CSV files in `logs/dsm_demo_cli/` and `logs/dsm_demo_module/`
+Explore the scripts and their individual READMEs within the [`scripts/dev`](scripts/dev) directory for more details.
