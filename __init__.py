@@ -17,4 +17,4 @@ Key Features:
 from core.providers.binance.vision_data_client import VisionDataClient
 from utils.dataframe_types import TimestampedDataFrame
 
-__all__ = ["VisionDataClient", "TimestampedDataFrame"]
+__all__ = ["TimestampedDataFrame", "VisionDataClient"]

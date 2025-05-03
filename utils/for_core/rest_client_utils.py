@@ -121,7 +121,7 @@ def fetch_chunk(
                 data = response.json()
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode JSON response: {e}")
-                raise JSONDecodeError(f"Failed to decode JSON response: {str(e)}")
+                raise JSONDecodeError(f"Failed to decode JSON response: {e!s}")
 
             # Check for API error
             if isinstance(data, dict) and "code" in data and data.get("code", 0) != 0:
@@ -134,15 +134,15 @@ def fetch_chunk(
 
         except requests.ConnectionError as e:
             logger.error(f"Network connection error: {e}")
-            raise NetworkError(f"Connection error: {str(e)}")
+            raise NetworkError(f"Connection error: {e!s}")
         except requests.Timeout as e:
             logger.error(f"Request timeout: {e}")
-            raise TimeoutError(f"Request timed out: {str(e)}")
+            raise TimeoutError(f"Request timed out: {e!s}")
         except (requests.RequestException, Exception) as e:
             # Catch any other requests exceptions
             if not isinstance(e, RestAPIError):  # Avoid wrapping our own exceptions
                 logger.error(f"Request error: {e}")
-                raise RestAPIError(f"Request error: {str(e)}")
+                raise RestAPIError(f"Request error: {e!s}")
             raise
 
     # Call the wrapped function

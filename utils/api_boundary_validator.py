@@ -517,7 +517,7 @@ class ApiBoundaryValidator:
                 # Handle retries
                 retries += 1
                 logger.warning(
-                    f"API call failed (retry {retries}/{MAX_RETRIES}): {str(e)}"
+                    f"API call failed (retry {retries}/{MAX_RETRIES}): {e!s}"
                 )
 
                 if retries <= MAX_RETRIES:
@@ -528,7 +528,7 @@ class ApiBoundaryValidator:
                     logger.debug(f"Waiting {wait_time:.2f}s before retrying")
                     await asyncio.sleep(wait_time)
                 else:
-                    logger.error(f"All {MAX_RETRIES} API call retries failed: {str(e)}")
+                    logger.error(f"All {MAX_RETRIES} API call retries failed: {e!s}")
                     raise Exception(
                         f"Failed to fetch data from API after {MAX_RETRIES} retries"
                     ) from e
@@ -744,7 +744,7 @@ class ApiBoundaryValidator:
             except Exception as e:
                 # Connection error or timeout, retry
                 logger.warning(
-                    f"Connection error (sync): {str(e)}, "
+                    f"Connection error (sync): {e!s}, "
                     f"retrying in {RETRY_DELAY}s (attempt {retries + 1}/{MAX_RETRIES})"
                 )
                 time.sleep(RETRY_DELAY)

@@ -72,7 +72,7 @@ def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
         except Exception as e2:
             logger.debug(f"Failed specific format parsing: {e2}")
 
-        error_msg = f"Unable to parse datetime: {dt_str!r}. Error: {str(e)}"
+        error_msg = f"Unable to parse datetime: {dt_str!r}. Error: {e!s}"
         logger.error(error_msg)
         raise ValueError(error_msg)
 

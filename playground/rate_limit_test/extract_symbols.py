@@ -22,7 +22,7 @@ def extract_symbols(csv_path, output_path):
                 if row["market"] == "spot":
                     symbols.append(row["symbol"])
     except Exception as e:
-        print(f"Error reading CSV: {str(e)}")
+        print(f"Error reading CSV: {e!s}")
         return False
 
     # Write symbols to file
@@ -33,7 +33,7 @@ def extract_symbols(csv_path, output_path):
         print(f"Extracted {len(symbols)} symbols to {output_path}")
         return True
     except Exception as e:
-        print(f"Error writing symbols file: {str(e)}")
+        print(f"Error writing symbols file: {e!s}")
         return False
 
 

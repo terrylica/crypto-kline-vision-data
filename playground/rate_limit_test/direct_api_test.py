@@ -242,7 +242,7 @@ async def run_test(symbols, duration=30, limit=1000):
 
                 if isinstance(result, Exception):
                     failed_requests += 1
-                    logger.error(f"Error fetching {symbol}: {str(result)}")
+                    logger.error(f"Error fetching {symbol}: {result!s}")
                     continue
 
                 data, weight = result

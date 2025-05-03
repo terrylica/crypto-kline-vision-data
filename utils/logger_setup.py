@@ -403,8 +403,7 @@ class LoggerProxy:
                         args = tuple(args_list)
 
                 # Don't use stacklevel as we're directly providing file/line info
-                if "stacklevel" in kwargs:
-                    del kwargs["stacklevel"]
+                kwargs.pop("stacklevel", None)
 
                 # Call the actual log method
                 log_method = getattr(logger_instance, name)
@@ -868,14 +867,14 @@ logger.enable_smart_print(True)
 
 # Add these to __all__ to make them available when importing
 __all__ = [
-    "logger",
-    "use_rich_logging",
-    "log_timeout",
-    "set_timeout_log_file",
     "enable_error_logging",
-    "set_error_log_file",
-    "get_error_log_file",
     "enable_smart_print",
+    "get_error_log_file",
+    "log_timeout",
+    "logger",
+    "set_error_log_file",
+    "set_timeout_log_file",
+    "use_rich_logging",
 ]
 
 # Test logger if run directly

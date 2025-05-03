@@ -230,7 +230,7 @@ class BinanceFundingRateClient(DataClientInterface):
             return True, None
         except Exception as e:
             logger.error(f"Error validating funding rate data: {e}")
-            return False, f"Validation error: {str(e)}"
+            return False, f"Validation error: {e!s}"
 
     def fetch(
         self,

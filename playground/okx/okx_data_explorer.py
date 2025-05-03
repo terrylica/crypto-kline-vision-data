@@ -82,7 +82,7 @@ def check_url_exists(url: str, timeout: float = DEFAULT_TIMEOUT) -> bool:
             response = client.head(url, timeout=timeout, follow_redirects=True)
             return response.status_code == HTTP_OK
     except Exception as e:
-        print(f"[red]Error checking URL {url}: {str(e)}[/red]")
+        print(f"[red]Error checking URL {url}: {e!s}[/red]")
         return False
 
 
@@ -134,7 +134,7 @@ def download_file(
 
         return True
     except Exception as e:
-        print(f"[red]Error downloading {url}: {str(e)}[/red]")
+        print(f"[red]Error downloading {url}: {e!s}[/red]")
         return False
 
 
@@ -195,7 +195,7 @@ def explore_date_range(
                             f"[green]Found: {data_type} data for {symbol} on {date.isoformat()}[/green]"
                         )
                 except Exception as e:
-                    print(f"[red]Error checking {url}: {str(e)}[/red]")
+                    print(f"[red]Error checking {url}: {e!s}[/red]")
 
                 progress.update(task, advance=1)
 
@@ -269,7 +269,7 @@ def preview_zip_content(zip_path: Path) -> None:
                                 pass
 
     except Exception as e:
-        print(f"[red]Error previewing zip content: {str(e)}[/red]")
+        print(f"[red]Error previewing zip content: {e!s}[/red]")
 
 
 def main():

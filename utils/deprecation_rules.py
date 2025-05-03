@@ -192,7 +192,7 @@ class Interval:
             time_unit = TimeUnit.from_shorthand(unit)
         except IntervalParseError as e:
             raise IntervalParseError(
-                f"Invalid interval format: {interval}. {str(e)}"
+                f"Invalid interval format: {interval}. {e!s}"
             ) from e
 
         return cls(value=value, unit=time_unit)

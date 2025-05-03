@@ -247,7 +247,7 @@ class BenchmarkRunner:
 
             return stats
         except Exception as e:
-            return {"error": f"Error getting file stats: {str(e)}"}
+            return {"error": f"Error getting file stats: {e!s}"}
 
     def method_original(self, measure_memory=False, validate_checksum=False):
         """Original method using zipfile and tempfile."""

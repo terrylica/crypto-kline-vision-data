@@ -448,7 +448,7 @@ def handle_auto_fix(project_path: Path, dry_run: bool, auto_fix_imports: bool) -
 class MoveConfig:
     """Configuration class for the move command to reduce function arguments."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         moves: List[str],
         project: str = ".",
@@ -471,7 +471,7 @@ class MoveConfig:
 
 
 @app.command()
-def move(  # noqa: PLR0913
+def move(
     moves: List[str] = moves_argument,
     project: str = project_option,
     dry_run: bool = dry_run_option,

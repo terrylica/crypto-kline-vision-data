@@ -398,7 +398,7 @@ class DownloadHandler:
             return True
 
         except Exception as e:
-            logger.error(f"Error downloading {url}: {str(e)}")
+            logger.error(f"Error downloading {url}: {e!s}")
             return False
 
         finally:
@@ -469,7 +469,7 @@ def download_files_concurrently(
         try:
             return handler.download_file(url, path, **download_kwargs)
         except Exception as e:
-            logger.error(f"Error downloading {url}: {str(e)}")
+            logger.error(f"Error downloading {url}: {e!s}")
             return False
 
     results = []

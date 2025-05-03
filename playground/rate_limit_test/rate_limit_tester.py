@@ -196,7 +196,7 @@ class RateLimitTester:
         except Exception as e:
             self.total_requests += 1
             self.failed_requests += 1
-            logger.error(f"Error fetching {symbol}: {str(e)}")
+            logger.error(f"Error fetching {symbol}: {e!s}")
             return None
 
     def run_test(self):
@@ -327,7 +327,7 @@ def read_symbols_from_file(file_path):
                     symbols.append(symbol)
         return symbols
     except Exception as e:
-        print(f"Error reading symbols file: {str(e)}")
+        print(f"Error reading symbols file: {e!s}")
         return []
 
 
@@ -361,7 +361,7 @@ def main():
     try:
         tester.run_test()
     except Exception as e:
-        print(f"Error during test: {str(e)}")
+        print(f"Error during test: {e!s}")
     finally:
         tester.cleanup()
 

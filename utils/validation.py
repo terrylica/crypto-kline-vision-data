@@ -427,7 +427,7 @@ class DataValidation:
                 except (ValueError, ImportError) as e:
                     # If we can't parse it, fall back to default delay
                     logger.debug(
-                        f"Could not parse interval '{interval}' due to {type(e).__name__}: {str(e)}, using default delay"
+                        f"Could not parse interval '{interval}' due to {type(e).__name__}: {e!s}, using default delay"
                     )
                     consolidation_delay = timedelta(minutes=5)
             else:
@@ -507,7 +507,7 @@ class DataValidation:
                     return is_available
                 except ImportError as e:
                     # Fall back to default if imports fail
-                    logger.debug(f"Import error in interval calculation: {str(e)}")
+                    logger.debug(f"Import error in interval calculation: {e!s}")
                     logger.warning("Could not import time utils, using default delay")
                     consolidation_delay = timedelta(minutes=5)
 
@@ -980,7 +980,7 @@ class DataFrameValidator:
                     except Exception as e:
                         return (
                             False,
-                            f"Failed to convert column {col} to {dtype}: {str(e)}",
+                            f"Failed to convert column {col} to {dtype}: {e!s}",
                         )
 
             # Check for NaN values in critical columns
@@ -993,7 +993,7 @@ class DataFrameValidator:
             return True, None
 
         except Exception as e:
-            logger.error(f"Error validating klines data: {str(e)}")
+            logger.error(f"Error validating klines data: {e!s}")
             return False, str(e)
 
     @staticmethod

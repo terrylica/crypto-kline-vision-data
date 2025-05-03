@@ -287,7 +287,7 @@ def adjust_symbol_for_market(symbol, market_type):
         validate_symbol_for_market_type(adjusted_symbol, market_type)
     except ValueError as e:
         # Log the error and re-raise
-        logger.error(f"Symbol validation error: {str(e)}")
+        logger.error(f"Symbol validation error: {e!s}")
         raise
 
     return adjusted_symbol

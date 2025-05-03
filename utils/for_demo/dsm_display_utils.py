@@ -214,11 +214,11 @@ def display_results(
                                     break
                             except Exception as e:
                                 logger.debug(
-                                    f"Error parsing timestamp for file {log_file}: {str(e)}"
+                                    f"Error parsing timestamp for file {log_file}: {e!s}"
                                 )
                                 continue
                     except Exception as e:
-                        logger.debug(f"Error in timestamp comparison: {str(e)}")
+                        logger.debug(f"Error in timestamp comparison: {e!s}")
 
             # If still not found after all attempts, show diagnostic info and file not found message
             if not found_log:
@@ -252,7 +252,7 @@ def display_results(
                             f"File not found by stat command: {stat_result.stderr}"
                         )
                 except Exception as e:
-                    logger.debug(f"Error during OS-level verification: {str(e)}")
+                    logger.debug(f"Error during OS-level verification: {e!s}")
 
                 if log_dir.exists():
                     log_files = list(log_dir.glob("*.log"))
@@ -343,11 +343,11 @@ def display_results(
                                     break
                             except Exception as e:
                                 logger.debug(
-                                    f"Error parsing timestamp for error file {error_file}: {str(e)}"
+                                    f"Error parsing timestamp for error file {error_file}: {e!s}"
                                 )
                                 continue
                     except Exception as e:
-                        logger.debug(f"Error in error timestamp comparison: {str(e)}")
+                        logger.debug(f"Error in error timestamp comparison: {e!s}")
 
             # If still not found after all attempts, show diagnostic info and file not found message
             if not found_error_log:
@@ -381,7 +381,7 @@ def display_results(
                             f"Error file not found by stat command: {stat_result.stderr}"
                         )
                 except Exception as e:
-                    logger.debug(f"Error during OS-level verification: {str(e)}")
+                    logger.debug(f"Error during OS-level verification: {e!s}")
 
                 if error_log_dir.exists():
                     error_files = list(error_log_dir.glob("*.log"))
