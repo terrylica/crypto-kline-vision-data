@@ -135,7 +135,17 @@ class VisionPathMapper:
     ) -> PathComponents:
         """Create path components from parameters."""
         if isinstance(date, str):
-            date = pendulum.parse(date)
+            # Explicitly parse to pendulum.DateTime, not a generic Date
+            dt = pendulum.parse(date)
+            if not isinstance(dt, pendulum.DateTime):
+                dt = pendulum.DateTime.instance(dt)
+        else:
+            # Ensure it's a pendulum.DateTime object
+            dt = (
+                date
+                if isinstance(date, pendulum.DateTime)
+                else pendulum.DateTime.instance(date)
+            )
 
         if isinstance(interval, Interval):
             interval = interval.value
@@ -146,7 +156,7 @@ class VisionPathMapper:
             chart_type=chart_type,
             symbol=symbol,
             interval=interval,
-            date=date,
+            date=dt,
             file_extension=file_extension,
         )
 
