@@ -97,6 +97,14 @@ _root_configured = False
 _module_loggers = {}
 _use_rich = os.environ.get("USE_RICH_LOGGING", "true").lower() in ("true", "1", "yes")
 
+# Store state in a dictionary instead of using global variables
+_logger_state = {
+    "root_configured": False,
+    "module_loggers": {},
+    "use_rich": os.environ.get("USE_RICH_LOGGING", "true").lower()
+    in ("true", "1", "yes"),
+}
+
 # Rich console instance
 if RICH_AVAILABLE:
     from rich.console import Console
@@ -110,13 +118,11 @@ def _setup_root_logger(level=None, use_rich=None):
     """
     Configure the root logger with specified level and colorized output.
     """
-    global _root_configured, _use_rich
-
     # Determine whether to use rich
     if use_rich is None:
-        use_rich = _use_rich
+        use_rich = _logger_state["use_rich"]
     else:
-        _use_rich = use_rich
+        _logger_state["use_rich"] = use_rich
 
     root_logger = logging.getLogger()
     root_logger.handlers.clear()  # Clear existing handlers
@@ -148,7 +154,7 @@ def _setup_root_logger(level=None, use_rich=None):
 
     # Add a marker attribute to the root logger to indicate it's configured
     setattr(root_logger, "_root_configured", True)
-    _root_configured = True
+    _logger_state["root_configured"] = True
     return root_logger
 
 
@@ -166,7 +172,12 @@ def get_module_logger(name=None, level=None, setup_root=False, use_rich=None):
         logging.Logger: The requested logger instance
     """
     return _get_module_logger_internal(
-        name, level, _module_loggers, setup_root, use_rich, _setup_root_logger
+        name,
+        level,
+        _logger_state["module_loggers"],
+        setup_root,
+        use_rich,
+        _setup_root_logger,
     )
 
 
@@ -181,18 +192,16 @@ def use_rich_logging(enable=True, level=None):
     Returns:
         bool: True if Rich logging was enabled, False otherwise.
     """
-    global _use_rich
-
     # Use the extracted function with our root logger setup function
-    _use_rich = _use_rich_logging(enable, level, _setup_root_logger)
-    return _use_rich
+    _logger_state["use_rich"] = _use_rich_logging(enable, level, _setup_root_logger)
+    return _logger_state["use_rich"]
 
 
 # Create the auto-detecting logger proxy
 logger = LoggerProxy(
     get_module_logger_fn=get_module_logger,
     setup_root_logger_fn=_setup_root_logger,
-    use_rich=_use_rich,
+    use_rich=_logger_state["use_rich"],
 )
 
 # Enable rich logging by default for best experience
@@ -215,7 +224,7 @@ def enable_error_logging(error_log_file=None):
     Returns:
         bool: True if successful
     """
-    return _enable_error_logging(error_log_file, _root_configured)
+    return _enable_error_logging(error_log_file, _logger_state["root_configured"])
 
 
 def enable_smart_print(enabled=True):
