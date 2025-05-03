@@ -121,7 +121,7 @@ def get_from_cache(
         missing_ranges.append((start_time, end_time))
     else:
         # Sort by open_time to ensure proper range detection
-        result_df = result_df.sort_values("open_time")
+        result_df = result_df.iloc[result_df["open_time"].argsort()]
 
         # Identify missing ranges within the loaded data
         # This would require a more complex algorithm to identify gaps
