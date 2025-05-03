@@ -8,8 +8,8 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
+from utils.config import MEDIUM_HISTORY_DAYS, SHORT_HISTORY_DAYS
 from utils.logger_setup import logger
-from utils.config import SHORT_HISTORY_DAYS, MEDIUM_HISTORY_DAYS
 
 # Set logger level to WARNING to reduce verbosity
 logger.setLevel("WARNING")

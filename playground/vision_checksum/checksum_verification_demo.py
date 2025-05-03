@@ -29,13 +29,13 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from utils.config import HTTP_OK
 from utils.for_core.vision_checksum import (
     extract_checksum_from_file,
     verify_file_checksum,
 )
 from utils.logger_setup import logger
 from utils.validation import DataValidation
-from utils.config import HTTP_OK
 
 
 def setup_argparse() -> argparse.ArgumentParser:

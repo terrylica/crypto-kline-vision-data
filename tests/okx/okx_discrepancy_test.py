@@ -8,8 +8,8 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
-from utils.logger_setup import logger
 from utils.config import SECONDS_IN_HOUR
+from utils.logger_setup import logger
 
 # Set logger level to WARNING to reduce verbosity
 logger.setLevel("WARNING")
