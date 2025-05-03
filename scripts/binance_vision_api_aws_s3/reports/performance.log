@@ -1,0 +1,15 @@
+====== PERFORMANCE STATISTICS ======
+Date: Sat May  3 06:05:23 UTC 2025
+Markets: spot um cm
+Data Store: Enabled
+Test mode: Disabled
+
+Operation Durations:
+  process_spot: 3.708751085 seconds
+  process_um: .726533209 seconds
+  process_cm: .280356542 seconds
+  filtering: 10.028834365 seconds
+  setup: .011264375 seconds
+  combining: .005679833 seconds
+  data_store_operations: .270621375 seconds
+  total: 15.492568285 seconds

@@ -9,6 +9,7 @@ spot,ADAUSDT,2018-04-17,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ADA
 spot,XRPUSDT,2018-05-04,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",XRP
 spot,EOSUSDT,2018-05-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",EOS
 spot,IOTAUSDT,2018-05-31,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",IOTA
+spot,XLMUSDT,2018-05-31,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",XLM
 spot,ONTUSDT,2018-06-08,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ONT
 spot,TRXUSDT,2018-06-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",TRX
 spot,ETCUSDT,2018-06-12,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ETC
@@ -28,8 +29,10 @@ spot,IOSTUSDT,2019-03-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",IOST
 spot,CELRUSDT,2019-03-25,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CELR
 spot,DASHUSDT,2019-03-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DASH
 spot,THETAUSDT,2019-04-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",THETA
+spot,ENJUSDT,2019-04-18,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ENJ
 spot,ATOMUSDT,2019-04-29,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ATOM
 spot,ONEUSDT,2019-06-01,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ONE
+spot,FTMUSDT,2019-06-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",FTM
 spot,ALGOUSDT,2019-06-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ALGO
 spot,DOGEUSDT,2019-07-05,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DOGE
 spot,DUSKUSDT,2019-07-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DUSK
@@ -39,9 +42,11 @@ spot,MTLUSDT,2019-08-23,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MTL
 spot,CVCUSDT,2019-08-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CVC
 spot,DENTUSDT,2019-08-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DENT
 spot,FUNUSDT,2019-08-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",FUN
+spot,KEYUSDT,2019-08-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",KEY
 spot,CHZUSDT,2019-09-06,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CHZ
 spot,BANDUSDT,2019-09-18,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BAND
 spot,XTZUSDT,2019-09-24,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",XTZ
+spot,RENUSDT,2019-09-25,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",REN
 spot,RVNUSDT,2019-09-25,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RVN
 spot,HBARUSDT,2019-09-29,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",HBAR
 spot,NKNUSDT,2019-10-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",NKN
@@ -62,6 +67,7 @@ spot,CTSIUSDT,2020-04-23,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CTSI
 spot,HIVEUSDT,2020-04-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",HIVE
 spot,CHRUSDT,2020-05-07,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CHR
 spot,MDTUSDT,2020-06-05,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MDT
+spot,STMXUSDT,2020-06-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",STMX
 spot,KNCUSDT,2020-06-12,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",KNC
 spot,LRCUSDT,2020-06-12,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",LRC
 spot,COMPUSDT,2020-06-25,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",COMP
@@ -76,6 +82,8 @@ spot,STORJUSDT,2020-07-30,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",STORJ
 spot,MANAUSDT,2020-08-06,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MANA
 spot,YFIUSDT,2020-08-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",YFI
 spot,BALUSDT,2020-08-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BAL
+spot,BLZUSDT,2020-08-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BLZ
+spot,JSTUSDT,2020-08-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",JST
 spot,SOLUSDT,2020-08-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SOL
 spot,SANDUSDT,2020-08-14,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SAND
 spot,CRVUSDT,2020-08-15,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CRV
@@ -116,15 +124,19 @@ spot,RIFUSDT,2021-01-07,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RIF
 spot,TRUUSDT,2021-01-19,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",TRU
 spot,CKBUSDT,2021-01-26,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CKB
 spot,TWTUSDT,2021-01-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",TWT
+spot,LITUSDT,2021-02-04,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",LIT
 spot,SFPUSDT,2021-02-08,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SFP
 spot,CAKEUSDT,2021-02-19,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CAKE
 spot,BADGERUSDT,2021-03-02,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BADGER
+spot,FISUSDT,2021-03-03,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",FIS
 spot,OMUSDT,2021-03-08,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",OM
 spot,DEGOUSDT,2021-03-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DEGO
 spot,ALICEUSDT,2021-03-15,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ALICE
+spot,LINAUSDT,2021-03-18,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",LINA
 spot,PERPUSDT,2021-03-19,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",PERP
 spot,SUPERUSDT,2021-03-25,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SUPER
 spot,CFXUSDT,2021-03-29,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CFX
+spot,PUNDIXUSDT,2021-04-09,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",PUNDIX
 spot,TLMUSDT,2021-04-13,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",TLM
 spot,FORTHUSDT,2021-04-23,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",FORTH
 spot,BAKEUSDT,2021-04-30,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BAKE
@@ -163,6 +175,8 @@ spot,RADUSDT,2021-10-07,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RAD
 spot,RAREUSDT,2021-10-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RARE
 spot,CHESSUSDT,2021-10-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",CHESS
 spot,AUCTIONUSDT,2021-10-29,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",AUCTION
+spot,BNXUSDT,2021-11-04,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BNX
+spot,DARUSDT,2021-11-04,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",DAR
 spot,MOVRUSDT,2021-11-08,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MOVR
 spot,ENSUSDT,2021-11-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ENS
 spot,POWRUSDT,2021-11-17,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",POWR
@@ -208,6 +222,7 @@ spot,RPLUSDT,2023-01-18,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RPL
 spot,SYNUSDT,2023-02-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SYN
 spot,SSVUSDT,2023-02-24,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SSV
 spot,LQTYUSDT,2023-02-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",LQTY
+spot,AMBUSDT,2023-03-03,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",AMB
 spot,USTCUSDT,2023-03-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",USTC
 spot,GASUSDT,2023-03-17,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",GAS
 spot,GLMUSDT,2023-03-17,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",GLM
@@ -217,7 +232,9 @@ spot,ARBUSDT,2023-03-23,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ARB
 spot,RDNTUSDT,2023-03-30,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",RDNT
 spot,EDUUSDT,2023-04-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",EDU
 spot,SUIUSDT,2023-05-03,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SUI
+spot,AERGOUSDT,2023-05-05,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",AERGO
 spot,SNTUSDT,2023-05-19,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SNT
+spot,COMBOUSDT,2023-06-02,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",COMBO
 spot,MAVUSDT,2023-06-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MAV
 spot,PENDLEUSDT,2023-07-03,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",PENDLE
 spot,ARKMUSDT,2023-07-18,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ARKM
@@ -325,3 +342,12 @@ spot,MUBARAKUSDT,2025-03-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",MUBARAK
 spot,TUTUSDT,2025-03-27,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",TUT
 spot,GUNUSDT,2025-03-31,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",GUN
 spot,BABYUSDT,2025-04-10,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BABY
+spot,BIGTIMEUSDT,2025-04-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",BIGTIME
+spot,ONDOUSDT,2025-04-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",ONDO
+spot,VIRTUALUSDT,2025-04-11,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",VIRTUAL
+spot,KERNELUSDT,2025-04-14,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",KERNEL
+spot,WCTUSDT,2025-04-15,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",WCT
+spot,HYPERUSDT,2025-04-22,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",HYPER
+spot,INITUSDT,2025-04-24,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",INIT
+spot,SIGNUSDT,2025-04-28,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",SIGN
+spot,STOUSDT,2025-05-02,"12h,15m,1d,1h,1m,1s,2h,30m,3m,4h,5m,6h,8h",STO
