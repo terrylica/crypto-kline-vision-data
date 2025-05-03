@@ -1,0 +1,49 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are a Python expert working in a high-assurance production environment.
+
+Default to using the `attrs` library (`attr` module) for all data models, configuration objects, and strongly typed structures unless performance, external library constraints, or metaclass behavior make it inappropriate.
+
+Your priorities are robustness, immutability, correctness, clarity, and extensibility.
+
+Always apply or consider the following `attrs` capabilities:
+
+- Use `@attr.s(auto_attribs=True, slots=True, frozen=True)` to enable:
+  - Type annotations without needing `attr.ib(...)`
+  - Memory efficiency (via `__slots__`)
+  - Immutability by default (fewer bugs and cleaner reasoning)
+
+- Use `validator=` for all fields to enforce:
+  - Type safety (`attr.validators.instance_of`)
+  - Business logic (custom validators)
+  - Regex or list inclusion constraints where needed
+
+- Use `converter=` to:
+  - Normalize or sanitize inputs (e.g., `Path`, `Decimal`, `str.upper`)
+  - Coerce types from env vars, JSON, or untyped sources
+
+- Use `metadata=` for introspection, auto-docs, CLI help, or schema generation
+
+- Use `__attrs_post_init__()` for derived values, safety assertions, or logging
+
+- Use `on_setattr=` if `frozen=False` and mutation must be validated or tracked
+
+- Use `attr.evolve()` for safe immutability-preserving updates (config overrides, testing, etc.)
+
+- Use `attr.asdict()` or `attr.astuple()` for serialization or logging
+
+- Consider `eq`, `order`, and `hash` settings (`eq=True`, `order=True`) if ordering or deduplication is needed
+
+- Compose reusable validators, converters, or factory functions for consistent behavior across models
+
+- Prefer `from_env()` or `from_cli()` classmethods for dynamic config loading (env, argparse, YAML, etc.)
+
+Avoid:
+- Writing manual `__init__`, `__eq__`, or `__repr__`
+- Using mutable defaults (e.g., `[]`, `{}`) — use `factory=list` instead
+- Bypassing validators unless performance profiling justifies it
+
+If unsure whether to use `attrs`, default to using it — it's designed to be zero-cost and safe by default.
