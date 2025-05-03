@@ -44,6 +44,7 @@ dev = [
     "gitpython", # for git operations
     "rope", # for refactoring imports
     "ruff", # for linting and formatting
+    "pyright", # for static type checking (latest version)
     # "pylint", # Ruff covers many Pylint rules
     # "autoflake", # Ruff handles unused imports
     "vulture", # for dead code detection
@@ -94,6 +95,17 @@ lint.exclude = ["playground/", "tests/", ".git/", "__pycache__/"]
 # Note: This cannot automatically inherit from project dependencies.
 # Make sure to keep this list in sync with [project] dependencies and [project.optional-dependencies]
 known-third-party = ["pandas", "numpy", "polars", "pyarrow", "httpx", "tenacity", "rich", "typer", "pytest", "gitpython", "rope", "pylint", "autoflake", "vulture", "twine"]
+
+[tool.pyright]
+include = ["core", "utils", "examples", "scripts"]
+exclude = ["**/__pycache__", "playground", "venv", ".git", ".vscode", ".ruff_cache", ".ropeproject"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportPrivateImportUsage = false
+reportUnknownMemberType = false
 
 [tool.vulture]
 # Paths to scan for dead code
