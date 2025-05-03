@@ -152,9 +152,8 @@ async def fetch_klines(symbol, interval="1s", limit=1000):
         if response.status_code == HTTP_OK:
             data = response.json()
             return data, weight
-        else:
-            logger.error(f"Error fetching {symbol}: {response.text}")
-            return None, weight
+        logger.error(f"Error fetching {symbol}: {response.text}")
+        return None, weight
 
 
 def process_kline_data(data):

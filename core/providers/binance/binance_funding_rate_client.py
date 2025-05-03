@@ -426,10 +426,9 @@ class BinanceFundingRateClient(DataClientInterface):
                 if len(data) < limit:
                     # We got fewer results than requested, so we're done
                     break
-                else:
-                    # Use the funding time of the last record plus 1 millisecond
-                    last_time = int(data[-1]["fundingTime"])
-                    current_start_ms = last_time + 1
+                # Use the funding time of the last record plus 1 millisecond
+                last_time = int(data[-1]["fundingTime"])
+                current_start_ms = last_time + 1
 
                 # Reset retry counter after successful request
                 retry_count = 0

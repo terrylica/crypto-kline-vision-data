@@ -31,24 +31,24 @@ from utils.market_constraints import Interval as MarketInterval
 
 # Re-export the get_interval_micros function at the module level for direct import
 __all__ = [
+    "TimeseriesDataProcessor",
+    "align_time_boundaries",
+    "datetime_to_milliseconds",
+    "detect_timestamp_unit",
     "enforce_utc_timezone",
+    "estimate_record_count",
+    "filter_dataframe_by_time",
+    "get_bar_close_time",
+    "get_interval_ceiling",
+    "get_interval_floor",
     "get_interval_micros",
     "get_interval_seconds",
     "get_interval_timedelta",
     "get_smaller_units",
-    "get_interval_floor",
-    "get_interval_ceiling",
-    "get_bar_close_time",
     "is_bar_complete",
-    "filter_dataframe_by_time",
-    "align_time_boundaries",
-    "estimate_record_count",
-    "TimeseriesDataProcessor",
-    "datetime_to_milliseconds",
     "milliseconds_to_datetime",
-    "detect_timestamp_unit",
-    "validate_timestamp_unit",
     "standardize_timestamp_precision",
+    "validate_timestamp_unit",
 ]
 
 # Constants for timestamp format detection
@@ -84,14 +84,13 @@ def detect_timestamp_unit(sample_ts: Union[int, str]) -> TimestampUnit:
 
     if digits == MICROSECOND_DIGITS:
         return "us"
-    elif digits == MILLISECOND_DIGITS:
+    if digits == MILLISECOND_DIGITS:
         return "ms"
-    else:
-        raise ValueError(
-            f"Unrecognized timestamp format with {digits} digits. "
-            f"Expected {MILLISECOND_DIGITS} for milliseconds or "
-            f"{MICROSECOND_DIGITS} for microseconds."
-        )
+    raise ValueError(
+        f"Unrecognized timestamp format with {digits} digits. "
+        f"Expected {MILLISECOND_DIGITS} for milliseconds or "
+        f"{MICROSECOND_DIGITS} for microseconds."
+    )
 
 
 def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
@@ -271,7 +270,7 @@ def enforce_utc_timezone(dt: datetime) -> datetime:
             dt.microsecond,
             tzinfo=timezone.utc,
         )
-    elif dt.tzinfo == timezone.utc:
+    if dt.tzinfo == timezone.utc:
         # If already in UTC, return a new copy to ensure it's a different object
         return datetime(
             dt.year,
@@ -408,8 +407,7 @@ def get_bar_close_time(open_time: datetime, interval: MarketInterval) -> datetim
         datetime: Close time (interval - 1 microsecond after open time)
     """
     interval_delta = get_interval_timedelta(interval)
-    close_time = open_time + interval_delta - timedelta(microseconds=1)
-    return close_time
+    return open_time + interval_delta - timedelta(microseconds=1)
 
 
 def is_bar_complete(
@@ -800,17 +798,11 @@ def estimate_record_count(
     if aligned_end < aligned_start:
         return 0
 
-    # Calculate interval in seconds
-    interval_secs = get_interval_seconds(interval)
+    time_diff_secs = (end_time - start_time).total_seconds()
+    interval_secs = interval.to_seconds()
 
-    # The formula accounts for inclusive-inclusive behavior:
-    # For a 1-second interval from 05:23:20 to 05:23:30:
-    # (30 - 20) / 1 + 1 = 11 records
-    # This formula works for all cases when boundaries are properly aligned
-    time_diff_secs = int((aligned_end - aligned_start).total_seconds())
-    record_count = (time_diff_secs // interval_secs) + 1
-
-    return record_count
+    # Calculate the number of intervals, add 1 to include the end time point
+    return (time_diff_secs // interval_secs) + 1
 
 
 class TimeseriesDataProcessor:

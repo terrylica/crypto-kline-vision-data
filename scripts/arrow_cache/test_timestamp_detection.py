@@ -35,10 +35,9 @@ def detect_timestamp_unit(sample_ts):
 
     if digits == MICROSECOND_DIGITS:
         return "us"
-    elif digits == MILLISECOND_DIGITS:
+    if digits == MILLISECOND_DIGITS:
         return "ms"
-    else:
-        return f"unknown ({digits} digits)"
+    return f"unknown ({digits} digits)"
 
 
 def create_test_dataframes():

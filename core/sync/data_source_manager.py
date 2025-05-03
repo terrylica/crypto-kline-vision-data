@@ -853,10 +853,9 @@ class DataSourceManager:
             # Re-raise the exception to properly exit with error rather than returning an empty DataFrame
             if "All data sources failed" in str(e):
                 raise
-            else:
-                raise RuntimeError(
-                    f"Failed to retrieve data from all sources: {safe_error_message}"
-                )
+            raise RuntimeError(
+                f"Failed to retrieve data from all sources: {safe_error_message}"
+            )
 
     def __enter__(self):
         """Context manager entry."""

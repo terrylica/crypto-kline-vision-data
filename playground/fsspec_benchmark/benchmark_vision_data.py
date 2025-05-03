@@ -57,10 +57,9 @@ def get_vision_url(symbol, interval, date, market_type="spot", file_type="DATA")
 
     if file_type.upper() == "DATA":
         return f"{url_path}.zip"
-    elif file_type.upper() == "CHECKSUM":
+    if file_type.upper() == "CHECKSUM":
         return f"{url_path}.zip.CHECKSUM"
-    else:
-        raise ValueError(f"Unsupported file type: {file_type}")
+    raise ValueError(f"Unsupported file type: {file_type}")
 
 
 def get_system_info() -> Dict[str, Any]:

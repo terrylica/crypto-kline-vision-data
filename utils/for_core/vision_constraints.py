@@ -126,14 +126,13 @@ def classify_error(error: Exception) -> str:
     """
     if isinstance(error, (httpx.HTTPError,)):
         return ERROR_TYPES["NETWORK"]
-    elif isinstance(error, OSError):
+    if isinstance(error, OSError):
         return ERROR_TYPES["FILE_SYSTEM"]
-    elif isinstance(error, (ValueError, TypeError)):
+    if isinstance(error, (ValueError, TypeError)):
         return ERROR_TYPES["VALIDATION"]
-    elif isinstance(error, pa.ArrowInvalid):
+    if isinstance(error, pa.ArrowInvalid):
         return ERROR_TYPES["DATA_INTEGRITY"]
-    else:
-        return ERROR_TYPES["VALIDATION"]
+    return ERROR_TYPES["VALIDATION"]
 
 
 def is_date_too_fresh_for_vision(

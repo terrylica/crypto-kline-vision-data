@@ -189,12 +189,9 @@ class UnifiedCacheManager:
         # Format date to YYYYMMDD format
         date_str = date.strftime("%Y%m%d")
 
-        # Create a cache key that uniquely identifies this data
-        cache_key = (
-            f"{provider}_{chart_type}_{market_type}_{symbol}_{interval}_{date_str}"
-        )
-
-        return cache_key
+        # Convert components to uppercase for consistency in key
+        # Use underscore as delimiter
+        return f"{provider.upper()}_{chart_type.upper()}_{market_type.upper()}_{symbol.upper()}_{interval.upper()}_{date_str}"
 
     def _get_cache_path(self, cache_key: str) -> Path:
         """Get the file path for a cache entry.

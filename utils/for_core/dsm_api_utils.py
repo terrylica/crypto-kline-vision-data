@@ -122,22 +122,21 @@ def fetch_from_vision(
             )
 
             return filtered_df
+        logger.warning(f"Vision API returned no data for {symbol}")
+        # Check if end_time is within the Vision API delay window using our centralized function
+        if is_date_too_fresh_for_vision(end_time):
+            logger.warning(
+                f"No data returned from Vision API - end_time {end_time.isoformat()} "
+                f"is within the {VISION_DATA_DELAY_HOURS}h delay window. "
+                f"This is expected for recent data. Trying REST API."
+            )
         else:
-            logger.warning(f"Vision API returned no data for {symbol}")
-            # Check if end_time is within the Vision API delay window using our centralized function
-            if is_date_too_fresh_for_vision(end_time):
-                logger.warning(
-                    f"No data returned from Vision API - end_time {end_time.isoformat()} "
-                    f"is within the {VISION_DATA_DELAY_HOURS}h delay window. "
-                    f"This is expected for recent data. Trying REST API."
-                )
-            else:
-                logger.warning(
-                    f"No data returned from Vision API for {symbol} despite being outside "
-                    f"the {VISION_DATA_DELAY_HOURS}h delay window. "
-                    f"This is unexpected for historical data. Trying REST API as fallback."
-                )
-            return create_empty_dataframe()
+            logger.warning(
+                f"No data returned from Vision API for {symbol} despite being outside "
+                f"the {VISION_DATA_DELAY_HOURS}h delay window. "
+                f"This is unexpected for historical data. Trying REST API as fallback."
+            )
+        return create_empty_dataframe()
 
     except Exception as e:
         # Sanitize error message to prevent binary data from causing rich formatting issues
@@ -355,7 +354,7 @@ def create_client_if_needed(
 
             return client_class(market_type=market_type, **kwargs)
         # Already have a client, check if it needs reconfiguration
-        elif market_type is not None and client.market_type != market_type:
+        if market_type is not None and client.market_type != market_type:
             logger.debug(
                 f"Reconfiguring RestDataClient with market_type={market_type}"
             )
@@ -364,12 +363,11 @@ def create_client_if_needed(
             if retry_count is not None:
                 kwargs["retry_count"] = retry_count
             return client_class(market_type=market_type, **kwargs)
-        else:
-            # Same market type, can reuse
-            return client
+        # Same market type, can reuse
+        return client
 
     # Check if this is a VisionDataClient
-    elif client_class.__name__ == "VisionDataClient":
+    if client_class.__name__ == "VisionDataClient":
         logger.debug(
             f"Setting up {client_class.__name__} with symbol={symbol}, interval={interval}, market_type={market_type}, chart_type={chart_type}"
         )
@@ -393,7 +391,7 @@ def create_client_if_needed(
                 symbol=symbol, interval=interval, market_type=market_type, **kwargs
             )
         # Already have a client, check if it needs reconfiguration
-        elif (
+        if (
             client.symbol != symbol
             or client.interval != interval
             or client.market_type_str != str(market_type).lower()
@@ -412,9 +410,7 @@ def create_client_if_needed(
             return client_class(
                 symbol=symbol, interval=interval, market_type=market_type, **kwargs
             )
-        else:
-            # Same parameters, can reuse
-            return client
-    else:
-        # Unknown client type
-        raise ValueError(f"Unsupported client class: {client_class.__name__}")
+        # Same parameters, can reuse
+        return client
+    # Unknown client type
+    raise ValueError(f"Unsupported client class: {client_class.__name__}")

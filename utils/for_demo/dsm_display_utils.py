@@ -42,7 +42,7 @@ def display_results(
     """
     if df is None or df.empty:
         print("[bold red]No data to display[/bold red]")
-        return
+        return None
 
     print(f"\n[bold green]Successfully retrieved {len(df)} records[/bold green]")
 

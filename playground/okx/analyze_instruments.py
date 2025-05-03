@@ -31,17 +31,15 @@ def fetch_data(inst_type: str) -> List[dict]:
             if "data" in data:
                 if inst_type == "SPOT":
                     return data["data"]
-                elif inst_type == "SWAP":
+                if inst_type == "SWAP":
                     return [
                         item
                         for item in data["data"]
                         if item.get("instId") and item["instId"].endswith("-USD-SWAP")
                     ]
-                else:
-                    return data["data"]
-            else:
-                logger.error(f"Unexpected API response format: {data}")
-                return []
+                return data["data"]
+            logger.error(f"Unexpected API response format: {data}")
+            return []
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error: {e.response.status_code} - {e.response.text}")
         sys.exit(1)
@@ -66,14 +64,13 @@ def load_and_filter_data(file_path: str, filter_criteria: str = None) -> List[di
             if "data" in data:
                 if filter_criteria == "spot":
                     return data["data"]
-                elif filter_criteria == "swap":
+                if filter_criteria == "swap":
                     return [
                         item
                         for item in data["data"]
                         if item.get("instId") and item["instId"].endswith("-USD-SWAP")
                     ]
-                else:
-                    return data["data"]
+                return data["data"]
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}. Ensure files are in {script_dir}")
         sys.exit(1)

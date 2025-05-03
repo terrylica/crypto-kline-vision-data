@@ -75,13 +75,13 @@ def resolve_log_level(level):
     # Convert shorthand log levels to full names
     if level == "D":
         return "DEBUG"
-    elif level == "I":
+    if level == "I":
         return "INFO"
-    elif level == "W":
+    if level == "W":
         return "WARNING"
-    elif level == "E":
+    if level == "E":
         return "ERROR"
-    elif level == "C":
+    if level == "C":
         return "CRITICAL"
     return level
 
@@ -304,8 +304,8 @@ def convert_source_choice(enforce_source):
     """
     if enforce_source == DataSourceChoice.AUTO:
         return DataSource.AUTO
-    elif enforce_source == DataSourceChoice.REST:
+    if enforce_source == DataSourceChoice.REST:
         return DataSource.REST
-    elif enforce_source == DataSourceChoice.VISION:
+    if enforce_source == DataSourceChoice.VISION:
         return DataSource.VISION
     return DataSource.AUTO

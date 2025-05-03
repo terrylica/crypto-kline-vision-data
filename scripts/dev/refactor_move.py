@@ -148,8 +148,7 @@ def run_command(cmd: List[str], dry_run: bool = False) -> subprocess.CompletedPr
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     try:
-        result = subprocess.run(cmd, check=True, text=True, capture_output=True)
-        return result
+        return subprocess.run(cmd, check=True, text=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed: {command_str}")
         logger.error(f"Return code: {e.returncode}")
@@ -326,11 +325,10 @@ def update_import_paths(
                     "Rope successfully updated import references across the codebase"
                 )
                 return True
-            else:
-                logger.info(
-                    f"Skipping Rope import refactoring for non-Python file: {old_path}"
-                )
-                return True
+            logger.info(
+                f"Skipping Rope import refactoring for non-Python file: {old_path}"
+            )
+            return True
 
     except Exception as e:
         logger.error(f"Error updating import paths with Rope: {e}")
@@ -405,7 +403,7 @@ def process_move_pair(
                 f"Source file {old_path} does not exist, but destination {new_path} does - assuming already moved"
             )
             return True
-        elif skip_validation:
+        if skip_validation:
             logger.warning(
                 f"Source file {old_path} does not exist, but proceeding due to --skip-validation"
             )
@@ -434,22 +432,17 @@ def handle_auto_fix(project_path: Path, dry_run: bool, auto_fix_imports: bool) -
             if run_import_checks(project_path, dry_run):
                 logger.info("All issues fixed automatically!")
                 return True
-            else:
-                logger.error(
-                    "Some issues remain after auto-fix. Manual intervention required."
-                )
-                return False
-        else:
-            logger.error("Auto-fix failed. Manual intervention required.")
-            return False
-    else:
-        if auto_fix_imports and dry_run:
-            logger.info("[DRY-RUN] Would attempt to auto-fix import issues")
-        else:
-            logger.warning(
-                "Use --auto-fix flag to attempt automatic fix of import issues"
+            logger.error(
+                "Some issues remain after auto-fix. Manual intervention required."
             )
+            return False
+        logger.error("Auto-fix failed. Manual intervention required.")
         return False
+    if auto_fix_imports and dry_run:
+        logger.info("[DRY-RUN] Would attempt to auto-fix import issues")
+    else:
+        logger.warning("Use --auto-fix flag to attempt automatic fix of import issues")
+    return False
 
 
 class MoveConfig:
@@ -574,9 +567,8 @@ def execute_move(config: MoveConfig) -> int:
     if success:
         console.print("[bold green]✓ All operations completed successfully.")
         return 0
-    else:
-        console.print("[bold red]✗ Some operations failed. Check the log for details.")
-        return 1
+    console.print("[bold red]✗ Some operations failed. Check the log for details.")
+    return 1
 
 
 @app.command(name="check")
@@ -608,11 +600,8 @@ def check_imports(
     if success:
         console.print("[bold green]✓ All import checks completed successfully.")
         return 0
-    else:
-        console.print(
-            "[bold red]✗ Some import checks failed. Check the log for details."
-        )
-        return 1
+    console.print("[bold red]✗ Some import checks failed. Check the log for details.")
+    return 1
 
 
 if __name__ == "__main__":

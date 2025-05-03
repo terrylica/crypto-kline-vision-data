@@ -134,8 +134,7 @@ def download_file(
         if skip_if_exists:
             logger.info(f"File already exists: {output_path}")
             return True
-        else:
-            logger.info(f"File exists but will be overwritten: {output_path}")
+        logger.info(f"File exists but will be overwritten: {output_path}")
 
     try:
         # Create parent directories if they don't exist

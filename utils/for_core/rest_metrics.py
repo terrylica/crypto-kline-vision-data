@@ -137,7 +137,7 @@ class RestMetricsTracker:
             # Get rate limiting frequency (per hour)
             rate_limit_frequency = len(self._rate_limit_windows)
 
-            metrics = {
+            return {
                 "total_calls": self._total_calls,
                 "successful_calls": self._successful_calls,
                 "failed_calls": self._failed_calls,
@@ -148,8 +148,6 @@ class RestMetricsTracker:
                 "errors_by_type": dict(self._errors_by_type),
                 "rate_limit_frequency_per_hour": rate_limit_frequency,
             }
-
-            return metrics
 
     def log_metrics(self) -> None:
         """Log current metrics to the logger."""

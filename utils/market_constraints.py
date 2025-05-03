@@ -64,16 +64,15 @@ class MarketType(Enum):
         # Use name comparison instead of direct comparison to avoid module reloading issues
         if self.name == "SPOT":
             return "spot"
-        elif self.name == "FUTURES_USDT":
+        if self.name == "FUTURES_USDT":
             return "futures/um"
-        elif self.name == "FUTURES_COIN":
+        if self.name == "FUTURES_COIN":
             return "futures/cm"
-        elif self.name == "FUTURES":
+        if self.name == "FUTURES":
             return "futures/um"  # Default to UM for backward compatibility
-        elif self.name == "OPTIONS":
+        if self.name == "OPTIONS":
             return "options"  # Options path (if supported)
-        else:
-            raise ValueError(f"Unknown market type: {self}")
+        raise ValueError(f"Unknown market type: {self}")
 
     @classmethod
     def from_string(cls, market_type_str: str) -> "MarketType":
@@ -126,10 +125,9 @@ class ChartType(Enum):
         # Use name comparison instead of direct comparison to avoid module reloading issues
         if self.name == "KLINES":
             return "klines"
-        elif self.name == "FUNDING_RATE":
+        if self.name == "FUNDING_RATE":
             return "fundingRate"
-        else:
-            raise ValueError(f"Unknown chart type: {self}")
+        raise ValueError(f"Unknown chart type: {self}")
 
     @property
     def supported_markets(self) -> List[MarketType]:
@@ -143,19 +141,18 @@ class ChartType(Enum):
                 MarketType.FUTURES,
                 MarketType.OPTIONS,
             ]
-        elif self.name == "FUNDING_RATE":
+        if self.name == "FUNDING_RATE":
             return [
                 MarketType.FUTURES_USDT,
                 MarketType.FUTURES_COIN,
                 MarketType.FUTURES,
             ]
-        elif self.name in ("OKX_CANDLES", "OKX_HISTORY_CANDLES"):
+        if self.name in ("OKX_CANDLES", "OKX_HISTORY_CANDLES"):
             return [
                 MarketType.SPOT,
                 MarketType.FUTURES_USDT,
             ]
-        else:
-            return []
+        return []
 
     @property
     def supported_providers(self) -> List["DataProvider"]:
@@ -163,10 +160,9 @@ class ChartType(Enum):
         # Use name comparison instead of direct comparison to avoid module reloading issues
         if self.name in ("KLINES", "FUNDING_RATE"):
             return [DataProvider.BINANCE]
-        elif self.name in ("OKX_CANDLES", "OKX_HISTORY_CANDLES"):
+        if self.name in ("OKX_CANDLES", "OKX_HISTORY_CANDLES"):
             return [DataProvider.OKX]
-        else:
-            return []
+        return []
 
     @classmethod
     def from_string(cls, chart_type_str: str) -> "ChartType":
@@ -633,22 +629,21 @@ def get_market_symbol_format(
                 base = symbol[:-4]
                 quote = symbol[-4:]
                 return f"{base}-{quote}"
-            elif len(symbol) >= MIN_SHORT_SYMBOL_LENGTH and symbol.endswith(
+            if len(symbol) >= MIN_SHORT_SYMBOL_LENGTH and symbol.endswith(
                 ("BTC", "ETH", "USD")
             ):
                 base = symbol[:-3]
                 quote = symbol[-3:]
                 return f"{base}-{quote}"
             # Default approach: assume last 4 characters are quote currency
-            else:
-                return (
-                    f"{symbol[:-4]}-{symbol[-4:]}"
-                    if len(symbol) > MIN_SHORT_SYMBOL_LENGTH
-                    else symbol
-                )
+            return (
+                f"{symbol[:-4]}-{symbol[-4:]}"
+                if len(symbol) > MIN_SHORT_SYMBOL_LENGTH
+                else symbol
+            )
 
         # Handle FUTURES_USDT market (convert to BTC-USD-SWAP format)
-        elif market_type.name == "FUTURES_USDT":
+        if market_type.name == "FUTURES_USDT":
             # Convert BTCUSDT format to BTC-USD-SWAP
             if symbol.endswith("USDT"):
                 base = symbol[:-4]
@@ -676,12 +671,11 @@ def get_market_symbol_format(
                 return symbol[:-4] + "USD_PERP"
 
             # BTCUSD format -> BTCUSD_PERP
-            elif symbol.endswith("USD"):
+            if symbol.endswith("USD"):
                 return symbol + "_PERP"
 
             # Other format -> symbol_PERP
-            else:
-                return symbol + "_PERP"
+            return symbol + "_PERP"
 
     # For other market types, default to returning the original symbol
     # (Usually no transformation needed for SPOT or FUTURES_USDT)
@@ -859,5 +853,4 @@ def get_endpoint_url(
         else:
             path = f"/api/{version}/{endpoint}"  # Fallback for unknown markets
 
-    url = f"{base_url}{path}"
-    return url
+    return f"{base_url}{path}"

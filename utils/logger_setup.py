@@ -726,33 +726,32 @@ class LoggerProxy:
             from rich.progress import Progress
 
             return Progress(*args, **kwargs)
-        else:
-            # Return a no-op context manager when output should be suppressed
-            class NoOpProgress:
-                def __enter__(self):
-                    return self
+        # Return a no-op context manager when output should be suppressed
+        class NoOpProgress:
+            def __enter__(self):
+                return self
 
-                def __exit__(self, _exc_type, _exc_val, _exc_tb):
-                    pass
+            def __exit__(self, _exc_type, _exc_val, _exc_tb):
+                pass
 
-                def add_task(self, *_args, **_kwargs):
-                    """No-op implementation of add_task that simply returns a task ID of 0.
+            def add_task(self, *_args, **_kwargs):
+                """No-op implementation of add_task that simply returns a task ID of 0.
 
                     Args:
                         *_args: Positional arguments required for API compatibility with Progress.add_task
                         **_kwargs: Keyword arguments required for API compatibility with Progress.add_task
                     """
-                    return 0
+                return 0
 
-                def update(self, *_args, **_kwargs):
-                    """No-op implementation of update that does nothing.
+            def update(self, *_args, **_kwargs):
+                """No-op implementation of update that does nothing.
 
                     Args:
                         *_args: Positional arguments required for API compatibility with Progress.update
                         **_kwargs: Keyword arguments required for API compatibility with Progress.update
                     """
 
-            return NoOpProgress()
+        return NoOpProgress()
 
     def enable_smart_print(self, enabled=True):
         """

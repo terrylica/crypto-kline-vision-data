@@ -265,8 +265,7 @@ def test_real_checksum_extraction(
 
         if extracted_checksum:
             return True, extracted_checksum, None
-        else:
-            return False, None, "Failed to extract checksum from file"
+        return False, None, "Failed to extract checksum from file"
 
     except Exception as e:
         logger.error(f"Error testing real checksum extraction: {e}")

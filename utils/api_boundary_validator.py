@@ -727,7 +727,7 @@ class ApiBoundaryValidator:
                     data = response.json()
                     logger.debug(f"Received {len(data)} records from API (sync)")
                     return data
-                elif response.status_code == RATE_LIMIT_STATUS:
+                if response.status_code == RATE_LIMIT_STATUS:
                     # Rate limited, wait and retry
                     wait_time = RETRY_DELAY * (2**retries) * (0.5 + random.random())
                     logger.warning(

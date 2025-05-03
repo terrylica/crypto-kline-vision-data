@@ -50,7 +50,7 @@ def parse_datetime(dt_str):
                     f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
                 )
                 return dt
-            elif len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
+            if len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
                 # Try YYYY-MM-DD format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD", tz="UTC")
                 logger.debug(

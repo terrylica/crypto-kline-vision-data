@@ -621,7 +621,7 @@ class DataValidation:
             message = f"Start time ({start_time.isoformat()}) is in the future (current time: {reference_time.isoformat()})"
             if handle_future_dates == "error":
                 raise ValueError(message)
-            elif handle_future_dates == "truncate":
+            if handle_future_dates == "truncate":
                 metadata["warnings"].append(message + " - truncated to current time")
                 metadata["is_truncated"] = True
                 start_time = reference_time
@@ -639,7 +639,7 @@ class DataValidation:
             message = f"End time ({end_time.isoformat()}) is in the future (current time: {reference_time.isoformat()})"
             if handle_future_dates == "error":
                 raise ValueError(message)
-            elif handle_future_dates == "truncate":
+            if handle_future_dates == "truncate":
                 metadata["warnings"].append(message + " - truncated to current time")
                 metadata["is_truncated"] = True
                 end_time = reference_time

@@ -831,16 +831,15 @@ def test_connectivity(
                 if response.status_code == HTTP_OK:
                     logger.info(f"Successfully connected to {url}")
                     return True
-                else:
-                    logger.warning(
-                        f"Connection test failed with status code {response.status_code}"
+                logger.warning(
+                    f"Connection test failed with status code {response.status_code}"
+                )
+                if attempt < retry_count:
+                    wait_time = 1 + attempt  # 1s, 2s, etc.
+                    logger.info(
+                        f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
                     )
-                    if attempt < retry_count:
-                        wait_time = 1 + attempt  # 1s, 2s, etc.
-                        logger.info(
-                            f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
-                        )
-                        time.sleep(wait_time)
+                    time.sleep(wait_time)
             except Exception as e:
                 logger.warning(f"Connection test attempt {attempt + 1} failed: {e}")
                 if attempt < retry_count:

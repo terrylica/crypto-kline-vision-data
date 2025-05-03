@@ -203,7 +203,7 @@ def test_fcp_mechanism():
                 "The system retrieved data from Vision API and used REST API to fill in missing segments."
             )
             return True
-        elif (
+        if (
             has_vision_data and actual_records >= expected_records * 0.95
         ):  # Allow for minor missing data
             print(
@@ -213,10 +213,9 @@ def test_fcp_mechanism():
                 "Vision API returned complete data, so REST API fallback wasn't needed."
             )
             return True
-        else:
-            print("\n[bold red]✗ FAILURE: FCP mechanism failed[/bold red]")
-            print("The system failed to merge data from multiple sources correctly.")
-            return False
+        print("\n[bold red]✗ FAILURE: FCP mechanism failed[/bold red]")
+        print("The system failed to merge data from multiple sources correctly.")
+        return False
 
     except Exception as e:
         print(f"[bold red]Error during test: {e}[/bold red]")

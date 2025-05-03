@@ -17,14 +17,13 @@ def get_market_type_str(market_type: MarketType) -> str:
     """
     if market_type == MarketType.SPOT:
         return "spot"
-    elif market_type == MarketType.FUTURES_USDT:
+    if market_type == MarketType.FUTURES_USDT:
         return "futures_usdt"
-    elif market_type == MarketType.FUTURES_COIN:
+    if market_type == MarketType.FUTURES_COIN:
         return "futures_coin"
-    elif market_type == MarketType.FUTURES:
+    if market_type == MarketType.FUTURES:
         return "futures_usdt"  # Default to USDT for legacy type
-    else:
-        raise ValueError(f"Unsupported market type: {market_type}")
+    raise ValueError(f"Unsupported market type: {market_type}")
 
 
 # Unit tests

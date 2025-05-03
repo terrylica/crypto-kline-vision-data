@@ -116,12 +116,11 @@ class RestDataClient(DataClientInterface):
         # Base API URLs
         if self.market_type == MarketType.SPOT:
             return f"{self.base_url}/api/v3/klines"
-        elif self.market_type == MarketType.FUTURES_USDT:
+        if self.market_type == MarketType.FUTURES_USDT:
             return f"{self.base_url}/fapi/v1/klines"
-        elif self.market_type == MarketType.FUTURES_COIN:
+        if self.market_type == MarketType.FUTURES_COIN:
             return f"{self.base_url}/dapi/v1/klines"
-        else:
-            raise ValueError(f"Unsupported market type: {self.market_type}")
+        raise ValueError(f"Unsupported market type: {self.market_type}")
 
     def __enter__(self):
         """Initialize the client session when entering the context."""

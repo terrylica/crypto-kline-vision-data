@@ -58,12 +58,11 @@ class VisionPathMapper:
         """Get URL path component for market type."""
         if market_type == MarketType.SPOT:
             return "spot"
-        elif market_type == MarketType.FUTURES_USDT:
+        if market_type == MarketType.FUTURES_USDT:
             return "futures/um"
-        elif market_type == MarketType.FUTURES_COIN:
+        if market_type == MarketType.FUTURES_COIN:
             return "futures/cm"
-        else:
-            raise ValueError(f"Unsupported market type: {market_type}")
+        raise ValueError(f"Unsupported market type: {market_type}")
 
     def get_remote_url(self, components: PathComponents) -> str:
         """Generate remote URL from components."""

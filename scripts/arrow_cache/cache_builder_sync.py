@@ -319,11 +319,9 @@ def get_cache_path(
         CACHE_DIR / data_provider / chart_type / market_type_str / symbol / interval_str
     )
 
-    # Generate file path
+    # Format date for filename (YYYY-MM-DD format)
     date_str = date.strftime("%Y-%m-%d")
-    file_path = cache_path / f"{date_str}.arrow"
-
-    return file_path
+    return cache_path / f"{date_str}.arrow"
 
 
 def detect_cache_gaps(symbol, interval_str, start_date, end_date):
@@ -706,9 +704,8 @@ def download_data_with_checksum(
                             f"Error downloading data file {data_url}: HTTP Error 404: Not Found"
                         )
                     return False, None, 0
-                else:
-                    # Re-raise for other HTTP errors
-                    raise
+                # Re-raise for other HTTP errors
+                raise
         except Exception as e:
             logger.error(f"Error downloading data file {data_url}: {e}")
             return False, None, 0
@@ -731,11 +728,10 @@ def download_data_with_checksum(
                         )
                         if not proceed_on_failure:
                             return False, None, 0
-                        else:
-                            logger.warning(
-                                f"Proceeding without checksum verification for {symbol} {interval_str} {date_str}"
-                            )
-                            skip_checksum = True
+                        logger.warning(
+                            f"Proceeding without checksum verification for {symbol} {interval_str} {date_str}"
+                        )
+                        skip_checksum = True
                     else:
                         # Re-raise for other HTTP errors
                         raise
@@ -787,10 +783,9 @@ def download_data_with_checksum(
                                 f"Skipping file due to checksum failure: {symbol} {interval_str} {date_str}"
                             )
                             return False, None, 0
-                        else:
-                            logger.warning(
-                                f"Proceeding despite checksum failure for {symbol} {interval_str} {date_str}"
-                            )
+                        logger.warning(
+                            f"Proceeding despite checksum failure for {symbol} {interval_str} {date_str}"
+                        )
             except Exception as e:
                 logger.error(f"Error in checksum verification process: {e}")
                 if not proceed_on_failure:
@@ -1090,7 +1085,7 @@ def verify_checksum(data_file, checksum_file, symbol, interval_str, date):
         # Record this as a failure also
         try:
             record_checksum_failure(
-                symbol, interval_str, date, "unknown", "error", f"error: {str(e)}"
+                symbol, interval_str, date, "unknown", "error", f"error: {e!s}"
             )
         except Exception as inner_e:
             logger.error(f"Error recording checksum failure: {inner_e}")
@@ -1255,10 +1250,9 @@ def process_date(
                 f"Skipping {symbol} {interval_str} {date} (no checksum failure)"
             )
             return True
-        else:
-            logger.info(
-                f"Retrying previously failed checksum for {symbol} {interval_str} {date}"
-            )
+        logger.info(
+            f"Retrying previously failed checksum for {symbol} {interval_str} {date}"
+        )
 
     # Attempt to download and process the data
     try:
@@ -1306,9 +1300,8 @@ def process_date(
                 f"Saved {symbol} {interval_str} {date} to cache ({num_records} records, {file_size} bytes)"
             )
             return True
-        else:
-            logger.warning(f"Failed to process {symbol} {interval_str} {date}")
-            return False
+        logger.warning(f"Failed to process {symbol} {interval_str} {date}")
+        return False
     except Exception as e:
         logger.error(f"Error processing {symbol} {interval_str} {date}: {e}")
         return False

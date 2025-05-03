@@ -245,9 +245,8 @@ def save_to_cache(
         if saved_files > 0:
             logger.info(f"Saved data to {saved_files} cache files")
             return True
-        else:
-            logger.warning("No cache files were saved")
-            return False
+        logger.warning("No cache files were saved")
+        return False
 
     except Exception as e:
         logger.error(f"Error saving to cache: {e}")

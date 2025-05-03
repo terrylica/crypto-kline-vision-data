@@ -240,7 +240,7 @@ class CacheValidator:
         except (OSError, IOError, PermissionError, ValueError) as e:
             return CacheValidationError(
                 ERROR_TYPES["FILE_SYSTEM"],
-                f"Error validating cache: {str(e)}",
+                f"Error validating cache: {e!s}",
                 False,
             )
 
@@ -566,9 +566,9 @@ class CacheValidator:
         # Filter DataFrame to match API boundaries
         api_start_time = api_boundaries["api_start_time"]
         api_end_time = api_boundaries["api_end_time"]
-        aligned_df = df[(df.index >= api_start_time) & (df.index <= api_end_time)]
 
-        return aligned_df
+        # Align DataFrame to API start and end times
+        return df[(df.index >= api_start_time) & (df.index <= api_end_time)]
 
 
 @dataclass

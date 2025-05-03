@@ -33,11 +33,10 @@ def fetch_funding_rate_history(
                 f"Successfully fetched {len(data)} funding rate records for {symbol}"
             )
             return data
-        else:
-            logger.error(
-                f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}"
-            )
-            return None
+        logger.error(
+            f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}"
+        )
+        return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history for {symbol}: {e}")
         return None
@@ -118,17 +117,12 @@ def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> bool:
                     f"Successfully downloaded and saved funding rate history for {symbol} to {file_path}"
                 )
                 return True
-            else:
-                logger.error(f"Failed to save funding rate history for {symbol} to CSV")
-                return False
-        else:
-            logger.error(
-                f"Failed to convert funding rate data for {symbol} to CSV format"
-            )
+            logger.error(f"Failed to save funding rate history for {symbol} to CSV")
             return False
-    else:
-        logger.error(f"Failed to fetch funding rate history for {symbol}")
+        logger.error(f"Failed to convert funding rate data for {symbol} to CSV format")
         return False
+    logger.error(f"Failed to fetch funding rate history for {symbol}")
+    return False
 
 
 def process_all_symbols(
@@ -138,8 +132,7 @@ def process_all_symbols(
     results = [process_symbol(symbol, output_dir) for symbol in symbols]
 
     # Create results summary
-    summary = {symbol: result for symbol, result in zip(symbols, results)}
-    return summary
+    return {symbol: result for symbol, result in zip(symbols, results)}
 
 
 def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):

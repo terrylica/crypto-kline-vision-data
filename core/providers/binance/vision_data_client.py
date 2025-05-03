@@ -531,17 +531,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                 logger.warning(warning_msg)
 
                             return df, warning_msg
-                        else:
-                            return None, f"Empty dataframe for {date.date()}"
+                        return None, f"Empty dataframe for {date.date()}"
             except Exception as e:
                 logger.error(
-                    f"Error processing zip file {temp_file_path}: {str(e)}",
+                    f"Error processing zip file {temp_file_path}: {e!s}",
                     exc_info=True,
                 )
-                return None, f"Error processing zip file: {str(e)}"
+                return None, f"Error processing zip file: {e!s}"
         except Exception as e:
-            logger.error(f"Unexpected error processing {date.date()}: {str(e)}")
-            return None, f"Unexpected error: {str(e)}"
+            logger.error(f"Unexpected error processing {date.date()}: {e!s}")
+            return None, f"Unexpected error: {e!s}"
         finally:
             # Clean up temp files
             try:
@@ -857,28 +856,25 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             df_for_index = filtered_df.copy()
             df_for_index = df_for_index.set_index("open_time")
             return TimestampedDataFrame(df_for_index)
-        elif "open_time_us" in filtered_df.columns:
+        if "open_time_us" in filtered_df.columns:
             df_for_index = filtered_df.copy()
             if "open_time" in df_for_index.columns:
                 df_for_index = df_for_index.drop(columns=["open_time"])
             df_for_index = df_for_index.set_index("open_time_us")
             return TimestampedDataFrame(df_for_index)
-        else:
-            if filtered_df.empty:
+        if filtered_df.empty:
+            return self.create_empty_dataframe()
+
+        # Check if open_time column exists, add it if necessary
+        if "open_time" not in filtered_df.columns:
+            time_cols = [col for col in filtered_df.columns if "time" in col.lower()]
+            if time_cols:
+                filtered_df["open_time"] = filtered_df[time_cols[0]]
+            else:
+                logger.error("No suitable time column found to create open_time")
                 return self.create_empty_dataframe()
 
-            # Check if open_time column exists, add it if necessary
-            if "open_time" not in filtered_df.columns:
-                time_cols = [
-                    col for col in filtered_df.columns if "time" in col.lower()
-                ]
-                if time_cols:
-                    filtered_df["open_time"] = filtered_df[time_cols[0]]
-                else:
-                    logger.error("No suitable time column found to create open_time")
-                    return self.create_empty_dataframe()
-
-            return TimestampedDataFrame(filtered_df)
+        return TimestampedDataFrame(filtered_df)
 
     def fetch(
         self,
@@ -969,8 +965,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     df = pd.DataFrame(timestamped_df)
 
                 # Ensure open_time is properly handled
-                df = ensure_open_time_as_column(df)
-                return df
+                return ensure_open_time_as_column(df)
 
             except Exception as e:
                 if "Checksum verification failed" in str(e):
@@ -982,14 +977,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     if "df" in locals() and df is not None and not df.empty:
                         logger.info(f"Returning {len(df)} rows despite checksum issues")
                         return df
-                    else:
-                        logger.critical(
-                            "No data available due to checksum verification failure"
-                        )
-                        raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {str(e)}")
-                else:
-                    logger.error(f"Error in _download_data: {e}")
-                    raise
+                    logger.critical(
+                        "No data available due to checksum verification failure"
+                    )
+                    raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {e!s}")
+                logger.error(f"Error in _download_data: {e}")
+                raise
 
         except Exception as e:
             # Check if this is a checksum error that needs to be propagated
@@ -1010,15 +1003,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     f"Returning empty dataframe - caller (not this client) may attempt REST API fallback."
                 )
                 return self.create_empty_dataframe()
-            else:
-                # For historical data outside the delay window, this is a critical error
-                logger.critical(
-                    f"CRITICAL ERROR fetching historical data from Vision API: {e}. "
-                    f"This data should be available in Vision API but could not be retrieved."
-                )
-                raise RuntimeError(
-                    f"Vision API failed to retrieve historical data: {str(e)}"
-                )
+            # For historical data outside the delay window, this is a critical error
+            logger.critical(
+                f"CRITICAL ERROR fetching historical data from Vision API: {e}. "
+                f"This data should be available in Vision API but could not be retrieved."
+            )
+            raise RuntimeError(f"Vision API failed to retrieve historical data: {e!s}")
 
     @staticmethod
     def fetch_multiple(

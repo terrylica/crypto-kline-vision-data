@@ -62,7 +62,7 @@ def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
                     f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
                 )
                 return dt
-            elif len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
+            if len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
                 # Try YYYY-MM-DD format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD", tz="UTC")
                 logger.debug(
@@ -214,9 +214,8 @@ def get_date_range_description(
 
     if orig_start and orig_end:
         return f"Using explicit date range: {start_date_str} to {end_date_str}"
-    elif orig_end and not orig_start:
+    if orig_end and not orig_start:
         return f"Using end time {end_date_str} and going back {days} days"
-    elif orig_start and not orig_end:
+    if orig_start and not orig_end:
         return f"Using start time {start_date_str} and going forward {days} days"
-    else:
-        return f"Using current time as end time and going back {days} days"
+    return f"Using current time as end time and going back {days} days"

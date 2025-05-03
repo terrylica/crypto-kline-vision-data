@@ -334,9 +334,8 @@ def main():
         if preview_path.exists() and preview_path.is_file():
             preview_zip_content(preview_path)
             return
-        else:
-            print(f"[red]File not found: {args.preview}[/red]")
-            return
+        print(f"[red]File not found: {args.preview}[/red]")
+        return
 
     # Download specific URL
     if args.download_url:

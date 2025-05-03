@@ -24,11 +24,10 @@ def fetch_funding_rate_history(symbol="BTCUSDT", limit=1000):
             data = response.json()
             logger.info(f"Successfully fetched {len(data)} funding rate records")
             return data
-        else:
-            logger.error(
-                f"Error fetching funding rate: {response.status_code} - {response.text}"
-            )
-            return None
+        logger.error(
+            f"Error fetching funding rate: {response.status_code} - {response.text}"
+        )
+        return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history: {e}")
         return None

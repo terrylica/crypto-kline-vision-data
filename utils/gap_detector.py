@@ -266,7 +266,7 @@ def analyze_file_for_gaps(
         )
 
     except Exception as e:
-        logger.error(f"Error analyzing file {file_path}: {str(e)}")
+        logger.error(f"Error analyzing file {file_path}: {e!s}")
         return [], {"error": str(e)}
 
 
@@ -323,7 +323,7 @@ def combine_daily_files(
 
             dfs.append(df)
         except Exception as e:
-            logger.error(f"Error reading file {path}: {str(e)}")
+            logger.error(f"Error reading file {path}: {e!s}")
 
     if not dfs:
         return pd.DataFrame()
@@ -332,8 +332,4 @@ def combine_daily_files(
     combined_df = pd.concat(dfs, ignore_index=True)
 
     # Sort by timestamp and remove duplicates
-    combined_df = combined_df.sort_values(time_column).drop_duplicates(
-        subset=[time_column]
-    )
-
-    return combined_df
+    return combined_df.sort_values(time_column).drop_duplicates(subset=[time_column])

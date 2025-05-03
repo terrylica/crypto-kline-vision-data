@@ -115,11 +115,10 @@ def test_rest_enforcement():
                 "\n[bold green]✓ SUCCESS: All data came from REST API as expected[/bold green]"
             )
             return True
-        else:
-            print(
-                "\n[bold red]✗ FAILURE: Some data did not come from REST API[/bold red]"
-            )
-            return False
+        print(
+            "\n[bold red]✗ FAILURE: Some data did not come from REST API[/bold red]"
+        )
+        return False
 
     except Exception as e:
         print(f"[bold red]Error during test: {e}[/bold red]")

@@ -65,14 +65,13 @@ def verify_file_checksum(
         if actual_checksum and actual_checksum.lower() == expected_checksum.lower():
             logger.info(f"Checksum verification passed for {file_path.name}")
             return True, None
-        else:
-            error_msg = (
-                f"Checksum verification failed for {file_path.name}. "
-                f"Expected: {expected_checksum}, Actual: {actual_checksum}. "
-                f"Data integrity compromised - possible corruption or tampering."
-            )
-            logger.critical(error_msg)
-            return False, error_msg
+        error_msg = (
+            f"Checksum verification failed for {file_path.name}. "
+            f"Expected: {expected_checksum}, Actual: {actual_checksum}. "
+            f"Data integrity compromised - possible corruption or tampering."
+        )
+        logger.critical(error_msg)
+        return False, error_msg
 
     except Exception as e:
         error_msg = f"Error verifying checksum for {file_path.name}: {e}"
