@@ -60,8 +60,8 @@ RICH_OUTPUT_HELP_TEXT = """[bold cyan]Note about Log Level and Rich Output:[/bol
 - When log level is E or C: Rich output is suppressed
 
 Try running with different log levels to see the difference:
-  python examples/sync/dsm_demo_cli.py --log-level E
-  python examples/sync/dsm_demo_cli.py -l E (shorthand for E)"""
+  dsm-demo-cli --log-level E
+  dsm-demo-cli -l E (shorthand for E)"""
 
 # Main script docstring
 MAIN_DOCSTRING = f"""
@@ -83,59 +83,59 @@ SAMPLE_COMMANDS = """[bold cyan]Sample Commands[/bold cyan]
 
 [green]End Time Backward Retrieval with Log Control[/green]
   > End time with days and ERROR log level (complex case)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -et 2025-04-14T15:59:59 -i 3m -d 5 -l E
+  dsm-demo-cli -s BTCUSDT -et 2025-04-14T15:59:59 -i 3m -d 5 -l E
 
 [green]Time Range CLI Examples[/green]
   > End time with days (fetch backward from end time)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -et 2025-04-15 -d 7
+  dsm-demo-cli -s BTCUSDT -et 2025-04-15 -d 7
 
   > Start time with days (fetch forward from start time)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -st 2025-04-05 -d 10
+  dsm-demo-cli -s BTCUSDT -st 2025-04-05 -d 10
 
   > Exact time range (start time to end time)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -st 2025-04-05 -et 2025-04-15
+  dsm-demo-cli -s BTCUSDT -st 2025-04-05 -et 2025-04-15
 
   > Days only (fetch backward from current time)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -d 7
+  dsm-demo-cli -s BTCUSDT -d 7
 
   > Default (3 days backward from current time)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT
+  dsm-demo-cli -s BTCUSDT
 
 [green]Market Types[/green]
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -m um
-  ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm
+  dsm-demo-cli -s BTCUSDT -m um
+  dsm-demo-cli -s BTCUSD_PERP -m cm
 
   > Note: Coin-margined futures (-m cm) require symbols with USD_PERP format (e.g., BTCUSD_PERP, not BTCUSDT)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm -d 1 -et 2025-03-01
+  dsm-demo-cli -s BTCUSD_PERP -m cm -d 1 -et 2025-03-01
 
 [green]Data Provider Options[/green]
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -p binance
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -p tradestation
+  dsm-demo-cli -s BTCUSDT -p binance
+  dsm-demo-cli -s BTCUSDT -p tradestation
 
 [green]Different Intervals[/green]
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -i 5m
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -i 1h
-  ./examples/sync/dsm_demo_cli.py -s SOLUSDT -m spot -i 1s  -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
+  dsm-demo-cli -s BTCUSDT -i 5m
+  dsm-demo-cli -s BTCUSDT -i 1h
+  dsm-demo-cli -s SOLUSDT -m spot -i 1s  -cc -l D -st 2025-04-14T15:31:01 -et 2025-04-14T15:32:01
 
 [green]Data Source Options[/green]
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -es REST
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -nc
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -cc
+  dsm-demo-cli -s BTCUSDT -es REST
+  dsm-demo-cli -s BTCUSDT -nc
+  dsm-demo-cli -s BTCUSDT -cc
 
 [green]Documentation Generation[/green]
   > Generate documentation
-  ./examples/sync/dsm_demo_cli.py -gd
+  dsm-demo-cli -gd
 
   > Generate documentation with linting configuration files
-  ./examples/sync/dsm_demo_cli.py -gd -glc
+  dsm-demo-cli -gd -glc
 
 [green]Combined Examples[/green]
-  ./examples/sync/dsm_demo_cli.py -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l D
-  ./examples/sync/dsm_demo_cli.py -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
-  ./examples/sync/dsm_demo_cli.py -s BTCUSDT -p binance -es VISION -m spot -i 1m -st 2025-04-01 -et 2025-04-03
+  dsm-demo-cli -s ETHUSDT -m um -i 15m -st 2025-04-01 -et 2025-04-10 -r 5 -l D
+  dsm-demo-cli -s ETHUSD_PERP -m cm -i 5m -d 10 -l D -cc
+  dsm-demo-cli -s BTCUSDT -p binance -es VISION -m spot -i 1m -st 2025-04-01 -et 2025-04-03
 
   > Bitcoin historical data for coin-margined futures (using required USD_PERP format)
-  ./examples/sync/dsm_demo_cli.py -s BTCUSD_PERP -m cm -i 15m -d 7 -et 2025-03-01 -l D -cc
+  dsm-demo-cli -s BTCUSD_PERP -m cm -i 15m -d 7 -et 2025-03-01 -l D -cc
 """
 
 # Help text for the main command

@@ -28,8 +28,8 @@ from utils.market_constraints import (
     get_default_symbol,
 )
 
-# Default cache directory
-CACHE_DIR = Path("./cache")
+# Default cache directory - use user's home directory for compatibility with pip installation
+CACHE_DIR = Path.home() / ".raw-data-services" / "cache"
 
 
 def setup_environment(clear_cache: bool = False) -> bool:

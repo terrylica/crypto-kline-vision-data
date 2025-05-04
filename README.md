@@ -11,10 +11,6 @@ You can quickly get started with Raw Data Service using pip:
 git clone https://github.com/Eon-Labs/raw-data-services.git
 cd raw-data-services
 
-# Create and activate a virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate
-
 # Install the package (in development mode)
 pip install -e .
 

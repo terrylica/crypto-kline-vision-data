@@ -112,7 +112,7 @@ def main(
                 app,
                 output_dir="examples/sync",
                 gen_lint_config=gen_lint_config,
-                cli_name="dsm_demo_cli",
+                cli_name="dsm-demo-cli",
             )
             logger.info(f"Documentation generated and saved to {doc_path}")
 

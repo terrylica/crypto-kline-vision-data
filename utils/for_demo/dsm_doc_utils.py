@@ -239,8 +239,8 @@ def process_sample_commands(sample_commands_text):
                 desc = desc[:-1]  # Remove trailing colon
             current_group["description"] = desc
 
-        # Handle command lines
-        elif clean_line.startswith("./"):
+        # Handle command lines - now looking for dsm-demo-cli instead of ./
+        elif clean_line.startswith("dsm-demo-cli"):
             current_group["commands"].append(clean_line)
             if current_section:
                 section_headers[current_section] = (
