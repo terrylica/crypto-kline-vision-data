@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from core.sync.data_source_manager import DataSource, DataSourceManager
+from utils.app_paths import get_cache_dir
 from utils.logger_setup import logger
 from utils.market_constraints import (
     ChartType,
@@ -68,20 +69,14 @@ def fetch_data_with_fcp(
         supported = [i.value for i in capabilities.supported_intervals]
 
         console = Console()
-        console.print(
-            f"[bold red]ERROR: Interval {interval.value} is not supported by {market_type.name} market.[/bold red]"
-        )
+        console.print(f"[bold red]ERROR: Interval {interval.value} is not supported by {market_type.name} market.[/bold red]")
         console.print(f"[yellow]Supported intervals: {', '.join(supported)}[/yellow]")
         console.print("[cyan]Please choose a supported interval and try again.[/cyan]")
 
-        logger.error(
-            f"Interval {interval.value} not supported by {market_type.name} market. Supported intervals: {supported}"
-        )
+        logger.error(f"Interval {interval.value} not supported by {market_type.name} market. Supported intervals: {supported}")
         return pd.DataFrame()
 
-    logger.info(
-        f"Retrieving {interval.value} {chart_type.name} data for {symbol} in {market_type.name} market"
-    )
+    logger.info(f"Retrieving {interval.value} {chart_type.name} data for {symbol} in {market_type.name} market")
     logger.info(f"Time range: {start_time.isoformat()} to {end_time.isoformat()}")
     logger.info(f"Cache enabled: {use_cache}")
 
@@ -90,17 +85,13 @@ def fetch_data_with_fcp(
     else:
         logger.info("Using AUTO source selection (FCP: Cache → Vision → REST)")
 
-    logger.info(
-        f"[bold red]Attempting[/bold red] to fetch data from {start_time.isoformat()} to {end_time.isoformat()}..."
-    )
+    logger.info(f"[bold red]Attempting[/bold red] to fetch data from {start_time.isoformat()} to {end_time.isoformat()}...")
 
     # Calculate expected record count for validation
     interval_seconds = interval.to_seconds()
     expected_seconds = int((end_time - start_time).total_seconds())
     expected_records = (expected_seconds // interval_seconds) + 1
-    logger.debug(
-        f"Expected record count: {expected_records} for {expected_seconds} seconds range"
-    )
+    logger.debug(f"Expected record count: {expected_records} for {expected_seconds} seconds range")
 
     try:
         with Progress(
@@ -118,6 +109,7 @@ def fetch_data_with_fcp(
                 market_type=market_type,
                 chart_type=chart_type,
                 use_cache=use_cache,
+                cache_dir=get_cache_dir() / "data",
                 retry_count=max_retries,
             ) as manager:
                 # Retrieve data using the manager
@@ -150,9 +142,7 @@ def fetch_data_with_fcp(
             )
             return pd.DataFrame()
 
-        logger.info(
-            f"Retrieved {len(df)} records for {symbol} in {elapsed_time:.2f} seconds"
-        )
+        logger.info(f"Retrieved {len(df)} records for {symbol} in {elapsed_time:.2f} seconds")
 
         # Analyze data integrity
         logger.debug("Analyzing data integrity...")

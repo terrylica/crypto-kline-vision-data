@@ -13,6 +13,7 @@ from core.providers.binance.cache_manager import UnifiedCacheManager
 from core.providers.binance.rest_data_client import RestDataClient
 from core.providers.binance.vision_data_client import VisionDataClient
 from core.providers.binance.vision_path_mapper import FSSpecVisionHandler
+from utils.app_paths import get_cache_dir
 from utils.config import (
     FUNDING_RATE_DTYPES,
     OUTPUT_DTYPES,
@@ -92,19 +93,13 @@ class DataSourceConfig:
     def __attrs_post_init__(self):
         """Validate parameters after initialization."""
         if not isinstance(self.market_type, MarketType):
-            raise TypeError(
-                f"market_type must be a MarketType enum, got {type(self.market_type)}"
-            )
+            raise TypeError(f"market_type must be a MarketType enum, got {type(self.market_type)}")
 
         if not isinstance(self.provider, DataProvider):
-            raise TypeError(
-                f"provider must be a DataProvider enum, got {type(self.provider)}"
-            )
+            raise TypeError(f"provider must be a DataProvider enum, got {type(self.provider)}")
 
         if not isinstance(self.chart_type, ChartType):
-            raise TypeError(
-                f"chart_type must be a ChartType enum, got {type(self.chart_type)}"
-            )
+            raise TypeError(f"chart_type must be a ChartType enum, got {type(self.chart_type)}")
 
         if self.cache_dir is not None and not isinstance(self.cache_dir, Path):
             self.cache_dir = Path(str(self.cache_dir))
@@ -113,9 +108,7 @@ class DataSourceConfig:
             raise ValueError(f"retry_count must be >= 0, got {self.retry_count}")
 
     @classmethod
-    def create(
-        cls: Type[T], provider: DataProvider, market_type: MarketType, **kwargs
-    ) -> T:
+    def create(cls: Type[T], provider: DataProvider, market_type: MarketType, **kwargs) -> T:
         """Create a DataSourceConfig with the given provider, market_type and optional overrides.
 
         This is a convenience builder method that allows for a more fluent interface.
@@ -144,13 +137,9 @@ class DataSourceConfig:
             )
         """
         if not isinstance(provider, DataProvider):
-            raise TypeError(
-                f"provider must be a DataProvider enum, got {type(provider)}"
-            )
+            raise TypeError(f"provider must be a DataProvider enum, got {type(provider)}")
         if not isinstance(market_type, MarketType):
-            raise TypeError(
-                f"market_type must be a MarketType enum, got {type(market_type)}"
-            )
+            raise TypeError(f"market_type must be a MarketType enum, got {type(market_type)}")
         return cls(market_type=market_type, provider=provider, **kwargs)
 
 
@@ -183,9 +172,7 @@ class DataSourceManager:
     DEFAULT_MARKET_TYPE = MarketType.SPOT
 
     @classmethod
-    def calculate_time_range(
-        cls, start_time=None, end_time=None, days=3, interval=Interval.MINUTE_1
-    ) -> Tuple[datetime, datetime]:
+    def calculate_time_range(cls, start_time=None, end_time=None, days=3, interval=Interval.MINUTE_1) -> Tuple[datetime, datetime]:
         """Calculate time range with flexible parameters.
 
         This method delegates to dsm_date_range_utils to handle various time range scenarios:
@@ -207,9 +194,7 @@ class DataSourceManager:
             ValueError: If both start_time and end_time are provided and start_time is after end_time
         """
         # Use the core utility to calculate date range
-        start_datetime, end_datetime = calculate_date_range(
-            start_time=start_time, end_time=end_time, days=days, interval=interval
-        )
+        start_datetime, end_datetime = calculate_date_range(start_time=start_time, end_time=end_time, days=days, interval=interval)
 
         # Get description for logging
         description = get_date_range_description(
@@ -222,9 +207,7 @@ class DataSourceManager:
         return start_datetime, end_datetime
 
     @classmethod
-    def get_output_format(
-        cls, chart_type: ChartType = ChartType.KLINES
-    ) -> Dict[str, str]:
+    def get_output_format(cls, chart_type: ChartType = ChartType.KLINES) -> Dict[str, str]:
         """Get the standardized output format specification.
 
         Args:
@@ -334,7 +317,7 @@ class DataSourceManager:
             market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN)
             chart_type: Chart type (KLINES, FUNDING_RATE)
             use_cache: Whether to use local cache
-            cache_dir: Directory to store cache files (default: "./cache")
+            cache_dir: Directory to store cache files (default: platform-specific cache dir)
             retry_count: Number of retries for network operations
         """
         self.provider = provider
@@ -347,16 +330,15 @@ class DataSourceManager:
         if cache_dir is not None:
             self.cache_dir = Path(cache_dir)
         else:
-            self.cache_dir = Path("./cache")
+            # Use platform-specific cache directory from app_paths
+            self.cache_dir = get_cache_dir() / "data"
 
         # Initialize FSSpecVisionHandler for cache operations
         self.fs_handler = None
         if self.use_cache:
             try:
                 self.fs_handler = FSSpecVisionHandler(base_cache_dir=self.cache_dir)
-                logger.info(
-                    f"Initialized FSSpecVisionHandler with cache_dir={self.cache_dir}"
-                )
+                logger.info(f"Initialized FSSpecVisionHandler with cache_dir={self.cache_dir}")
             except Exception as e:
                 logger.error(f"Failed to initialize FSSpecVisionHandler: {e}")
                 logger.warning("Continuing without cache")
@@ -367,9 +349,7 @@ class DataSourceManager:
         if self.use_cache:
             try:
                 self.cache_manager = UnifiedCacheManager(cache_dir=self.cache_dir)
-                logger.debug(
-                    "Legacy cache manager initialized (for backward compatibility)"
-                )
+                logger.debug("Legacy cache manager initialized (for backward compatibility)")
             except Exception as e:
                 logger.warning(f"Failed to initialize legacy cache manager: {e}")
 
@@ -461,9 +441,7 @@ class DataSourceManager:
             provider=self.provider,
         )
 
-    def _fetch_from_vision(
-        self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> pd.DataFrame:
+    def _fetch_from_vision(self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval) -> pd.DataFrame:
         """Fetch data from the Vision API using the utility function."""
         # Create or reconfigure Vision client if needed
         self.vision_client = create_client_if_needed(
@@ -489,9 +467,7 @@ class DataSourceManager:
             fs_handler=self.fs_handler,
         )
 
-    def _fetch_from_rest(
-        self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> pd.DataFrame:
+    def _fetch_from_rest(self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval) -> pd.DataFrame:
         """Fetch data from REST API with chunking using the utility function."""
         # Create REST client if not already created
         self.rest_client = create_client_if_needed(
@@ -553,31 +529,21 @@ class DataSourceManager:
             logger.debug(
                 f"[FCP] get_data called with use_cache={self.use_cache} for symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
             )
-            logger.debug(
-                f"[FCP] Time range: {start_time.isoformat()} to {end_time.isoformat()}"
-            )
+            logger.debug(f"[FCP] Time range: {start_time.isoformat()} to {end_time.isoformat()}")
 
             # Validate time range
             if start_time >= end_time:
-                raise ValueError(
-                    f"start_time ({start_time}) must be before end_time ({end_time})"
-                )
+                raise ValueError(f"start_time ({start_time}) must be before end_time ({end_time})")
 
             # Normalize symbol to upper case
             symbol = symbol.upper()
 
             # Log key parameters
-            logger.info(
-                f"Retrieving {interval.value} data for {symbol} from {start_time} to {end_time}"
-            )
+            logger.info(f"Retrieving {interval.value} data for {symbol} from {start_time} to {end_time}")
 
             # Record the aligned boundaries for consistent reference
-            aligned_start, aligned_end = align_time_boundaries(
-                start_time, end_time, interval
-            )
-            logger.debug(
-                f"[FCP] Aligned boundaries for retrieval: {aligned_start} to {aligned_end}"
-            )
+            aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
+            logger.debug(f"[FCP] Aligned boundaries for retrieval: {aligned_start} to {aligned_end}")
 
             # Initialize result DataFrame to hold progressively merged data
             result_df = pd.DataFrame()
@@ -605,9 +571,7 @@ class DataSourceManager:
                 if enforce_source == DataSource.REST:
                     logger.info("[FCP] Cache check skipped due to enforce_source=REST")
                 elif enforce_source == DataSource.VISION:
-                    logger.info(
-                        "[FCP] Cache check skipped due to enforce_source=VISION"
-                    )
+                    logger.info("[FCP] Cache check skipped due to enforce_source=VISION")
                 else:
                     logger.info("[FCP] Cache disabled, skipping cache check")
 
@@ -653,9 +617,7 @@ class DataSourceManager:
             if not include_source_info and "_data_source" in result_df.columns:
                 result_df = result_df.drop(columns=["_data_source"])
 
-            logger.info(
-                f"[FCP] Successfully retrieved {len(result_df)} records for {symbol}"
-            )
+            logger.info(f"[FCP] Successfully retrieved {len(result_df)} records for {symbol}")
             return result_df
 
         except Exception as e:
