@@ -15,7 +15,7 @@
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "export PATH=$PATH:/home/vscode/.local/bin && pip install -e . && pip install -e '.[dev]' && bash .devcontainer/make-scripts-executable.sh",
+  "postCreateCommand": "export PATH=$PATH:/home/vscode/.local/bin && pip3 install --upgrade pip && pip3 install -e . && pip3 install -e '.[dev]' && npm install -g npm@latest && npm install -g markdownlint-cli2 && bash .devcontainer/make-scripts-executable.sh",
   // Set environment variables
   "remoteEnv": {
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
