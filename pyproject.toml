@@ -56,8 +56,18 @@ dsm-demo-cli = "examples.sync.dsm_demo_cli:app"
 dsm-demo-module = "examples.lib_module.dsm_demo_module:main"
 recmove = "scripts.dev.refactor_move:app"
 
-[tool.setuptools]
-packages = ["core", "utils", "examples", "utils_for_debug", "scripts"]
+# Using find_packages to ensure all subdirectories are properly included
+[tool.setuptools.packages.find]
+where = ["."]  # Look for packages in the root directory
+include = ["core*", "utils*", "examples*", "utils_for_debug*", "scripts*"]  # Include all subdirectories with their subpackages
+
+# Add package data to ensure all Python files are included
+[tool.setuptools.package-data]
+"examples" = ["**/*.py"]
+"utils" = ["**/*.py"]
+"core" = ["**/*.py"]
+"utils_for_debug" = ["**/*.py"]
+"scripts" = ["**/*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
