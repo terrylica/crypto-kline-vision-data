@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/devcontainers/miniconda:1.1-3
 # Configure conda
 RUN conda config --set channel_priority strict
 
-RUN conda install -y python=3.11
+RUN conda install -y python=3.10
 # RUN conda install -y -c conda-forge "ta-lib=0.5.1"
 
 # Install system dependencies

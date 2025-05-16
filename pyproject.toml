@@ -7,14 +7,14 @@ name = "raw-data-services"
 version = "0.1.0"
 description = "High-performance package for efficient market data retrieval from Binance"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = {text = "Proprietary"}
 authors = [
     {name = "Eon Labs"}
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11"
+    "Programming Language :: Python :: 3.10"
 ]
 dependencies = [
     "attrs",
@@ -80,7 +80,7 @@ lint.ignore = [
 ]
 # Align with project.requires-python (>=3.11)
 # Ruff comment - this cannot be inherited automatically
-target-version = "py311"
+target-version = "py310"
 # Allow autofix for all enabled rules
 lint.fixable = ["ALL"]
 # Allow unused variables when underscored

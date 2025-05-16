@@ -4,21 +4,53 @@ A high-performance, robust package for efficient market data retrieval from mult
 
 ## Installation
 
-You can quickly get started with Raw Data Service using pip:
+There are two main ways to install Raw Data Service, depending on your needs:
+
+### 1. For Development or Running Demos Directly
+
+If you want to contribute to the development of Raw Data Service, modify its source code, or run the provided demos directly from the cloned repository, follow these steps:
 
 ```bash
 # Clone the repository
 git clone https://github.com/Eon-Labs/raw-data-services.git
 cd raw-data-services
 
-# Install the package (in development mode)
+# Install the package in editable mode
 pip install -e .
 
-# For development dependencies (optional)
+# To include development dependencies (e.g., for running tests, linting)
 pip install -e ".[dev]"
 ```
 
-The installation process automatically registers the CLI commands (`dsm-demo-cli` and `dsm-demo-module`) as executable scripts in your Python environment. These commands will be available in your terminal after installation.
+This method keeps all the source files in your workspace.
+
+### 2. As a Dependency in Your Project (`pyproject.toml`)
+
+If you want to use Raw Data Service as a library in your own Python project (managed with `pyproject.toml`) without including its entire source code in your project's directory, you can add it as a Git dependency.
+
+**Prerequisites:**
+
+- Ensure you have SSH access configured for `github.com`, as this is a private repository. Your SSH key must be authorized to access `Eon-Labs/raw-data-services`.
+
+Add the following to your project's `pyproject.toml` file under the `[project.dependencies]` array (as per PEP 621):
+
+```toml
+[project]
+# ... other project configurations like name, version ...
+dependencies = [
+    # ... other dependencies ...
+    "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git"
+    # You can also specify a particular branch, tag, or commit hash:
+    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git@main"
+    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git@v1.0.0"
+    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git#egg=raw-data-services" # egg part is good practice
+]
+```
+
+This will install Raw Data Service into your Python environment's `site-packages` directory, keeping your project workspace clean.
+
+**Note on CLI Tools:**
+The installation process (through either method) automatically registers the CLI commands (`dsm-demo-cli` and `dsm-demo-module`) as executable scripts in your Python environment. These commands will be available in your terminal after successful installation.
 
 ## Running the Demos
 
