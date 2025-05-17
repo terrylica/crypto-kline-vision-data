@@ -6,6 +6,13 @@ RUN conda config --set channel_priority strict
 RUN conda install -y python=3.10
 # RUN conda install -y -c conda-forge "ta-lib=0.5.1"
 
+# Install and upgrade pip
+RUN pip3 install --upgrade pip # Upgrade pip to the latest version for better package management and security
+
+# Install Node.js tools
+RUN npm install -g npm@latest # Install the latest version of npm for access to the newest features and bug fixes
+RUN npm install -g markdownlint-cli2
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y ripgrep fd-find
 
