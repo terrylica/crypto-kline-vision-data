@@ -38,9 +38,7 @@ def analyze_data_integrity(df, start_time, end_time, interval):
     actual_records = len(df)
 
     missing_records = expected_records - actual_records
-    missing_percentage = (
-        (missing_records / expected_records) * 100 if expected_records > 0 else 0
-    )
+    missing_percentage = (missing_records / expected_records) * 100 if expected_records > 0 else 0
 
     logger.debug(f"Expected records: {expected_records}")
     logger.debug(f"Actual records: {actual_records}")
@@ -52,13 +50,9 @@ def analyze_data_integrity(df, start_time, end_time, interval):
             time_column = "open_time"
             # Ensure it's datetime type
             if not pd.api.types.is_datetime64_any_dtype(df[time_column]):
-                logger.warning(
-                    f"Converting open_time to datetime - current type: {df[time_column].dtype}"
-                )
+                logger.warning(f"Converting open_time to datetime - current type: {df[time_column].dtype}")
                 try:
-                    df[time_column] = pd.to_datetime(
-                        df[time_column], unit="ms", utc=True
-                    )
+                    df[time_column] = pd.to_datetime(df[time_column], unit="ms", utc=True)
                 except Exception as e:
                     logger.error(f"Error converting open_time to datetime: {e}")
 
@@ -68,9 +62,7 @@ def analyze_data_integrity(df, start_time, end_time, interval):
             time_column = df.index.name or "index"
             df_sorted = df.sort_index().reset_index().copy()
         else:
-            logger.error(
-                "Cannot analyze time series: no datetime column or index found"
-            )
+            logger.error("Cannot analyze time series: no datetime column or index found")
             return {
                 "expected_records": expected_records,
                 "actual_records": actual_records,
@@ -82,9 +74,7 @@ def analyze_data_integrity(df, start_time, end_time, interval):
 
         # Find gaps
         df_sorted["next_time"] = df_sorted[time_column].shift(-1)
-        df_sorted["time_gap"] = (
-            df_sorted["next_time"] - df_sorted[time_column]
-        ).dt.total_seconds()
+        df_sorted["time_gap"] = (df_sorted["next_time"] - df_sorted[time_column]).dt.total_seconds()
 
         # Normal gap is the interval
         normal_gap = interval_seconds
@@ -94,14 +84,10 @@ def analyze_data_integrity(df, start_time, end_time, interval):
 
         # Calculate number of missing points in each gap
         if not large_gaps.empty:
-            large_gaps["missing_points"] = (
-                (large_gaps["time_gap"] / normal_gap) - 1
-            ).astype(int)
+            large_gaps["missing_points"] = ((large_gaps["time_gap"] / normal_gap) - 1).astype(int)
             total_missing_in_gaps = large_gaps["missing_points"].sum()
 
-            logger.debug(
-                f"Found {len(large_gaps)} gaps with {total_missing_in_gaps} missing points"
-            )
+            logger.debug(f"Found {len(large_gaps)} gaps with {total_missing_in_gaps} missing points")
 
             # Show the largest gaps (up to 5)
             largest_gaps = large_gaps.nlargest(5, "time_gap")
@@ -109,9 +95,7 @@ def analyze_data_integrity(df, start_time, end_time, interval):
                 logger.debug("Largest gaps:")
                 for _, row in largest_gaps.iterrows():
                     gap_minutes = row["time_gap"] / 60
-                    logger.debug(
-                        f"  {row[time_column]} to {row['next_time']}: {gap_minutes:.1f} minutes ({row['missing_points']} points)"
-                    )
+                    logger.debug(f"  {row[time_column]} to {row['next_time']}: {gap_minutes:.1f} minutes ({row['missing_points']} points)")
 
             return {
                 "expected_records": expected_records,
@@ -121,9 +105,7 @@ def analyze_data_integrity(df, start_time, end_time, interval):
                 "gaps_found": True,
                 "num_gaps": len(large_gaps),
                 "total_missing_in_gaps": total_missing_in_gaps,
-                "largest_gap_seconds": (
-                    large_gaps["time_gap"].max() if not large_gaps.empty else 0
-                ),
+                "largest_gap_seconds": (large_gaps["time_gap"].max() if not large_gaps.empty else 0),
                 "first_timestamp": df_sorted[time_column].min(),
                 "last_timestamp": df_sorted[time_column].max(),
             }
@@ -157,9 +139,7 @@ def analyze_dataframe_structure(df):
 
     # Add timestamp range if available
     if not df.empty:
-        datetime_cols = [
-            col for col in df.columns if pd.api.types.is_datetime64_any_dtype(df[col])
-        ]
+        datetime_cols = [col for col in df.columns if pd.api.types.is_datetime64_any_dtype(df[col])]
 
         if datetime_cols:
             results["datetime_columns"] = {}

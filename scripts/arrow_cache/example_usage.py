@@ -69,9 +69,7 @@ def main():
 
     print(f"\n[bold cyan]Available dates for {symbol} {interval.name}:[/bold cyan]")
     if available_dates:
-        for date in available_dates[
-            :MAX_PREVIEW_ITEMS
-        ]:  # Show first MAX_PREVIEW_ITEMS dates
+        for date in available_dates[:MAX_PREVIEW_ITEMS]:  # Show first MAX_PREVIEW_ITEMS dates
             print(f"- {date}")
         if len(available_dates) > MAX_PREVIEW_ITEMS:
             print(f"... and {len(available_dates) - MAX_PREVIEW_ITEMS} more")

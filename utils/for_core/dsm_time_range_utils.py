@@ -2,7 +2,6 @@
 """Utility functions for DataSourceManager time range and data segment operations."""
 
 from datetime import datetime, timedelta
-from typing import List, Tuple
 
 import pandas as pd
 
@@ -13,9 +12,7 @@ from utils.market_constraints import Interval
 from utils.time_utils import standardize_timestamp_precision
 
 
-def merge_adjacent_ranges(
-    ranges: List[Tuple[datetime, datetime]], interval: Interval
-) -> List[Tuple[datetime, datetime]]:
+def merge_adjacent_ranges(ranges: list[tuple[datetime, datetime]], interval: Interval) -> list[tuple[datetime, datetime]]:
     """Merge adjacent or overlapping time ranges to minimize API calls.
 
     Args:
@@ -91,7 +88,7 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     # Apply column mapping
     for old_name, new_name in column_map.items():
         if old_name in df.columns and new_name not in df.columns:
-            df.rename(columns={old_name: new_name}, inplace=True)
+            df = df.rename(columns={old_name: new_name})
 
     # First apply the centralized standardize_dataframe function
     # This function ensures proper column structure and data types
@@ -112,7 +109,7 @@ def identify_missing_segments(
     start_time: datetime,
     end_time: datetime,
     interval: Interval,
-) -> List[Tuple[datetime, datetime]]:
+) -> list[tuple[datetime, datetime]]:
     """Identify missing segments in the data using gap_detector.
 
     Args:
@@ -150,7 +147,7 @@ def identify_missing_segments(
     )
     logger.debug(f"Gap detector found {stats['total_gaps']} gaps")
 
-    missing_segments: List[Tuple[datetime, datetime]] = []
+    missing_segments: list[tuple[datetime, datetime]] = []
     for gap in gaps:
         start = gap.start_time + timedelta(seconds=interval.to_seconds())
         end = gap.end_time
@@ -169,7 +166,7 @@ def identify_missing_segments(
     return missing_segments
 
 
-def merge_dataframes(dfs: List[pd.DataFrame]) -> pd.DataFrame:
+def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     """Merge multiple DataFrames into one, handling overlaps.
 
     This function is a critical part of the FCP mechanism that ensures:
@@ -231,9 +228,7 @@ def merge_dataframes(dfs: List[pd.DataFrame]) -> pd.DataFrame:
         if not df.empty and "_data_source" in df.columns:
             source_counts = df["_data_source"].value_counts()
             for source, count in source_counts.items():
-                logger.debug(
-                    f"DataFrame {i} contains {count} records from source={source}"
-                )
+                logger.debug(f"DataFrame {i} contains {count} records from source={source}")
 
     # Concatenate all DataFrames
     logger.debug(f"Concatenating {len(dfs)} DataFrames")
@@ -280,9 +275,7 @@ def merge_dataframes(dfs: List[pd.DataFrame]) -> pd.DataFrame:
         after_count = len(merged)
 
         if before_count > after_count:
-            logger.debug(
-                f"Removed {before_count - after_count} duplicate timestamps, keeping highest priority source"
-            )
+            logger.debug(f"Removed {before_count - after_count} duplicate timestamps, keeping highest priority source")
 
     # Remove the temporary source priority column
     if "_source_priority" in merged.columns:
@@ -299,11 +292,7 @@ def merge_dataframes(dfs: List[pd.DataFrame]) -> pd.DataFrame:
         source_counts = merged["_data_source"].value_counts()
         for source, count in source_counts.items():
             percentage = (count / len(merged)) * 100
-            logger.debug(
-                f"Final merged DataFrame contains {count} records ({percentage:.1f}%) from {source}"
-            )
+            logger.debug(f"Final merged DataFrame contains {count} records ({percentage:.1f}%) from {source}")
 
-    logger.debug(
-        f"Successfully merged {len(dfs)} DataFrames into one with {len(merged)} rows"
-    )
+    logger.debug(f"Successfully merged {len(dfs)} DataFrames into one with {len(merged)} rows")
     return merged

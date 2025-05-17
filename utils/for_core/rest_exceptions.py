@@ -24,11 +24,7 @@ class RateLimitError(RestAPIError):
 
     def __init__(self, retry_after=None, message="Rate limited by REST API"):
         self.retry_after = retry_after
-        message_with_retry = (
-            f"{message} (retry after {retry_after}s)"
-            if retry_after is not None
-            else message
-        )
+        message_with_retry = f"{message} (retry after {retry_after}s)" if retry_after is not None else message
         super().__init__(f"RateLimitError: {message_with_retry}")
 
 

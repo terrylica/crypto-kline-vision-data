@@ -10,11 +10,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import (
-    Dict,
     Final,
     NamedTuple,
     NewType,
-    Optional,
     TypeVar,
 )
 
@@ -50,7 +48,7 @@ TimeseriesIndex = NewType("TimeseriesIndex", pd.DatetimeIndex)
 CachePath = NewType("CachePath", Path)
 
 # Define cache schema for Arrow files
-CACHE_SCHEMA: Final[Dict[str, pa.DataType]] = {
+CACHE_SCHEMA: Final[dict[str, pa.DataType]] = {
     "open_time": pa.timestamp("ns", tz="UTC"),
     "open": pa.float64(),
     "high": pa.float64(),
@@ -72,9 +70,7 @@ T = TypeVar("T")
 
 # File constraints
 MIN_VALID_FILE_SIZE: Final[int] = 1024  # 1KB minimum for valid data files
-MAX_CACHE_AGE: Final[timedelta] = timedelta(
-    days=30
-)  # Maximum age before cache revalidation
+MAX_CACHE_AGE: Final[timedelta] = timedelta(days=30)  # Maximum age before cache revalidation
 METADATA_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 
 
@@ -135,9 +131,7 @@ def classify_error(error: Exception) -> str:
     return ERROR_TYPES["VALIDATION"]
 
 
-def is_date_too_fresh_for_vision(
-    date: datetime, current_time: Optional[datetime] = None
-) -> bool:
+def is_date_too_fresh_for_vision(date: datetime, current_time: datetime | None = None) -> bool:
     """Check if a date is too recent for reliable Vision API data.
 
     The Vision API typically has a delay of VISION_DATA_DELAY_HOURS before data is available.
@@ -194,9 +188,7 @@ def get_vision_url(
 
     from utils.logger_setup import logger
 
-    logger.debug(
-        f"Creating Vision API URL for {symbol} {interval} on {date_str} (market: {market_type})"
-    )
+    logger.debug(f"Creating Vision API URL for {symbol} {interval} on {date_str} (market: {market_type})")
 
     # Determine base URL
     base_url = "https://data.binance.vision"
@@ -285,9 +277,7 @@ def validate_data_availability(start_time: datetime, end_time: datetime) -> None
         )
 
 
-def validate_time_boundaries(
-    df: pd.DataFrame, start_time: datetime, end_time: datetime
-) -> None:
+def validate_time_boundaries(df: pd.DataFrame, start_time: datetime, end_time: datetime) -> None:
     """Validate that DataFrame covers the requested time range."""
     # Use centralized utility from DataValidation
     DataValidation.validate_dataframe_time_boundaries(df, start_time, end_time)

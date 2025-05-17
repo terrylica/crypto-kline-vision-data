@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Tuple
 
 import pendulum
 import typer
@@ -55,7 +54,7 @@ def test_market_mapping(
     interval: str = "1m",
     date_str: str = "2025-04-16",
     base_cache_dir: str = "cache",
-) -> Tuple[str, str, str, Path]:
+) -> tuple[str, str, str, Path]:
     """Test path mapping for a market type."""
     mapper = VisionPathMapper(base_cache_dir)
     date = pendulum.parse(date_str)

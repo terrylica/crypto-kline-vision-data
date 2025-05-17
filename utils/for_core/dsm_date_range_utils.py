@@ -12,7 +12,6 @@ various scenarios including:
 """
 
 from datetime import datetime
-from typing import Optional, Tuple, Union
 
 import pendulum
 from pendulum import DateTime
@@ -23,7 +22,7 @@ from utils.market_constraints import Interval
 from utils.time_utils import align_time_boundaries
 
 
-def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
+def parse_datetime_string(dt_str: str | None) -> DateTime | None:
     """Parse datetime string in ISO format or human readable format using pendulum.
 
     Args:
@@ -48,9 +47,7 @@ def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
         # Ensure UTC timezone
         if dt.timezone_name != "UTC":
             dt = dt.in_timezone("UTC")
-        logger.debug(
-            f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-        )
+        logger.debug(f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
         return dt
     except Exception as e:
         try:
@@ -58,16 +55,12 @@ def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
             if "T" not in dt_str and ":" in dt_str:
                 # Try YYYY-MM-DD HH:MM:SS format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD HH:mm:ss", tz="UTC")
-                logger.debug(
-                    f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-                )
+                logger.debug(f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
                 return dt
             if len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
                 # Try YYYY-MM-DD format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD", tz="UTC")
-                logger.debug(
-                    f"Successfully parsed date-only string: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-                )
+                logger.debug(f"Successfully parsed date-only string: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
                 return dt
         except Exception as e2:
             logger.debug(f"Failed specific format parsing: {e2}")
@@ -78,11 +71,11 @@ def parse_datetime_string(dt_str: Optional[str]) -> Optional[DateTime]:
 
 
 def calculate_date_range(
-    start_time: Optional[Union[str, DateTime]] = None,
-    end_time: Optional[Union[str, DateTime]] = None,
+    start_time: str | DateTime | None = None,
+    end_time: str | DateTime | None = None,
     days: int = 3,
-    interval: Optional[Interval] = None,
-) -> Tuple[DateTime, DateTime]:
+    interval: Interval | None = None,
+) -> tuple[DateTime, DateTime]:
     """Calculate a date range based on provided parameters with enhanced flexibility.
 
     This function implements comprehensive date range logic that can be used
@@ -157,9 +150,7 @@ def calculate_date_range(
     # Align time boundaries with interval if requested
     if interval:
         logger.debug(f"Aligning time boundaries to {interval.value} interval")
-        aligned_start, aligned_end = align_time_boundaries(
-            start_datetime, end_datetime, interval
-        )
+        aligned_start, aligned_end = align_time_boundaries(start_datetime, end_datetime, interval)
 
         # Convert datetime objects back to pendulum.DateTime if needed
         if not isinstance(aligned_start, pendulum.DateTime):
@@ -184,8 +175,8 @@ def calculate_date_range(
 
 
 def get_date_range_description(
-    start_time: Union[DateTime, datetime],
-    end_time: Union[DateTime, datetime],
+    start_time: DateTime | datetime,
+    end_time: DateTime | datetime,
     original_params: dict,
 ) -> str:
     """Generate a human-readable description of how the date range was calculated.

@@ -8,7 +8,6 @@ and local cache paths using fsspec, enabling unified filesystem operations.
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 import fsspec
 import pendulum
@@ -42,9 +41,7 @@ class PathComponents:
     @property
     def safe_symbol(self) -> str:
         """Handle symbol naming based on market type."""
-        if self.market_type == MarketType.FUTURES_COIN and not self.symbol.endswith(
-            "_PERP"
-        ):
+        if self.market_type == MarketType.FUTURES_COIN and not self.symbol.endswith("_PERP"):
             return f"{self.symbol}_PERP"
         return self.symbol
 
@@ -52,7 +49,7 @@ class PathComponents:
 class VisionPathMapper:
     """Maps between remote Binance Vision API paths and local cache paths using minimal transformation."""
 
-    def __init__(self, base_cache_dir: Union[str, Path] = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache"):
         """Initialize with cache directory."""
         self.base_cache_dir = Path(base_cache_dir)
         self.base_url = "https://data.binance.vision"
@@ -64,11 +61,7 @@ class VisionPathMapper:
     def get_remote_url(self, components: PathComponents) -> str:
         """Generate remote URL from components."""
         market_path = self._get_market_path(components.market_type)
-        file_ext = (
-            ".zip.CHECKSUM"
-            if components.file_extension.endswith(".CHECKSUM")
-            else ".zip"
-        )
+        file_ext = ".zip.CHECKSUM" if components.file_extension.endswith(".CHECKSUM") else ".zip"
         filename = f"{components.safe_symbol.upper()}-{components.interval}-{components.date_str}{file_ext}"
 
         url = f"{self.base_url}/data/{market_path}/daily/{components.chart_type.vision_api_path}/{components.safe_symbol.upper()}/{components.interval}/{filename}"
@@ -99,7 +92,7 @@ class VisionPathMapper:
 
         return self.base_cache_dir / path_part
 
-    def map_local_to_remote(self, local_path: Union[str, Path]) -> str:
+    def map_local_to_remote(self, local_path: str | Path) -> str:
         """Convert local cache path to remote URL."""
         local_path = Path(local_path)
 
@@ -126,8 +119,8 @@ class VisionPathMapper:
     def create_components_from_params(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, pendulum.DateTime],
+        interval: str | Interval,
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         chart_type: ChartType = ChartType.KLINES,
         exchange: str = "binance",
@@ -141,11 +134,7 @@ class VisionPathMapper:
                 dt = pendulum.DateTime.instance(dt)
         else:
             # Ensure it's a pendulum.DateTime object
-            dt = (
-                date
-                if isinstance(date, pendulum.DateTime)
-                else pendulum.DateTime.instance(date)
-            )
+            dt = date if isinstance(date, pendulum.DateTime) else pendulum.DateTime.instance(date)
 
         if isinstance(interval, Interval):
             interval = interval.value
@@ -163,8 +152,8 @@ class VisionPathMapper:
     def create_path_from_params(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, pendulum.DateTime],
+        interval: str | Interval,
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         chart_type: ChartType = ChartType.KLINES,
         exchange: str = "binance",
@@ -187,18 +176,16 @@ class FSSpecVisionHandler:
     Provides unified access to local and remote data files via fsspec.
     """
 
-    def __init__(self, base_cache_dir: Union[str, Path] = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache"):
         """Initialize with cache directory."""
         self.path_mapper = VisionPathMapper(base_cache_dir)
         self.base_cache_dir = Path(base_cache_dir)
 
-    def get_fs_and_path(
-        self, url_or_path: Union[str, Path]
-    ) -> Tuple[fsspec.AbstractFileSystem, str]:
+    def get_fs_and_path(self, url_or_path: str | Path) -> tuple[fsspec.AbstractFileSystem, str]:
         """Get the appropriate filesystem and path using fsspec's automatic detection."""
         return fsspec.core.url_to_fs(str(url_or_path))
 
-    def exists(self, url_or_path: Union[str, Path]) -> bool:
+    def exists(self, url_or_path: str | Path) -> bool:
         """Check if a file exists in any filesystem."""
         fs, path = self.get_fs_and_path(url_or_path)
         try:
@@ -218,8 +205,8 @@ class FSSpecVisionHandler:
     def get_local_path_for_data(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, pendulum.DateTime],
+        interval: str | Interval,
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         chart_type: ChartType = ChartType.KLINES,
     ) -> Path:
@@ -236,8 +223,8 @@ class FSSpecVisionHandler:
     def get_remote_url_for_data(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, pendulum.DateTime],
+        interval: str | Interval,
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         chart_type: ChartType = ChartType.KLINES,
     ) -> str:
@@ -255,11 +242,11 @@ class FSSpecVisionHandler:
     def download_to_cache(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, pendulum.DateTime],
+        interval: str | Interval,
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         chart_type: ChartType = ChartType.KLINES,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Download a file from Binance Vision API to local cache.
 
         Args:
@@ -306,9 +293,7 @@ class FSSpecVisionHandler:
             # 4. Save to local_path
 
             # For now, we just indicate that the handler would handle this operation
-            logger.info(
-                f"FSSpecVisionHandler would download and process data to {local_path}"
-            )
+            logger.info(f"FSSpecVisionHandler would download and process data to {local_path}")
 
             return local_path
         except Exception as e:

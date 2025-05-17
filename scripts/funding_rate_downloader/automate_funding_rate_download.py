@@ -4,7 +4,7 @@ import argparse
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import pandas as pd
@@ -17,9 +17,7 @@ DEFAULT_INTERVAL_MINUTES = 60  # Default to download every hour
 DEFAULT_OUTPUT_DIR = "tmp/funding_rate_history"
 
 
-def fetch_funding_rate_history(
-    symbol: str, limit: int = 1000
-) -> Optional[List[Dict[str, Any]]]:
+def fetch_funding_rate_history(symbol: str, limit: int = 1000) -> list[dict[str, Any]] | None:
     """Fetch funding rate history from Binance API using httpx"""
     try:
         url = "https://fapi.binance.com/fapi/v1/fundingRate"
@@ -29,20 +27,16 @@ def fetch_funding_rate_history(
         response = httpx.get(url, params=params)
         if response.status_code == HTTP_OK:
             data = response.json()
-            logger.info(
-                f"Successfully fetched {len(data)} funding rate records for {symbol}"
-            )
+            logger.info(f"Successfully fetched {len(data)} funding rate records for {symbol}")
             return data
-        logger.error(
-            f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}"
-        )
+        logger.error(f"Error fetching funding rate for {symbol}: {response.status_code} - {response.text}")
         return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history for {symbol}: {e}")
         return None
 
 
-def convert_to_csv(data: List[Dict[str, Any]], symbol: str) -> Optional[pd.DataFrame]:
+def convert_to_csv(data: list[dict[str, Any]], symbol: str) -> pd.DataFrame | None:
     """Convert JSON funding rate data to CSV format"""
     if not data:
         logger.error(f"No data to convert to CSV for {symbol}")
@@ -68,18 +62,14 @@ def convert_to_csv(data: List[Dict[str, Any]], symbol: str) -> Optional[pd.DataF
         # Format the datetime as string
         df["Funding Time"] = df["Funding Time"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        logger.info(
-            f"Successfully converted {len(df)} records to DataFrame for {symbol}"
-        )
+        logger.info(f"Successfully converted {len(df)} records to DataFrame for {symbol}")
         return df
     except Exception as e:
         logger.error(f"Error converting data to CSV for {symbol}: {e}")
         return None
 
 
-def save_to_csv(
-    df: pd.DataFrame, symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR
-) -> Optional[str]:
+def save_to_csv(df: pd.DataFrame, symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> str | None:
     """Save DataFrame to CSV file with the required naming pattern"""
     try:
         output_path = Path(output_dir)
@@ -113,9 +103,7 @@ def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> bool:
             # Save to file
             file_path = save_to_csv(df, symbol, output_dir)
             if file_path:
-                logger.info(
-                    f"Successfully downloaded and saved funding rate history for {symbol} to {file_path}"
-                )
+                logger.info(f"Successfully downloaded and saved funding rate history for {symbol} to {file_path}")
                 return True
             logger.error(f"Failed to save funding rate history for {symbol} to CSV")
             return False
@@ -125,23 +113,19 @@ def process_symbol(symbol: str, output_dir: str = DEFAULT_OUTPUT_DIR) -> bool:
     return False
 
 
-def process_all_symbols(
-    symbols: List[str], output_dir: str = DEFAULT_OUTPUT_DIR
-) -> Dict[str, bool]:
+def process_all_symbols(symbols: list[str], output_dir: str = DEFAULT_OUTPUT_DIR) -> dict[str, bool]:
     """Process multiple symbols in parallel"""
     results = [process_symbol(symbol, output_dir) for symbol in symbols]
 
     # Create results summary
-    return {symbol: result for symbol, result in zip(symbols, results)}
+    return {symbol: result for symbol, result in zip(symbols, results, strict=False)}
 
 
-def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
+def main_loop(symbols: list[str], interval_minutes: int, output_dir: str):
     """Main loop that runs indefinitely, downloading data at regular intervals"""
     while True:
         start_time = time.time()
-        logger.info(
-            f"Starting funding rate history download for symbols: {', '.join(symbols)}"
-        )
+        logger.info(f"Starting funding rate history download for symbols: {', '.join(symbols)}")
 
         summary = process_all_symbols(symbols, output_dir)
 
@@ -159,17 +143,13 @@ def main_loop(symbols: List[str], interval_minutes: int, output_dir: str):
         next_run = datetime.now().timestamp() + sleep_time
         next_run_str = datetime.fromtimestamp(next_run).strftime("%Y-%m-%d %H:%M:%S")
 
-        logger.info(
-            f"Next download scheduled at {next_run_str} (in {sleep_time / 60:.1f} minutes)"
-        )
+        logger.info(f"Next download scheduled at {next_run_str} (in {sleep_time / 60:.1f} minutes)")
         time.sleep(sleep_time)
 
 
 def parse_arguments():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(
-        description="Download Binance funding rate history at regular intervals"
-    )
+    parser = argparse.ArgumentParser(description="Download Binance funding rate history at regular intervals")
     parser.add_argument(
         "--symbols",
         nargs="+",
@@ -205,9 +185,7 @@ def main():
 
     if args.run_once:
         # Run once and exit
-        logger.info(
-            f"Starting one-time funding rate history download for symbols: {', '.join(args.symbols)}"
-        )
+        logger.info(f"Starting one-time funding rate history download for symbols: {', '.join(args.symbols)}")
         summary = process_all_symbols(args.symbols, args.output_dir)
 
         # Log summary

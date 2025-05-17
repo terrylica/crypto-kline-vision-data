@@ -12,7 +12,6 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import httpx
 import pandas as pd
@@ -48,8 +47,8 @@ class DirectApiTester:
         self.current_weight = initial_weight
         self.current_requests = 0
         self.last_reset = time.time()
-        self.weight_history: List[int] = []
-        self.request_history: List[int] = []
+        self.weight_history: list[int] = []
+        self.request_history: list[int] = []
         self.start_time = time.time()
 
     def record_request(self, weight: int = 1) -> None:
@@ -108,7 +107,7 @@ class DirectApiTester:
         }
 
     def simulate_request(
-        self, endpoint: str, params: Optional[dict] = None, weight: int = 1
+        self, endpoint: str, params: dict | None = None, weight: int = 1
     ) -> dict:
         """Simulate an API request and record it.
 
@@ -335,7 +334,7 @@ async def main():
     """Main entry point."""
     # Read symbols from file
     symbols_file = Path(__file__).parent / "symbols.txt"
-    with open(symbols_file, "r") as f:
+    with open(symbols_file) as f:
         symbols = [line.strip() for line in f.readlines() if line.strip()]
 
     # Default to 50 symbols for testing

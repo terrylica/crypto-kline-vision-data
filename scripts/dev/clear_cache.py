@@ -8,7 +8,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import List
 
 import fsspec
 import typer
@@ -58,7 +57,7 @@ def callback():
 
 @app.command()
 def clear(
-    dirs: List[str] = dirs_option,
+    dirs: list[str] = dirs_option,
     filesystem: str = filesystem_option,
     storage_options: str = storage_options_option,
     test_mode: bool = test_mode_option,
@@ -74,9 +73,7 @@ def clear(
         "-v",
         help="Show version information and exit",
     ),
-    create_if_missing: bool = typer.Option(
-        False, "--create", "-c", help="Create directories if they don't exist"
-    ),
+    create_if_missing: bool = typer.Option(False, "--create", "-c", help="Create directories if they don't exist"),
 ):
     """
     Clear specified directories by removing all files while preserving directory structure.
@@ -113,9 +110,7 @@ def clear(
         yes = True  # Skip confirmation in test mode
 
     if not yes:
-        print(
-            f"[bold red]WARNING[/bold red]: This will delete all files in these directories using {filesystem} protocol:"
-        )
+        print(f"[bold red]WARNING[/bold red]: This will delete all files in these directories using {filesystem} protocol:")
         for dir_path in directories:
             print(f"  - {dir_path}")
         response = input("Are you sure you want to continue? (y/N): ")
@@ -155,9 +150,7 @@ def clear_directory(
                 fs.makedirs(directory, exist_ok=True)
                 logger.debug(f"Created directory: {directory}")
             else:
-                logger.debug(
-                    f"Directory {directory} does not exist and will be skipped"
-                )
+                logger.debug(f"Directory {directory} does not exist and will be skipped")
                 return
 
         # Ensure directory exists (create if it doesn't)
@@ -269,7 +262,5 @@ def clear_directory(
 if __name__ == "__main__":
     if len(sys.argv) == 1:  # Check if no arguments are provided
         sys.argv.append("clear")  # Append the default command
-        logger.debug(
-            "No arguments provided; defaulting to 'clear' command for cache and logs directories"
-        )
+        logger.debug("No arguments provided; defaulting to 'clear' command for cache and logs directories")
     app()

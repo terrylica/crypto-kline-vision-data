@@ -13,7 +13,7 @@ import time
 import traceback
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import fsspec
 import httpx
@@ -62,7 +62,7 @@ def get_vision_url(symbol, interval, date, market_type="spot", file_type="DATA")
     raise ValueError(f"Unsupported file type: {file_type}")
 
 
-def get_system_info() -> Dict[str, Any]:
+def get_system_info() -> dict[str, Any]:
     """Get system information for benchmarking context."""
     memory = psutil.virtual_memory()
     try:
@@ -213,7 +213,7 @@ class BenchmarkRunner:
 
         return computed_hash.lower() == expected_checksum.lower()
 
-    def get_file_stats(self) -> Dict[str, Any]:
+    def get_file_stats(self) -> dict[str, Any]:
         """Get statistics about the ZIP file and its contents."""
         if not self.zip_path or not Path(self.zip_path).exists():
             return {"error": "No ZIP file available"}
@@ -281,7 +281,7 @@ class BenchmarkRunner:
                     csv_path = os.path.join(temp_dir, csv_file)
 
                     # Read the CSV file (check for headers)
-                    with open(csv_path, "r") as f:
+                    with open(csv_path) as f:
                         first_lines = []
                         for _ in range(3):
                             try:
@@ -421,7 +421,7 @@ def run_benchmark_case(
     warmup_runs: int,
     measure_memory: bool,
     validate_checksum: bool = False,
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run a single benchmark case with the given parameters."""
     print("[bold cyan]Running benchmark case[/bold cyan]")
     print(
@@ -497,7 +497,7 @@ def run_benchmark_case(
                                     zip_ref.extract(csv_file, temp_dir)
                                     csv_path = os.path.join(temp_dir, csv_file)
 
-                                    with open(csv_path, "r") as f:
+                                    with open(csv_path) as f:
                                         first_lines = []
                                         for _ in range(3):
                                             try:
@@ -909,7 +909,7 @@ def benchmark_all(
     warmup_runs: int = typer.Option(
         3, "--warmup", "-w", help="Number of warmup runs to perform"
     ),
-    output: Optional[str] = typer.Option(
+    output: str | None = typer.Option(
         None, "--output", "-o", help="Output JSON file for detailed results"
     ),
     measure_memory: bool = typer.Option(
@@ -1176,7 +1176,7 @@ def benchmark_checksum(
     measure_memory: bool = typer.Option(
         False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
     ),
-    output: Optional[str] = typer.Option(
+    output: str | None = typer.Option(
         None, "--output", "-o", help="Output JSON file for detailed results"
     ),
 ):

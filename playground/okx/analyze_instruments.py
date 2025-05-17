@@ -2,7 +2,6 @@
 import json
 import sys  # For any additional path handling if needed
 from pathlib import Path
-from typing import List
 
 import httpx
 import typer
@@ -17,7 +16,7 @@ app = typer.Typer(
 )
 
 
-def fetch_data(inst_type: str) -> List[dict]:
+def fetch_data(inst_type: str) -> list[dict]:
     """Fetch instrument data directly from OKX API"""
     url = f"https://www.okx.com/api/v5/public/instruments?instType={inst_type}"
     logger.debug(f"Fetching data from: {url}")
@@ -54,14 +53,14 @@ def fetch_data(inst_type: str) -> List[dict]:
 
 def load_and_filter_data(
     file_path: str, filter_criteria: str | None = None
-) -> List[dict]:
+) -> list[dict]:
     """Load data from local file as fallback"""
     script_dir = Path(__file__).parent.absolute()
     full_path = script_dir / file_path
     logger.debug(f"Attempting to load file at: {full_path}")
 
     try:
-        with open(full_path, "r") as f:
+        with open(full_path) as f:
             data = json.load(f)
             if "data" in data:
                 if filter_criteria == "spot":

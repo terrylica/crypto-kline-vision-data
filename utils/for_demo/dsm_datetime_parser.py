@@ -36,9 +36,7 @@ def parse_datetime(dt_str):
         # Ensure UTC timezone
         if dt.timezone_name != "UTC":
             dt = dt.in_timezone("UTC")
-        logger.debug(
-            f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-        )
+        logger.debug(f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
         return dt
     except Exception as e:
         try:
@@ -46,16 +44,12 @@ def parse_datetime(dt_str):
             if "T" not in dt_str and ":" in dt_str:
                 # Try YYYY-MM-DD HH:MM:SS format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD HH:mm:ss", tz="UTC")
-                logger.debug(
-                    f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-                )
+                logger.debug(f"Successfully parsed with from_format: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
                 return dt
             if len(dt_str) == DATE_STRING_LENGTH and "-" in dt_str:
                 # Try YYYY-MM-DD format
                 dt = pendulum.from_format(dt_str, "YYYY-MM-DD", tz="UTC")
-                logger.debug(
-                    f"Successfully parsed date-only string: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}"
-                )
+                logger.debug(f"Successfully parsed date-only string: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
                 return dt
         except Exception as e2:
             logger.debug(f"Failed specific format parsing: {e2}")

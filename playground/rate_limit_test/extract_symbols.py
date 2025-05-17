@@ -16,7 +16,7 @@ def extract_symbols(csv_path, output_path):
 
     symbols = []
     try:
-        with open(csv_path, "r") as f:
+        with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if row["market"] == "spot":

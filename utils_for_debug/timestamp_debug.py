@@ -41,15 +41,11 @@ def trace_dataframe_timestamps(
         return
 
     # Log the basic information about the operation
-    logger.debug(
-        f"[TIMESTAMP TRACE] {operation_name} with range: {start_time} to {end_time}"
-    )
+    logger.debug(f"[TIMESTAMP TRACE] {operation_name} with range: {start_time} to {end_time}")
 
     # Check if time column exists in columns or as index
     is_time_in_columns = time_column in df.columns
-    is_time_as_index = df.index.name == time_column and isinstance(
-        df.index, pd.DatetimeIndex
-    )
+    is_time_as_index = df.index.name == time_column and isinstance(df.index, pd.DatetimeIndex)
 
     # Log information about DataFrame timestamp range
     if is_time_in_columns:
@@ -60,16 +56,12 @@ def trace_dataframe_timestamps(
         # Check for exact boundary matches
         exact_start_match = (df[time_column] == start_time).any()
         exact_end_match = (df[time_column] == end_time).any()
-        logger.debug(
-            f"[TIMESTAMP TRACE] Exact match at start_time: {exact_start_match}"
-        )
+        logger.debug(f"[TIMESTAMP TRACE] Exact match at start_time: {exact_start_match}")
         logger.debug(f"[TIMESTAMP TRACE] Exact match at end_time: {exact_end_match}")
 
         # Log sample rows
         for i in range(min(sample_rows, len(df))):
-            logger.debug(
-                f"[TIMESTAMP TRACE] Row {i}: {time_column}={df[time_column].iloc[i]}"
-            )
+            logger.debug(f"[TIMESTAMP TRACE] Row {i}: {time_column}={df[time_column].iloc[i]}")
     elif is_time_as_index:
         min_ts = df.index.min()
         max_ts = df.index.max()
@@ -78,12 +70,8 @@ def trace_dataframe_timestamps(
         # Check for exact boundary matches in index
         exact_start_match = start_time in df.index
         exact_end_match = end_time in df.index
-        logger.debug(
-            f"[TIMESTAMP TRACE] Exact match at start_time in index: {exact_start_match}"
-        )
-        logger.debug(
-            f"[TIMESTAMP TRACE] Exact match at end_time in index: {exact_end_match}"
-        )
+        logger.debug(f"[TIMESTAMP TRACE] Exact match at start_time in index: {exact_start_match}")
+        logger.debug(f"[TIMESTAMP TRACE] Exact match at end_time in index: {exact_end_match}")
 
         # Log sample rows
         for i in range(min(sample_rows, len(df))):
@@ -122,25 +110,15 @@ def analyze_filter_conditions(
             end_condition = df_with_column[time_column] <= end_time
             both_conditions = start_condition & end_condition
 
-            logger.debug(
-                f"[TIMESTAMP TRACE] Rows meeting start condition ({time_column} >= {start_time}): {start_condition.sum()}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Rows meeting end condition ({time_column} <= {end_time}): {end_condition.sum()}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Rows meeting both conditions: {both_conditions.sum()}"
-            )
+            logger.debug(f"[TIMESTAMP TRACE] Rows meeting start condition ({time_column} >= {start_time}): {start_condition.sum()}")
+            logger.debug(f"[TIMESTAMP TRACE] Rows meeting end condition ({time_column} <= {end_time}): {end_condition.sum()}")
+            logger.debug(f"[TIMESTAMP TRACE] Rows meeting both conditions: {both_conditions.sum()}")
 
             # Check specifically for exact boundary matches
             exact_start = df_with_column[df_with_column[time_column] == start_time]
             exact_end = df_with_column[df_with_column[time_column] == end_time]
-            logger.debug(
-                f"[TIMESTAMP TRACE] Rows exactly matching start_time: {len(exact_start)}"
-            )
-            logger.debug(
-                f"[TIMESTAMP TRACE] Rows exactly matching end_time: {len(exact_end)}"
-            )
+            logger.debug(f"[TIMESTAMP TRACE] Rows exactly matching start_time: {len(exact_start)}")
+            logger.debug(f"[TIMESTAMP TRACE] Rows exactly matching end_time: {len(exact_end)}")
 
             return
     elif time_column in df.columns:
@@ -149,25 +127,15 @@ def analyze_filter_conditions(
         end_condition = df[time_column] <= end_time
         both_conditions = start_condition & end_condition
 
-        logger.debug(
-            f"[TIMESTAMP TRACE] Rows meeting start condition ({time_column} >= {start_time}): {start_condition.sum()}"
-        )
-        logger.debug(
-            f"[TIMESTAMP TRACE] Rows meeting end condition ({time_column} <= {end_time}): {end_condition.sum()}"
-        )
-        logger.debug(
-            f"[TIMESTAMP TRACE] Rows meeting both conditions: {both_conditions.sum()}"
-        )
+        logger.debug(f"[TIMESTAMP TRACE] Rows meeting start condition ({time_column} >= {start_time}): {start_condition.sum()}")
+        logger.debug(f"[TIMESTAMP TRACE] Rows meeting end condition ({time_column} <= {end_time}): {end_condition.sum()}")
+        logger.debug(f"[TIMESTAMP TRACE] Rows meeting both conditions: {both_conditions.sum()}")
 
         # Check specifically for exact boundary matches
         exact_start = df[df[time_column] == start_time]
         exact_end = df[df[time_column] == end_time]
-        logger.debug(
-            f"[TIMESTAMP TRACE] Rows exactly matching start_time: {len(exact_start)}"
-        )
-        logger.debug(
-            f"[TIMESTAMP TRACE] Rows exactly matching end_time: {len(exact_end)}"
-        )
+        logger.debug(f"[TIMESTAMP TRACE] Rows exactly matching start_time: {len(exact_start)}")
+        logger.debug(f"[TIMESTAMP TRACE] Rows exactly matching end_time: {len(exact_end)}")
 
         # If no rows match exact start time, find nearest
         if len(exact_start) == 0:
@@ -179,9 +147,7 @@ def analyze_filter_conditions(
                     f"[TIMESTAMP TRACE] No exact start_time match. Earliest timestamp after start_time is {earliest_time}, which is {time_diff} seconds later"
                 )
 
-    logger.debug(
-        f"[TIMESTAMP TRACE] Unable to analyze filter conditions for column {time_column}"
-    )
+    logger.debug(f"[TIMESTAMP TRACE] Unable to analyze filter conditions for column {time_column}")
 
 
 def compare_filtered_results(
@@ -201,9 +167,7 @@ def compare_filtered_results(
         end_time: End time used for filtering
         time_column: Name of the timestamp column
     """
-    logger.debug(
-        f"[TIMESTAMP TRACE] filter operation completed. Input rows: {len(input_df)}, Output rows: {len(output_df)}"
-    )
+    logger.debug(f"[TIMESTAMP TRACE] filter operation completed. Input rows: {len(input_df)}, Output rows: {len(output_df)}")
 
     if len(output_df) > 0 and len(input_df) > 0:
         # Check if rows at exact boundaries were handled correctly
@@ -211,21 +175,14 @@ def compare_filtered_results(
             start_match_in_input = (input_df[time_column] == start_time).any()
             start_match_in_output = (output_df[time_column] == start_time).any()
 
-            logger.debug(
-                f"[TIMESTAMP TRACE] Start time exact match in input: {start_match_in_input}, in output: {start_match_in_output}"
-            )
+            logger.debug(f"[TIMESTAMP TRACE] Start time exact match in input: {start_match_in_input}, in output: {start_match_in_output}")
 
             if start_match_in_input and not start_match_in_output:
-                logger.warning(
-                    "[TIMESTAMP TRACE] Critical issue: Row with exact start_time existed in input but not in output!"
-                )
+                logger.warning("[TIMESTAMP TRACE] Critical issue: Row with exact start_time existed in input but not in output!")
 
         # Check if all qualifying rows were included in the output
         if time_column in input_df.columns:
-            qualifying_rows = input_df[
-                (input_df[time_column] >= start_time)
-                & (input_df[time_column] <= end_time)
-            ]
+            qualifying_rows = input_df[(input_df[time_column] >= start_time) & (input_df[time_column] <= end_time)]
             if len(qualifying_rows) != len(output_df):
                 logger.warning(
                     f"[TIMESTAMP TRACE] Potential data loss: {len(qualifying_rows)} rows qualify in input, but output has {len(output_df)} rows"

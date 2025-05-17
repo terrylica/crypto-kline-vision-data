@@ -90,9 +90,7 @@ def generate_markdown_docs_with_typer_cli(
     help_sections = parse_command_help_text()
 
     # Format data sources as markdown list items with proper styling
-    data_sources_md = "\n".join(
-        [f"{i + 1}. **{source}**" for i, source in enumerate(DATA_SOURCES)]
-    )
+    data_sources_md = "\n".join([f"{i + 1}. **{source}**" for i, source in enumerate(DATA_SOURCES)])
 
     # Create a new GitHub-friendly markdown file with APP_TITLE and formatted data sources
     markdown_content = f"""# {cli_name}: {FCP_NAME}
@@ -112,14 +110,10 @@ This CLI tool {RETRIEVES_DATA}:
 """
 
     # Extract options from typer_content
-    options_match = re.search(
-        r"\*\*Options\*\*:(.*?)(?:\Z|\*\*Commands\*\*:)", typer_content, re.DOTALL
-    )
+    options_match = re.search(r"\*\*Options\*\*:(.*?)(?:\Z|\*\*Commands\*\*:)", typer_content, re.DOTALL)
     if options_match:
         options_content = options_match.group(1).strip()
-        options_list = re.findall(
-            r"\* `([^`]+)`:(.*?)(?=\* |\Z)", options_content, re.DOTALL
-        )
+        options_list = re.findall(r"\* `([^`]+)`:(.*?)(?=\* |\Z)", options_content, re.DOTALL)
 
         # Instead of using a table, use standard markdown list format which avoids table linting issues
         options_formatted = []
@@ -184,9 +178,7 @@ def process_sample_commands(sample_commands_text):
         str: Markdown-formatted sample commands section
     """
     # Remove the cyan header
-    sample_text = re.sub(
-        r"\[bold cyan\]Sample Commands\[/bold cyan\]", "", sample_commands_text
-    ).strip()
+    sample_text = re.sub(r"\[bold cyan\]Sample Commands\[/bold cyan\]", "", sample_commands_text).strip()
 
     # Process section headers - remove rich formatting and convert to markdown headers
     sample_text = sample_text.replace("[green]", "### ").replace("[/green]", "")
@@ -243,9 +235,7 @@ def process_sample_commands(sample_commands_text):
         elif clean_line.startswith("dsm-demo-cli"):
             current_group["commands"].append(clean_line)
             if current_section:
-                section_headers[current_section] = (
-                    True  # Mark section as having content
-                )
+                section_headers[current_section] = True  # Mark section as having content
 
     # Don't forget the last group
     if current_group["commands"]:
@@ -256,11 +246,7 @@ def process_sample_commands(sample_commands_text):
     for group in command_groups:
         # Only add section header if this is the first group in a section with content
         current_section = group["section"]
-        if (
-            current_section
-            and current_section != previous_section
-            and section_headers[current_section]
-        ):
+        if current_section and current_section != previous_section and section_headers[current_section]:
             # Add a blank line before the section header (unless it's the first one)
             if formatted_lines:
                 formatted_lines.append("")
@@ -316,9 +302,7 @@ def generate_markdown_docs(
         Path: Path to the generated documentation file
     """
     logger.info(f"Using typer-cli for GitHub-friendly documentation of {APP_TITLE}")
-    result = generate_markdown_docs_with_typer_cli(
-        app, output_dir, filename, cli_name=cli_name
-    )
+    result = generate_markdown_docs_with_typer_cli(app, output_dir, filename, cli_name=cli_name)
 
     # Note: Markdownlint configuration generation has been removed
     if gen_lint_config:
@@ -350,9 +334,7 @@ def verify_and_install_typer_cli() -> bool:
     typer_cli_available = shutil.which("typer") is not None
 
     if not typer_cli_available:
-        logger.info(
-            "typer-cli not found. Installing typer-cli for optimal documentation..."
-        )
+        logger.info("typer-cli not found. Installing typer-cli for optimal documentation...")
         try:
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "typer-cli"],

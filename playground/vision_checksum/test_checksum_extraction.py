@@ -15,7 +15,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import httpx
 from rich import print as rprint
@@ -86,7 +86,7 @@ def generate_random_sha256() -> str:
     return hashlib.sha256(random_data.encode()).hexdigest()
 
 
-def create_test_files() -> List[Tuple[str, str, Path]]:
+def create_test_files() -> list[tuple[str, str, Path]]:
     """
     Create test files with various formats of CHECKSUM content for testing.
 
@@ -207,7 +207,7 @@ def download_file(url: str, output_path: Path, verbose: bool = False) -> bool:
 
 def test_real_checksum_extraction(
     symbol: str, date: str, verbose: bool = False
-) -> Tuple[bool, Optional[str], Optional[str]]:
+) -> tuple[bool, str | None, str | None]:
     """
     Test checksum extraction with a real checksum file from Binance Vision API.
 
@@ -273,8 +273,8 @@ def test_real_checksum_extraction(
 
 
 def test_extract_checksum(
-    test_files: List[Tuple[str, str, Path]], verbose: bool = False
-) -> Dict[str, Dict[str, Any]]:
+    test_files: list[tuple[str, str, Path]], verbose: bool = False
+) -> dict[str, dict[str, Any]]:
     """
     Test the extraction of checksums from different file formats.
 
@@ -320,8 +320,8 @@ def test_extract_checksum(
 
 
 def display_results(
-    results: Dict[str, Dict[str, Any]],
-    real_test_result: Optional[Tuple[bool, Optional[str], Optional[str]]] = None,
+    results: dict[str, dict[str, Any]],
+    real_test_result: tuple[bool, str | None, str | None] | None = None,
 ) -> None:
     """
     Display the test results in a rich table.

@@ -2,7 +2,6 @@
 """Utility functions for Failover Control Protocol (FCP) implementation."""
 
 from datetime import datetime
-from typing import List, Tuple
 
 import pandas as pd
 
@@ -37,9 +36,7 @@ def validate_interval(market_type: MarketType, interval: Interval) -> None:
         supported_intervals = [i.value for i in capabilities.supported_intervals]
 
         # Find the minimum supported interval for suggestion
-        min_interval = min(
-            capabilities.supported_intervals, key=lambda x: x.to_seconds()
-        )
+        min_interval = min(capabilities.supported_intervals, key=lambda x: x.to_seconds())
 
         error_msg = (
             f"Interval {interval.value} is not supported by {market_type.name} market. "
@@ -60,7 +57,7 @@ def process_cache_step(
     aligned_end: datetime,
     interval: Interval,
     include_source_info: bool,
-) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
+) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
     """Process the cache step (Step 1) of the FCP mechanism.
 
     Args:
@@ -78,9 +75,7 @@ def process_cache_step(
     logger.info(f"[FCP] STEP 1: Checking local cache for {symbol}")
 
     # Get data from cache
-    cache_df, missing_ranges = get_from_cache_func(
-        symbol, aligned_start, aligned_end, interval
-    )
+    cache_df, missing_ranges = get_from_cache_func(symbol, aligned_start, aligned_end, interval)
 
     if not cache_df.empty:
         # Add source info if requested
@@ -96,20 +91,18 @@ def process_cache_step(
         return cache_df, missing_ranges
     # If cache is empty, treat entire range as missing
     missing_ranges = [(aligned_start, aligned_end)]
-    logger.debug(
-        f"[FCP] No cache data available, entire range marked as missing: {aligned_start} to {aligned_end}"
-    )
+    logger.debug(f"[FCP] No cache data available, entire range marked as missing: {aligned_start} to {aligned_end}")
     return create_empty_dataframe(), missing_ranges
 
 
 def process_vision_step(
     fetch_from_vision_func,
     symbol: str,
-    missing_ranges: List[Tuple[datetime, datetime]],
+    missing_ranges: list[tuple[datetime, datetime]],
     interval: Interval,
     include_source_info: bool,
     result_df: pd.DataFrame,
-) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
+) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
     """Process the Vision API step (Step 2) of the FCP mechanism.
 
     Args:
@@ -126,15 +119,11 @@ def process_vision_step(
     logger.info("[FCP] STEP 2: Checking Vision API for missing data")
 
     # Process each missing range
-    vision_ranges_to_fetch = (
-        missing_ranges.copy()
-    )  # All ranges will be processed by Vision API
+    vision_ranges_to_fetch = missing_ranges.copy()  # All ranges will be processed by Vision API
     remaining_ranges = []
 
     for range_idx, (miss_start, miss_end) in enumerate(vision_ranges_to_fetch):
-        logger.debug(
-            f"[FCP] Fetching from Vision API range {range_idx + 1}/{len(vision_ranges_to_fetch)}: {miss_start} to {miss_end}"
-        )
+        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{len(vision_ranges_to_fetch)}: {miss_start} to {miss_end}")
 
         range_df = fetch_from_vision_func(symbol, miss_start, miss_end, interval)
 
@@ -145,9 +134,7 @@ def process_vision_step(
 
             # If we already have data, merge with the new data
             if not result_df.empty:
-                logger.debug(
-                    f"[FCP] Merging {len(range_df)} Vision records with existing {len(result_df)} records"
-                )
+                logger.debug(f"[FCP] Merging {len(range_df)} Vision records with existing {len(result_df)} records")
                 result_df = merge_dataframes([result_df, range_df])
             else:
                 # Otherwise just use the Vision data
@@ -156,19 +143,13 @@ def process_vision_step(
             # Check if Vision API returned all expected records or if there are gaps
             if not result_df.empty:
                 # Identify any remaining missing segments from Vision API
-                missing_segments = identify_missing_segments(
-                    result_df, miss_start, miss_end, interval
-                )
+                missing_segments = identify_missing_segments(result_df, miss_start, miss_end, interval)
 
                 if missing_segments:
-                    logger.debug(
-                        f"[FCP] Vision API left {len(missing_segments)} missing segments"
-                    )
+                    logger.debug(f"[FCP] Vision API left {len(missing_segments)} missing segments")
                     remaining_ranges.extend(missing_segments)
                 else:
-                    logger.debug(
-                        "[FCP] Vision API provided complete coverage for this range"
-                    )
+                    logger.debug("[FCP] Vision API provided complete coverage for this range")
         else:
             # Vision API returned no data for this range
             logger.debug("[FCP] Vision API returned no data for range")
@@ -178,9 +159,7 @@ def process_vision_step(
     if remaining_ranges:
         # Merge adjacent or overlapping ranges
         updated_missing_ranges = merge_adjacent_ranges(remaining_ranges, interval)
-        logger.debug(
-            f"[FCP] After Vision API, still have {len(updated_missing_ranges)} missing ranges"
-        )
+        logger.debug(f"[FCP] After Vision API, still have {len(updated_missing_ranges)} missing ranges")
     else:
         updated_missing_ranges = []
         logger.debug("[FCP] No missing ranges after Vision API")
@@ -191,7 +170,7 @@ def process_vision_step(
 def process_rest_step(
     fetch_from_rest_func,
     symbol: str,
-    missing_ranges: List[Tuple[datetime, datetime]],
+    missing_ranges: list[tuple[datetime, datetime]],
     interval: Interval,
     include_source_info: bool,
     result_df: pd.DataFrame,
@@ -211,17 +190,13 @@ def process_rest_step(
     Returns:
         Updated result DataFrame
     """
-    logger.info(
-        f"[FCP] STEP 3: Using REST API for {len(missing_ranges)} remaining missing ranges"
-    )
+    logger.info(f"[FCP] STEP 3: Using REST API for {len(missing_ranges)} remaining missing ranges")
 
     # Merge adjacent ranges to minimize API calls
     merged_rest_ranges = merge_adjacent_ranges(missing_ranges, interval)
 
     for range_idx, (miss_start, miss_end) in enumerate(merged_rest_ranges):
-        logger.debug(
-            f"[FCP] Fetching from REST API range {range_idx + 1}/{len(merged_rest_ranges)}: {miss_start} to {miss_end}"
-        )
+        logger.debug(f"[FCP] Fetching from REST API range {range_idx + 1}/{len(merged_rest_ranges)}: {miss_start} to {miss_end}")
 
         rest_df = fetch_from_rest_func(symbol, miss_start, miss_end, interval)
 
@@ -232,9 +207,7 @@ def process_rest_step(
 
             # If we already have data, merge with the new data
             if not result_df.empty:
-                logger.debug(
-                    f"[FCP] Merging {len(rest_df)} REST records with existing {len(result_df)} records"
-                )
+                logger.debug(f"[FCP] Merging {len(rest_df)} REST records with existing {len(result_df)} records")
                 result_df = merge_dataframes([result_df, rest_df])
             else:
                 # Otherwise just use the REST data
@@ -265,16 +238,12 @@ def verify_final_data(
     """
     if result_df.empty:
         logger.critical("[FCP] CRITICAL ERROR: No data available from any source")
-        raise RuntimeError(
-            "All data sources failed. Unable to retrieve data for the requested time range."
-        )
+        raise RuntimeError("All data sources failed. Unable to retrieve data for the requested time range.")
 
     # Final verification of the result
     min_time = result_df["open_time"].min()
     max_time = result_df["open_time"].max()
-    logger.debug(
-        f"[FCP] Final result spans from {min_time} to {max_time} with {len(result_df)} records"
-    )
+    logger.debug(f"[FCP] Final result spans from {min_time} to {max_time} with {len(result_df)} records")
 
     # Check if result covers the entire requested range
     if min_time > aligned_start or max_time < aligned_end:
@@ -283,9 +252,7 @@ def verify_final_data(
         )
 
         if min_time > aligned_start:
-            logger.warning(
-                f"[FCP] Missing data at start: {aligned_start} to {min_time}"
-            )
+            logger.warning(f"[FCP] Missing data at start: {aligned_start} to {min_time}")
         if max_time < aligned_end:
             logger.warning(f"[FCP] Missing data at end: {max_time} to {aligned_end}")
 
@@ -304,9 +271,7 @@ def handle_error(e: Exception) -> None:
         # Sanitize error message to prevent binary data from causing rich formatting issues
         error_message = str(e)
         # Replace any non-printable characters
-        safe_error_message = "".join(
-            c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message
-        )
+        safe_error_message = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message)
 
         logger.critical(f"Error in get_data: {safe_error_message}")
         logger.critical(f"Error type: {type(e).__name__}")
@@ -316,9 +281,7 @@ def handle_error(e: Exception) -> None:
 
         tb_string = traceback.format_exc()
         # Sanitize the traceback
-        safe_tb = "".join(
-            c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string
-        )
+        safe_tb = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string)
         tb_lines = safe_tb.splitlines()
 
         logger.critical("Traceback summary:")
@@ -334,9 +297,5 @@ def handle_error(e: Exception) -> None:
 
     # Re-raise the exception to properly exit with error
     if "All data sources failed" in str(e):
-        raise RuntimeError(
-            "All data sources failed. Unable to retrieve data for the requested time range."
-        )
-    raise RuntimeError(
-        f"Failed to retrieve data from all sources: {safe_error_message}"
-    )
+        raise RuntimeError("All data sources failed. Unable to retrieve data for the requested time range.")
+    raise RuntimeError(f"Failed to retrieve data from all sources: {safe_error_message}")

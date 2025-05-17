@@ -10,7 +10,7 @@ data boundaries for given time ranges, ensuring alignment with real API response
 import asyncio
 import random
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -35,10 +35,7 @@ RETRY_DELAY = 1.0  # seconds
 RATE_LIMIT_STATUS = 429
 
 # Deprecation warning message template
-DEPRECATION_WARNING = (
-    "{} is deprecated and will be moved to utils.time_utils in a future version. "
-    "Use utils.time_utils.{} instead."
-)
+DEPRECATION_WARNING = "{} is deprecated and will be moved to utils.time_utils in a future version. Use utils.time_utils.{} instead."
 
 
 class ApiBoundaryValidator:
@@ -99,19 +96,13 @@ class ApiBoundaryValidator:
         Returns:
             True if the time range is valid for the API, False otherwise
         """
-        logger.debug(
-            f"Validating time range: {start_time} -> {end_time} for {symbol} {interval}"
-        )
+        logger.debug(f"Validating time range: {start_time} -> {end_time} for {symbol} {interval}")
         try:
             # Call API to check if data exists for this range
-            api_data = await self._call_api(
-                start_time, end_time, interval, limit=1, symbol=symbol
-            )
+            api_data = await self._call_api(start_time, end_time, interval, limit=1, symbol=symbol)
 
             is_valid = len(api_data) > 0
-            logger.debug(
-                f"Time range validation result: {'Valid' if is_valid else 'Invalid'}"
-            )
+            logger.debug(f"Time range validation result: {'Valid' if is_valid else 'Invalid'}")
             return is_valid
         except Exception as e:
             logger.warning(f"Error validating time range: {e}")
@@ -123,7 +114,7 @@ class ApiBoundaryValidator:
         end_time: datetime,
         interval: Interval,
         symbol: str = "BTCUSDT",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Call Binance API and determine the actual boundaries of returned data.
 
         This method analyzes the API response to determine the actual start and end times
@@ -144,9 +135,7 @@ class ApiBoundaryValidator:
                 'matches_request': bool      # Whether API boundaries match requested boundaries
             }
         """
-        logger.debug(
-            f"Getting API boundaries for {symbol} {interval}: {start_time} -> {end_time}"
-        )
+        logger.debug(f"Getting API boundaries for {symbol} {interval}: {start_time} -> {end_time}")
 
         # Ensure timezone awareness for input times
         start_time = enforce_utc_timezone(start_time)
@@ -154,9 +143,7 @@ class ApiBoundaryValidator:
 
         try:
             # Call API to get data for the requested range
-            api_data = await self._call_api(
-                start_time, end_time, interval, limit=1000, symbol=symbol
-            )
+            api_data = await self._call_api(start_time, end_time, interval, limit=1000, symbol=symbol)
 
             if not api_data:
                 logger.warning("API returned no data for the requested range")
@@ -172,18 +159,11 @@ class ApiBoundaryValidator:
             last_timestamp_ms = api_data[-1][0]
 
             # Convert to datetime objects
-            api_start_time = datetime.fromtimestamp(
-                first_timestamp_ms / 1000, tz=timezone.utc
-            )
-            api_end_time = datetime.fromtimestamp(
-                last_timestamp_ms / 1000, tz=timezone.utc
-            )
+            api_start_time = datetime.fromtimestamp(first_timestamp_ms / 1000, tz=timezone.utc)
+            api_end_time = datetime.fromtimestamp(last_timestamp_ms / 1000, tz=timezone.utc)
 
             # Check if API boundaries match requested boundaries (within millisecond precision)
-            start_matches = (
-                abs((api_start_time - start_time).total_seconds())
-                < MILLISECOND_TOLERANCE
-            )
+            start_matches = abs((api_start_time - start_time).total_seconds()) < MILLISECOND_TOLERANCE
             end_within_range = api_end_time <= end_time
 
             result = {
@@ -209,9 +189,7 @@ class ApiBoundaryValidator:
                 "error": str(e),
             }
 
-    def align_time_boundaries(
-        self, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> Tuple[datetime, datetime]:
+    def align_time_boundaries(self, start_time: datetime, end_time: datetime, interval: Interval) -> tuple[datetime, datetime]:
         """Align time boundaries according to Binance REST API behavior.
 
         This method is maintained for compatibility with existing code.
@@ -225,9 +203,7 @@ class ApiBoundaryValidator:
         Returns:
             Tuple of (aligned_start, aligned_end)
         """
-        logger.debug(
-            f"Aligning time boundaries: {start_time} -> {end_time} for interval {interval}"
-        )
+        logger.debug(f"Aligning time boundaries: {start_time} -> {end_time} for interval {interval}")
         return time_utils_align_time_boundaries(start_time, end_time, interval)
 
     async def does_data_range_match_api_response(
@@ -253,10 +229,7 @@ class ApiBoundaryValidator:
         Returns:
             True if DataFrame matches what would be returned by the API
         """
-        logger.debug(
-            f"Checking if data matches API response for {symbol} {interval}: "
-            f"{start_time} -> {end_time}"
-        )
+        logger.debug(f"Checking if data matches API response for {symbol} {interval}: {start_time} -> {end_time}")
 
         # Ensure timezone awareness for input times
         start_time = enforce_utc_timezone(start_time)
@@ -265,15 +238,11 @@ class ApiBoundaryValidator:
         # First check if DataFrame is empty
         if df.empty:
             # If empty, check if API would return any data
-            api_response = await self._call_api(
-                start_time, end_time, interval, symbol=symbol
-            )
+            api_response = await self._call_api(start_time, end_time, interval, symbol=symbol)
             return len(api_response) == 0
 
         # Get API boundaries to check time alignment
-        api_boundaries = await self.get_api_boundaries(
-            start_time, end_time, interval, symbol
-        )
+        api_boundaries = await self.get_api_boundaries(start_time, end_time, interval, symbol)
 
         # If API couldn't return valid boundaries, we can't validate
         if not api_boundaries.get("api_start_time"):
@@ -288,13 +257,8 @@ class ApiBoundaryValidator:
         api_end_time = api_boundaries["api_end_time"]
 
         # Allow a small tolerance (1 millisecond) for timestamp comparisons
-        start_time_match = (
-            abs((df_start_time - api_start_time).total_seconds())
-            < MILLISECOND_TOLERANCE
-        )
-        end_time_match = (
-            abs((df_end_time - api_end_time).total_seconds()) < MILLISECOND_TOLERANCE
-        )
+        start_time_match = abs((df_start_time - api_start_time).total_seconds()) < MILLISECOND_TOLERANCE
+        end_time_match = abs((df_end_time - api_end_time).total_seconds()) < MILLISECOND_TOLERANCE
 
         # Also check record count
         df_record_count = len(df)
@@ -334,9 +298,7 @@ class ApiBoundaryValidator:
         Returns:
             DataFrame containing the API response
         """
-        logger.debug(
-            f"Getting API response for {symbol} {interval}: {start_time} -> {end_time}"
-        )
+        logger.debug(f"Getting API response for {symbol} {interval}: {start_time} -> {end_time}")
 
         # Ensure timezone awareness for input times
         start_time = enforce_utc_timezone(start_time)
@@ -344,9 +306,7 @@ class ApiBoundaryValidator:
 
         try:
             # Call API
-            api_data = await self._call_api(
-                start_time, end_time, interval, limit, symbol
-            )
+            api_data = await self._call_api(start_time, end_time, interval, limit, symbol)
 
             if not api_data:
                 logger.warning("API returned no data")
@@ -366,11 +326,9 @@ class ApiBoundaryValidator:
                         "taker_buy_quote_volume",
                     ]
                 )
-                empty_df["open_time"] = pd.to_datetime(
-                    empty_df["open_time"], unit="ms", utc=True
-                )
-                empty_df.set_index("open_time", inplace=True)
-                return empty_df
+                empty_df["open_time"] = pd.to_datetime(empty_df["open_time"], unit="ms", utc=True)
+                # Return the set_index operation directly
+                return empty_df.set_index("open_time")
 
             # Convert to DataFrame
             df = pd.DataFrame(
@@ -393,7 +351,7 @@ class ApiBoundaryValidator:
 
             # Convert timestamp to datetime
             df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
-            df.set_index("open_time", inplace=True)
+            df = df.set_index("open_time")
 
             # Convert numeric columns
             numeric_cols = [
@@ -414,10 +372,7 @@ class ApiBoundaryValidator:
             # Drop 'ignore' column
             df = df.drop(columns=["ignore"])
 
-            logger.info(
-                f"API returned {len(df)} records with index range "
-                f"{df.index.min()} -> {df.index.max()}"
-            )
+            logger.info(f"API returned {len(df)} records with index range {df.index.min()} -> {df.index.max()}")
 
             return df
 
@@ -448,7 +403,7 @@ class ApiBoundaryValidator:
         interval: Interval,
         limit: int = 1000,
         symbol: str = "BTCUSDT",
-    ) -> List[List[Any]]:
+    ) -> list[list[Any]]:
         """Call the Binance API with retry logic.
 
         Args:
@@ -487,9 +442,7 @@ class ApiBoundaryValidator:
         while retries <= MAX_RETRIES:
             try:
                 # Fetch data from API
-                logger.debug(
-                    f"Calling API: {base_url} with params {params}, retry {retries}/{MAX_RETRIES}"
-                )
+                logger.debug(f"Calling API: {base_url} with params {params}, retry {retries}/{MAX_RETRIES}")
 
                 response = await self.http_client.get(base_url, params=params)
 
@@ -503,9 +456,7 @@ class ApiBoundaryValidator:
 
                 if response.status_code >= HTTP_ERROR_CODE_THRESHOLD:
                     logger.error(f"API error {response.status_code}: {response.text}")
-                    raise Exception(
-                        f"API error {response.status_code}: {response.text}"
-                    )
+                    raise Exception(f"API error {response.status_code}: {response.text}")
 
                 # Parse the response data
                 data = response.json()
@@ -516,22 +467,16 @@ class ApiBoundaryValidator:
             except Exception as e:
                 # Handle retries
                 retries += 1
-                logger.warning(
-                    f"API call failed (retry {retries}/{MAX_RETRIES}): {e!s}"
-                )
+                logger.warning(f"API call failed (retry {retries}/{MAX_RETRIES}): {e!s}")
 
                 if retries <= MAX_RETRIES:
                     # Exponential backoff with jitter
-                    wait_time = (
-                        RETRY_DELAY * (2 ** (retries - 1)) * (0.5 + random.random())
-                    )
+                    wait_time = RETRY_DELAY * (2 ** (retries - 1)) * (0.5 + random.random())
                     logger.debug(f"Waiting {wait_time:.2f}s before retrying")
                     await asyncio.sleep(wait_time)
                 else:
                     logger.error(f"All {MAX_RETRIES} API call retries failed: {e!s}")
-                    raise Exception(
-                        f"Failed to fetch data from API after {MAX_RETRIES} retries"
-                    ) from e
+                    raise Exception(f"Failed to fetch data from API after {MAX_RETRIES} retries") from e
 
         # This should never be reached
         raise Exception("API call retry loop exited unexpectedly")
@@ -557,19 +502,13 @@ class ApiBoundaryValidator:
         Returns:
             True if the time range is valid for the API, False otherwise
         """
-        logger.debug(
-            f"Validating time range (sync): {start_time} -> {end_time} for {symbol} {interval}"
-        )
+        logger.debug(f"Validating time range (sync): {start_time} -> {end_time} for {symbol} {interval}")
         try:
             # Call API to check if data exists for this range
-            api_data = self._call_api_sync(
-                start_time, end_time, interval, limit=1, symbol=symbol
-            )
+            api_data = self._call_api_sync(start_time, end_time, interval, limit=1, symbol=symbol)
 
             is_valid = len(api_data) > 0
-            logger.debug(
-                f"Time range validation result (sync): {'Valid' if is_valid else 'Invalid'}"
-            )
+            logger.debug(f"Time range validation result (sync): {'Valid' if is_valid else 'Invalid'}")
             return is_valid
         except Exception as e:
             logger.warning(f"Error validating time range (sync): {e}")
@@ -581,7 +520,7 @@ class ApiBoundaryValidator:
         end_time: datetime,
         interval: Interval,
         symbol: str = "BTCUSDT",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Synchronous version that determines the actual boundaries of API data.
 
         This method provides a synchronous interface to get API boundaries.
@@ -602,9 +541,7 @@ class ApiBoundaryValidator:
                 'matches_request': bool      # Whether API boundaries match requested boundaries
             }
         """
-        logger.debug(
-            f"Getting API boundaries (sync) for {symbol} {interval}: {start_time} -> {end_time}"
-        )
+        logger.debug(f"Getting API boundaries (sync) for {symbol} {interval}: {start_time} -> {end_time}")
 
         # Ensure timezone awareness for input times
         start_time = enforce_utc_timezone(start_time)
@@ -612,9 +549,7 @@ class ApiBoundaryValidator:
 
         try:
             # Call API to get data for the requested range
-            api_data = self._call_api_sync(
-                start_time, end_time, interval, limit=1000, symbol=symbol
-            )
+            api_data = self._call_api_sync(start_time, end_time, interval, limit=1000, symbol=symbol)
 
             if not api_data:
                 logger.warning("API returned no data for the requested range (sync)")
@@ -630,18 +565,11 @@ class ApiBoundaryValidator:
             last_timestamp_ms = api_data[-1][0]
 
             # Convert to datetime objects
-            api_start_time = datetime.fromtimestamp(
-                first_timestamp_ms / 1000, tz=timezone.utc
-            )
-            api_end_time = datetime.fromtimestamp(
-                last_timestamp_ms / 1000, tz=timezone.utc
-            )
+            api_start_time = datetime.fromtimestamp(first_timestamp_ms / 1000, tz=timezone.utc)
+            api_end_time = datetime.fromtimestamp(last_timestamp_ms / 1000, tz=timezone.utc)
 
             # Check if API boundaries match requested boundaries (within millisecond precision)
-            start_matches = (
-                abs((api_start_time - start_time).total_seconds())
-                < MILLISECOND_TOLERANCE
-            )
+            start_matches = abs((api_start_time - start_time).total_seconds()) < MILLISECOND_TOLERANCE
             end_within_range = api_end_time <= end_time
 
             result = {
@@ -674,7 +602,7 @@ class ApiBoundaryValidator:
         interval: Interval,
         limit: int = 1000,
         symbol: str = "BTCUSDT",
-    ) -> List[List[Any]]:
+    ) -> list[list[Any]]:
         """Synchronous version of _call_api that makes a direct HTTP request to the Binance API.
 
         This method handles the low-level API call logic for synchronous operations.
@@ -703,9 +631,7 @@ class ApiBoundaryValidator:
         end_ms = int(end_time.timestamp() * 1000)
 
         # Construct API endpoint URL for the specific market type
-        endpoint = get_endpoint_url(
-            self.market_type, ChartType.KLINES, symbol, interval
-        )
+        endpoint = get_endpoint_url(self.market_type, ChartType.KLINES, symbol, interval)
 
         params = {
             "symbol": symbol,
@@ -730,9 +656,7 @@ class ApiBoundaryValidator:
                 if response.status_code == RATE_LIMIT_STATUS:
                     # Rate limited, wait and retry
                     wait_time = RETRY_DELAY * (2**retries) * (0.5 + random.random())
-                    logger.warning(
-                        f"Rate limited (sync), retrying in {wait_time:.2f}s (attempt {retries + 1}/{MAX_RETRIES})"
-                    )
+                    logger.warning(f"Rate limited (sync), retrying in {wait_time:.2f}s (attempt {retries + 1}/{MAX_RETRIES})")
                     time.sleep(wait_time)
                 else:
                     # Other error, log and retry
@@ -743,10 +667,7 @@ class ApiBoundaryValidator:
                     time.sleep(RETRY_DELAY)
             except Exception as e:
                 # Connection error or timeout, retry
-                logger.warning(
-                    f"Connection error (sync): {e!s}, "
-                    f"retrying in {RETRY_DELAY}s (attempt {retries + 1}/{MAX_RETRIES})"
-                )
+                logger.warning(f"Connection error (sync): {e!s}, retrying in {RETRY_DELAY}s (attempt {retries + 1}/{MAX_RETRIES})")
                 time.sleep(RETRY_DELAY)
 
             retries += 1

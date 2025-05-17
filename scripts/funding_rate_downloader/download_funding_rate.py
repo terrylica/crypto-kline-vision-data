@@ -24,9 +24,7 @@ def fetch_funding_rate_history(symbol="BTCUSDT", limit=1000):
             data = response.json()
             logger.info(f"Successfully fetched {len(data)} funding rate records")
             return data
-        logger.error(
-            f"Error fetching funding rate: {response.status_code} - {response.text}"
-        )
+        logger.error(f"Error fetching funding rate: {response.status_code} - {response.text}")
         return None
     except Exception as e:
         logger.error(f"Exception fetching funding rate history: {e}")
@@ -103,9 +101,7 @@ def main():
             # Save to file
             file_path = save_to_csv(df, symbol)
             if file_path:
-                logger.info(
-                    f"Successfully downloaded and saved funding rate history to {file_path}"
-                )
+                logger.info(f"Successfully downloaded and saved funding rate history to {file_path}")
                 # Display first few rows
                 logger.info(f"Sample data:\n{df.head().to_string()}")
             else:

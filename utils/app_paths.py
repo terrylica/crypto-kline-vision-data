@@ -9,7 +9,6 @@ cross-platform compatibility.
 
 import os
 from pathlib import Path
-from typing import Dict
 
 import platformdirs
 
@@ -152,7 +151,7 @@ def ensure_dir_exists(path: Path) -> Path:
     return path
 
 
-def create_app_dirs() -> Dict[str, Path]:
+def create_app_dirs() -> dict[str, Path]:
     """Create all application directories if they don't exist.
 
     Returns:

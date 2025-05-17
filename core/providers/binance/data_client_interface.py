@@ -3,7 +3,6 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, Tuple, Union
 
 import pandas as pd
 
@@ -53,7 +52,7 @@ class DataClientInterface(ABC):
 
     @property
     @abstractmethod
-    def interval(self) -> Union[str, object]:
+    def interval(self) -> str | object:
         """Get the interval.
 
         Returns:
@@ -105,7 +104,7 @@ class DataClientInterface(ABC):
         """
 
     @abstractmethod
-    def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
+    def validate_data(self, df: pd.DataFrame) -> tuple[bool, str | None]:
         """Validate that a DataFrame contains valid data.
 
         Implementations should check for structural correctness, data types,

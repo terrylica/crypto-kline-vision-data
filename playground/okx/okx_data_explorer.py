@@ -10,7 +10,6 @@ import concurrent.futures
 import datetime
 import zipfile
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import httpx
 import pandas as pd
@@ -31,7 +30,7 @@ MAX_WORKERS = 5
 console = Console()
 
 
-def format_date(date_obj: datetime.date) -> Tuple[str, str]:
+def format_date(date_obj: datetime.date) -> tuple[str, str]:
     """
     Format a date object into two required formats:
     - Directory format: YYYYMMDD
@@ -141,9 +140,9 @@ def download_file(
 def explore_date_range(
     start_date: datetime.date,
     end_date: datetime.date,
-    data_types: List[str],
-    symbols: List[str],
-) -> Dict[str, List[Tuple[str, datetime.date]]]:
+    data_types: list[str],
+    symbols: list[str],
+) -> dict[str, list[tuple[str, datetime.date]]]:
     """
     Explore available data in a date range
 

@@ -11,7 +11,6 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import git  # Use GitPython instead of subprocess
 import tomli
@@ -47,7 +46,7 @@ def find_project_root() -> Path:
 
 
 # Read Ruff configuration from pyproject.toml
-def read_ruff_config() -> List[str]:
+def read_ruff_config() -> list[str]:
     """Read Ruff linting rules from pyproject.toml. Raises exception if not found."""
     project_root = find_project_root()
     pyproject_path = project_root / "pyproject.toml"
@@ -84,12 +83,8 @@ moves_argument = typer.Argument(
     ...,
     help="Pairs of source and destination paths in format 'source.py:destination.py'. Source must exist.",
 )
-project_option = typer.Option(
-    ".", "--project", "-p", help="Root of your Python project"
-)
-dry_run_option = typer.Option(
-    False, "--dry-run", "-d", help="Show what would happen without making changes"
-)
+project_option = typer.Option(".", "--project", "-p", help="Root of your Python project")
+dry_run_option = typer.Option(False, "--dry-run", "-d", help="Show what would happen without making changes")
 verbose_option = typer.Option(
     0,
     "--verbose",
@@ -137,7 +132,7 @@ def git_mv(old_path: Path, new_path: Path, dry_run: bool = False) -> bool:
         return False
 
 
-def run_command(cmd: List[str], dry_run: bool = False) -> subprocess.CompletedProcess:
+def run_command(cmd: list[str], dry_run: bool = False) -> subprocess.CompletedProcess:
     """Run a command with proper error handling and dry-run support."""
     command_str = " ".join(cmd)
     logger.debug(f"Run command: {command_str}")
@@ -162,9 +157,7 @@ def run_command(cmd: List[str], dry_run: bool = False) -> subprocess.CompletedPr
 def run_ruff(project_path: Path, dry_run: bool = False) -> bool:
     """Run Ruff to check for import-related issues."""
     if dry_run:
-        logger.info(
-            f"[DRY-RUN] Ruff would run: ruff check {project_path} --select {','.join(RUFF_IMPORT_CHECKS)}"
-        )
+        logger.info(f"[DRY-RUN] Ruff would run: ruff check {project_path} --select {','.join(RUFF_IMPORT_CHECKS)}")
         return True
 
     logger.info("Running Ruff sanity check...")
@@ -194,9 +187,7 @@ def run_ruff(project_path: Path, dry_run: bool = False) -> bool:
 def fix_ruff_issues(project_path: Path, dry_run: bool = False) -> bool:
     """Fix import-related issues using Ruff's auto-fix capability."""
     if dry_run:
-        logger.info(
-            f"[DRY-RUN] Ruff would fix: ruff check {project_path} --select {','.join(RUFF_IMPORT_CHECKS)} --fix"
-        )
+        logger.info(f"[DRY-RUN] Ruff would fix: ruff check {project_path} --select {','.join(RUFF_IMPORT_CHECKS)} --fix")
         return True
 
     logger.info("Applying Ruff fixes to import-related issues...")
@@ -247,9 +238,7 @@ def run_import_checks(project_path: Path, dry_run: bool = False) -> bool:
 def run_ruff_pre_check(project_path: Path, dry_run: bool = False) -> bool:
     """Run import checks to detect issues before we start moving files."""
     if dry_run:
-        logger.info(
-            f"[DRY-RUN] Would run pre-check for import issues on {project_path}"
-        )
+        logger.info(f"[DRY-RUN] Would run pre-check for import issues on {project_path}")
         return True
 
     logger.info("Running pre-check for existing import issues...")
@@ -262,24 +251,16 @@ def run_ruff_pre_check(project_path: Path, dry_run: bool = False) -> bool:
         return True
 
     # If there are issues, warn and ask for confirmation
-    logger.warning(
-        "Pre-check detected import issues. These issues exist before refactoring."
-    )
-    logger.warning(
-        "They may not be caused by the move operation but could make it harder to detect new issues."
-    )
+    logger.warning("Pre-check detected import issues. These issues exist before refactoring.")
+    logger.warning("They may not be caused by the move operation but could make it harder to detect new issues.")
     # Use rich's Confirm for better UX
     return Confirm.ask("Continue despite pre-existing issues?")
 
 
-def update_import_paths(
-    project_path: Path, old_path: Path, new_path: Path, dry_run: bool = False
-) -> bool:
+def update_import_paths(project_path: Path, old_path: Path, new_path: Path, dry_run: bool = False) -> bool:
     """Update import paths across the codebase using Rope."""
     if dry_run:
-        logger.info(
-            f"[DRY-RUN] Would update import paths from {old_path} to {new_path} using Rope"
-        )
+        logger.info(f"[DRY-RUN] Would update import paths from {old_path} to {new_path} using Rope")
         return True
 
     logger.info(f"Updating import paths from '{old_path}' to '{new_path}' using Rope")
@@ -288,16 +269,8 @@ def update_import_paths(
         # Use context manager for Rope project
         with rope_project(project_path) as project:
             # Create relative paths to the project root
-            old_rel_path = str(
-                old_path.relative_to(project_path)
-                if old_path.is_absolute()
-                else old_path
-            )
-            new_rel_path = str(
-                new_path.relative_to(project_path)
-                if new_path.is_absolute()
-                else new_path
-            )
+            old_rel_path = str(old_path.relative_to(project_path) if old_path.is_absolute() else old_path)
+            new_rel_path = str(new_path.relative_to(project_path) if new_path.is_absolute() else new_path)
 
             # Get the resources
             old_resource = path_to_resource(project, old_rel_path)
@@ -321,13 +294,9 @@ def update_import_paths(
                 changes = mover.get_changes(dest_folder, new_module_name)
                 project.do(changes)
 
-                logger.info(
-                    "Rope successfully updated import references across the codebase"
-                )
+                logger.info("Rope successfully updated import references across the codebase")
                 return True
-            logger.info(
-                f"Skipping Rope import refactoring for non-Python file: {old_path}"
-            )
+            logger.info(f"Skipping Rope import refactoring for non-Python file: {old_path}")
             return True
 
     except Exception as e:
@@ -338,9 +307,7 @@ def update_import_paths(
 def run_pylint(project_path: Path, dry_run: bool = False) -> bool:
     """Run Pylint to check for import-related issues."""
     if dry_run:
-        logger.info(
-            f"[DRY-RUN] Pylint would run: pylint --disable=all --enable=import-error {project_path}"
-        )
+        logger.info(f"[DRY-RUN] Pylint would run: pylint --disable=all --enable=import-error {project_path}")
         return True
 
     logger.info("Running Pylint to check for import issues...")
@@ -366,7 +333,7 @@ def run_pylint(project_path: Path, dry_run: bool = False) -> bool:
         return False
 
 
-def setup_logging(verbose: int, log_file: Optional[str] = None) -> str:
+def setup_logging(verbose: int, log_file: str | None = None) -> str:
     """Configure logging settings and return log filename."""
     # Setup log file if not provided
     if not log_file:
@@ -382,9 +349,7 @@ def setup_logging(verbose: int, log_file: Optional[str] = None) -> str:
     return log_file
 
 
-def process_move_pair(
-    move_pair: str, project_path: Path, dry_run: bool, skip_validation: bool
-) -> bool:
+def process_move_pair(move_pair: str, project_path: Path, dry_run: bool, skip_validation: bool) -> bool:
     """Process a single move operation pair."""
     try:
         old_path, new_path = move_pair.split(":")
@@ -399,14 +364,10 @@ def process_move_pair(
     # Check if source exists and destination doesn't already exist
     if not old_path_obj.exists():
         if new_path_obj.exists() and not skip_validation:
-            logger.warning(
-                f"Source file {old_path} does not exist, but destination {new_path} does - assuming already moved"
-            )
+            logger.warning(f"Source file {old_path} does not exist, but destination {new_path} does - assuming already moved")
             return True
         if skip_validation:
-            logger.warning(
-                f"Source file {old_path} does not exist, but proceeding due to --skip-validation"
-            )
+            logger.warning(f"Source file {old_path} does not exist, but proceeding due to --skip-validation")
         else:
             logger.error(f"Source file does not exist: {old_path}")
             return False
@@ -432,9 +393,7 @@ def handle_auto_fix(project_path: Path, dry_run: bool, auto_fix_imports: bool) -
             if run_import_checks(project_path, dry_run):
                 logger.info("All issues fixed automatically!")
                 return True
-            logger.error(
-                "Some issues remain after auto-fix. Manual intervention required."
-            )
+            logger.error("Some issues remain after auto-fix. Manual intervention required.")
             return False
         logger.error("Auto-fix failed. Manual intervention required.")
         return False
@@ -450,11 +409,11 @@ class MoveConfig:
 
     def __init__(
         self,
-        moves: List[str],
+        moves: list[str],
         project: str = ".",
         dry_run: bool = False,
         verbose: int = 0,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
         skip_validation: bool = False,
         skip_pre_check: bool = False,
         auto_fix_imports: bool = False,
@@ -472,14 +431,12 @@ class MoveConfig:
 
 @app.command()
 def move(
-    moves: List[str] = moves_argument,
+    moves: list[str] = moves_argument,
     project: str = project_option,
     dry_run: bool = dry_run_option,
     verbose: int = verbose_option,
-    log_file: Optional[str] = log_file_option,
-    skip_validation: bool = typer.Option(
-        False, "--skip-validation", "-s", help="Skip file existence validation"
-    ),
+    log_file: str | None = log_file_option,
+    skip_validation: bool = typer.Option(False, "--skip-validation", "-s", help="Skip file existence validation"),
     skip_pre_check: bool = typer.Option(
         False,
         "--skip-pre-check",
@@ -523,9 +480,7 @@ def execute_move(config: MoveConfig) -> int:
     # Setup logging
     config.log_file = setup_logging(config.verbose, config.log_file)
 
-    logger.debug(
-        f"Arguments: moves={config.moves}, project={config.project}, dry_run={config.dry_run}"
-    )
+    logger.debug(f"Arguments: moves={config.moves}, project={config.project}, dry_run={config.dry_run}")
     logger.debug(f"Using Ruff rules: {','.join(RUFF_IMPORT_CHECKS)}")
 
     # Process each move operation
@@ -559,9 +514,7 @@ def execute_move(config: MoveConfig) -> int:
             logger.warning("Import checks found issues after refactoring")
 
             # Try to auto-fix import issues if enabled
-            if not handle_auto_fix(
-                config.project_path, config.dry_run, config.auto_fix_imports
-            ):
+            if not handle_auto_fix(config.project_path, config.dry_run, config.auto_fix_imports):
                 success = False
 
     if success:
@@ -576,7 +529,7 @@ def check_imports(
     project: str = project_option,
     dry_run: bool = dry_run_option,
     verbose: int = verbose_option,
-    log_file: Optional[str] = log_file_option,
+    log_file: str | None = log_file_option,
 ):
     """
     Run Ruff and Pylint to check for import-related issues on the current codebase state.

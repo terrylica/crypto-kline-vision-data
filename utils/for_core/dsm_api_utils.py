@@ -4,7 +4,6 @@
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -52,15 +51,11 @@ def fetch_from_vision(
         This ensures that even if a request specifies a start time at the beginning, middle, or end
         of the day, the entire day's data is cached for future use.
     """
-    logger.info(
-        f"Fetching data from Vision API for {symbol} from {start_time} to {end_time}"
-    )
+    logger.info(f"Fetching data from Vision API for {symbol} from {start_time} to {end_time}")
 
     try:
         # Get aligned boundaries to ensure complete data
-        aligned_start, aligned_end = align_time_boundaries(
-            start_time, end_time, interval
-        )
+        aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
 
         # For the FCP mechanism, we need to ensure that the full days' data is downloaded
         # and cached from Vision API, even if only a partial day is requested
@@ -69,13 +64,9 @@ def fetch_from_vision(
         # Start from the beginning of the day for start_time
         vision_start = aligned_start.replace(hour=0, minute=0, second=0, microsecond=0)
         # End at the end of the day for end_time
-        vision_end = aligned_end.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
+        vision_end = aligned_end.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        logger.debug(
-            f"[FCP] Expanding Vision API request to full days: {vision_start} to {vision_end}"
-        )
+        logger.debug(f"[FCP] Expanding Vision API request to full days: {vision_start} to {vision_end}")
 
         # If we have an FSSpecVisionHandler, use it for direct path mapping
         if fs_handler is not None:
@@ -96,9 +87,7 @@ def fetch_from_vision(
             # Add debugging information about dataframe
             logger.debug(f"Vision API returned DataFrame with shape: {df.shape}")
             if hasattr(df, "index") and df.index is not None:
-                logger.debug(
-                    f"DataFrame index name: {df.index.name}, type: {type(df.index).__name__}"
-                )
+                logger.debug(f"DataFrame index name: {df.index.name}, type: {type(df.index).__name__}")
 
             # Add source information
             df["_data_source"] = "VISION"
@@ -109,17 +98,11 @@ def fetch_from_vision(
                 save_to_cache_func(df, symbol, interval, source="VISION")
 
             # Filter the dataframe to the originally requested time range
-            logger.debug(
-                f"[FCP] Filtering Vision API data to originally requested range: {aligned_start} to {aligned_end}"
-            )
-            filtered_df = filter_dataframe_by_time(
-                df, aligned_start, aligned_end, "open_time"
-            )
+            logger.debug(f"[FCP] Filtering Vision API data to originally requested range: {aligned_start} to {aligned_end}")
+            filtered_df = filter_dataframe_by_time(df, aligned_start, aligned_end, "open_time")
 
             # Help with debugging
-            logger.info(
-                f"Retrieved {len(filtered_df)} records from Vision API (after filtering to requested range)"
-            )
+            logger.info(f"Retrieved {len(filtered_df)} records from Vision API (after filtering to requested range)")
 
             return filtered_df
         logger.warning(f"Vision API returned no data for {symbol}")
@@ -143,15 +126,10 @@ def fetch_from_vision(
         try:
             error_message = str(e)
             # Replace any non-printable characters to prevent rich markup errors
-            safe_error_message = "".join(
-                c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message
-            )
+            safe_error_message = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message)
 
             # Check if this is a critical error that should be propagated
-            if (
-                "CRITICAL ERROR" in safe_error_message
-                or "DATA INTEGRITY ERROR" in safe_error_message
-            ):
+            if "CRITICAL ERROR" in safe_error_message or "DATA INTEGRITY ERROR" in safe_error_message:
                 logger.critical(f"Vision API critical error: {safe_error_message}")
                 raise  # Re-raise to trigger failover
 
@@ -159,23 +137,18 @@ def fetch_from_vision(
             if is_date_too_fresh_for_vision(end_time):
                 # This falls within the allowable delay window for Vision API
                 logger.warning(
-                    f"Error fetching recent data from Vision API "
-                    f"(within {VISION_DATA_DELAY_HOURS}h delay window): {safe_error_message}"
+                    f"Error fetching recent data from Vision API (within {VISION_DATA_DELAY_HOURS}h delay window): {safe_error_message}"
                 )
                 return create_empty_dataframe()
 
             # For historical data outside the delay window, log critical error
-            logger.critical(
-                f"Vision API failed to retrieve historical data: {safe_error_message}"
-            )
+            logger.critical(f"Vision API failed to retrieve historical data: {safe_error_message}")
             logger.critical(f"Error type: {type(e).__name__}")
 
             # More controlled traceback handling
             tb_string = traceback.format_exc()
             # Sanitize the traceback too
-            safe_tb = "".join(
-                c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string
-            )
+            safe_tb = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string)
             tb_lines = safe_tb.splitlines()
 
             logger.critical("Traceback summary:")
@@ -186,23 +159,15 @@ def fetch_from_vision(
                 logger.critical(line)
 
             # Propagate the error to trigger failover
-            raise RuntimeError(
-                f"CRITICAL: Vision API failed to retrieve historical data: {safe_error_message}"
-            )
+            raise RuntimeError(f"CRITICAL: Vision API failed to retrieve historical data: {safe_error_message}")
 
         except Exception as nested_error:
             # If even our error handling fails, log a simpler message
-            logger.critical(
-                f"Vision API error occurred (details unavailable): {type(e).__name__}"
-            )
-            logger.critical(
-                f"Error handling also failed: {type(nested_error).__name__}"
-            )
+            logger.critical(f"Vision API error occurred (details unavailable): {type(e).__name__}")
+            logger.critical(f"Error handling also failed: {type(nested_error).__name__}")
 
             # Propagate the error to trigger failover
-            raise RuntimeError(
-                "CRITICAL: Vision API error could not be handled properly"
-            )
+            raise RuntimeError("CRITICAL: Vision API error could not be handled properly")
 
 
 def fetch_from_rest(
@@ -231,18 +196,12 @@ def fetch_from_rest(
                       data source in the FCP chain, failures here represent
                       complete failure of all data sources.
     """
-    logger.info(
-        f"Fetching data from REST API for {symbol} from {start_time} to {end_time}"
-    )
+    logger.info(f"Fetching data from REST API for {symbol} from {start_time} to {end_time}")
 
     try:
         # Get aligned boundaries to ensure complete data
-        aligned_start, aligned_end = align_time_boundaries(
-            start_time, end_time, interval
-        )
-        logger.debug(
-            f"Complete data range after alignment: {aligned_start} to {aligned_end}"
-        )
+        aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval)
+        logger.debug(f"Complete data range after alignment: {aligned_start} to {aligned_end}")
 
         # REST API has limits, so get data with chunking
         df = rest_client.fetch(
@@ -269,9 +228,7 @@ def fetch_from_rest(
         try:
             error_message = str(e)
             # Replace any non-printable characters to prevent rich markup errors
-            safe_error_message = "".join(
-                c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message
-            )
+            safe_error_message = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_message)
 
             logger.critical(f"Error in fetch_from_rest: {safe_error_message}")
             logger.critical(f"Error type: {type(e).__name__}")
@@ -279,9 +236,7 @@ def fetch_from_rest(
             # More controlled traceback handling
             tb_string = traceback.format_exc()
             # Sanitize the traceback
-            safe_tb = "".join(
-                c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string
-            )
+            safe_tb = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in tb_string)
             tb_lines = safe_tb.splitlines()
 
             logger.critical("Traceback summary:")
@@ -293,16 +248,12 @@ def fetch_from_rest(
 
             # This is the final fallback in the FCP chain, so raise an error
             # to indicate complete failure of all sources
-            raise RuntimeError(
-                f"CRITICAL: REST API fallback failed: {safe_error_message}"
-            )
+            raise RuntimeError(f"CRITICAL: REST API fallback failed: {safe_error_message}")
 
         except Exception as nested_error:
             # If even our error handling fails, log a simpler message
             logger.critical(f"REST API critical error: {type(e).__name__}")
-            logger.critical(
-                f"Error handling also failed: {type(nested_error).__name__}"
-            )
+            logger.critical(f"Error handling also failed: {type(nested_error).__name__}")
 
             # Propagate the error
             raise RuntimeError("CRITICAL: REST API error could not be handled properly")
@@ -311,12 +262,12 @@ def fetch_from_rest(
 def create_client_if_needed(
     client,
     client_class,
-    symbol: Optional[str] = None,
-    interval: Optional[str] = None,
-    market_type: Optional[MarketType] = None,
-    retry_count: Optional[int] = None,
-    chart_type: Optional[ChartType] = None,
-    cache_dir: Optional[Path] = None,
+    symbol: str | None = None,
+    interval: str | None = None,
+    market_type: MarketType | None = None,
+    retry_count: int | None = None,
+    chart_type: ChartType | None = None,
+    cache_dir: Path | None = None,
 ):
     """Create or reconfigure client if needed.
 
@@ -335,17 +286,13 @@ def create_client_if_needed(
     """
     # Check if this is a RestDataClient
     if client_class.__name__ == "RestDataClient":
-        logger.debug(
-            f"Setting up {client_class.__name__} with market_type={market_type}, retry_count={retry_count}"
-        )
+        logger.debug(f"Setting up {client_class.__name__} with market_type={market_type}, retry_count={retry_count}")
 
         # Only create a new client if needed
         if client is None or not isinstance(client, client_class):
             # Rest client needs at least market_type
             if market_type is None:
-                raise ValueError(
-                    "market_type is required for creating a new RestDataClient"
-                )
+                raise ValueError("market_type is required for creating a new RestDataClient")
 
             # Pass retry_count if provided
             kwargs = {}
@@ -355,9 +302,7 @@ def create_client_if_needed(
             return client_class(market_type=market_type, **kwargs)
         # Already have a client, check if it needs reconfiguration
         if market_type is not None and client.market_type != market_type:
-            logger.debug(
-                f"Reconfiguring RestDataClient with market_type={market_type}"
-            )
+            logger.debug(f"Reconfiguring RestDataClient with market_type={market_type}")
             # Need a new client for different market type
             kwargs = {}
             if retry_count is not None:
@@ -374,9 +319,7 @@ def create_client_if_needed(
 
         # Vision client needs symbol, interval, and market_type
         if symbol is None or interval is None or market_type is None:
-            raise ValueError(
-                "symbol, interval, and market_type are required for creating a new VisionDataClient"
-            )
+            raise ValueError("symbol, interval, and market_type are required for creating a new VisionDataClient")
 
         # Only create a new client if needed
         if client is None or not isinstance(client, client_class):
@@ -387,18 +330,11 @@ def create_client_if_needed(
             if cache_dir is not None:
                 kwargs["cache_dir"] = cache_dir
 
-            return client_class(
-                symbol=symbol, interval=interval, market_type=market_type, **kwargs
-            )
+            return client_class(symbol=symbol, interval=interval, market_type=market_type, **kwargs)
         # Already have a client, check if it needs reconfiguration
-        if (
-            client.symbol != symbol
-            or client.interval != interval
-            or client.market_type_str != str(market_type).lower()
-        ):
+        if client.symbol != symbol or client.interval != interval or client.market_type_str != str(market_type).lower():
             logger.debug(
-                f"Reconfiguring VisionDataClient with new parameters: "
-                f"symbol={symbol}, interval={interval}, market_type={market_type}"
+                f"Reconfiguring VisionDataClient with new parameters: symbol={symbol}, interval={interval}, market_type={market_type}"
             )
             # Need a new client for different parameters
             kwargs = {}
@@ -407,9 +343,7 @@ def create_client_if_needed(
             if cache_dir is not None:
                 kwargs["cache_dir"] = cache_dir
 
-            return client_class(
-                symbol=symbol, interval=interval, market_type=market_type, **kwargs
-            )
+            return client_class(symbol=symbol, interval=interval, market_type=market_type, **kwargs)
         # Same parameters, can reuse
         return client
     # Unknown client type

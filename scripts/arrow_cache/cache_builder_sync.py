@@ -35,6 +35,23 @@ from utils.config import HTTP_NOT_FOUND, SMALL_FILE_SIZE
 from utils.logger_setup import logger
 from utils.market_constraints import Interval, MarketType
 
+
+# Class to manage shutdown state instead of using a global variable
+class ShutdownState:
+    """Class to track shutdown state."""
+
+    def __init__(self):
+        self.requested = False
+
+    def request_shutdown(self):
+        """Request a shutdown."""
+        self.requested = True
+
+    def is_shutdown_requested(self):
+        """Check if shutdown was requested."""
+        return self.requested
+
+
 # Add re module for pattern matching in JSON validation
 
 # Constants
@@ -54,12 +71,10 @@ COLUMNS = [
     "taker_buy_quote_volume",
     "ignore",
 ]
-SHUTDOWN_REQUESTED = False
+SHUTDOWN_STATE = ShutdownState()  # Replace global with instance
 MAX_WORKERS = 10  # Maximum number of concurrent downloads
 CHECKSUM_FAILURES_DIR = Path("./logs/checksum_failures")
-CACHE_INDEX_FILE = Path(
-    "./logs/cache_index.json"
-)  # Legacy JSON file, for backward compatibility
+CACHE_INDEX_FILE = Path("./logs/cache_index.json")  # Legacy JSON file, for backward compatibility
 CACHE_INDEX_DB = Path("./logs/cache_index.db")  # SQLite database file
 LOGS_DIR = Path("./logs")
 
@@ -123,10 +138,7 @@ def initialize_cache_db():
         logger.info(f"Initialized cache index database at {CACHE_INDEX_DB}")
 
         # If legacy JSON file exists and database is new, migrate data
-        if (
-            CACHE_INDEX_FILE.exists()
-            and CACHE_INDEX_DB.stat().st_size < SMALL_FILE_SIZE
-        ):  # Check if DB is small/new
+        if CACHE_INDEX_FILE.exists() and CACHE_INDEX_DB.stat().st_size < SMALL_FILE_SIZE:  # Check if DB is small/new
             logger.info("Legacy JSON cache index found, attempting to migrate data")
             migrate_json_to_sqlite()
 
@@ -144,7 +156,7 @@ def migrate_json_to_sqlite():
 
         # Try to read the JSON file
         try:
-            with open(CACHE_INDEX_FILE, "r") as f:
+            with open(CACHE_INDEX_FILE) as f:
                 content = f.read().strip()
                 if not content:
                     logger.info("Legacy JSON file is empty, nothing to migrate")
@@ -185,9 +197,7 @@ def migrate_json_to_sqlite():
                                     date_str,
                                     entry.get("file_size", 0),
                                     entry.get("num_records", 0),
-                                    entry.get(
-                                        "last_updated", datetime.now().isoformat()
-                                    ),
+                                    entry.get("last_updated", datetime.now().isoformat()),
                                     entry.get("path", ""),
                                 ),
                             )
@@ -315,9 +325,7 @@ def get_cache_path(
         market_type_str = market_type.replace("/", "_")
 
     # Create cache directory structure matching how ArrowCacheReader expects it
-    cache_path = (
-        CACHE_DIR / data_provider / chart_type / market_type_str / symbol / interval_str
-    )
+    cache_path = CACHE_DIR / data_provider / chart_type / market_type_str / symbol / interval_str
 
     # Format date for filename (YYYY-MM-DD format)
     date_str = date.strftime("%Y-%m-%d")
@@ -360,17 +368,12 @@ def detect_cache_gaps(symbol, interval_str, start_date, end_date):
             ),
         )
 
-        existing_dates = [
-            datetime.strptime(row[0], "%Y-%m-%d").date() for row in cursor.fetchall()
-        ]
+        existing_dates = [datetime.strptime(row[0], "%Y-%m-%d").date() for row in cursor.fetchall()]
         conn.close()
 
         # Find missing dates
         for date in date_range:
-            if (
-                date not in existing_dates
-                and not check_cache_file_exists(symbol, interval_str, date)[0]
-            ):
+            if date not in existing_dates and not check_cache_file_exists(symbol, interval_str, date)[0]:
                 missing_dates.append(date)
     except Exception as e:
         logger.error(f"Error detecting cache gaps: {e}")
@@ -380,9 +383,7 @@ def detect_cache_gaps(symbol, interval_str, start_date, end_date):
                 missing_dates.append(date)
 
     if missing_dates:
-        logger.info(
-            f"Found {len(missing_dates)} missing dates for {symbol}/{interval_str} between {start_date} and {end_date}"
-        )
+        logger.info(f"Found {len(missing_dates)} missing dates for {symbol}/{interval_str} between {start_date} and {end_date}")
 
     return missing_dates
 
@@ -428,9 +429,7 @@ def get_last_date_in_cache(symbol, interval_str):
             date_files = list(cache_path.glob("*.arrow"))
             if date_files:
                 # Get date from filenames (expected format: YYYY-MM-DD.arrow)
-                dates = [
-                    datetime.strptime(f.stem, "%Y-%m-%d").date() for f in date_files
-                ]
+                dates = [datetime.strptime(f.stem, "%Y-%m-%d").date() for f in date_files]
                 if dates:
                     return max(dates)
 
@@ -481,9 +480,7 @@ def get_first_date_in_cache(symbol, interval_str):
             date_files = list(cache_path.glob("*.arrow"))
             if date_files:
                 # Get date from filenames (expected format: YYYY-MM-DD.arrow)
-                dates = [
-                    datetime.strptime(f.stem, "%Y-%m-%d").date() for f in date_files
-                ]
+                dates = [datetime.strptime(f.stem, "%Y-%m-%d").date() for f in date_files]
                 if dates:
                     return min(dates)
 
@@ -505,7 +502,7 @@ def setup_signal_handlers():
                   but not used in this implementation
         """
         logger.warning("Received interrupt signal, initiating graceful shutdown...")
-        SHUTDOWN_REQUESTED = True
+        SHUTDOWN_STATE.request_shutdown()
 
     # Set up signal handlers
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -546,15 +543,13 @@ def parse_symbols_csv(file_path, limit=None):
     """
     symbols_data = []
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader):
                 if limit and i >= limit:
                     break
                 # Convert string intervals to list
-                row["available_intervals"] = (
-                    row["available_intervals"].strip('"').split(",")
-                )
+                row["available_intervals"] = row["available_intervals"].strip('"').split(",")
                 symbols_data.append(row)
         logger.info(f"Parsed {len(symbols_data)} symbols from {file_path}")
         return symbols_data
@@ -616,10 +611,7 @@ def download_data_with_checksum(
         Tuple of (success, df)
     """
     # Log download attempt with provider information
-    logger.info(
-        f"Downloading {symbol} {interval_str} data for {date} "
-        f"from {data_provider} ({market_type} market, {chart_type})"
-    )
+    logger.info(f"Downloading {symbol} {interval_str} data for {date} from {data_provider} ({market_type} market, {chart_type})")
 
     # Currently only Binance is fully supported, but log the provider for future extension
     if data_provider != "BINANCE":
@@ -635,17 +627,11 @@ def download_data_with_checksum(
     is_current_day = compare_date == datetime.now().date()
 
     if is_current_day:
-        logger.warning(
-            f"Attempting to download current-day data for {symbol} {interval_str} {date_str}"
-        )
-        logger.warning(
-            "Current-day data may not be available yet from Binance Vision API"
-        )
+        logger.warning(f"Attempting to download current-day data for {symbol} {interval_str} {date_str}")
+        logger.warning("Current-day data may not be available yet from Binance Vision API")
 
     # Create temporary directory
-    temp_dir = Path(
-        f"./tmp/download_{symbol}_{interval_str}_{date_str}_{int(time.time())}"
-    )
+    temp_dir = Path(f"./tmp/download_{symbol}_{interval_str}_{date_str}_{int(time.time())}")
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -656,9 +642,7 @@ def download_data_with_checksum(
                 market_type_enum = MarketType.from_string(market_type)
                 vision_api_path = market_type_enum.vision_api_path
             except ValueError:
-                logger.warning(
-                    f"Unknown market type: {market_type}, defaulting to 'spot'"
-                )
+                logger.warning(f"Unknown market type: {market_type}, defaulting to 'spot'")
                 vision_api_path = "spot"
         else:
             # Already an enum
@@ -694,13 +678,9 @@ def download_data_with_checksum(
             except urllib.error.HTTPError as http_err:
                 if http_err.code == HTTP_NOT_FOUND:
                     if is_current_day:
-                        logger.warning(
-                            f"Current-day data not available for {symbol} {interval_str} {date_str} (404 Not Found)"
-                        )
+                        logger.warning(f"Current-day data not available for {symbol} {interval_str} {date_str} (404 Not Found)")
                     else:
-                        logger.error(
-                            f"Error downloading data file {data_url}: HTTP Error 404: Not Found"
-                        )
+                        logger.error(f"Error downloading data file {data_url}: HTTP Error 404: Not Found")
                     return False, None, 0
                 # Re-raise for other HTTP errors
                 raise
@@ -721,27 +701,19 @@ def download_data_with_checksum(
                     urllib.request.urlretrieve(checksum_url, checksum_file)
                 except urllib.error.HTTPError as http_err:
                     if http_err.code == HTTP_NOT_FOUND:
-                        logger.warning(
-                            f"Checksum file not found for {symbol} {interval_str} {date_str} (404 Not Found)"
-                        )
+                        logger.warning(f"Checksum file not found for {symbol} {interval_str} {date_str} (404 Not Found)")
                         if not proceed_on_failure:
                             return False, None, 0
-                        logger.warning(
-                            f"Proceeding without checksum verification for {symbol} {interval_str} {date_str}"
-                        )
+                        logger.warning(f"Proceeding without checksum verification for {symbol} {interval_str} {date_str}")
                         skip_checksum = True
                     else:
                         # Re-raise for other HTTP errors
                         raise
 
                 # Verify checksum if we have the checksum file
-                if (
-                    not skip_checksum
-                    and checksum_file.exists()
-                    and checksum_file.stat().st_size > 0
-                ):
+                if not skip_checksum and checksum_file.exists() and checksum_file.stat().st_size > 0:
                     # Read expected checksum
-                    with open(checksum_file, "r") as f:
+                    with open(checksum_file) as f:
                         content = f.read().strip()
                         # Split on whitespace and take first part (the checksum)
                         expected = content.split()[0]
@@ -759,9 +731,7 @@ def download_data_with_checksum(
                     checksum_verified = actual_checksum == expected
 
                     if not checksum_verified:
-                        logger.warning(
-                            f"Checksum verification failed for {symbol} {interval_str} {date_str}"
-                        )
+                        logger.warning(f"Checksum verification failed for {symbol} {interval_str} {date_str}")
                         logger.warning(f"Expected: {expected}")
                         logger.warning(f"Actual:   {actual_checksum}")
 
@@ -777,13 +747,9 @@ def download_data_with_checksum(
                         )
 
                         if not proceed_on_failure:
-                            logger.error(
-                                f"Skipping file due to checksum failure: {symbol} {interval_str} {date_str}"
-                            )
+                            logger.error(f"Skipping file due to checksum failure: {symbol} {interval_str} {date_str}")
                             return False, None, 0
-                        logger.warning(
-                            f"Proceeding despite checksum failure for {symbol} {interval_str} {date_str}"
-                        )
+                        logger.warning(f"Proceeding despite checksum failure for {symbol} {interval_str} {date_str}")
             except Exception as e:
                 logger.error(f"Error in checksum verification process: {e}")
                 if not proceed_on_failure:
@@ -801,9 +767,7 @@ def download_data_with_checksum(
             # Parse data
             df = parse_kline_csv(csv_content)
             num_records = len(df)
-            logger.debug(
-                f"Parsed {num_records} records for {symbol} {interval_str} {date_str}"
-            )
+            logger.debug(f"Parsed {num_records} records for {symbol} {interval_str} {date_str}")
 
             if num_records == 0:
                 logger.warning(f"No data found for {symbol} {interval_str} {date_str}")
@@ -830,9 +794,7 @@ def parse_kline_csv(csv_content):
         DataFrame with parsed data
     """
     try:
-        df = pd.read_csv(
-            io.StringIO(csv_content.decode("utf-8")), header=None, names=COLUMNS
-        )
+        df = pd.read_csv(io.StringIO(csv_content.decode("utf-8")), header=None, names=COLUMNS)
 
         # Detect timestamp unit from the first row
         timestamp_unit = "ms"  # Default milliseconds
@@ -861,9 +823,7 @@ def parse_kline_csv(csv_content):
 
         # Convert timestamp columns with detected unit
         df["open_time"] = pd.to_datetime(df["open_time"], unit=timestamp_unit, utc=True)
-        df["close_time"] = pd.to_datetime(
-            df["close_time"], unit=timestamp_unit, utc=True
-        )
+        df["close_time"] = pd.to_datetime(df["close_time"], unit=timestamp_unit, utc=True)
 
         # Convert numeric columns
         numeric_cols = [
@@ -878,10 +838,8 @@ def parse_kline_csv(csv_content):
         ]
         df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric)
 
-        # Set index
-        df.set_index("open_time", inplace=True)
-
-        return df
+        # Set index and return directly
+        return df.set_index("open_time")
     except Exception as e:
         logger.error(f"Error parsing CSV: {e}")
         return pd.DataFrame()
@@ -956,9 +914,7 @@ def load_from_arrow_cache(
     """
     try:
         # Get file path using get_cache_path
-        file_path = get_cache_path(
-            symbol, interval_str, date, market_type, data_provider, chart_type
-        )
+        file_path = get_cache_path(symbol, interval_str, date, market_type, data_provider, chart_type)
 
         if not file_path.exists():
             return None, False
@@ -976,7 +932,7 @@ def load_from_arrow_cache(
             # Ensure timezone aware
             if df["open_time"].dt.tz is None:
                 df["open_time"] = df["open_time"].dt.tz_localize("UTC")
-            df.set_index("open_time", inplace=True)
+            df = df.set_index("open_time")
 
         logger.debug(f"Loaded {len(df)} records from {file_path}")
         return df, True
@@ -1006,9 +962,7 @@ def check_cache_file_exists(
     Returns:
         Tuple of (exists, path)
     """
-    cache_path = get_cache_path(
-        symbol, interval_str, date, market_type, data_provider, chart_type
-    )
+    cache_path = get_cache_path(symbol, interval_str, date, market_type, data_provider, chart_type)
     exists = cache_path.exists() and cache_path.stat().st_size > 0
     return exists, cache_path
 
@@ -1045,7 +999,7 @@ def verify_checksum(data_file, checksum_file, symbol, interval_str, date):
     """
     try:
         # Read checksum file and normalize whitespace
-        with open(checksum_file, "r") as f:
+        with open(checksum_file) as f:
             content = f.read().strip()
             # Split on whitespace and take first part (the checksum)
             expected = content.split()[0]
@@ -1062,29 +1016,21 @@ def verify_checksum(data_file, checksum_file, symbol, interval_str, date):
 
         if actual != expected:
             # Log detailed error information
-            logger.error(
-                f"Checksum mismatch for {symbol} {interval_str} {date.strftime('%Y-%m-%d')}:"
-            )
+            logger.error(f"Checksum mismatch for {symbol} {interval_str} {date.strftime('%Y-%m-%d')}:")
             logger.error(f"Expected: '{expected}'")
             logger.error(f"Actual  : '{actual}'")
 
             # Record failure in the registry
-            record_checksum_failure(
-                symbol, interval_str, date, expected, actual, "skipped"
-            )
+            record_checksum_failure(symbol, interval_str, date, expected, actual, "skipped")
             return False
 
-        logger.debug(
-            f"Checksum verification successful for {symbol} {interval_str} {date.strftime('%Y-%m-%d')}"
-        )
+        logger.debug(f"Checksum verification successful for {symbol} {interval_str} {date.strftime('%Y-%m-%d')}")
         return True
     except Exception as e:
         logger.error(f"Error verifying checksum: {e}")
         # Record this as a failure also
         try:
-            record_checksum_failure(
-                symbol, interval_str, date, "unknown", "error", f"error: {e!s}"
-            )
+            record_checksum_failure(symbol, interval_str, date, "unknown", "error", f"error: {e!s}")
         except Exception as inner_e:
             logger.error(f"Error recording checksum failure: {inner_e}")
         return False
@@ -1110,7 +1056,7 @@ def record_checksum_failure(symbol, interval_str, date, expected, actual, action
     failures = []
     if failures_file.exists():
         try:
-            with open(failures_file, "r") as f:
+            with open(failures_file) as f:
                 failures = json.load(f)
         except Exception as e:
             logger.error(f"Error loading checksum failures registry: {e}")
@@ -1120,9 +1066,7 @@ def record_checksum_failure(symbol, interval_str, date, expected, actual, action
         {
             "symbol": symbol,
             "interval": interval_str,
-            "date": (
-                date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else str(date)
-            ),
+            "date": (date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else str(date)),
             "expected_checksum": expected,
             "actual_checksum": actual,
             "timestamp": datetime.now().isoformat(),
@@ -1161,15 +1105,11 @@ def get_failed_checksum_dates(symbol, interval_str):
         return []
 
     try:
-        with open(failures_file, "r") as f:
+        with open(failures_file) as f:
             failures = json.load(f)
 
         # Filter failures for the specific symbol and interval
-        matching_failures = [
-            failure
-            for failure in failures
-            if failure["symbol"] == symbol and failure["interval"] == interval_str
-        ]
+        matching_failures = [failure for failure in failures if failure["symbol"] == symbol and failure["interval"] == interval_str]
 
         # Return the dates
         return [failure["date"] for failure in matching_failures]
@@ -1201,41 +1141,29 @@ def process_date(
     Returns:
         True if successful, False otherwise
     """
-    if SHUTDOWN_REQUESTED:
+    if SHUTDOWN_STATE.is_shutdown_requested():
         logger.debug(f"Shutdown requested, skipping {symbol} {interval_str} {date}")
         return False
 
     # Check if date is in the future
     today = datetime.now().date()
     if date > today:
-        logger.warning(
-            f"Skipping future date {symbol} {interval_str} {date} (date > today)"
-        )
+        logger.warning(f"Skipping future date {symbol} {interval_str} {date} (date > today)")
         return False
 
     # Check if date is current day
-    is_current_day = (
-        date.year == today.year and date.month == today.month and date.day == today.day
-    )
+    is_current_day = date.year == today.year and date.month == today.month and date.day == today.day
     if is_current_day and not args.force_update:
         logger.warning(f"Skipping current-day data for {symbol} {interval_str} {date}")
-        logger.warning(
-            "Current-day data may not be available yet from Binance Vision API"
-        )
+        logger.warning("Current-day data may not be available yet from Binance Vision API")
         logger.warning("Use --force-update to attempt download anyway")
         return False
 
     logger.debug(f"Processing {symbol} {interval_str} {date}")
 
     # Skip if already exists and we're in incremental mode
-    if (
-        args.incremental
-        and not args.force_update
-        and check_cache_file_exists(symbol, interval_str, date)[0]
-    ):
-        logger.debug(
-            f"Skipping {symbol} {interval_str} {date} (already exists in cache)"
-        )
+    if args.incremental and not args.force_update and check_cache_file_exists(symbol, interval_str, date)[0]:
+        logger.debug(f"Skipping {symbol} {interval_str} {date} (already exists in cache)")
         return True
 
     # Handle retry failed checksums mode
@@ -1244,13 +1172,9 @@ def process_date(
         failed_dates = get_failed_checksum_dates(symbol, interval_str)
         date_str = date.strftime("%Y-%m-%d")
         if date_str not in failed_dates:
-            logger.debug(
-                f"Skipping {symbol} {interval_str} {date} (no checksum failure)"
-            )
+            logger.debug(f"Skipping {symbol} {interval_str} {date} (no checksum failure)")
             return True
-        logger.info(
-            f"Retrying previously failed checksum for {symbol} {interval_str} {date}"
-        )
+        logger.info(f"Retrying previously failed checksum for {symbol} {interval_str} {date}")
 
     # Attempt to download and process the data
     try:
@@ -1268,9 +1192,7 @@ def process_date(
 
         if success and data is not None:
             # Save to cache
-            cache_path = get_cache_path(
-                symbol, interval_str, date, market_type, data_provider, chart_type
-            )
+            cache_path = get_cache_path(symbol, interval_str, date, market_type, data_provider, chart_type)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Convert to Arrow table and save
@@ -1294,9 +1216,7 @@ def process_date(
                 chart_type,
             )
 
-            logger.debug(
-                f"Saved {symbol} {interval_str} {date} to cache ({num_records} records, {file_size} bytes)"
-            )
+            logger.debug(f"Saved {symbol} {interval_str} {date} to cache ({num_records} records, {file_size} bytes)")
             return True
         logger.warning(f"Failed to process {symbol} {interval_str} {date}")
         return False
@@ -1359,7 +1279,7 @@ def cache_symbol_data(
         interval_start_time = time.time()
         interval_records = 0
 
-        if SHUTDOWN_REQUESTED:
+        if SHUTDOWN_STATE.is_shutdown_requested():
             logger.warning(f"Shutdown requested, skipping interval {interval_str}")
             continue
 
@@ -1386,14 +1306,10 @@ def cache_symbol_data(
                     if success:
                         interval_records += 1
                 except Exception as e:
-                    logger.error(
-                        f"Error processing {symbol} {interval_str} {date.strftime('%Y-%m-%d')}: {e}"
-                    )
+                    logger.error(f"Error processing {symbol} {interval_str} {date.strftime('%Y-%m-%d')}: {e}")
 
         interval_duration = time.time() - interval_start_time
-        records_per_second = (
-            interval_records / interval_duration if interval_duration > 0 else 0
-        )
+        records_per_second = interval_records / interval_duration if interval_duration > 0 else 0
 
         logger.info(
             f"Completed {symbol} {interval_str}: {interval_records} records in {interval_duration:.2f}s ({records_per_second:.2f} records/s)"
@@ -1418,9 +1334,7 @@ def cache_symbol_data(
 def setup_argparse():
     """Set up argument parser."""
     parser = argparse.ArgumentParser(description="Arrow Cache Builder (Synchronous)")
-    parser.add_argument(
-        "--symbols", help="Comma-separated list of symbols (e.g., BTCUSDT,ETHUSDT)"
-    )
+    parser.add_argument("--symbols", help="Comma-separated list of symbols (e.g., BTCUSDT,ETHUSDT)")
     parser.add_argument(
         "--intervals",
         help="Comma-separated list of intervals (e.g., 1m,5m,1h)",
@@ -1431,9 +1345,7 @@ def setup_argparse():
     parser.add_argument("--end-date", help="End date (YYYY-MM-DD)", required=True)
     parser.add_argument("--limit", help="Limit to N symbols", type=int)
     parser.add_argument("--debug", help="Enable debug logging", action="store_true")
-    parser.add_argument(
-        "--skip-checksum", help="Skip checksum verification", action="store_true"
-    )
+    parser.add_argument("--skip-checksum", help="Skip checksum verification", action="store_true")
     parser.add_argument(
         "--proceed-on-checksum-failure",
         help="Proceed with caching even when checksum verification fails",
@@ -1561,9 +1473,7 @@ def main():
 
                 if first_date is not None and first_date > start_date:
                     # Fill gap at the beginning
-                    logger.info(
-                        f"Filling gap for {symbol} from {start_date} to {first_date}"
-                    )
+                    logger.info(f"Filling gap for {symbol} from {start_date} to {first_date}")
                     cache_symbol_data(
                         symbol,
                         intervals,
@@ -1577,9 +1487,7 @@ def main():
 
                 if last_date is not None and last_date < end_date:
                     # Fill gap at the end
-                    logger.info(
-                        f"Filling gap for {symbol} from {last_date} to {end_date}"
-                    )
+                    logger.info(f"Filling gap for {symbol} from {last_date} to {end_date}")
                     cache_symbol_data(
                         symbol,
                         intervals,
@@ -1593,13 +1501,9 @@ def main():
 
                 # Find and fill internal gaps
                 for interval in intervals:
-                    missing_dates = detect_cache_gaps(
-                        symbol, interval, start_date, end_date
-                    )
+                    missing_dates = detect_cache_gaps(symbol, interval, start_date, end_date)
                     if missing_dates and len(missing_dates) > 0:
-                        logger.info(
-                            f"Filling {len(missing_dates)} internal gaps for {symbol}/{interval}"
-                        )
+                        logger.info(f"Filling {len(missing_dates)} internal gaps for {symbol}/{interval}")
                         for date in missing_dates:
                             process_date(
                                 symbol,
@@ -1632,9 +1536,7 @@ def main():
                 # User specified intervals
                 intervals = args.intervals.split(",")
                 # Filter to only include intervals available for this symbol
-                intervals = [
-                    i for i in intervals if i in symbol_info["available_intervals"]
-                ]
+                intervals = [i for i in intervals if i in symbol_info["available_intervals"]]
             else:
                 # Use all available intervals for this symbol
                 intervals = symbol_info["available_intervals"]
@@ -1652,9 +1554,7 @@ def main():
 
                     if first_date is not None and first_date > start_date:
                         # Fill gap at the beginning
-                        logger.info(
-                            f"Filling gap for {symbol}/{interval} from {start_date} to {first_date}"
-                        )
+                        logger.info(f"Filling gap for {symbol}/{interval} from {start_date} to {first_date}")
                         earliest_date = datetime.strptime(
                             symbol_info.get("earliest_date", args.start_date),
                             "%Y-%m-%d",
@@ -1673,9 +1573,7 @@ def main():
 
                     if last_date is not None and last_date < end_date:
                         # Fill gap at the end
-                        logger.info(
-                            f"Filling gap for {symbol}/{interval} from {last_date} to {end_date}"
-                        )
+                        logger.info(f"Filling gap for {symbol}/{interval} from {last_date} to {end_date}")
                         cache_symbol_data(
                             symbol,
                             [interval],
@@ -1688,13 +1586,9 @@ def main():
                         )
 
                     # Find and fill internal gaps
-                    missing_dates = detect_cache_gaps(
-                        symbol, interval, start_date, end_date
-                    )
+                    missing_dates = detect_cache_gaps(symbol, interval, start_date, end_date)
                     if missing_dates and len(missing_dates) > 0:
-                        logger.info(
-                            f"Filling {len(missing_dates)} internal gaps for {symbol}/{interval}"
-                        )
+                        logger.info(f"Filling {len(missing_dates)} internal gaps for {symbol}/{interval}")
                         for date in missing_dates:
                             process_date(
                                 symbol,
@@ -1707,9 +1601,7 @@ def main():
                             )
             else:
                 # Get earliest date for this symbol
-                earliest_date = datetime.strptime(
-                    symbol_info.get("earliest_date", args.start_date), "%Y-%m-%d"
-                ).date()
+                earliest_date = datetime.strptime(symbol_info.get("earliest_date", args.start_date), "%Y-%m-%d").date()
 
                 # Use the later of earliest_date and start_date
                 cache_start = max(earliest_date, start_date)

@@ -14,7 +14,7 @@ api_boundary_validator.py to ensure consistent behavior throughout the applicati
 
 import re
 from datetime import datetime, timedelta, timezone
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ TimestampUnit = Literal["ms", "us"]  # Supported timestamp units
 # Configure module logger
 
 
-def detect_timestamp_unit(sample_ts: Union[int, str]) -> TimestampUnit:
+def detect_timestamp_unit(sample_ts: int | str) -> TimestampUnit:
     """Detect timestamp unit based on number of digits.
 
     Args:
@@ -124,30 +124,21 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
 
     # Process DatetimeIndex if present
     if isinstance(result_df.index, pd.DatetimeIndex):
-        logger.debug(
-            f"Processing DatetimeIndex in standardize_timestamp_precision, target precision: {TIMESTAMP_PRECISION}"
-        )
+        logger.debug(f"Processing DatetimeIndex in standardize_timestamp_precision, target precision: {TIMESTAMP_PRECISION}")
 
         # Get a sample timestamp to determine current precision
         sample_ts = result_df.index[0].value
-        current_precision = (
-            "us" if len(str(abs(sample_ts))) > MILLISECOND_DIGITS else "ms"
-        )
+        current_precision = "us" if len(str(abs(sample_ts))) > MILLISECOND_DIGITS else "ms"
 
         # Only convert if current precision doesn't match target
         if current_precision != TIMESTAMP_PRECISION:
-            logger.debug(
-                f"Converting index from {current_precision} to {TIMESTAMP_PRECISION} precision"
-            )
+            logger.debug(f"Converting index from {current_precision} to {TIMESTAMP_PRECISION} precision")
 
             if current_precision == "us" and TIMESTAMP_PRECISION == "ms":
                 # Convert from microseconds to milliseconds (truncate)
                 # Create new DatetimeIndex with millisecond precision
                 new_index = pd.DatetimeIndex(
-                    [
-                        pd.Timestamp(ts.timestamp() * 1000, unit="ms", tz=timezone.utc)
-                        for ts in result_df.index
-                    ],
+                    [pd.Timestamp(ts.timestamp() * 1000, unit="ms", tz=timezone.utc) for ts in result_df.index],
                     name=result_df.index.name,
                 )
                 result_df.index = new_index
@@ -156,12 +147,7 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
                 # Convert from milliseconds to microseconds (add zeros)
                 # Create new DatetimeIndex with microsecond precision
                 new_index = pd.DatetimeIndex(
-                    [
-                        pd.Timestamp(
-                            int(ts.timestamp() * 1000000), unit="us", tz=timezone.utc
-                        )
-                        for ts in result_df.index
-                    ],
+                    [pd.Timestamp(int(ts.timestamp() * 1000000), unit="us", tz=timezone.utc) for ts in result_df.index],
                     name=result_df.index.name,
                 )
                 result_df.index = new_index
@@ -169,23 +155,17 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
     # Process timestamp columns
     time_columns = [CANONICAL_INDEX_NAME, CANONICAL_CLOSE_TIME]
     for col in time_columns:
-        if col in result_df.columns and pd.api.types.is_datetime64_dtype(
-            result_df[col]
-        ):
+        if col in result_df.columns and pd.api.types.is_datetime64_dtype(result_df[col]):
             logger.debug(f"Processing timestamp column {col}")
 
             # Get a sample to determine current precision
             if len(result_df) > 0:
                 sample_ts = result_df[col].iloc[0].value
-                current_precision = (
-                    "us" if len(str(abs(sample_ts))) > MILLISECOND_DIGITS else "ms"
-                )
+                current_precision = "us" if len(str(abs(sample_ts))) > MILLISECOND_DIGITS else "ms"
 
                 # Only convert if current precision doesn't match target
                 if current_precision != TIMESTAMP_PRECISION:
-                    logger.debug(
-                        f"Converting column {col} from {current_precision} to {TIMESTAMP_PRECISION} precision"
-                    )
+                    logger.debug(f"Converting column {col} from {current_precision} to {TIMESTAMP_PRECISION} precision")
 
                     if current_precision == "us" and TIMESTAMP_PRECISION == "ms":
                         # Convert from microseconds to milliseconds (truncate)
@@ -197,9 +177,7 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
 
                     elif current_precision == "ms" and TIMESTAMP_PRECISION == "us":
                         # Convert from milliseconds to microseconds (add zeros)
-                        result_df[col] = pd.to_datetime(
-                            result_df[col].astype(np.int64) * 1000, unit="us", utc=True
-                        )
+                        result_df[col] = pd.to_datetime(result_df[col].astype(np.int64) * 1000, unit="us", utc=True)
 
     return result_df
 
@@ -318,9 +296,7 @@ def get_interval_micros(interval: MarketInterval) -> int:
     time_unit_symbol = unit_mapping[unit_symbol]
 
     # Find matching TimeUnit
-    unit = next(
-        (u for u in TimeUnit.get_all_units() if u.value == time_unit_symbol), None
-    )
+    unit = next((u for u in TimeUnit.get_all_units() if u.value == time_unit_symbol), None)
     if unit is None:
         raise ValueError(f"Unknown TimeUnit symbol: {time_unit_symbol}")
 
@@ -351,7 +327,7 @@ def get_interval_timedelta(interval: MarketInterval) -> timedelta:
     return timedelta(microseconds=get_interval_micros(interval))
 
 
-def get_smaller_units(interval: MarketInterval) -> List[TimeUnit]:
+def get_smaller_units(interval: MarketInterval) -> list[TimeUnit]:
     """Get all units smaller than this interval.
 
     Args:
@@ -413,7 +389,7 @@ def get_bar_close_time(open_time: datetime, interval: MarketInterval) -> datetim
 def is_bar_complete(
     timestamp: datetime,
     interval: MarketInterval,
-    current_time: Optional[datetime] = None,
+    current_time: datetime | None = None,
 ) -> bool:
     """Check if a bar is complete based on the current time.
 
@@ -495,10 +471,7 @@ def filter_dataframe_by_time(
                 f"Filtering on index reset as column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}"
             )
 
-            filtered_df = df_with_column[
-                (df_with_column[time_column] >= start_time)
-                & (df_with_column[time_column] <= end_time)
-            ].copy()
+            filtered_df = df_with_column[(df_with_column[time_column] >= start_time) & (df_with_column[time_column] <= end_time)].copy()
 
             # Set index back
             if not filtered_df.empty:
@@ -510,13 +483,9 @@ def filter_dataframe_by_time(
         # Filter dataframe using the time column, preserving exact timestamps
         # IMPORTANT: Use >= for start_time and <= for end_time to include timestamps
         # exactly at the interval boundaries
-        logger.debug(
-            f"Filtering on column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}"
-        )
+        logger.debug(f"Filtering on column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}")
 
-        filtered_df = df[
-            (df[time_column] >= start_time) & (df[time_column] <= end_time)
-        ].copy()
+        filtered_df = df[(df[time_column] >= start_time) & (df[time_column] <= end_time)].copy()
 
     # Reset index if it's not already the time column
     if filtered_df.index.name != time_column:
@@ -531,37 +500,23 @@ def filter_dataframe_by_time(
             if time_column in filtered_df.columns:
                 min_ts = filtered_df[time_column].min()
                 max_ts = filtered_df[time_column].max()
-                logger.debug(
-                    f"First timestamp: {min_ts} (represents BEGINNING of candle)"
-                )
-                logger.debug(
-                    f"Last timestamp: {max_ts} (represents BEGINNING of candle)"
-                )
+                logger.debug(f"First timestamp: {min_ts} (represents BEGINNING of candle)")
+                logger.debug(f"Last timestamp: {max_ts} (represents BEGINNING of candle)")
 
                 # Check if the first expected timestamp is present
                 if min_ts > start_time:
                     time_diff = (min_ts - start_time).total_seconds()
-                    logger.debug(
-                        f"First timestamp ({min_ts}) is later than requested start time ({start_time}), diff: {time_diff} seconds"
-                    )
-                    logger.debug(
-                        "First candle is missing from result! This may indicate a timestamp interpretation issue."
-                    )
+                    logger.debug(f"First timestamp ({min_ts}) is later than requested start time ({start_time}), diff: {time_diff} seconds")
+                    logger.debug("First candle is missing from result! This may indicate a timestamp interpretation issue.")
 
                 # Check if the last expected timestamp is present
                 if max_ts < end_time:
-                    logger.debug(
-                        f"Last timestamp ({max_ts}) is earlier than requested end time ({end_time})"
-                    )
+                    logger.debug(f"Last timestamp ({max_ts}) is earlier than requested end time ({end_time})")
             elif isinstance(filtered_df.index, pd.DatetimeIndex):
                 min_ts = filtered_df.index.min()
                 max_ts = filtered_df.index.max()
-                logger.debug(
-                    f"First timestamp: {min_ts} (represents BEGINNING of candle)"
-                )
-                logger.debug(
-                    f"Last timestamp: {max_ts} (represents BEGINNING of candle)"
-                )
+                logger.debug(f"First timestamp: {min_ts} (represents BEGINNING of candle)")
+                logger.debug(f"Last timestamp: {max_ts} (represents BEGINNING of candle)")
 
     # Debug: Compare input and output dataframes to verify filtering worked correctly
     compare_filtered_results(df, filtered_df, start_time, end_time, time_column)
@@ -569,9 +524,7 @@ def filter_dataframe_by_time(
     return filtered_df
 
 
-def align_time_boundaries(
-    start_time: datetime, end_time: datetime, interval: MarketInterval
-) -> Tuple[datetime, datetime]:
+def align_time_boundaries(start_time: datetime, end_time: datetime, interval: MarketInterval) -> tuple[datetime, datetime]:
     """Align time boundaries according to Binance REST API behavior.
 
     This is the unified implementation that correctly handles time boundaries for both
@@ -617,20 +570,12 @@ def align_time_boundaries(
     # Apply Binance API boundary rules:
     # - startTime: Round UP to next interval boundary if not exactly on boundary
     # - endTime: Round DOWN to previous interval boundary if not exactly on boundary
-    aligned_start_microseconds = (
-        start_floor
-        if start_microseconds == start_floor
-        else start_floor + interval_microseconds
-    )
+    aligned_start_microseconds = start_floor if start_microseconds == start_floor else start_floor + interval_microseconds
     aligned_end_microseconds = end_floor
 
     # Convert back to datetime
-    aligned_start = datetime.fromtimestamp(
-        aligned_start_microseconds / 1_000_000, tz=timezone.utc
-    )
-    aligned_end = datetime.fromtimestamp(
-        aligned_end_microseconds / 1_000_000, tz=timezone.utc
-    )
+    aligned_start = datetime.fromtimestamp(aligned_start_microseconds / 1_000_000, tz=timezone.utc)
+    aligned_end = datetime.fromtimestamp(aligned_end_microseconds / 1_000_000, tz=timezone.utc)
 
     # Log with explicit semantic meaning of timestamps
     logger.debug(
@@ -645,16 +590,13 @@ def align_time_boundaries(
         tz=timezone.utc,
     )
     logger.debug(
-        f"Complete data range after alignment: {aligned_start} to {actual_end_time} "
-        f"(from BEGINNING of first candle to END of last candle)"
+        f"Complete data range after alignment: {aligned_start} to {actual_end_time} (from BEGINNING of first candle to END of last candle)"
     )
 
     return aligned_start, aligned_end
 
 
-def estimate_record_count(
-    start_time: datetime, end_time: datetime, interval: MarketInterval
-) -> int:
+def estimate_record_count(start_time: datetime, end_time: datetime, interval: MarketInterval) -> int:
     """Estimate number of records between two timestamps for a given interval.
 
     The Binance API uses specific boundary treatment:
@@ -706,7 +648,7 @@ class TimeseriesDataProcessor:
     """
 
     @staticmethod
-    def detect_timestamp_unit(sample_ts: Union[int, str]) -> str:
+    def detect_timestamp_unit(sample_ts: int | str) -> str:
         """Detect timestamp unit based on number of digits.
 
         Args:
@@ -723,9 +665,7 @@ class TimeseriesDataProcessor:
         return detect_timestamp_unit(sample_ts)
 
     @classmethod
-    def process_kline_data(
-        cls, raw_data: List[List], columns: List[str]
-    ) -> pd.DataFrame:
+    def process_kline_data(cls, raw_data: list[list], columns: list[str]) -> pd.DataFrame:
         """Process raw kline data into a standardized DataFrame.
 
         This method handles different timestamp formats consistently:
@@ -825,9 +765,7 @@ class TimeseriesDataProcessor:
             # Then check for duplicates and drop them if necessary
             if df.duplicated(subset=["open_time"]).any():
                 duplicates_count = df.duplicated(subset=["open_time"]).sum()
-                logger.debug(
-                    f"Found {duplicates_count} duplicate timestamps, keeping first occurrence"
-                )
+                logger.debug(f"Found {duplicates_count} duplicate timestamps, keeping first occurrence")
                 df = df.drop_duplicates(subset=["open_time"], keep="first")
 
             # Set the index to open_time for consistent behavior
@@ -841,39 +779,21 @@ class TimeseriesDataProcessor:
                 if len(df) > 1:
                     # Estimate interval from first two timestamps
                     first_two_indices = df.index[:2]
-                    estimated_interval = (
-                        first_two_indices[1] - first_two_indices[0]
-                    ).total_seconds()
-                    logger.debug(
-                        f"Estimated interval from timestamps: {estimated_interval} seconds"
-                    )
+                    estimated_interval = (first_two_indices[1] - first_two_indices[0]).total_seconds()
+                    logger.debug(f"Estimated interval from timestamps: {estimated_interval} seconds")
                     # Calculate close_time based on this interval
-                    df["close_time"] = (
-                        df.index
-                        + pd.Timedelta(seconds=estimated_interval)
-                        - pd.Timedelta(microseconds=1)
-                    )
-                    logger.debug(
-                        f"Generated close_time using estimated interval: first value = {df['close_time'].iloc[0]}"
-                    )
+                    df["close_time"] = df.index + pd.Timedelta(seconds=estimated_interval) - pd.Timedelta(microseconds=1)
+                    logger.debug(f"Generated close_time using estimated interval: first value = {df['close_time'].iloc[0]}")
                 else:
                     # Default fallback to 1 second if we only have one timestamp
-                    logger.debug(
-                        "Only one timestamp, using default 1-second interval for close_time"
-                    )
-                    df["close_time"] = (
-                        df.index
-                        + pd.Timedelta(seconds=1)
-                        - pd.Timedelta(microseconds=1)
-                    )
+                    logger.debug("Only one timestamp, using default 1-second interval for close_time")
+                    df["close_time"] = df.index + pd.Timedelta(seconds=1) - pd.Timedelta(microseconds=1)
 
         logger.debug(f"Final DataFrame shape: {df.shape}")
         return df
 
     @classmethod
-    def standardize_dataframe(
-        cls, df: pd.DataFrame, canonical_index_name: str = "open_time"
-    ) -> pd.DataFrame:
+    def standardize_dataframe(cls, df: pd.DataFrame, canonical_index_name: str = "open_time") -> pd.DataFrame:
         """Standardize a DataFrame to ensure consistent structure.
 
         Args:
@@ -906,9 +826,7 @@ class TimeseriesDataProcessor:
             )
 
         # Also fix close_time if it exists
-        if "close_time" in df.columns and isinstance(
-            df["close_time"].iloc[0], datetime
-        ):
+        if "close_time" in df.columns and isinstance(df["close_time"].iloc[0], datetime):
             df["close_time"] = df["close_time"].apply(enforce_utc_timezone)
 
         return df

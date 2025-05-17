@@ -6,7 +6,7 @@ independent of any CLI or presentation logic.
 """
 
 from time import perf_counter
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from core.sync.data_source_manager import DataSource
 
@@ -63,7 +63,7 @@ def setup_environment(clear_cache: bool = False) -> bool:
 
 def process_market_parameters(
     provider: str, market: str, chart_type: str, symbol: str, interval: str
-) -> Tuple[DataProvider, MarketType, ChartType, str, Interval]:
+) -> tuple[DataProvider, MarketType, ChartType, str, Interval]:
     """
     Process and validate market-related parameters.
 
@@ -107,13 +107,13 @@ def fetch_market_data(
     chart_type: ChartType,
     symbol: str,
     interval: Interval,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
     days: int = 3,
     use_cache: bool = True,
     enforce_source: str = "AUTO",
     max_retries: int = 3,
-) -> Tuple[Any, float, int]:
+) -> tuple[Any, float, int]:
     """
     Fetch market data using the Failover Control Protocol.
 

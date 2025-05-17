@@ -3,7 +3,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
 
 import pandas as pd
 import pendulum
@@ -24,7 +23,7 @@ def get_from_cache(
     market_type: MarketType,
     chart_type: ChartType = ChartType.KLINES,
     provider: DataProvider = DataProvider.BINANCE,
-) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
+) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
     """Get data from cache for the specified time range.
 
     Args:
@@ -48,9 +47,7 @@ def get_from_cache(
     # path structure to include the provider information.
     # Currently, only Binance is supported.
     if provider != DataProvider.BINANCE:
-        logger.warning(
-            f"Provider {provider.name} cache retrieval not yet implemented, falling back to Binance format"
-        )
+        logger.warning(f"Provider {provider.name} cache retrieval not yet implemented, falling back to Binance format")
 
     # Calculate the days we need to query
     current_date = pendulum.instance(start_time).start_of("day")
@@ -82,16 +79,11 @@ def get_from_cache(
                 try:
                     daily_df = pd.read_parquet(cache_path)
                     if not daily_df.empty:
-                        logger.info(
-                            f"Loaded {len(daily_df)} records from cache for {current_date.format('YYYY-MM-DD')}"
-                        )
+                        logger.info(f"Loaded {len(daily_df)} records from cache for {current_date.format('YYYY-MM-DD')}")
                         loaded_days.append(current_date.date())
 
                         # Filter to the requested time range before merging
-                        daily_df = daily_df[
-                            (daily_df["open_time"] >= start_time)
-                            & (daily_df["open_time"] <= end_time)
-                        ]
+                        daily_df = daily_df[(daily_df["open_time"] >= start_time) & (daily_df["open_time"] <= end_time)]
 
                         # Add source information
                         daily_df["_data_source"] = "CACHE"
@@ -103,13 +95,9 @@ def get_from_cache(
                 except Exception as e:
                     logger.error(f"Error loading cache file {cache_path}: {e}")
             else:
-                logger.info(
-                    f"No cache file found for {current_date.format('YYYY-MM-DD')}"
-                )
+                logger.info(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
         except Exception as e:
-            logger.error(
-                f"Error processing cache for {current_date.format('YYYY-MM-DD')}: {e}"
-            )
+            logger.error(f"Error processing cache for {current_date.format('YYYY-MM-DD')}: {e}")
 
         # Move to next day
         current_date = current_date.add(days=1)
@@ -138,9 +126,7 @@ def get_from_cache(
                 # Make day_start and day_end timezone-aware if start_time is timezone-aware
                 if start_time.tzinfo is not None:
                     # Convert to pendulum instances with the correct timezone
-                    day_start = pendulum.instance(day_start).in_timezone(
-                        start_time.tzinfo
-                    )
+                    day_start = pendulum.instance(day_start).in_timezone(start_time.tzinfo)
                     day_end = pendulum.instance(day_end).in_timezone(end_time.tzinfo)
 
                 # Adjust boundary times if necessary
@@ -204,9 +190,7 @@ def save_to_cache(
         # path structure to include the provider information.
         # Currently, only Binance is supported.
         if provider != DataProvider.BINANCE:
-            logger.warning(
-                f"Provider {provider.name} cache save not yet implemented, using Binance format"
-            )
+            logger.warning(f"Provider {provider.name} cache save not yet implemented, using Binance format")
 
         # Group by day to save daily files
         df["date"] = pd.to_datetime(df["open_time"]).dt.date

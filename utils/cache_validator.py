@@ -7,10 +7,11 @@ and metadata across different components to reduce duplication and ensure consis
 
 import asyncio
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, NamedTuple, Optional, Sequence, Union
+from typing import Any, NamedTuple
 
 import pandas as pd
 import pyarrow as pa
@@ -65,18 +66,16 @@ class SafeMemoryMap:
 
     def __exit__(
         self,
-        _exc_type: Optional[type],
-        _exc_val: Optional[Exception],
-        _exc_tb: Optional[object],
+        _exc_type: type | None,
+        _exc_val: Exception | None,
+        _exc_tb: object | None,
     ) -> None:
         """Exit context manager and clean up resources."""
         if self._mmap is not None:
             self._mmap.close()
 
     @classmethod
-    async def safely_read_arrow_file(
-        cls, path: Path, columns: Optional[Sequence[str]] = None
-    ) -> Optional[pd.DataFrame]:
+    async def safely_read_arrow_file(cls, path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame | None:
         """Safely read an Arrow file without blocking the event loop.
 
         Args:
@@ -89,17 +88,13 @@ class SafeMemoryMap:
         try:
             # Use run_in_executor to make the file reading non-blocking
             loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, lambda: cls._read_arrow_file_impl(path, columns)
-            )
-        except (IOError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
+            return await loop.run_in_executor(None, lambda: cls._read_arrow_file_impl(path, columns))
+        except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
             logger.error(f"Error reading Arrow file {path}: {e}")
             return None
 
     @staticmethod
-    def _read_arrow_file_impl(
-        path: Path, columns: Optional[Sequence[str]] = None
-    ) -> pd.DataFrame:
+    def _read_arrow_file_impl(path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame:
         """Internal implementation for reading Arrow files.
 
         This is the single implementation that all other methods should use.
@@ -135,7 +130,7 @@ class SafeMemoryMap:
 
                 # Set index if needed
                 if "open_time" in df.columns and df.index.name != "open_time":
-                    df.set_index("open_time", inplace=True)
+                    df = df.set_index("open_time")
 
                 # Ensure index is datetime with timezone
                 if not isinstance(df.index, pd.DatetimeIndex):
@@ -151,9 +146,9 @@ class ValidationOptions:
     """Options for cache data validation."""
 
     allow_empty: bool = False
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    interval: Optional[Interval] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    interval: Interval | None = None
     symbol: str = "BTCUSDT"
 
 
@@ -180,7 +175,7 @@ class CacheValidator:
     MAX_CACHE_AGE = timedelta(days=30)  # Maximum age before revalidation
     METADATA_UPDATE_INTERVAL = timedelta(minutes=5)
 
-    def __init__(self, api_boundary_validator: Optional[ApiBoundaryValidator] = None):
+    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None):
         """Initialize the CacheValidator with optional ApiBoundaryValidator.
 
         Args:
@@ -194,7 +189,7 @@ class CacheValidator:
         cache_path: Path,
         max_age: timedelta | None = None,
         min_size: int | None = None,
-    ) -> Optional[CacheValidationError]:
+    ) -> CacheValidationError | None:
         """Validate cache file existence, size, and age.
 
         Args:
@@ -210,9 +205,7 @@ class CacheValidator:
 
         try:
             if not cache_path.exists():
-                return CacheValidationError(
-                    ERROR_TYPES["FILE_SYSTEM"], "Cache file does not exist", True
-                )
+                return CacheValidationError(ERROR_TYPES["FILE_SYSTEM"], "Cache file does not exist", True)
 
             stats = cache_path.stat()
 
@@ -225,9 +218,7 @@ class CacheValidator:
                 )
 
             # Check age
-            age = datetime.now(timezone.utc) - datetime.fromtimestamp(
-                stats.st_mtime, timezone.utc
-            )
+            age = datetime.now(timezone.utc) - datetime.fromtimestamp(stats.st_mtime, timezone.utc)
             if age > max_age:
                 return CacheValidationError(
                     ERROR_TYPES["CACHE_INVALID"],
@@ -237,7 +228,7 @@ class CacheValidator:
 
             return None
 
-        except (OSError, IOError, PermissionError, ValueError) as e:
+        except (OSError, PermissionError, ValueError) as e:
             return CacheValidationError(
                 ERROR_TYPES["FILE_SYSTEM"],
                 f"Error validating cache: {e!s}",
@@ -258,14 +249,14 @@ class CacheValidator:
         try:
             current_checksum = CacheValidator.calculate_checksum(cache_path)
             return current_checksum == stored_checksum
-        except (IOError, OSError, ValueError) as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Error validating cache checksum: {e}")
             return False
 
     @classmethod
     def validate_cache_metadata(
         cls,
-        cache_info: Optional[Dict[str, Any]],
+        cache_info: dict[str, Any] | None,
         required_fields: list | None = None,
     ) -> bool:
         """Validate cache metadata contains required information.
@@ -286,7 +277,7 @@ class CacheValidator:
         return all(field in cache_info for field in required_fields)
 
     @classmethod
-    def validate_cache_records(cls, record_count: Union[int, str]) -> bool:
+    def validate_cache_records(cls, record_count: int | str) -> bool:
         """Validate cache contains records.
 
         Args:
@@ -308,11 +299,11 @@ class CacheValidator:
         df: pd.DataFrame,
         options: ValidationOptions | None = None,
         allow_empty: bool | None = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        interval: Optional[Interval] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        interval: Interval | None = None,
         symbol: str | None = None,
-    ) -> Optional[CacheValidationError]:
+    ) -> CacheValidationError | None:
         """Validate cached data DataFrame.
 
         Args:
@@ -362,13 +353,7 @@ class CacheValidator:
             )
 
         # Validate API boundaries if validator is available and we have all required parameters
-        if (
-            self.api_boundary_validator
-            and options.start_time
-            and options.end_time
-            and options.interval
-            and not df.empty
-        ):
+        if self.api_boundary_validator and options.start_time and options.end_time and options.interval and not df.empty:
             try:
                 # Use ApiBoundaryValidator to validate cache data matches REST API behavior
                 is_api_aligned = await self.api_boundary_validator.does_data_range_match_api_response(
@@ -387,7 +372,7 @@ class CacheValidator:
                     )
 
                 logger.debug("Cache data boundaries match REST API behavior")
-            except (ValueError, RuntimeError, IOError, ConnectionError) as e:
+            except (ValueError, RuntimeError, OSError, ConnectionError) as e:
                 logger.warning("API boundary validation failed: %s", e)
                 # Don't fail cache validation just because API validation failed
                 # This keeps the system robust even if we can't reach the API
@@ -412,9 +397,7 @@ class CacheValidator:
         return h.hexdigest()
 
     @staticmethod
-    def safely_read_arrow_file(
-        file_path: Path, columns: Optional[list] = None
-    ) -> Optional[pd.DataFrame]:
+    def safely_read_arrow_file(file_path: Path, columns: list | None = None) -> pd.DataFrame | None:
         """Safely read an Arrow file with proper error handling.
 
         This is a blocking version of safely_read_arrow_file_async.
@@ -449,7 +432,7 @@ class CacheValidator:
 
                     # Set index if needed
                     if "open_time" in df.columns and df.index.name != "open_time":
-                        df.set_index("open_time", inplace=True)
+                        df = df.set_index("open_time")
 
                     # Ensure index is datetime with timezone
                     if not isinstance(df.index, pd.DatetimeIndex):
@@ -458,14 +441,12 @@ class CacheValidator:
                         df.index = df.index.tz_localize("UTC")
 
                     return df
-        except (IOError, OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
+        except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
             logger.error("Error reading Arrow file %s: %s", file_path, e)
             return None
 
     @staticmethod
-    async def safely_read_arrow_file_async(
-        file_path: Path, columns: Optional[list] = None
-    ) -> Optional[pd.DataFrame]:
+    async def safely_read_arrow_file_async(file_path: Path, columns: list | None = None) -> pd.DataFrame | None:
         """Asynchronously and safely read an Arrow file with proper error handling.
 
         Args:
@@ -480,9 +461,9 @@ class CacheValidator:
     async def align_cached_data_to_api_boundaries(
         self,
         df: pd.DataFrame,
-        options_or_start_time: Union[AlignmentOptions, datetime] | None = None,
-        end_time_or_interval: Optional[Union[datetime, Interval]] = None,
-        interval_or_symbol: Optional[Union[Interval, str]] = None,
+        options_or_start_time: AlignmentOptions | datetime | None = None,
+        end_time_or_interval: datetime | Interval | None = None,
+        interval_or_symbol: Interval | str | None = None,
         symbol: str | None = None,
     ) -> pd.DataFrame:
         """Align cache data to match what would be returned by the Binance REST API.
@@ -504,9 +485,7 @@ class CacheValidator:
             return df
 
         if not self.api_boundary_validator:
-            raise ValueError(
-                "ApiBoundaryValidator is required for cache data alignment"
-            )
+            raise ValueError("ApiBoundaryValidator is required for cache data alignment")
 
         # Check if we're using the old or new parameter pattern
         if isinstance(options_or_start_time, datetime):
@@ -517,9 +496,7 @@ class CacheValidator:
             symbol_param = symbol or "BTCUSDT"
 
             if start_time is None or end_time is None or interval is None:
-                raise ValueError(
-                    "start_time, end_time, and interval parameters must be provided"
-                )
+                raise ValueError("start_time, end_time, and interval parameters must be provided")
 
             options = AlignmentOptions(
                 start_time=start_time,
@@ -652,15 +629,7 @@ class CacheKeyManager:
         interval = interval.lower()
 
         # Generate path with standardized structure
-        path = (
-            cache_dir
-            / options.exchange
-            / options.market_type
-            / options.data_nature
-            / options.packaging_frequency
-            / symbol
-            / interval
-        )
+        path = cache_dir / options.exchange / options.market_type / options.data_nature / options.packaging_frequency / symbol / interval
         path.mkdir(parents=True, exist_ok=True)
 
         # Generate filename with standardized format - YYYYMMDD.arrow
@@ -719,31 +688,19 @@ class VisionCacheManager:
             )
 
             return checksum, record_count
-        except (
-            IOError,
-            OSError,
-            pa.ArrowException,
-            pa.ArrowInvalid,
-            pa.ArrowIOError,
-        ) as e:
+        except (OSError, pa.ArrowException, pa.ArrowInvalid, pa.ArrowIOError) as e:
             logger.error("Error saving to cache: %s", e)
             # If there was an error, attempt to clean up partial file
             if cache_path.exists():
                 try:
                     cache_path.unlink()
-                    logger.info(
-                        "Removed partial cache file after error: %s", cache_path
-                    )
-                except (IOError, OSError, PermissionError) as cleanup_error:
-                    logger.error(
-                        "Failed to clean up partial cache file: %s", cleanup_error
-                    )
+                    logger.info("Removed partial cache file after error: %s", cache_path)
+                except (OSError, PermissionError) as cleanup_error:
+                    logger.error("Failed to clean up partial cache file: %s", cleanup_error)
             return "", 0
 
     @staticmethod
-    async def load_from_cache(
-        cache_path: Path, columns: Optional[Sequence[str]] = None
-    ) -> Optional[pd.DataFrame]:
+    async def load_from_cache(cache_path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame | None:
         """Load data from cache with proper error handling.
 
         Args:
@@ -769,11 +726,9 @@ class VisionCacheManager:
                 logger.warning("Cache file is empty: %s", cache_path)
                 return None
 
-            logger.info(
-                "Successfully loaded %d records from cache: %s", len(df), cache_path
-            )
+            logger.info("Successfully loaded %d records from cache: %s", len(df), cache_path)
             return df
-        except (IOError, OSError, ValueError, pa.ArrowInvalid, pa.ArrowIOError) as e:
+        except (OSError, ValueError, pa.ArrowInvalid, pa.ArrowIOError) as e:
             logger.error("Error loading from cache: %s", e)
             return None
 
@@ -785,7 +740,7 @@ def validate_cache_integrity(
     cache_path: Path,
     max_age: timedelta | None = None,
     min_size: int | None = None,
-) -> Optional[CacheValidationError]:
+) -> CacheValidationError | None:
     """Standalone version of CacheValidator.validate_cache_integrity.
 
     Args:
@@ -813,7 +768,7 @@ def validate_cache_checksum(cache_path: Path, stored_checksum: str) -> bool:
 
 
 def validate_cache_metadata(
-    cache_info: Optional[Dict[str, Any]],
+    cache_info: dict[str, Any] | None,
     required_fields: list | None = None,
 ) -> bool:
     """Standalone version of CacheValidator.validate_cache_metadata.
@@ -828,7 +783,7 @@ def validate_cache_metadata(
     return CacheValidator.validate_cache_metadata(cache_info, required_fields)
 
 
-def validate_cache_records(record_count: Union[int, str]) -> bool:
+def validate_cache_records(record_count: int | str) -> bool:
     """Standalone version of CacheValidator.validate_cache_records.
 
     Args:
@@ -846,9 +801,7 @@ def validate_cache_records(record_count: Union[int, str]) -> bool:
         return False
 
 
-async def safely_read_arrow_file_async(
-    file_path: Path, columns: Optional[list] = None
-) -> Optional[pd.DataFrame]:
+async def safely_read_arrow_file_async(file_path: Path, columns: list | None = None) -> pd.DataFrame | None:
     """Standalone version of CacheValidator.safely_read_arrow_file_async.
 
     Args:

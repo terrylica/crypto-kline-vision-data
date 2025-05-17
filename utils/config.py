@@ -9,7 +9,7 @@ import os
 from datetime import timedelta, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, Final, List
+from typing import Any, Final
 
 import attrs
 import pandas as pd
@@ -17,9 +17,7 @@ import pandas as pd
 # Time-related constants
 DEFAULT_TIMEZONE: Final = timezone.utc
 CANONICAL_INDEX_NAME: Final = "open_time"
-TIMESTAMP_PRECISION: Final = (
-    "ms"  # Millisecond precision to align with REST API standard
-)
+TIMESTAMP_PRECISION: Final = "ms"  # Millisecond precision to align with REST API standard
 DATE_STRING_LENGTH: Final = 10  # Length of a YYYY-MM-DD date string
 LOG_SEARCH_WINDOW_SECONDS: Final = 30  # Window to search for logs in seconds
 
@@ -39,9 +37,7 @@ VISION_DATA_DELAY_HOURS: Final = 48
 
 # Time constraints
 CONSOLIDATION_DELAY: Final = timedelta(hours=48)
-INCOMPLETE_BAR_THRESHOLD: Final = timedelta(
-    minutes=5
-)  # Time after which bars are considered complete
+INCOMPLETE_BAR_THRESHOLD: Final = timedelta(minutes=5)  # Time after which bars are considered complete
 
 # Cache settings
 MAX_CACHE_AGE: Final = timedelta(days=30)
@@ -61,25 +57,17 @@ FILE_CLEANUP_TIMEOUT: Final = 0.3  # Seconds - for file handle cleanup
 ENABLE_FORCED_GC: Final = True  # Whether to force garbage collection after cleanup
 
 # Task cancellation timeouts
-TASK_CANCEL_WAIT_TIMEOUT: Final = (
-    1.0  # Seconds - default timeout for cancel_and_wait operations
-)
-LINGERING_TASK_CLEANUP_TIMEOUT: Final = (
-    0.5  # Seconds - timeout for lingering task cleanup
-)
-AGGRESSIVE_TASK_CLEANUP_TIMEOUT: Final = (
-    0.2  # Seconds - timeout for aggressive cleanup after initial failure
-)
-DEMO_SIMULATED_DELAY: Final = (
-    3  # Seconds - delay for the task cancellation demonstration
-)
+TASK_CANCEL_WAIT_TIMEOUT: Final = 1.0  # Seconds - default timeout for cancel_and_wait operations
+LINGERING_TASK_CLEANUP_TIMEOUT: Final = 0.5  # Seconds - timeout for lingering task cleanup
+AGGRESSIVE_TASK_CLEANUP_TIMEOUT: Final = 0.2  # Seconds - timeout for aggressive cleanup after initial failure
+DEMO_SIMULATED_DELAY: Final = 3  # Seconds - delay for the task cancellation demonstration
 
 # Canonical column names
 CANONICAL_CLOSE_TIME: Final[str] = "close_time"
 
 # Exhaustive list of all column names used in kline data
 # These follow the official Binance API documentation
-KLINE_COLUMNS: Final[List[str]] = [
+KLINE_COLUMNS: Final[list[str]] = [
     "open_time",  # Kline open time
     "open",  # Open price
     "high",  # High price
@@ -95,7 +83,7 @@ KLINE_COLUMNS: Final[List[str]] = [
 ]
 
 # Funding rate column names
-FUNDING_RATE_COLUMNS: Final[List[str]] = [
+FUNDING_RATE_COLUMNS: Final[list[str]] = [
     "time",  # Time of funding rate
     "contracts",  # Contract symbol
     "funding_interval",  # Funding interval
@@ -103,7 +91,7 @@ FUNDING_RATE_COLUMNS: Final[List[str]] = [
 ]
 
 # Standard column dtypes for all market data DataFrames
-OUTPUT_DTYPES: Final[Dict[str, str]] = {
+OUTPUT_DTYPES: Final[dict[str, str]] = {
     "open": "float64",
     "high": "float64",
     "low": "float64",
@@ -117,7 +105,7 @@ OUTPUT_DTYPES: Final[Dict[str, str]] = {
 }
 
 # Standard column dtypes for funding rate DataFrames
-FUNDING_RATE_DTYPES: Final[Dict[str, str]] = {
+FUNDING_RATE_DTYPES: Final[dict[str, str]] = {
     "contracts": "string",
     "funding_interval": "string",
     "funding_rate": "float64",
@@ -125,7 +113,7 @@ FUNDING_RATE_DTYPES: Final[Dict[str, str]] = {
 
 # Mapping between various column name variants used in different APIs
 # This comprehensive mapping ensures backward compatibility
-COLUMN_NAME_MAPPING: Final[Dict[str, str]] = {
+COLUMN_NAME_MAPPING: Final[dict[str, str]] = {
     # Quote volume variants
     "quote_volume": "quote_asset_volume",
     # Trade count variants
@@ -143,7 +131,7 @@ COLUMN_NAME_MAPPING: Final[Dict[str, str]] = {
 }
 
 # Default column order for standardized output
-DEFAULT_COLUMN_ORDER: Final[List[str]] = [
+DEFAULT_COLUMN_ORDER: Final[list[str]] = [
     "open",
     "high",
     "low",
@@ -157,24 +145,20 @@ DEFAULT_COLUMN_ORDER: Final[List[str]] = [
 ]
 
 # Default column order for funding rate output
-FUNDING_RATE_COLUMN_ORDER: Final[List[str]] = [
+FUNDING_RATE_COLUMN_ORDER: Final[list[str]] = [
     "contracts",
     "funding_interval",
     "funding_rate",
 ]
 
 # Timestamp configuration
-TIMESTAMP_UNIT: Final[str] = (
-    "ms"  # Milliseconds for timestamps - aligns with REST API standard
-)
+TIMESTAMP_UNIT: Final[str] = "ms"  # Milliseconds for timestamps - aligns with REST API standard
 CLOSE_TIME_ADJUSTMENT: Final[int] = 999  # Milliseconds to add to close_time
 
 # HTTP Client configuration
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 DEFAULT_ACCEPT_HEADER: Final[str] = "application/json"
-DEFAULT_HTTP_TIMEOUT_SECONDS: Final[float] = (
-    3.0  # Standardized timeout for all HTTP requests
-)
+DEFAULT_HTTP_TIMEOUT_SECONDS: Final[float] = 3.0  # Standardized timeout for all HTTP requests
 
 # HTTP status codes
 HTTP_OK: Final = 200  # Standard HTTP OK status code
@@ -200,7 +184,7 @@ class FileType(Enum):
 
 
 # File formats
-FILE_EXTENSIONS: Final[Dict[str, str]] = {
+FILE_EXTENSIONS: Final[dict[str, str]] = {
     "DATA": ".zip",
     "CHECKSUM": ".CHECKSUM",
     "CACHE": ".arrow",
@@ -212,7 +196,7 @@ MIN_VALID_FILE_SIZE: Final[int] = 1024  # 1KB minimum for valid data files
 METADATA_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 
 # Error classification
-ERROR_TYPES: Final[Dict[str, str]] = {
+ERROR_TYPES: Final[dict[str, str]] = {
     "NETWORK": "network_error",
     "FILE_SYSTEM": "file_system_error",
     "DATA_INTEGRITY": "data_integrity_error",
@@ -400,26 +384,16 @@ SMALL_BATCH_SIZE: Final = 10  # Threshold for small batch optimization
 MEDIUM_BATCH_SIZE: Final = 50  # Threshold for medium batch optimization
 
 # Data preview constants
-MAX_PREVIEW_ITEMS: Final = (
-    5  # Maximum number of items to preview (e.g., dates, symbols)
-)
+MAX_PREVIEW_ITEMS: Final = 5  # Maximum number of items to preview (e.g., dates, symbols)
 
 # Data processing constants
 MIN_ROWS_FOR_GAP_DETECTION: Final = 2  # Minimum number of rows needed to detect gaps
-MIN_RECORDS_FOR_COMPARISON: Final = (
-    3  # Minimum number of records needed for a valid comparison
-)
+MIN_RECORDS_FOR_COMPARISON: Final = 3  # Minimum number of records needed for a valid comparison
 
 # Symbol format constants
-MIN_LONG_SYMBOL_LENGTH: Final = (
-    6  # Minimum length for symbols with 4-char quote currencies
-)
-MIN_SHORT_SYMBOL_LENGTH: Final = (
-    4  # Minimum length for symbols with 3-char quote currencies
-)
-OPTIONS_SYMBOL_PARTS: Final = (
-    4  # Number of parts in an options symbol (base-expiry-strike-type)
-)
+MIN_LONG_SYMBOL_LENGTH: Final = 6  # Minimum length for symbols with 4-char quote currencies
+MIN_SHORT_SYMBOL_LENGTH: Final = 4  # Minimum length for symbols with 3-char quote currencies
+OPTIONS_SYMBOL_PARTS: Final = 4  # Number of parts in an options symbol (base-expiry-strike-type)
 
 # Data availability constants
 SHORT_HISTORY_DAYS: Final = 7  # Threshold for "short history" in days

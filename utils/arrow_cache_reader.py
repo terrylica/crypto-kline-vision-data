@@ -31,7 +31,7 @@ Example usage:
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -47,7 +47,7 @@ class ArrowCacheReader:
 
     def __init__(
         self,
-        cache_db_path: Union[str, Path] = "./logs/cache_index.db",
+        cache_db_path: str | Path = "./logs/cache_index.db",
         data_provider: DataProvider = DataProvider.BINANCE,
         chart_type: ChartType = ChartType.KLINES,
     ):
@@ -79,9 +79,9 @@ class ArrowCacheReader:
     def _get_cache_path_components(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        market_type: Optional[MarketType] = MarketType.SPOT,
-    ) -> Tuple[str, str]:
+        interval: str | Interval,
+        market_type: MarketType | None = MarketType.SPOT,
+    ) -> tuple[str, str]:
         """Get the cache path components for a symbol and interval.
 
         Args:
@@ -93,9 +93,7 @@ class ArrowCacheReader:
             Tuple of (provider_str, path_pattern) for finding files in the database
         """
         # Convert interval to string if it's an Interval enum
-        interval_str = (
-            interval.value if isinstance(interval, Interval) else str(interval)
-        )
+        interval_str = interval.value if isinstance(interval, Interval) else str(interval)
 
         # Format: BINANCE/KLINES/{market_type}/{symbol}/{interval}/
         provider_str = self.data_provider.name
@@ -109,11 +107,11 @@ class ArrowCacheReader:
     def check_availability(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        start_date: Union[str, datetime],
-        end_date: Union[str, datetime],
+        interval: str | Interval,
+        start_date: str | datetime,
+        end_date: str | datetime,
         market_type: MarketType = MarketType.SPOT,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if data is available in cache for the given parameters.
 
         Args:
@@ -132,9 +130,7 @@ class ArrowCacheReader:
                 - paths: Dict mapping dates to file paths
         """
         # Convert interval to string if it's an Interval enum
-        interval_str = (
-            interval.value if isinstance(interval, Interval) else str(interval)
-        )
+        interval_str = interval.value if isinstance(interval, Interval) else str(interval)
 
         # Convert dates to strings if needed
         if isinstance(start_date, datetime):
@@ -159,9 +155,7 @@ class ArrowCacheReader:
             placeholders = ", ".join(["?"] * len(all_dates))
 
             # Get the path pattern for this type of data
-            _, path_pattern = self._get_cache_path_components(
-                symbol, interval_str, market_type
-            )
+            _, path_pattern = self._get_cache_path_components(symbol, interval_str, market_type)
 
             cursor.execute(
                 f"""
@@ -197,10 +191,10 @@ class ArrowCacheReader:
     def get_file_path(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        date: Union[str, datetime],
+        interval: str | Interval,
+        date: str | datetime,
         market_type: MarketType = MarketType.SPOT,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get the path to an Arrow file in the cache.
 
         Args:
@@ -213,9 +207,7 @@ class ArrowCacheReader:
             Path to the Arrow file or None if not in cache
         """
         # Convert interval to string if it's an Interval enum
-        interval_str = (
-            interval.value if isinstance(interval, Interval) else str(interval)
-        )
+        interval_str = interval.value if isinstance(interval, Interval) else str(interval)
 
         if isinstance(date, datetime):
             date = date.strftime("%Y-%m-%d")
@@ -224,9 +216,7 @@ class ArrowCacheReader:
         cursor = conn.cursor()
 
         # Get the path pattern for this type of data
-        _, path_pattern = self._get_cache_path_components(
-            symbol, interval_str, market_type
-        )
+        _, path_pattern = self._get_cache_path_components(symbol, interval_str, market_type)
 
         cursor.execute(
             """
@@ -241,7 +231,7 @@ class ArrowCacheReader:
 
         return result[0] if result else None
 
-    def read_arrow_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def read_arrow_file(self, file_path: str | Path) -> pd.DataFrame:
         """Read an Arrow file from the cache.
 
         Args:
@@ -269,7 +259,7 @@ class ArrowCacheReader:
                 # Ensure timezone aware
                 if df["open_time"].dt.tz is None:
                     df["open_time"] = df["open_time"].dt.tz_localize("UTC")
-                df.set_index("open_time", inplace=True)
+                df = df.set_index("open_time")
 
             return df
         except Exception as e:
@@ -279,9 +269,9 @@ class ArrowCacheReader:
     def read_symbol_data(
         self,
         symbol: str,
-        interval: Union[str, Interval],
-        start_date: Union[str, datetime],
-        end_date: Union[str, datetime],
+        interval: str | Interval,
+        start_date: str | datetime,
+        end_date: str | datetime,
         market_type: MarketType = MarketType.SPOT,
     ) -> pd.DataFrame:
         """Read all available data for a symbol within a date range.
@@ -297,14 +287,10 @@ class ArrowCacheReader:
             pandas DataFrame with combined data
         """
         # Check what's available
-        availability = self.check_availability(
-            symbol, interval, start_date, end_date, market_type
-        )
+        availability = self.check_availability(symbol, interval, start_date, end_date, market_type)
 
         if not availability["available_dates"]:
-            logger.debug(
-                f"No data available in cache for {symbol} {interval} {market_type.name} from {start_date} to {end_date}"
-            )
+            logger.debug(f"No data available in cache for {symbol} {interval} {market_type.name} from {start_date} to {end_date}")
             return pd.DataFrame()
 
         logger.debug(
@@ -328,12 +314,10 @@ class ArrowCacheReader:
 
         # Combine data and sort by index
         combined_df = pd.concat(dfs).sort_index()
-        logger.debug(
-            f"Read {len(combined_df)} records from cache for {symbol} {interval} {market_type.name}"
-        )
+        logger.debug(f"Read {len(combined_df)} records from cache for {symbol} {interval} {market_type.name}")
         return combined_df
 
-    def get_cache_statistics(self) -> Dict[str, Any]:
+    def get_cache_statistics(self) -> dict[str, Any]:
         """Get statistics about the cache.
 
         Returns:
@@ -399,9 +383,7 @@ class ArrowCacheReader:
             "total_records": total_records,
         }
 
-    def list_available_symbols(
-        self, market_type: Optional[MarketType] = None
-    ) -> List[str]:
+    def list_available_symbols(self, market_type: MarketType | None = None) -> list[str]:
         """Get a list of all symbols available in the cache.
 
         Args:
@@ -427,9 +409,7 @@ class ArrowCacheReader:
         conn.close()
         return symbols
 
-    def list_available_intervals(
-        self, symbol: Optional[str] = None, market_type: Optional[MarketType] = None
-    ) -> List[str]:
+    def list_available_intervals(self, symbol: str | None = None, market_type: MarketType | None = None) -> list[str]:
         """Get a list of all intervals available in the cache.
 
         Args:
@@ -468,9 +448,9 @@ class ArrowCacheReader:
     def list_available_dates(
         self,
         symbol: str,
-        interval: Union[str, Interval],
+        interval: str | Interval,
         market_type: MarketType = MarketType.SPOT,
-    ) -> List[str]:
+    ) -> list[str]:
         """Get a list of all dates available for a symbol and interval.
 
         Args:
@@ -482,17 +462,13 @@ class ArrowCacheReader:
             List of date strings (YYYY-MM-DD)
         """
         # Convert interval to string if it's an Interval enum
-        interval_str = (
-            interval.value if isinstance(interval, Interval) else str(interval)
-        )
+        interval_str = interval.value if isinstance(interval, Interval) else str(interval)
 
         conn = self._get_connection()
         cursor = conn.cursor()
 
         # Get the path pattern for this type of data
-        _, path_pattern = self._get_cache_path_components(
-            symbol, interval_str, market_type
-        )
+        _, path_pattern = self._get_cache_path_components(symbol, interval_str, market_type)
 
         cursor.execute(
             """
@@ -507,7 +483,7 @@ class ArrowCacheReader:
         conn.close()
         return dates
 
-    def list_available_market_types(self) -> List[str]:
+    def list_available_market_types(self) -> list[str]:
         """Get a list of all market types available in the cache.
 
         Returns:
@@ -546,25 +522,19 @@ if __name__ == "__main__":
 
     # List available market types
     market_types = cache_reader.list_available_market_types()
-    print(
-        f"\n[bold green]Available market types:[/bold green] {', '.join(market_types)}"
-    )
+    print(f"\n[bold green]Available market types:[/bold green] {', '.join(market_types)}")
 
     # List available symbols
     symbols = cache_reader.list_available_symbols()
     if symbols:
-        print(
-            f"\n[bold green]Available symbols:[/bold green] {', '.join(symbols[:MAX_PREVIEW_ITEMS])}"
-        )
+        print(f"\n[bold green]Available symbols:[/bold green] {', '.join(symbols[:MAX_PREVIEW_ITEMS])}")
         if len(symbols) > MAX_PREVIEW_ITEMS:
             print(f"...and {len(symbols) - MAX_PREVIEW_ITEMS} more")
 
         # Example with the first symbol
         symbol = symbols[0]
         intervals = cache_reader.list_available_intervals(symbol)
-        print(
-            f"\n[bold green]Available intervals for {symbol}:[/bold green] {', '.join(intervals)}"
-        )
+        print(f"\n[bold green]Available intervals for {symbol}:[/bold green] {', '.join(intervals)}")
 
         if intervals:
             interval = intervals[0]
@@ -574,9 +544,7 @@ if __name__ == "__main__":
                 from utils.market_constraints import Interval
 
                 interval_enum = next(i for i in Interval if i.value == interval)
-                print(
-                    f"Interval string '{interval}' converted to enum: {interval_enum}"
-                )
+                print(f"Interval string '{interval}' converted to enum: {interval_enum}")
             except (StopIteration, ImportError):
                 interval_enum = interval
                 print(f"Using interval as string: {interval}")
@@ -584,9 +552,7 @@ if __name__ == "__main__":
             dates = cache_reader.list_available_dates(symbol, interval_enum)
 
             if dates:
-                print(
-                    f"\n[bold green]Available dates for {symbol} {interval}:[/bold green]"
-                )
+                print(f"\n[bold green]Available dates for {symbol} {interval}:[/bold green]")
                 print(f"First date: {dates[0]}")
                 print(f"Last date: {dates[-1]}")
                 print(f"Total dates: {len(dates)}")
@@ -595,30 +561,18 @@ if __name__ == "__main__":
                 if len(dates) >= MIN_FILES_FOR_README:
                     start_date = dates[0]
                     end_date = dates[-1]
-                    availability = cache_reader.check_availability(
-                        symbol, interval_enum, start_date, end_date
-                    )
+                    availability = cache_reader.check_availability(symbol, interval_enum, start_date, end_date)
 
-                    print(
-                        f"\n[bold green]Availability for {symbol} {interval} from {start_date} to {end_date}:[/bold green]"
-                    )
+                    print(f"\n[bold green]Availability for {symbol} {interval} from {start_date} to {end_date}:[/bold green]")
                     print(f"Coverage: {availability['coverage_percentage']:.1f}%")
                     print(f"Total records: {availability['total_records']}")
 
                     # Load some data as an example
                     print("\n[bold green]Loading sample data...[/bold green]")
                     sample_start = dates[0]
-                    sample_end = (
-                        min(dates[MAX_PREVIEW_ITEMS], dates[-1])
-                        if len(dates) > MAX_PREVIEW_ITEMS
-                        else dates[-1]
-                    )
-                    df = cache_reader.read_symbol_data(
-                        symbol, interval_enum, sample_start, sample_end
-                    )
-                    print(
-                        f"Loaded {len(df)} records from {sample_start} to {sample_end}"
-                    )
+                    sample_end = min(dates[MAX_PREVIEW_ITEMS], dates[-1]) if len(dates) > MAX_PREVIEW_ITEMS else dates[-1]
+                    df = cache_reader.read_symbol_data(symbol, interval_enum, sample_start, sample_end)
+                    print(f"Loaded {len(df)} records from {sample_start} to {sample_end}")
                     if not df.empty:
                         print("\nSample data:")
                         print(df.head(5))

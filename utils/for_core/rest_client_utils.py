@@ -9,7 +9,7 @@ This module provides common utilities for REST API client operations including:
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import requests
 from tenacity import (
@@ -57,9 +57,7 @@ def create_optimized_client() -> requests.Session:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_incrementing(start=1, increment=1, max=3),
-    retry=retry_if_exception_type(
-        (RestAPIError, requests.RequestException, json.JSONDecodeError)
-    ),
+    retry=retry_if_exception_type((RestAPIError, requests.RequestException, json.JSONDecodeError)),
     before_sleep=lambda retry_state: logger.warning(
         f"Error fetching data (attempt {retry_state.attempt_number}/3): {retry_state.outcome.exception()}"
     ),
@@ -67,9 +65,9 @@ def create_optimized_client() -> requests.Session:
 def fetch_chunk(
     client: requests.Session,
     endpoint: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
-) -> List[List[Any]]:
+) -> list[list[Any]]:
     """Fetch a chunk of data with retry logic.
 
     Args:
@@ -105,9 +103,7 @@ def fetch_chunk(
             # Handle rate limiting
             if response.status_code in (418, 429):
                 retry_after = int(response.headers.get("retry-after", 1))
-                logger.warning(
-                    f"Rate limited by API (HTTP {response.status_code}). Waiting {retry_after}s before continuing"
-                )
+                logger.warning(f"Rate limited by API (HTTP {response.status_code}). Waiting {retry_after}s before continuing")
                 raise RateLimitError(retry_after=retry_after)
 
             # Check for HTTP error codes
@@ -154,9 +150,7 @@ def log_rest_metrics():
     metrics_tracker.log_metrics()
 
 
-def calculate_chunks(
-    start_ms: int, end_ms: int, interval_ms: int, chunk_size: int, max_chunks: int
-) -> List[Tuple[int, int]]:
+def calculate_chunks(start_ms: int, end_ms: int, interval_ms: int, chunk_size: int, max_chunks: int) -> list[tuple[int, int]]:
     """Calculate chunk boundaries for a time range.
 
     This is needed because Binance API limits the number of records per request,
@@ -197,16 +191,12 @@ def calculate_chunks(
         loop_count += 1
 
     if loop_count >= max_chunks:
-        logger.warning(
-            f"Reached maximum chunk limit ({max_chunks}) for time range {start_ms} to {end_ms}"
-        )
+        logger.warning(f"Reached maximum chunk limit ({max_chunks}) for time range {start_ms} to {end_ms}")
 
     return chunks
 
 
-def validate_request_params(
-    symbol: str, interval: Interval, start_time: datetime, end_time: datetime
-) -> None:
+def validate_request_params(symbol: str, interval: Interval, start_time: datetime, end_time: datetime) -> None:
     """Validate request parameters for debugging.
 
     Args:
@@ -224,14 +214,10 @@ def validate_request_params(
 
     # Validate time ranges
     if not isinstance(start_time, datetime) or not isinstance(end_time, datetime):
-        raise ValueError(
-            f"Start and end times must be datetime objects, got start={type(start_time)}, end={type(end_time)}"
-        )
+        raise ValueError(f"Start and end times must be datetime objects, got start={type(start_time)}, end={type(end_time)}")
 
     if start_time >= end_time:
-        raise ValueError(
-            f"Start time ({start_time}) must be before end time ({end_time})"
-        )
+        raise ValueError(f"Start time ({start_time}) must be before end time ({end_time})")
 
     # Validate interval
     if not isinstance(interval, Interval):
@@ -271,9 +257,7 @@ def get_interval_ms(interval: Interval) -> int:
     return interval_map.get(interval, 60 * 1000)  # Default to 1 minute if unknown
 
 
-def parse_interval_string(
-    interval_str: str, default_interval: Interval = Interval.MINUTE_1
-) -> Interval:
+def parse_interval_string(interval_str: str, default_interval: Interval = Interval.MINUTE_1) -> Interval:
     """Parse interval string to Interval enum.
 
     Args:

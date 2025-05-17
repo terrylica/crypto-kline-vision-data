@@ -7,8 +7,6 @@ This module provides common utilities for processing data from REST API response
 3. DataFrame creation and manipulation
 """
 
-from typing import List
-
 import pandas as pd
 
 from utils.config import OUTPUT_DTYPES
@@ -67,7 +65,7 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
+def process_kline_data(raw_data: list[list]) -> pd.DataFrame:
     """Process raw kline data into a structured DataFrame.
 
     Args:
@@ -123,21 +121,12 @@ def process_kline_data(raw_data: List[List]) -> pd.DataFrame:
 
     # Ensure we consistently return a DataFrame with open_time as a column, never as an index
     # This prevents downstream ambiguity
-    if (
-        hasattr(df, "index")
-        and hasattr(df.index, "name")
-        and df.index.name == "open_time"
-    ):
+    if hasattr(df, "index") and hasattr(df.index, "name") and df.index.name == "open_time":
         logger.debug("Resetting index to ensure open_time is a column, not an index")
         df = df.reset_index()
 
     # Ensure there's only one open_time (column takes precedence over index)
-    if (
-        hasattr(df, "index")
-        and hasattr(df.index, "name")
-        and df.index.name == "open_time"
-        and "open_time" in df.columns
-    ):
+    if hasattr(df, "index") and hasattr(df.index, "name") and df.index.name == "open_time" and "open_time" in df.columns:
         logger.debug("Resolving ambiguous open_time by keeping only the column version")
         df = df.reset_index(drop=True)
 

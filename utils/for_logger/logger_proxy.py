@@ -36,7 +36,7 @@ class ConsoleState:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(ConsoleState, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._console = None
         return cls._instance
 
@@ -181,9 +181,7 @@ class LoggerProxy:
         # Check if the level is valid
         if not hasattr(logging, level_str):
             valid_levels = list(logging._levelToName.values())
-            raise ValueError(
-                f"Invalid log level: {level_str}. Valid levels are: {valid_levels}"
-            )
+            raise ValueError(f"Invalid log level: {level_str}. Valid levels are: {valid_levels}")
 
         # Set up root logger if requested (usually first setup)
         if configure_root and self._setup_root_logger:
@@ -214,9 +212,7 @@ class LoggerProxy:
         """
         from utils.for_logger.logger_setup_utils import use_rich_logging
 
-        self._use_rich = use_rich_logging(
-            enable=enable, level=level, setup_root_logger=self._setup_root_logger
-        )
+        self._use_rich = use_rich_logging(enable=enable, level=level, setup_root_logger=self._setup_root_logger)
         return self
 
     def log_timeout(self, operation, timeout_value, details=None):
@@ -243,9 +239,7 @@ class LoggerProxy:
         from utils.for_logger.timeout_logger import log_timeout as _log_timeout
 
         # Use the log_timeout function with module name
-        _log_timeout(
-            operation, timeout_value, module_name, details, self._get_module_logger
-        )
+        _log_timeout(operation, timeout_value, module_name, details, self._get_module_logger)
 
         # Return self for chaining
         return self

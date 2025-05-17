@@ -2,7 +2,7 @@
 """Client for fetching market data from REST APIs with synchronous implementation."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pandas as pd
 
@@ -102,10 +102,7 @@ class RestDataClient(DataClientInterface):
         # Set up proper endpoint based on market type
         self._endpoint = self._get_klines_endpoint()
 
-        logger.debug(
-            f"Initialized RestDataClient with market_type={market_type.name}, "
-            f"retry_count={retry_count}"
-        )
+        logger.debug(f"Initialized RestDataClient with market_type={market_type.name}, retry_count={retry_count}")
 
     def _get_klines_endpoint(self):
         """Get the appropriate endpoint URL for klines data based on market type.
@@ -135,9 +132,7 @@ class RestDataClient(DataClientInterface):
             self._client = None
             logger.debug("Closed HTTP client")
 
-    def _fetch_chunk(
-        self, endpoint: str, params: Dict[str, Any], retry_count: int = 0
-    ) -> List[List[Any]]:
+    def _fetch_chunk(self, endpoint: str, params: dict[str, Any], retry_count: int = 0) -> list[list[Any]]:
         """Fetch a chunk of data with retry logic.
 
         Args:
@@ -170,7 +165,7 @@ class RestDataClient(DataClientInterface):
         interval: Interval,
         start_ms: int,
         end_ms: int,
-    ) -> List[List[Any]]:
+    ) -> list[list[Any]]:
         """Fetch a chunk of data for a specific time range.
 
         Args:
@@ -198,9 +193,7 @@ class RestDataClient(DataClientInterface):
         try:
             data = self._fetch_chunk(endpoint, params, self.retry_count)
             if not data:
-                logger.debug(
-                    f"No data returned for {symbol} in range {start_ms} to {end_ms}"
-                )
+                logger.debug(f"No data returned for {symbol} in range {start_ms} to {end_ms}")
                 return []
 
             return data
@@ -238,9 +231,7 @@ class RestDataClient(DataClientInterface):
         """
         return create_optimized_client()
 
-    def _calculate_chunks(
-        self, start_ms: int, end_ms: int, interval: Interval
-    ) -> List[Tuple[int, int]]:
+    def _calculate_chunks(self, start_ms: int, end_ms: int, interval: Interval) -> list[tuple[int, int]]:
         """Calculate chunk boundaries for a time range.
 
         Args:
@@ -255,9 +246,7 @@ class RestDataClient(DataClientInterface):
         interval_ms = get_interval_ms(interval)
 
         # Use the utility function to calculate chunks
-        return calculate_chunks(
-            start_ms, end_ms, interval_ms, self.CHUNK_SIZE, REST_MAX_CHUNKS
-        )
+        return calculate_chunks(start_ms, end_ms, interval_ms, self.CHUNK_SIZE, REST_MAX_CHUNKS)
 
     def fetch(
         self,
@@ -297,14 +286,9 @@ class RestDataClient(DataClientInterface):
         validate_request_params(symbol, interval_enum, start_time, end_time)
 
         # Align time boundaries
-        aligned_start, aligned_end = align_time_boundaries(
-            start_time, end_time, interval_enum
-        )
+        aligned_start, aligned_end = align_time_boundaries(start_time, end_time, interval_enum)
 
-        logger.info(
-            f"Fetching {interval_enum.value} data for {symbol} from "
-            f"{aligned_start.isoformat()} to {aligned_end.isoformat()}"
-        )
+        logger.info(f"Fetching {interval_enum.value} data for {symbol} from {aligned_start.isoformat()} to {aligned_end.isoformat()}")
 
         # Convert times to milliseconds
         start_ms = datetime_to_milliseconds(aligned_start)
@@ -330,9 +314,7 @@ class RestDataClient(DataClientInterface):
             )
 
             # Fetch the chunk
-            chunk_data = self._fetch_chunk_data(
-                symbol, interval_enum, chunk_start, chunk_end
-            )
+            chunk_data = self._fetch_chunk_data(symbol, interval_enum, chunk_start, chunk_end)
 
             if chunk_data:
                 all_data.extend(chunk_data)
@@ -344,18 +326,14 @@ class RestDataClient(DataClientInterface):
 
         # If no data was retrieved, return empty DataFrame
         if not all_data:
-            logger.warning(
-                f"No data retrieved for {symbol} in the specified time range"
-            )
+            logger.warning(f"No data retrieved for {symbol} in the specified time range")
             return create_empty_dataframe()
 
         # Process the data into a DataFrame
         df = process_kline_data(all_data)
 
         # Filter to requested time range
-        filtered_df = filter_dataframe_by_time(
-            df, aligned_start, aligned_end, "open_time"
-        )
+        filtered_df = filter_dataframe_by_time(df, aligned_start, aligned_end, "open_time")
 
         # Log success stats
         logger.info(
@@ -394,17 +372,13 @@ class RestDataClient(DataClientInterface):
         return self._symbol
 
     @property
-    def interval(self) -> Union[str, object]:
+    def interval(self) -> str | object:
         """Get the interval.
 
         Returns:
             The time interval string
         """
-        return (
-            self._interval.value
-            if hasattr(self._interval, "value")
-            else str(self._interval)
-        )
+        return self._interval.value if hasattr(self._interval, "value") else str(self._interval)
 
     @property
     def provider(self) -> DataProvider:
@@ -424,7 +398,7 @@ class RestDataClient(DataClientInterface):
         """
         return ChartType.KLINES
 
-    def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
+    def validate_data(self, df: pd.DataFrame) -> tuple[bool, str | None]:
         """Validate that a DataFrame contains valid market data.
 
         Args:

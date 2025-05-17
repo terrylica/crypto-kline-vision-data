@@ -22,9 +22,7 @@ class VisionAPIError(Exception):
 class UnsupportedIntervalError(ValueError):
     """Exception raised when an interval is not supported by a market type."""
 
-    def __init__(
-        self, message="The specified interval is not supported by this market type"
-    ):
+    def __init__(self, message="The specified interval is not supported by this market type"):
         self.message = message
         super().__init__(self.message)
         logger.error(f"UnsupportedIntervalError: {message}")

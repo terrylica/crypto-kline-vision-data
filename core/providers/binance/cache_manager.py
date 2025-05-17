@@ -4,7 +4,7 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -35,7 +35,7 @@ class UnifiedCacheManager:
             create_dirs: Whether to create cache directory structure
         """
         self.cache_dir = Path(cache_dir)
-        self.metadata: Dict[str, Dict[str, Any]] = {}
+        self.metadata: dict[str, dict[str, Any]] = {}
 
         # Create directories if needed
         if create_dirs:
@@ -64,7 +64,7 @@ class UnifiedCacheManager:
         metadata_path = self._get_metadata_path()
         if metadata_path.exists():
             try:
-                with open(metadata_path, "r") as f:
+                with open(metadata_path) as f:
                     self.metadata = json.load(f)
                 logger.debug(f"Loaded cache metadata: {len(self.metadata)} entries")
             except Exception as e:
@@ -79,12 +79,8 @@ class UnifiedCacheManager:
         logger.debug(f"_save_metadata starting with {len(self.metadata)} entries")
         try:
             metadata_path = self._get_metadata_path()
-            file_size_before = (
-                metadata_path.stat().st_size if metadata_path.exists() else 0
-            )
-            logger.debug(
-                f"Metadata will be saved to {metadata_path} (current size: {file_size_before} bytes)"
-            )
+            file_size_before = metadata_path.stat().st_size if metadata_path.exists() else 0
+            logger.debug(f"Metadata will be saved to {metadata_path} (current size: {file_size_before} bytes)")
 
             # Serialize metadata to JSON
             logger.debug("Serializing metadata to JSON")
@@ -93,15 +89,11 @@ class UnifiedCacheManager:
                 json_data = json.dumps(self.metadata, indent=2)
                 json_size = len(json_data)
                 json_elapsed = time.time() - json_start
-                logger.debug(
-                    f"JSON serialization completed in {json_elapsed:.4f}s for {json_size} bytes"
-                )
+                logger.debug(f"JSON serialization completed in {json_elapsed:.4f}s for {json_size} bytes")
 
                 # Log warning if JSON size is very large
                 if json_size > 10 * 1024 * 1024:  # 10MB
-                    logger.warning(
-                        f"Metadata JSON is extremely large: {json_size / (1024 * 1024):.2f} MB"
-                    )
+                    logger.warning(f"Metadata JSON is extremely large: {json_size / (1024 * 1024):.2f} MB")
             except Exception as json_err:
                 logger.error(f"JSON serialization failed: {json_err}")
                 return
@@ -116,15 +108,11 @@ class UnifiedCacheManager:
                     f.write(json_data)
 
                 write_elapsed = time.time() - write_start
-                logger.debug(
-                    f"Temporary metadata file write completed in {write_elapsed:.4f}s"
-                )
+                logger.debug(f"Temporary metadata file write completed in {write_elapsed:.4f}s")
 
                 # Verify the file was written correctly
                 if not temp_path.exists():
-                    logger.error(
-                        f"Temporary metadata file was not created: {temp_path}"
-                    )
+                    logger.error(f"Temporary metadata file was not created: {temp_path}")
                     return
 
                 temp_size = temp_path.stat().st_size
@@ -142,16 +130,12 @@ class UnifiedCacheManager:
 
             # Report detailed stats
             total_elapsed = json_elapsed + write_elapsed
-            logger.debug(
-                f"Saved cache metadata: {len(self.metadata)} entries in {total_elapsed:.4f}s total"
-            )
+            logger.debug(f"Saved cache metadata: {len(self.metadata)} entries in {total_elapsed:.4f}s total")
 
             # Check file size after write
             if metadata_path.exists():
                 file_size_after = metadata_path.stat().st_size
-                logger.debug(
-                    f"Final metadata file size: {file_size_after} bytes (change: {file_size_after - file_size_before} bytes)"
-                )
+                logger.debug(f"Final metadata file size: {file_size_after} bytes (change: {file_size_after - file_size_before} bytes)")
 
         except Exception as e:
             logger.error(f"Error saving metadata: {e}")
@@ -271,7 +255,7 @@ class UnifiedCacheManager:
         provider: str = "BINANCE",
         chart_type: str = "KLINES",
         market_type: str = "spot",
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """Load data from cache.
 
         Args:
@@ -286,9 +270,7 @@ class UnifiedCacheManager:
             DataFrame with cached data, or None if no cache exists
         """
         # Generate cache key
-        cache_key = self.get_cache_key(
-            symbol, interval, date, provider, chart_type, market_type
-        )
+        cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type, market_type)
 
         # Get the file path
         cache_path = self._get_cache_path(cache_key)
@@ -312,15 +294,9 @@ class UnifiedCacheManager:
             return None
 
         # Check if entry is marked as invalid in metadata
-        if cache_key in self.metadata and self.metadata[cache_key].get(
-            "is_invalid", False
-        ):
-            invalid_reason = self.metadata[cache_key].get(
-                "invalid_reason", "Unknown reason"
-            )
-            invalidated_at = self.metadata[cache_key].get(
-                "invalidated_at", "Unknown time"
-            )
+        if cache_key in self.metadata and self.metadata[cache_key].get("is_invalid", False):
+            invalid_reason = self.metadata[cache_key].get("invalid_reason", "Unknown reason")
+            invalidated_at = self.metadata[cache_key].get("invalidated_at", "Unknown time")
             logger.error(
                 f"Invalid cache entry detected - Key: {cache_key}, Path: {cache_path}, "
                 f"Reason: {invalid_reason}, Invalidated at: {invalidated_at}"
@@ -341,17 +317,13 @@ class UnifiedCacheManager:
 
             # Basic validation on the returned data
             if df.empty:
-                logger.error(
-                    f"Cache file {cache_path} returned empty DataFrame - Invalidating cache entry"
-                )
+                logger.error(f"Cache file {cache_path} returned empty DataFrame - Invalidating cache entry")
                 self._mark_cache_invalid(cache_key, "Empty DataFrame")
                 return None
 
             # Update last access time in metadata
             if cache_key in self.metadata:
-                self.metadata[cache_key]["last_accessed"] = datetime.now(
-                    timezone.utc
-                ).isoformat()
+                self.metadata[cache_key]["last_accessed"] = datetime.now(timezone.utc).isoformat()
                 self._save_metadata()
 
             logger.debug(f"Successfully loaded {len(df)} rows from {cache_path}")
@@ -395,15 +367,11 @@ class UnifiedCacheManager:
         # This is the final safety check to prevent unsorted cache entries
         if "open_time" in df.columns and chart_type.upper() == "KLINES":
             if not df["open_time"].is_monotonic_increasing:
-                logger.debug(
-                    f"UnifiedCacheManager: Sorting data by open_time before caching for {symbol}"
-                )
+                logger.debug(f"UnifiedCacheManager: Sorting data by open_time before caching for {symbol}")
                 df = df.sort_values("open_time").reset_index(drop=True)
 
         # Generate cache key
-        cache_key = self.get_cache_key(
-            symbol, interval, date, provider, chart_type, market_type
-        )
+        cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type, market_type)
 
         # Get the file path
         cache_path = self._get_cache_path(cache_key)
@@ -439,9 +407,7 @@ class UnifiedCacheManager:
             # Calculate file size estimate
             size_estimate = df.memory_usage(deep=True).sum()
             metadata_entry["size_estimate_bytes"] = int(size_estimate)
-            logger.debug(
-                f"Preparing to save {len(df)} rows (~{size_estimate / 1024 / 1024:.2f} MB) to {cache_path}"
-            )
+            logger.debug(f"Preparing to save {len(df)} rows (~{size_estimate / 1024 / 1024:.2f} MB) to {cache_path}")
 
             # Convert to pyarrow table
             table = pa.Table.from_pandas(df)
@@ -458,9 +424,7 @@ class UnifiedCacheManager:
             # Save metadata
             self._save_metadata()
 
-            logger.debug(
-                f"Successfully cached {len(df)} rows to {cache_path} ({metadata_entry['file_size_bytes'] / 1024 / 1024:.2f} MB)"
-            )
+            logger.debug(f"Successfully cached {len(df)} rows to {cache_path} ({metadata_entry['file_size_bytes'] / 1024 / 1024:.2f} MB)")
             return True
 
         except Exception as e:
@@ -477,14 +441,10 @@ class UnifiedCacheManager:
         if cache_key in self.metadata:
             self.metadata[cache_key]["is_invalid"] = True
             self.metadata[cache_key]["invalid_reason"] = reason
-            self.metadata[cache_key]["invalidated_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
+            self.metadata[cache_key]["invalidated_at"] = datetime.now(timezone.utc).isoformat()
 
             # Log cache invalidation as ERROR to ensure it's prominently noticed
             cache_path = self._get_cache_path(cache_key)
-            logger.error(
-                f"Cache entry invalidated - Key: {cache_key}, Path: {cache_path}, Reason: {reason}"
-            )
+            logger.error(f"Cache entry invalidated - Key: {cache_key}, Path: {cache_path}, Reason: {reason}")
 
             self._save_metadata()

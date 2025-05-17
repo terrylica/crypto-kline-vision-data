@@ -66,9 +66,7 @@ class CustomLogger(logging.Logger):
             # Get stack info if requested
             sinfo = None
             if stack_info:
-                sinfo = "".join(
-                    traceback.format_stack(frame_records[adjusted_level][0])
-                )
+                sinfo = "".join(traceback.format_stack(frame_records[adjusted_level][0]))
 
             return fn, lno, func, sinfo
 

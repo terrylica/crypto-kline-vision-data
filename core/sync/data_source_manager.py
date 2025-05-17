@@ -4,7 +4,7 @@
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Type, TypeVar
+from typing import TypeVar
 
 import attrs
 import pandas as pd
@@ -86,7 +86,7 @@ class DataSourceConfig:
 
     # Optional parameters with defaults
     chart_type: ChartType = attrs.field(default=ChartType.KLINES)
-    cache_dir: Optional[Path] = attrs.field(default=None)
+    cache_dir: Path | None = attrs.field(default=None)
     use_cache: bool = attrs.field(default=True)
     retry_count: int = attrs.field(default=5)
 
@@ -108,7 +108,7 @@ class DataSourceConfig:
             raise ValueError(f"retry_count must be >= 0, got {self.retry_count}")
 
     @classmethod
-    def create(cls: Type[T], provider: DataProvider, market_type: MarketType, **kwargs) -> T:
+    def create(cls: type[T], provider: DataProvider, market_type: MarketType, **kwargs) -> T:
         """Create a DataSourceConfig with the given provider, market_type and optional overrides.
 
         This is a convenience builder method that allows for a more fluent interface.
@@ -172,7 +172,7 @@ class DataSourceManager:
     DEFAULT_MARKET_TYPE = MarketType.SPOT
 
     @classmethod
-    def calculate_time_range(cls, start_time=None, end_time=None, days=3, interval=Interval.MINUTE_1) -> Tuple[datetime, datetime]:
+    def calculate_time_range(cls, start_time=None, end_time=None, days=3, interval=Interval.MINUTE_1) -> tuple[datetime, datetime]:
         """Calculate time range with flexible parameters.
 
         This method delegates to dsm_date_range_utils to handle various time range scenarios:
@@ -207,7 +207,7 @@ class DataSourceManager:
         return start_datetime, end_datetime
 
     @classmethod
-    def get_output_format(cls, chart_type: ChartType = ChartType.KLINES) -> Dict[str, str]:
+    def get_output_format(cls, chart_type: ChartType = ChartType.KLINES) -> dict[str, str]:
         """Get the standardized output format specification.
 
         Args:
@@ -228,8 +228,8 @@ class DataSourceManager:
     @classmethod
     def create(
         cls,
-        provider: Optional[DataProvider] = None,
-        market_type: Optional[MarketType] = None,
+        provider: DataProvider | None = None,
+        market_type: MarketType | None = None,
         **kwargs,
     ):
         """Create a DataSourceManager with a more Pythonic interface.
@@ -307,7 +307,7 @@ class DataSourceManager:
         market_type: MarketType = MarketType.SPOT,
         chart_type: ChartType = ChartType.KLINES,
         use_cache: bool = True,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         retry_count: int = 3,
     ):
         """Initialize the data source manager.
@@ -367,7 +367,7 @@ class DataSourceManager:
 
     def _get_from_cache(
         self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> Tuple[pd.DataFrame, List[Tuple[datetime, datetime]]]:
+    ) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
         """Get data from cache and identify missing time ranges.
 
         Args:
@@ -493,7 +493,7 @@ class DataSourceManager:
         start_time: datetime,
         end_time: datetime,
         interval: Interval = Interval.MINUTE_1,
-        chart_type: Optional[ChartType] = None,
+        chart_type: ChartType | None = None,
         include_source_info: bool = True,
         enforce_source: DataSource = DataSource.AUTO,
     ) -> pd.DataFrame:

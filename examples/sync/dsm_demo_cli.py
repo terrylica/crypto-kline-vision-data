@@ -10,7 +10,6 @@ __doc__ = MAIN_DOCSTRING
 
 import sys
 from time import perf_counter
-from typing import Optional
 
 import pendulum
 
@@ -71,8 +70,8 @@ def main(
     symbol: str = options["symbol"],
     interval: str = options["interval"],
     # Time Range options
-    start_time: Optional[str] = options["start_time"],
-    end_time: Optional[str] = options["end_time"],
+    start_time: str | None = options["start_time"],
+    end_time: str | None = options["end_time"],
     days: int = options["days"],
     # Data Source options
     enforce_source: DataSourceChoice = options["enforce_source"],

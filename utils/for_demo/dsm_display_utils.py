@@ -70,9 +70,7 @@ def display_results(
 
         # First, create a new column with the date part only
         df["date"] = df["open_time"].dt.date
-        date_groups = (
-            df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
-        )
+        date_groups = df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
 
         # Display timeline visualization
         timeline_table = Table(title="Sources by Date")
@@ -105,17 +103,11 @@ def display_results(
                 # Display in a clean format
                 print(display_df)
     else:
-        print(
-            "[bold yellow]Warning: Source information not available in the data[/bold yellow]"
-        )
+        print("[bold yellow]Warning: Source information not available in the data[/bold yellow]")
 
     # Save data to CSV
     # Convert market_type to string if it's an enum
-    market_str = (
-        market_type.name.lower()
-        if hasattr(market_type, "name")
-        else market_type.lower()
-    )
+    market_str = market_type.name.lower() if hasattr(market_type, "name") else market_type.lower()
 
     # Generate timestamp with pendulum
     timestamp = log_timestamp or pendulum.now("UTC").format("YYYYMMDD_HHmmss")
@@ -134,24 +126,12 @@ def display_results(
 
         # If log_timestamp is provided, use it for log paths
         if log_timestamp:
-            main_log_path = (
-                Path("logs")
-                / f"{session_name}_logs"
-                / f"{session_name}_{log_timestamp}.log"
-            )
-            error_log_path = (
-                Path("logs/error_logs") / f"{session_name}_errors_{log_timestamp}.log"
-            )
+            main_log_path = Path("logs") / f"{session_name}_logs" / f"{session_name}_{log_timestamp}.log"
+            error_log_path = Path("logs/error_logs") / f"{session_name}_errors_{log_timestamp}.log"
         else:
             # Fall back to timestamp from CSV file if log_timestamp not provided
-            main_log_path = (
-                Path("logs")
-                / f"{session_name}_logs"
-                / f"{session_name}_{timestamp}.log"
-            )
-            error_log_path = (
-                Path("logs/error_logs") / f"{session_name}_errors_{timestamp}.log"
-            )
+            main_log_path = Path("logs") / f"{session_name}_logs" / f"{session_name}_{timestamp}.log"
+            error_log_path = Path("logs/error_logs") / f"{session_name}_errors_{timestamp}.log"
 
         # Check detailed logs
         if main_log_path.exists():
@@ -166,9 +146,7 @@ def display_results(
                 if main_log_path.exists():
                     found_log = True
                     log_size = main_log_path.stat().st_size
-                    print(
-                        f"[green]Detailed logs: {main_log_path} ({log_size:,} bytes)[/green]"
-                    )
+                    print(f"[green]Detailed logs: {main_log_path} ({log_size:,} bytes)[/green]")
                 else:
                     # Try to parse the timestamp from the expected log path
                     try:
@@ -186,36 +164,21 @@ def display_results(
 
                             try:
                                 # Try to parse both timestamps
-                                expected_timestamp = pendulum.from_format(
-                                    log_timestamp_str, "YYYYMMDD_HHmmss"
-                                )
-                                file_timestamp = pendulum.from_format(
-                                    file_timestamp_str, "YYYYMMDD_HHmmss"
-                                )
+                                expected_timestamp = pendulum.from_format(log_timestamp_str, "YYYYMMDD_HHmmss")
+                                file_timestamp = pendulum.from_format(file_timestamp_str, "YYYYMMDD_HHmmss")
 
                                 # Check if they're close (within 30 seconds)
-                                if (
-                                    abs(
-                                        (
-                                            expected_timestamp - file_timestamp
-                                        ).total_seconds()
-                                    )
-                                    < LOG_SEARCH_WINDOW_SECONDS
-                                ):
+                                if abs((expected_timestamp - file_timestamp).total_seconds()) < LOG_SEARCH_WINDOW_SECONDS:
                                     found_log = True
                                     log_size = log_file.stat().st_size
-                                    print(
-                                        f"[green]Detailed logs: {log_file} ({log_size:,} bytes)[/green]"
-                                    )
+                                    print(f"[green]Detailed logs: {log_file} ({log_size:,} bytes)[/green]")
                                     # Log the timestamp difference for debugging
                                     logger.debug(
                                         f"Found log file with similar timestamp: {file_timestamp_str} (difference: {(expected_timestamp - file_timestamp).total_seconds()} seconds)"
                                     )
                                     break
                             except Exception as e:
-                                logger.debug(
-                                    f"Error parsing timestamp for file {log_file}: {e!s}"
-                                )
+                                logger.debug(f"Error parsing timestamp for file {log_file}: {e!s}")
                                 continue
                     except Exception as e:
                         logger.debug(f"Error in timestamp comparison: {e!s}")
@@ -233,24 +196,16 @@ def display_results(
 
                     # Run ls -la on the directory
                     ls_cmd = ["ls", "-la", str(log_dir)]
-                    ls_result = subprocess.run(
-                        ls_cmd, capture_output=True, text=True, check=False
-                    )
+                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True, check=False)
                     logger.debug(f"Directory listing:\n{ls_result.stdout}")
 
                     # Try to stat the file directly
                     stat_cmd = ["stat", str(main_log_path)]
-                    stat_result = subprocess.run(
-                        stat_cmd, capture_output=True, text=True, check=False
-                    )
+                    stat_result = subprocess.run(stat_cmd, capture_output=True, text=True, check=False)
                     if stat_result.returncode == 0:
-                        logger.debug(
-                            f"File exists according to stat but not Path.exists()!\n{stat_result.stdout}"
-                        )
+                        logger.debug(f"File exists according to stat but not Path.exists()!\n{stat_result.stdout}")
                     else:
-                        logger.debug(
-                            f"File not found by stat command: {stat_result.stderr}"
-                        )
+                        logger.debug(f"File not found by stat command: {stat_result.stderr}")
                 except Exception as e:
                     logger.debug(f"Error during OS-level verification: {e!s}")
 
@@ -259,21 +214,15 @@ def display_results(
                     logger.debug(f"Found {len(log_files)} log files in directory")
                     for log_file in log_files:
                         logger.debug(f"Found log file: {log_file}")
-                print(
-                    f"[yellow]Detailed logs: {main_log_path} (file not found)[/yellow]"
-                )
+                print(f"[yellow]Detailed logs: {main_log_path} (file not found)[/yellow]")
 
         # Check error logs
         if error_log_path.exists():
             error_size = error_log_path.stat().st_size
             if error_size > 0:
-                print(
-                    f"[yellow]Error logs: {error_log_path} ({error_size:,} bytes - contains errors)[/yellow]"
-                )
+                print(f"[yellow]Error logs: {error_log_path} ({error_size:,} bytes - contains errors)[/yellow]")
             else:
-                print(
-                    f"[green]Error logs: {error_log_path} (empty - no errors)[/green]"
-                )
+                print(f"[green]Error logs: {error_log_path} (empty - no errors)[/green]")
         else:
             # Try looking for an error log file with a similar timestamp (within the same minute)
             found_error_log = False
@@ -284,13 +233,9 @@ def display_results(
                     found_error_log = True
                     error_size = error_log_path.stat().st_size
                     if error_size > 0:
-                        print(
-                            f"[yellow]Error logs: {error_log_path} ({error_size:,} bytes - contains errors)[/yellow]"
-                        )
+                        print(f"[yellow]Error logs: {error_log_path} ({error_size:,} bytes - contains errors)[/yellow]")
                     else:
-                        print(
-                            f"[green]Error logs: {error_log_path} (empty - no errors)[/green]"
-                        )
+                        print(f"[green]Error logs: {error_log_path} (empty - no errors)[/green]")
                 else:
                     # Try to parse the timestamp from the expected log path
                     try:
@@ -298,9 +243,7 @@ def display_results(
                         error_base_name = "_".join(error_log_path.stem.split("_")[:-1])
 
                         # Look for files with similar base name
-                        for error_file in error_log_dir.glob(
-                            f"{error_base_name}_*.log"
-                        ):
+                        for error_file in error_log_dir.glob(f"{error_base_name}_*.log"):
                             # If we already found a match, skip
                             if found_error_log:
                                 break
@@ -310,41 +253,24 @@ def display_results(
 
                             try:
                                 # Try to parse both timestamps
-                                expected_timestamp = pendulum.from_format(
-                                    error_timestamp_str, "YYYYMMDD_HHmmss"
-                                )
-                                file_timestamp = pendulum.from_format(
-                                    file_timestamp_str, "YYYYMMDD_HHmmss"
-                                )
+                                expected_timestamp = pendulum.from_format(error_timestamp_str, "YYYYMMDD_HHmmss")
+                                file_timestamp = pendulum.from_format(file_timestamp_str, "YYYYMMDD_HHmmss")
 
                                 # Check if they're close (within 30 seconds)
-                                if (
-                                    abs(
-                                        (
-                                            expected_timestamp - file_timestamp
-                                        ).total_seconds()
-                                    )
-                                    < LOG_SEARCH_WINDOW_SECONDS
-                                ):
+                                if abs((expected_timestamp - file_timestamp).total_seconds()) < LOG_SEARCH_WINDOW_SECONDS:
                                     found_error_log = True
                                     error_size = error_file.stat().st_size
                                     if error_size > 0:
-                                        print(
-                                            f"[yellow]Error logs: {error_file} ({error_size:,} bytes - contains errors)[/yellow]"
-                                        )
+                                        print(f"[yellow]Error logs: {error_file} ({error_size:,} bytes - contains errors)[/yellow]")
                                     else:
-                                        print(
-                                            f"[green]Error logs: {error_file} (empty - no errors)[/green]"
-                                        )
+                                        print(f"[green]Error logs: {error_file} (empty - no errors)[/green]")
                                     # Log the timestamp difference for debugging
                                     logger.debug(
                                         f"Found error log file with similar timestamp: {file_timestamp_str} (difference: {(expected_timestamp - file_timestamp).total_seconds()} seconds)"
                                     )
                                     break
                             except Exception as e:
-                                logger.debug(
-                                    f"Error parsing timestamp for error file {error_file}: {e!s}"
-                                )
+                                logger.debug(f"Error parsing timestamp for error file {error_file}: {e!s}")
                                 continue
                     except Exception as e:
                         logger.debug(f"Error in error timestamp comparison: {e!s}")
@@ -362,40 +288,28 @@ def display_results(
 
                     # Run ls -la on the directory
                     ls_cmd = ["ls", "-la", str(error_log_dir)]
-                    ls_result = subprocess.run(
-                        ls_cmd, capture_output=True, text=True, check=False
-                    )
+                    ls_result = subprocess.run(ls_cmd, capture_output=True, text=True, check=False)
                     logger.debug(f"Error directory listing:\n{ls_result.stdout}")
 
                     # Try to stat the file directly
                     stat_cmd = ["stat", str(error_log_path)]
-                    stat_result = subprocess.run(
-                        stat_cmd, capture_output=True, text=True, check=False
-                    )
+                    stat_result = subprocess.run(stat_cmd, capture_output=True, text=True, check=False)
                     if stat_result.returncode == 0:
-                        logger.debug(
-                            f"Error file exists according to stat but not Path.exists()!\n{stat_result.stdout}"
-                        )
+                        logger.debug(f"Error file exists according to stat but not Path.exists()!\n{stat_result.stdout}")
                     else:
-                        logger.debug(
-                            f"Error file not found by stat command: {stat_result.stderr}"
-                        )
+                        logger.debug(f"Error file not found by stat command: {stat_result.stderr}")
                 except Exception as e:
                     logger.debug(f"Error during OS-level verification: {e!s}")
 
                 if error_log_dir.exists():
                     error_files = list(error_log_dir.glob("*.log"))
-                    logger.debug(
-                        f"Found {len(error_files)} error log files in directory"
-                    )
+                    logger.debug(f"Found {len(error_files)} error log files in directory")
                     for error_file in error_files:
                         logger.debug(f"Found error log file: {error_file}")
                 print(f"[yellow]Error logs: {error_log_path} (file not found)[/yellow]")
 
         # Update command for viewing logs to use absolute path
-        print(
-            f"\n[dim]To view logs: cat {Path('logs') / f'{session_name}_logs' / f'{session_name}_*.log'}[/dim]"
-        )
+        print(f"\n[dim]To view logs: cat {Path('logs') / f'{session_name}_logs' / f'{session_name}_*.log'}[/dim]")
 
         return csv_path
     except Exception as e:

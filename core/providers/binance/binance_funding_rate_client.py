@@ -4,7 +4,6 @@
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 import pandas as pd
 
@@ -29,10 +28,10 @@ class BinanceFundingRateClient(DataClientInterface):
     def __init__(
         self,
         symbol: str,
-        interval: Union[str, Interval] = Interval.HOUR_8,
+        interval: str | Interval = Interval.HOUR_8,
         market_type: MarketType = MarketType.FUTURES_USDT,
         use_cache: bool = True,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         retry_count: int = 5,
     ):
         """Initialize the Binance funding rate client.
@@ -62,10 +61,7 @@ class BinanceFundingRateClient(DataClientInterface):
 
         # Validate market type
         if market_type not in (MarketType.FUTURES_USDT, MarketType.FUTURES_COIN):
-            raise ValueError(
-                f"Invalid market type for funding rate: {market_type}. "
-                f"Must be FUTURES_USDT or FUTURES_COIN."
-            )
+            raise ValueError(f"Invalid market type for funding rate: {market_type}. Must be FUTURES_USDT or FUTURES_COIN.")
 
         # Set up client
         self._client = create_client()
@@ -85,10 +81,7 @@ class BinanceFundingRateClient(DataClientInterface):
         else:  # MarketType.FUTURES_COIN
             self._base_url = "https://dapi.binance.com"
 
-        logger.debug(
-            f"Initialized BinanceFundingRateClient for {symbol} with "
-            f"interval {interval}, market type {market_type.name}"
-        )
+        logger.debug(f"Initialized BinanceFundingRateClient for {symbol} with interval {interval}, market type {market_type.name}")
 
     def __enter__(self):
         """Context manager entry."""
@@ -121,7 +114,7 @@ class BinanceFundingRateClient(DataClientInterface):
         return self._symbol
 
     @property
-    def interval(self) -> Union[str, object]:
+    def interval(self) -> str | object:
         """Get the interval for this client."""
         if hasattr(self._interval, "value"):
             return self._interval.value
@@ -135,7 +128,7 @@ class BinanceFundingRateClient(DataClientInterface):
         """
         return create_empty_funding_rate_dataframe()
 
-    def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
+    def validate_data(self, df: pd.DataFrame) -> tuple[bool, str | None]:
         """Validate that a DataFrame contains valid funding rate data.
 
         This method checks the structure, data types, and integrity of a
@@ -177,33 +170,23 @@ class BinanceFundingRateClient(DataClientInterface):
                         # Check if dtype is compatible
                         if not pd.api.types.is_dtype_equal(df[col].dtype, dtype):
                             # Try to convert and check for data loss
-                            original_values = df[col].dropna().values
+                            original_values = df[col].dropna().to_numpy()
                             if len(original_values) > 0:
                                 try:
                                     converted = df[col].astype(dtype)
                                     # For numeric types, check for data loss in conversion
-                                    if pd.api.types.is_numeric_dtype(
-                                        df[col]
-                                    ) and pd.api.types.is_numeric_dtype(converted):
-                                        if not (
-                                            converted.dropna().values == original_values
-                                        ).all():
+                                    if pd.api.types.is_numeric_dtype(df[col]) and pd.api.types.is_numeric_dtype(converted):
+                                        if not (converted.dropna().to_numpy() == original_values).all():
                                             dtype_errors.append(
                                                 f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
                                             )
 
                                 except Exception as e:
-                                    dtype_errors.append(
-                                        f"Column {col} cannot be converted from {df[col].dtype} to {dtype}: {e}"
-                                    )
+                                    dtype_errors.append(f"Column {col} cannot be converted from {df[col].dtype} to {dtype}: {e}")
 
-                            dtype_errors.append(
-                                f"Column {col} has dtype {df[col].dtype}, expected {dtype}"
-                            )
+                            dtype_errors.append(f"Column {col} has dtype {df[col].dtype}, expected {dtype}")
                     except Exception as e:
-                        dtype_errors.append(
-                            f"Error validating dtype for column {col}: {e}"
-                        )
+                        dtype_errors.append(f"Error validating dtype for column {col}: {e}")
 
             if dtype_errors:
                 return False, f"Data type validation errors: {', '.join(dtype_errors)}"
@@ -259,9 +242,7 @@ class BinanceFundingRateClient(DataClientInterface):
         # Extract any useful parameters from kwargs for future extensions
         cache_mode = kwargs.get("cache_mode", None)
         if cache_mode:
-            logger.debug(
-                f"Cache mode hint: {cache_mode} (ignored by funding rate client)"
-            )
+            logger.debug(f"Cache mode hint: {cache_mode} (ignored by funding rate client)")
 
         # Validate input parameters (keeping backward compatibility)
         if not isinstance(symbol, str) or not symbol:
@@ -276,15 +257,11 @@ class BinanceFundingRateClient(DataClientInterface):
                 try:
                     interval_obj = Interval[interval.upper()]
                 except KeyError:
-                    logger.warning(
-                        f"Invalid interval: {interval}, using instance interval"
-                    )
+                    logger.warning(f"Invalid interval: {interval}, using instance interval")
                     interval_obj = self._interval
 
         except Exception:
-            logger.warning(
-                f"Error converting interval '{interval}', using instance interval"
-            )
+            logger.warning(f"Error converting interval '{interval}', using instance interval")
             interval_obj = self._interval
 
         # Validate time parameters
@@ -292,9 +269,7 @@ class BinanceFundingRateClient(DataClientInterface):
             raise ValueError("Start time and end time must be datetime objects")
 
         if start_time >= end_time:
-            raise ValueError(
-                f"Start time {start_time} must be before end time {end_time}"
-            )
+            raise ValueError(f"Start time {start_time} must be before end time {end_time}")
 
         # Use cache if enabled and available
         if self._use_cache and self._cache_manager:
@@ -310,9 +285,7 @@ class BinanceFundingRateClient(DataClientInterface):
 
             if cached_df is not None:
                 # Filter to the requested time range
-                filtered_df = filter_dataframe_by_time(
-                    cached_df, start_time, end_time, "funding_time"
-                )
+                filtered_df = filter_dataframe_by_time(cached_df, start_time, end_time, "funding_time")
                 if not filtered_df.empty:
                     return filtered_df
 
@@ -357,10 +330,7 @@ class BinanceFundingRateClient(DataClientInterface):
         Returns:
             DataFrame with funding rate data
         """
-        logger.debug(
-            f"Fetching funding rate data for {symbol}: "
-            f"{start_time.isoformat()} - {end_time.isoformat()}"
-        )
+        logger.debug(f"Fetching funding rate data for {symbol}: {start_time.isoformat()} - {end_time.isoformat()}")
 
         # Create an empty DataFrame with the correct structure
         result_df = create_empty_funding_rate_dataframe()
@@ -401,9 +371,7 @@ class BinanceFundingRateClient(DataClientInterface):
 
                 # Process results
                 for item in data:
-                    funding_time = datetime.fromtimestamp(
-                        int(item["fundingTime"]) / 1000, tz=timezone.utc
-                    )
+                    funding_time = datetime.fromtimestamp(int(item["fundingTime"]) / 1000, tz=timezone.utc)
                     funding_rate = float(item["fundingRate"])
 
                     # Append to DataFrame
@@ -436,9 +404,7 @@ class BinanceFundingRateClient(DataClientInterface):
             except Exception as e:
                 retry_count += 1
                 if retry_count > self._retry_count:
-                    logger.error(
-                        f"Failed to fetch funding rate data after {self._retry_count} retries: {e}"
-                    )
+                    logger.error(f"Failed to fetch funding rate data after {self._retry_count} retries: {e}")
                     break
 
                 # Add exponential backoff with jitter
@@ -454,9 +420,7 @@ class BinanceFundingRateClient(DataClientInterface):
             result_df = result_df.sort_values("funding_time").reset_index(drop=True)
 
             # Filter to the requested time range
-            result_df = filter_dataframe_by_time(
-                result_df, start_time, end_time, "funding_time"
-            )
+            result_df = filter_dataframe_by_time(result_df, start_time, end_time, "funding_time")
 
         return result_df
 

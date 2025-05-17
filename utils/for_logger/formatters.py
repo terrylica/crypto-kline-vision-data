@@ -97,13 +97,9 @@ class RichMarkupStripper(logging.Filter):
 
             # Also strip markup from any extra values
             if hasattr(record, "source_file") and isinstance(record.source_file, str):
-                record.source_file = self.rich_markup_pattern.sub(
-                    "", record.source_file
-                )
+                record.source_file = self.rich_markup_pattern.sub("", record.source_file)
             if hasattr(record, "source_line") and isinstance(record.source_line, str):
-                record.source_line = self.rich_markup_pattern.sub(
-                    "", record.source_line
-                )
+                record.source_line = self.rich_markup_pattern.sub("", record.source_line)
         return True
 
 

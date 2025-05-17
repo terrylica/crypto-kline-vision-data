@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple, Union
 
 import fsspec
 import pendulum
@@ -49,7 +48,7 @@ class PathComponents:
 class VisionPathMapper:
     """Maps between remote Binance Vision API paths and local cache paths using minimal transformation."""
 
-    def __init__(self, base_cache_dir: Union[str, Path] = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache"):
         """Initialize with cache directory."""
         self.base_cache_dir = Path(base_cache_dir)
         self.base_url = "https://data.binance.vision"
@@ -102,7 +101,7 @@ class VisionPathMapper:
 
         return self.base_cache_dir / path_part
 
-    def map_local_to_remote(self, local_path: Union[str, Path]) -> str:
+    def map_local_to_remote(self, local_path: str | Path) -> str:
         """Convert local cache path to remote URL."""
         local_path = Path(local_path)
 
@@ -130,7 +129,7 @@ class VisionPathMapper:
         self,
         symbol: str,
         interval: str,
-        date: Union[str, pendulum.DateTime],
+        date: str | pendulum.DateTime,
         market_type: MarketType,
         exchange: str = "binance",
         chart_type: ChartType = ChartType.KLINES,
@@ -157,18 +156,18 @@ class FSSpecVisionHandler:
     Provides unified access to local and remote data files via fsspec.
     """
 
-    def __init__(self, base_cache_dir: Union[str, Path] = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache"):
         """Initialize with cache directory."""
         self.path_mapper = VisionPathMapper(base_cache_dir)
         self.base_cache_dir = Path(base_cache_dir)
 
     def get_fs_and_path(
-        self, url_or_path: Union[str, Path]
-    ) -> Tuple[fsspec.AbstractFileSystem, str]:
+        self, url_or_path: str | Path
+    ) -> tuple[fsspec.AbstractFileSystem, str]:
         """Get the appropriate filesystem and path using fsspec's automatic detection."""
         return fsspec.core.url_to_fs(str(url_or_path))
 
-    def exists(self, url_or_path: Union[str, Path]) -> bool:
+    def exists(self, url_or_path: str | Path) -> bool:
         """Check if a file exists in any filesystem."""
         fs, path = self.get_fs_and_path(url_or_path)
         try:
@@ -189,7 +188,7 @@ class FSSpecVisionHandler:
         self,
         symbol: str,
         interval: str,
-        date: Union[str, pendulum.DateTime],
+        date: str | pendulum.DateTime,
         market_type: MarketType,
     ) -> Path:
         """Download a file from Binance Vision API to local cache."""
@@ -243,9 +242,9 @@ class FSSpecVisionHandler:
         symbol: str,
         interval: str,
         market_type: MarketType,
-        start_date: Union[str, pendulum.DateTime],
-        end_date: Union[str, pendulum.DateTime],
-    ) -> Dict[pendulum.DateTime, Tuple[str, bool]]:
+        start_date: str | pendulum.DateTime,
+        end_date: str | pendulum.DateTime,
+    ) -> dict[pendulum.DateTime, tuple[str, bool]]:
         """Find all available dates in the local cache or that could be downloaded."""
         # Parse dates if needed
         if isinstance(start_date, str):

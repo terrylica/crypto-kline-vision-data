@@ -16,10 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
 )
 
 import attrs  # Add this import
@@ -57,7 +53,7 @@ Client = httpx.Client
 def create_httpx_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_connections: int = 50,
-    headers: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Create an httpx Client for high-performance HTTP requests.
@@ -79,16 +75,12 @@ def create_httpx_client(
 
         # Remove known incompatible parameters
         if "impersonate" in kwargs:
-            logger.warning(
-                "Removing unsupported 'impersonate' parameter from httpx client creation"
-            )
+            logger.warning("Removing unsupported 'impersonate' parameter from httpx client creation")
             kwargs.pop("impersonate")
 
         # Set up timeout with all required parameters defined
         # The error was "httpx.Timeout must either include a default, or set all four parameters explicitly"
-        timeout_obj = Timeout(
-            connect=min(timeout, 10.0), read=timeout, write=timeout, pool=timeout
-        )
+        timeout_obj = Timeout(connect=min(timeout, 10.0), read=timeout, write=timeout, pool=timeout)
 
         # Set up connection limits
         limits = Limits(
@@ -112,22 +104,18 @@ def create_httpx_client(
             **kwargs,
         )
 
-        logger.debug(
-            f"Created httpx Client with timeout={timeout}s, max_connections={max_connections}"
-        )
+        logger.debug(f"Created httpx Client with timeout={timeout}s, max_connections={max_connections}")
         return client
 
     except ImportError:
-        logger.error(
-            "httpx is not installed. To use this function, install httpx: pip install httpx"
-        )
+        logger.error("httpx is not installed. To use this function, install httpx: pip install httpx")
         raise
 
 
 def create_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
-    max_connections: Optional[int] = None,
-    headers: Optional[Dict[str, str]] = None,
+    max_connections: int | None = None,
+    headers: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Create a client for making HTTP requests.
@@ -152,18 +140,14 @@ def create_client(
         logger.debug(f"Creating httpx client with {len(kwargs)} additional parameters")
         return create_httpx_client(timeout, max_connections, headers, **kwargs)
     except ImportError:
-        logger.error(
-            "httpx is not available. Please install httpx: pip install httpx>=0.24.0"
-        )
-        raise ImportError(
-            "httpx is required but not available. Install with: pip install httpx>=0.24.0"
-        )
+        logger.error("httpx is not available. Please install httpx: pip install httpx>=0.24.0")
+        raise ImportError("httpx is required but not available. Install with: pip install httpx>=0.24.0")
 
 
 def create_legacy_client(
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_connections: int = 50,
-    headers: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Deprecated function that now creates an httpx client instead.
@@ -180,21 +164,14 @@ def create_legacy_client(
     Returns:
         httpx.AsyncClient configured with the provided settings
     """
-    logger.warning(
-        "create_legacy_client is deprecated. "
-        "Please update your code to use create_httpx_client or create_client directly."
-    )
+    logger.warning("create_legacy_client is deprecated. Please update your code to use create_httpx_client or create_client directly.")
 
     # Remove legacy-specific parameters
     if "impersonate" in kwargs:
-        logger.warning(
-            "Parameter 'impersonate' is not supported by httpx and will be ignored"
-        )
+        logger.warning("Parameter 'impersonate' is not supported by httpx and will be ignored")
         kwargs.pop("impersonate")
 
-    return create_httpx_client(
-        timeout=timeout, max_connections=max_connections, headers=headers, **kwargs
-    )
+    return create_httpx_client(timeout=timeout, max_connections=max_connections, headers=headers, **kwargs)
 
 
 # ----- Download Handling -----
@@ -204,15 +181,12 @@ class DownloadException(Exception):
     """Base exception for download-related errors."""
 
 
-
 class DownloadStalledException(DownloadException):
     """Raised when a download appears to have stalled."""
 
 
-
 class RateLimitException(DownloadException):
     """Raised when rate limits are hit during downloads."""
-
 
 
 @attrs.define
@@ -220,7 +194,7 @@ class DownloadProgressTracker:
     """Tracks download progress and detects stalled downloads."""
 
     # Define attributes with default values
-    total_size: Optional[int] = attrs.field(default=None)
+    total_size: int | None = attrs.field(default=None)
     check_interval: int = attrs.field(default=5)
 
     # Internal state attributes
@@ -231,9 +205,7 @@ class DownloadProgressTracker:
 
     def __attrs_post_init__(self):
         """Log initial state after initialization."""
-        logger.debug(
-            f"Download progress tracker initialized. Total size: {self.total_size or 'unknown'} bytes"
-        )
+        logger.debug(f"Download progress tracker initialized. Total size: {self.total_size or 'unknown'} bytes")
 
     def update(self, bytes_chunk: int) -> bool:
         """Update progress with newly received bytes.
@@ -258,21 +230,12 @@ class DownloadProgressTracker:
         if current_time - self.last_progress_time >= self.check_interval:
             # If no new bytes since last check, we might be stalled
             if self.bytes_received == self.last_bytes:
-                logger.warning(
-                    f"Download appears stalled: no progress for {self.check_interval}s"
-                )
+                logger.warning(f"Download appears stalled: no progress for {self.check_interval}s")
                 return False
 
             # Log progress
-            percent = (
-                f"{(self.bytes_received / self.total_size) * 100:.1f}%"
-                if self.total_size
-                else "unknown"
-            )
-            logger.debug(
-                f"Download progress: {self.bytes_received} bytes "
-                f"({percent}) at {speed:.1f} bytes/s"
-            )
+            percent = f"{(self.bytes_received / self.total_size) * 100:.1f}%" if self.total_size else "unknown"
+            logger.debug(f"Download progress: {self.bytes_received} bytes ({percent}) at {speed:.1f} bytes/s")
 
             # Update progress tracking state
             self.last_progress_time = current_time
@@ -306,9 +269,7 @@ class DownloadHandler:
 
     @retry(
         stop=stop_after_attempt(API_MAX_RETRIES),
-        wait=wait_incrementing(
-            start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3
-        ),
+        wait=wait_incrementing(start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3),
         retry=retry_if_exception_type(
             (
                 DownloadStalledException,
@@ -327,7 +288,7 @@ class DownloadHandler:
         url: str,
         local_path: Path,
         timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
-        expected_size: Optional[int] = None,
+        expected_size: int | None = None,
     ) -> bool:
         """Download a file with retry logic, progress tracking and validation.
 
@@ -372,9 +333,7 @@ class DownloadHandler:
                         logger.debug(f"AWS S3 NoSuchKey: {url}")
                 else:
                     # For other non-200 status codes, still log as error
-                    logger.error(
-                        f"Download failed with status code {response.status_code}: {response.text}"
-                    )
+                    logger.error(f"Download failed with status code {response.status_code}: {response.text}")
 
                 return False
 
@@ -384,14 +343,10 @@ class DownloadHandler:
 
             # Verify file size if expected_size is provided
             if expected_size is not None and local_path.stat().st_size != expected_size:
-                logger.error(
-                    f"File size mismatch: expected {expected_size}, got {local_path.stat().st_size}"
-                )
+                logger.error(f"File size mismatch: expected {expected_size}, got {local_path.stat().st_size}")
                 return False
 
-            logger.debug(
-                f"Download successful: {url} -> {local_path} ({len(content)} bytes)"
-            )
+            logger.debug(f"Download successful: {url} -> {local_path} ({len(content)} bytes)")
             return True
 
         except Exception as e:
@@ -416,11 +371,11 @@ class DownloadHandler:
 
 def download_files_concurrently(
     client,
-    urls: List[str],
-    local_paths: List[Path],
+    urls: list[str],
+    local_paths: list[Path],
     max_concurrent: int = MAXIMUM_CONCURRENT_DOWNLOADS,
     **download_kwargs: Any,
-) -> List[bool]:
+) -> list[bool]:
     """Download multiple files concurrently using ThreadPoolExecutor.
 
     Args:
@@ -434,10 +389,7 @@ def download_files_concurrently(
         List of booleans indicating success or failure for each download
     """
     if len(urls) != len(local_paths):
-        logger.error(
-            f"URL and path lists must have same length. "
-            f"Got {len(urls)} URLs and {len(local_paths)} paths."
-        )
+        logger.error(f"URL and path lists must have same length. Got {len(urls)} URLs and {len(local_paths)} paths.")
         return [False] * max(len(urls), len(local_paths))
 
     # Create download handler
@@ -458,9 +410,7 @@ def download_files_concurrently(
         adjusted_concurrency = min(100, max_concurrent)
 
     if adjusted_concurrency != max_concurrent:
-        logger.debug(
-            f"Adjusting concurrency to {adjusted_concurrency} for {batch_size} files"
-        )
+        logger.debug(f"Adjusting concurrency to {adjusted_concurrency} for {batch_size} files")
 
     def download_worker(url: str, path: Path) -> bool:
         try:
@@ -475,7 +425,7 @@ def download_files_concurrently(
     with ThreadPoolExecutor(max_workers=adjusted_concurrency) as executor:
         # Submit all download tasks
         future_to_index = {}
-        for i, (url, path) in enumerate(zip(urls, local_paths)):
+        for i, (url, path) in enumerate(zip(urls, local_paths, strict=False)):
             future = executor.submit(download_worker, url, path)
             future_to_index[future] = i
 
@@ -499,9 +449,7 @@ def download_files_concurrently(
 
 @retry(
     stop=stop_after_attempt(API_MAX_RETRIES),
-    wait=wait_incrementing(
-        start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3
-    ),
+    wait=wait_incrementing(start=API_RETRY_DELAY, increment=API_RETRY_DELAY, max=API_RETRY_DELAY * 3),
     retry=retry_if_exception_type((json.JSONDecodeError, TimeoutError)),
     before_sleep=lambda retry_state: logger.warning(
         f"API request failed (attempt {retry_state.attempt_number}/{API_MAX_RETRIES}): {retry_state.outcome.exception()} - "
@@ -511,13 +459,13 @@ def download_files_concurrently(
 def make_api_request(
     client,
     url: str,
-    headers: Optional[Dict[str, str]] = None,
-    params: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
     method: str = "GET",
-    json_data: Optional[Dict] = None,
-    timeout: Optional[float] = None,
+    json_data: dict | None = None,
+    timeout: float | None = None,
     raise_for_status: bool = True,
-) -> Tuple[int, Dict]:
+) -> tuple[int, dict]:
     """Make an API request with retry logic and error handling.
 
     Args:
@@ -539,9 +487,7 @@ def make_api_request(
 
     # Use httpx client
     if method == "GET":
-        response = client.get(
-            url, headers=headers, params=params, timeout=timeout_value
-        )
+        response = client.get(url, headers=headers, params=params, timeout=timeout_value)
     elif method == "POST":
         response = client.post(
             url,
@@ -565,9 +511,7 @@ def make_api_request(
     # Special handling for rate limiting
     if status_code in (418, 429):
         retry_after = int(response.headers.get("retry-after", 1))
-        logger.warning(
-            f"Rate limited by API (HTTP {status_code}). Waiting {retry_after}s before continuing"
-        )
+        logger.warning(f"Rate limited by API (HTTP {status_code}). Waiting {retry_after}s before continuing")
         time.sleep(retry_after)
         # Re-raise to trigger tenacity retry
         raise TimeoutError(f"Rate limited (HTTP {status_code})")
@@ -601,8 +545,8 @@ class VisionDownloadManager:
     # Non-init fields with default values
     download_handler: DownloadHandler = attrs.field(init=False)
     _external_client: bool = attrs.field(init=False)
-    _current_tasks: List = attrs.field(factory=list, init=False)
-    _temp_files: List[Path] = attrs.field(factory=list, init=False)
+    _current_tasks: list = attrs.field(factory=list, init=False)
+    _temp_files: list[Path] = attrs.field(factory=list, init=False)
 
     def __attrs_post_init__(self):
         """Initialize state after creation."""
@@ -615,17 +559,13 @@ class VisionDownloadManager:
         This ensures proper release of HTTP client and any other resources
         to prevent memory leaks or hanging connections.
         """
-        logger.debug(
-            "[ProgressIndicator] VisionDownloadManager: Starting resource cleanup"
-        )
+        logger.debug("[ProgressIndicator] VisionDownloadManager: Starting resource cleanup")
         cleanup_errors = []
 
         # Step 1: Cancel any ongoing download tasks
         try:
             if hasattr(self, "_current_tasks") and self._current_tasks:
-                logger.debug(
-                    "[ProgressIndicator] VisionDownloadManager: Cancelling remaining download tasks"
-                )
+                logger.debug("[ProgressIndicator] VisionDownloadManager: Cancelling remaining download tasks")
                 # For synchronous tasks, we can't really cancel them, but we can clear the list
                 self._current_tasks = []
         except Exception as e:
@@ -636,19 +576,11 @@ class VisionDownloadManager:
         # Step 2: Safely close the HTTP client
         try:
             # Only attempt to close if we own the client
-            if (
-                not self._external_client
-                and hasattr(self, "client")
-                and self.client is not None
-            ):
-                logger.debug(
-                    "[ProgressIndicator] VisionDownloadManager: Safely closing HTTP client"
-                )
+            if not self._external_client and hasattr(self, "client") and self.client is not None:
+                logger.debug("[ProgressIndicator] VisionDownloadManager: Safely closing HTTP client")
                 safely_close_client(self.client)
                 self.client = None
-                logger.debug(
-                    "[ProgressIndicator] VisionDownloadManager: HTTP client closed"
-                )
+                logger.debug("[ProgressIndicator] VisionDownloadManager: HTTP client closed")
         except Exception as e:
             error_msg = f"Error closing HTTP client: {e}"
             logger.warning(error_msg)
@@ -657,9 +589,7 @@ class VisionDownloadManager:
         # Step 3: Clean up any temporary files
         try:
             if hasattr(self, "_temp_files") and self._temp_files:
-                logger.debug(
-                    f"[ProgressIndicator] VisionDownloadManager: Cleaning up {len(self._temp_files)} temporary files"
-                )
+                logger.debug(f"[ProgressIndicator] VisionDownloadManager: Cleaning up {len(self._temp_files)} temporary files")
                 for temp_file in self._temp_files:
                     try:
                         if hasattr(temp_file, "exists") and temp_file.exists():
@@ -667,9 +597,7 @@ class VisionDownloadManager:
                     except Exception as e:
                         logger.debug(f"Error removing temp file {temp_file}: {e}")
                 self._temp_files = []
-                logger.debug(
-                    "[ProgressIndicator] VisionDownloadManager: Temporary files cleaned up"
-                )
+                logger.debug("[ProgressIndicator] VisionDownloadManager: Temporary files cleaned up")
         except Exception as e:
             error_msg = f"Error cleaning up temporary files: {e}"
             logger.warning(error_msg)
@@ -677,15 +605,11 @@ class VisionDownloadManager:
 
         if cleanup_errors:
             error_summary = "; ".join(cleanup_errors)
-            logger.warning(
-                f"[ProgressIndicator] VisionDownloadManager: Resource cleanup completed with warnings: {error_summary}"
-            )
+            logger.warning(f"[ProgressIndicator] VisionDownloadManager: Resource cleanup completed with warnings: {error_summary}")
         else:
-            logger.debug(
-                "[ProgressIndicator] VisionDownloadManager: Resource cleanup completed successfully"
-            )
+            logger.debug("[ProgressIndicator] VisionDownloadManager: Resource cleanup completed successfully")
 
-    def download_date(self, date: datetime) -> Optional[List[List]]:
+    def download_date(self, date: datetime) -> list[list] | None:
         """Download data for a specific date from Binance Vision API.
 
         Args:
@@ -709,10 +633,7 @@ class VisionDownloadManager:
             from pathlib import Path
 
             temp_dir = tempfile.gettempdir()
-            temp_file = (
-                Path(temp_dir)
-                / f"{self.symbol}_{self.interval}_{date.strftime('%Y-%m-%d')}.zip"
-            )
+            temp_file = Path(temp_dir) / f"{self.symbol}_{self.interval}_{date.strftime('%Y-%m-%d')}.zip"
 
             # Track the temp file for cleanup
             self._temp_files.append(temp_file)
@@ -821,22 +742,16 @@ def test_connectivity(
                 if response.status_code == HTTP_OK:
                     logger.info(f"Successfully connected to {url}")
                     return True
-                logger.warning(
-                    f"Connection test failed with status code {response.status_code}"
-                )
+                logger.warning(f"Connection test failed with status code {response.status_code}")
                 if attempt < retry_count:
                     wait_time = 1 + attempt  # 1s, 2s, etc.
-                    logger.info(
-                        f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
-                    )
+                    logger.info(f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})")
                     time.sleep(wait_time)
             except Exception as e:
                 logger.warning(f"Connection test attempt {attempt + 1} failed: {e}")
                 if attempt < retry_count:
                     wait_time = 1 + attempt
-                    logger.info(
-                        f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})"
-                    )
+                    logger.info(f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})")
                     time.sleep(wait_time)
 
         logger.error(f"Failed to connect to {url} after {retry_count + 1} attempts")

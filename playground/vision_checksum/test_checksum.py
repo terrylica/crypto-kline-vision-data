@@ -6,7 +6,6 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
 
 import httpx
 from rich.console import Console
@@ -76,7 +75,7 @@ def download_file(url: str, output_path: Path) -> bool:
         return False
 
 
-def calculate_file_checksum(file_path: Path) -> Optional[str]:
+def calculate_file_checksum(file_path: Path) -> str | None:
     """Calculate SHA256 checksum for a file."""
     try:
         sha256_hash = hashlib.sha256()
@@ -89,7 +88,7 @@ def calculate_file_checksum(file_path: Path) -> Optional[str]:
         return None
 
 
-def validate_file_checksum(file_path: Path, checksum_url: str) -> Tuple[bool, str, str]:
+def validate_file_checksum(file_path: Path, checksum_url: str) -> tuple[bool, str, str]:
     """Validate a file against its checksum."""
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         temp_path = Path(temp_file.name)

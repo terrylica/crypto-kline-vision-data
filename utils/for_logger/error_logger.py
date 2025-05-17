@@ -21,10 +21,8 @@ class ErrorLoggerState:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(ErrorLoggerState, cls).__new__(cls)
-            cls._instance._error_log_file = os.environ.get(
-                "ERROR_LOG_FILE", DEFAULT_ERROR_LOG_FILE
-            )
+            cls._instance = super().__new__(cls)
+            cls._instance._error_log_file = os.environ.get("ERROR_LOG_FILE", DEFAULT_ERROR_LOG_FILE)
             cls._instance._error_logger_configured = False
             cls._instance._error_logger = None
             cls._instance._error_logging_enabled = False

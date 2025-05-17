@@ -101,8 +101,7 @@ _use_rich = os.environ.get("USE_RICH_LOGGING", "true").lower() in ("true", "1", 
 _logger_state = {
     "root_configured": False,
     "module_loggers": {},
-    "use_rich": os.environ.get("USE_RICH_LOGGING", "true").lower()
-    in ("true", "1", "yes"),
+    "use_rich": os.environ.get("USE_RICH_LOGGING", "true").lower() in ("true", "1", "yes"),
 }
 
 # Rich console instance
@@ -153,7 +152,7 @@ def _setup_root_logger(level=None, use_rich=None):
         logging.getLogger(name).setLevel(level_int)
 
     # Add a marker attribute to the root logger to indicate it's configured
-    setattr(root_logger, "_root_configured", True)
+    root_logger._root_configured = True
     _logger_state["root_configured"] = True
     return root_logger
 
@@ -241,9 +240,7 @@ def enable_smart_print(enabled=True):
     Returns:
         bool: True if successful
     """
-    return _enable_smart_print(
-        enabled, logger.console if hasattr(logger, "console") else None
-    )
+    return _enable_smart_print(enabled, logger.console if hasattr(logger, "console") else None)
 
 
 def get_error_log_file():
@@ -269,9 +266,7 @@ def log_timeout(
         module_name: Optional name of the module where the timeout occurred
         details: Optional dictionary with additional details about the operation
     """
-    return _log_timeout(
-        operation, timeout_value, module_name, details, get_module_logger
-    )
+    return _log_timeout(operation, timeout_value, module_name, details, get_module_logger)
 
 
 def set_error_log_file(path):
@@ -357,7 +352,8 @@ if __name__ == "__main__":
         logger.info("Info with [bold green]Rich formatting[/bold green]")
 
         try:
-            1 / 0
+            # Fix B018: Use a variable assignment to prevent "useless expression" warning
+            result = 1 / 0  # This will raise ZeroDivisionError
         except Exception:
             logger.exception("Exception with Rich traceback")
 

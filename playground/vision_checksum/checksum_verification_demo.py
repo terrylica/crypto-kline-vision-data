@@ -14,7 +14,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import httpx
 from rich import print as rprint
@@ -186,7 +186,7 @@ def download_file(
 
 def construct_file_url(
     symbol: str, interval: str, date: str, market: str = "spot"
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     Construct the URL for a data file from Binance Vision API.
 
@@ -229,7 +229,7 @@ def download_and_validate(
     verbose: bool = False,
     skip_download: bool = False,
     skip_validation: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Download and validate a Binance data file.
 
@@ -334,7 +334,7 @@ def download_and_validate(
         return result
 
 
-def display_results(results: List[Dict[str, Any]]) -> None:
+def display_results(results: list[dict[str, Any]]) -> None:
     """
     Display download and validation results in a rich table.
 

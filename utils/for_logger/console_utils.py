@@ -73,11 +73,7 @@ def enable_smart_print(enabled=True, console=None):
 
                 # If output is being redirected to a file (like in exception handling),
                 # use the original print function
-                if (
-                    file is not None
-                    and file is not sys.stdout
-                    and file is not sys.stderr
-                ):
+                if file is not None and file is not sys.stdout and file is not sys.stderr:
                     if hasattr(builtins, "_original_print"):
                         builtins._original_print(*args, **kwargs)
                     return
@@ -97,17 +93,13 @@ def enable_smart_print(enabled=True, console=None):
 
         # Use debug level message to not appear in higher log levels
         if logging.getLogger().level <= logging.DEBUG:
-            logging.debug(
-                "Smart print enabled - print statements now respect log level"
-            )
+            logging.debug("Smart print enabled - print statements now respect log level")
 
         # Always show this message regardless of level
         if logging.getLogger().level >= logging.ERROR:
             # For ERROR and CRITICAL, use the original print function to show a message
             if hasattr(builtins, "_original_print"):
-                builtins._original_print(
-                    "Smart print enabled - print output will be suppressed at current log level"
-                )
+                builtins._original_print("Smart print enabled - print output will be suppressed at current log level")
     # Restore original print if we have it stored
     elif hasattr(builtins, "_original_print"):
         builtins.print = builtins._original_print

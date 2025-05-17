@@ -36,13 +36,9 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
         # Check timestamp format if dataframe has rows
         if len(df) > 0:
             # Debug: Log first few raw rows to track data through the pipeline
-            logger.debug(
-                f"[TIMESTAMP TRACE] Input data to process_timestamp_columns has {len(df)} rows"
-            )
+            logger.debug(f"[TIMESTAMP TRACE] Input data to process_timestamp_columns has {len(df)} rows")
             for i in range(min(3, len(df))):
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Raw row {i}: open_time={df.iloc[i, 0]}, close={df.iloc[i, 4]}"
-                )
+                logger.debug(f"[TIMESTAMP TRACE] Raw row {i}: open_time={df.iloc[i, 0]}, close={df.iloc[i, 4]}")
 
             first_ts = df.iloc[0, 0]  # First timestamp in first column
             last_ts = df.iloc[-1, 0] if len(df) > 1 else first_ts
@@ -64,32 +60,18 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                 # - open_time (1st column) is the BEGINNING of the candle period
                 # - close_time (7th column) is the END of the candle period
                 if "open_time" in df.columns:
-                    df["open_time"] = pd.to_datetime(
-                        df["open_time"], unit=timestamp_unit, utc=True
-                    )
-                    logger.debug(
-                        f"Converted open_time: first value = {df['open_time'].iloc[0]} (BEGINNING of candle)"
-                    )
+                    df["open_time"] = pd.to_datetime(df["open_time"], unit=timestamp_unit, utc=True)
+                    logger.debug(f"Converted open_time: first value = {df['open_time'].iloc[0]} (BEGINNING of candle)")
                     # Debug: Log first few converted timestamps to track processing
                     for i in range(min(3, len(df))):
-                        logger.debug(
-                            f"[TIMESTAMP TRACE] Converted row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}"
-                        )
+                        logger.debug(f"[TIMESTAMP TRACE] Converted row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
 
                 if "close_time" in df.columns:
-                    df["close_time"] = pd.to_datetime(
-                        df["close_time"], unit=timestamp_unit, utc=True
-                    )
-                    logger.debug(
-                        f"Converted close_time: first value = {df['close_time'].iloc[0]} (END of candle)"
-                    )
+                    df["close_time"] = pd.to_datetime(df["close_time"], unit=timestamp_unit, utc=True)
+                    logger.debug(f"Converted close_time: first value = {df['close_time'].iloc[0]} (END of candle)")
 
                 # Verify timestamp semantics are preserved (for debugging)
-                if (
-                    "open_time" in df.columns
-                    and "close_time" in df.columns
-                    and len(df) > 0
-                ):
+                if "open_time" in df.columns and "close_time" in df.columns and len(df) > 0:
                     first_open = df["open_time"].iloc[0]
                     first_close = df["close_time"].iloc[0]
                     time_diff = (first_close - first_open).total_seconds()
@@ -120,8 +102,7 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                         )
 
                     logger.debug(
-                        "Timestamps converted preserving their semantic meaning: "
-                        "open_time=BEGINNING of candle, close_time=END of candle"
+                        "Timestamps converted preserving their semantic meaning: open_time=BEGINNING of candle, close_time=END of candle"
                     )
 
             except ValueError as e:
@@ -129,29 +110,19 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                 # Fall back to default handling with microseconds as unit
                 logger.warning("Falling back to microseconds as the timestamp unit")
                 if "open_time" in df.columns:
-                    df["open_time"] = pd.to_datetime(
-                        df["open_time"], unit="us", utc=True
-                    )
+                    df["open_time"] = pd.to_datetime(df["open_time"], unit="us", utc=True)
                     logger.debug(
                         f"Converted open_time using fallback method: first value = {df['open_time'].iloc[0]} (BEGINNING of candle)"
                     )
                 if "close_time" in df.columns:
-                    df["close_time"] = pd.to_datetime(
-                        df["close_time"], unit="us", utc=True
-                    )
-                    logger.debug(
-                        f"Converted close_time using fallback method: first value = {df['close_time'].iloc[0]} (END of candle)"
-                    )
+                    df["close_time"] = pd.to_datetime(df["close_time"], unit="us", utc=True)
+                    logger.debug(f"Converted close_time using fallback method: first value = {df['close_time'].iloc[0]} (END of candle)")
 
         # Debug: Log output from timestamp processing
-        logger.debug(
-            f"[TIMESTAMP TRACE] After process_timestamp_columns: {len(df)} rows"
-        )
+        logger.debug(f"[TIMESTAMP TRACE] After process_timestamp_columns: {len(df)} rows")
         if len(df) > 0 and "open_time" in df.columns:
             for i in range(min(3, len(df))):
-                logger.debug(
-                    f"[TIMESTAMP TRACE] Processed row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}"
-                )
+                logger.debug(f"[TIMESTAMP TRACE] Processed row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
 
     except Exception as e:
         logger.error(f"Error processing timestamp columns: {e}")

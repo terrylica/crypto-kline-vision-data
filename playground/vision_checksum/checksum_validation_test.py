@@ -187,7 +187,7 @@ async def main():
 
     # Add checksum file info
     if checksum_file.exists():
-        with open(checksum_file, "r") as f:
+        with open(checksum_file) as f:
             content = f.read().strip()
             table.add_row("Checksum File Content", content)
 

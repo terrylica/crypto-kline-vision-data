@@ -2,7 +2,6 @@
 
 import re
 from enum import Enum, auto
-from typing import Dict, List, Optional
 
 import attrs  # Add this import
 
@@ -131,7 +130,7 @@ class ChartType(Enum):
         raise ValueError(f"Unknown chart type: {self}")
 
     @property
-    def supported_markets(self) -> List[MarketType]:
+    def supported_markets(self) -> list[MarketType]:
         """Get list of market types that support this chart type."""
         # Use name comparison instead of direct comparison to avoid module reloading issues
         if self.name == "KLINES":
@@ -156,7 +155,7 @@ class ChartType(Enum):
         return []
 
     @property
-    def supported_providers(self) -> List["DataProvider"]:
+    def supported_providers(self) -> list["DataProvider"]:
         """Get list of data providers that support this chart type."""
         # Use name comparison instead of direct comparison to avoid module reloading issues
         if self.name in ("KLINES", "FUNDING_RATE"):
@@ -275,10 +274,10 @@ class MarketCapabilities:
     """Encapsulates the capabilities and constraints of a market type."""
 
     primary_endpoint: str = attrs.field()  # Primary API endpoint
-    backup_endpoints: List[str] = attrs.field()  # List of backup endpoints
-    data_only_endpoint: Optional[str] = attrs.field()  # Endpoint for market data only
+    backup_endpoints: list[str] = attrs.field()  # List of backup endpoints
+    data_only_endpoint: str | None = attrs.field()  # Endpoint for market data only
     api_version: str = attrs.field()  # API version to use
-    supported_intervals: List[Interval] = attrs.field()  # List of supported intervals
+    supported_intervals: list[Interval] = attrs.field()  # List of supported intervals
     symbol_format: str = attrs.field()  # Example format for symbols
     description: str = attrs.field()  # Detailed description of market capabilities
     max_limit: int = attrs.field()  # Maximum number of records per request
@@ -296,7 +295,7 @@ class MarketCapabilities:
         return self.primary_endpoint
 
 
-MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
+MARKET_CAPABILITIES: dict[MarketType, MarketCapabilities] = {
     MarketType.SPOT: MarketCapabilities(
         primary_endpoint="https://api.binance.com",
         backup_endpoints=[
@@ -308,9 +307,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint="https://data-api.binance.vision",
         api_version="v3",
-        supported_intervals=[
-            interval for interval in Interval
-        ],  # All intervals including 1s
+        supported_intervals=[interval for interval in Interval],  # All intervals including 1s
         symbol_format="BTCUSDT",
         description=(
             "Spot market with comprehensive support for all intervals including 1-second data. "
@@ -331,9 +328,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint=None,  # No dedicated data-only endpoint for futures
         api_version="v1",
-        supported_intervals=[
-            interval for interval in Interval if interval.value != "1s"
-        ],  # All intervals except 1s
+        supported_intervals=[interval for interval in Interval if interval.value != "1s"],  # All intervals except 1s
         symbol_format="BTCUSDT",
         description=(
             "USDT-margined futures (UM) market with support for most intervals except 1-second data. "
@@ -353,9 +348,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint=None,  # No dedicated data-only endpoint for futures
         api_version="v1",
-        supported_intervals=[
-            interval for interval in Interval if interval.value != "1s"
-        ],  # All intervals except 1s
+        supported_intervals=[interval for interval in Interval if interval.value != "1s"],  # All intervals except 1s
         symbol_format="BTCUSD_PERP",  # Using _PERP suffix for perpetual contracts
         description=(
             "Coin-margined futures (CM) market with support for most intervals except 1-second data. "
@@ -377,9 +370,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint=None,  # No dedicated data-only endpoint for futures
         api_version="v1",
-        supported_intervals=[
-            interval for interval in Interval if interval.value != "1s"
-        ],  # All intervals except 1s
+        supported_intervals=[interval for interval in Interval if interval.value != "1s"],  # All intervals except 1s
         symbol_format="BTCUSDT",
         description=(
             "Generic futures market type (kept for backward compatibility). "
@@ -400,9 +391,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint=None,  # No dedicated data-only endpoint for options
         api_version="v1",
-        supported_intervals=[
-            interval for interval in Interval if interval.value != "1s"
-        ],  # All intervals except 1s
+        supported_intervals=[interval for interval in Interval if interval.value != "1s"],  # All intervals except 1s
         symbol_format="BTC-230630-60000-C",  # BTC-YYMMDD-STRIKE-C/P format
         description=(
             "Options market with structured contract naming. "
@@ -416,7 +405,7 @@ MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
 }
 
 # Define OKX-specific market capabilities
-OKX_MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
+OKX_MARKET_CAPABILITIES: dict[MarketType, MarketCapabilities] = {
     MarketType.SPOT: MarketCapabilities(
         primary_endpoint="https://www.okx.com",
         backup_endpoints=[],  # No documented backup endpoints
@@ -480,9 +469,7 @@ OKX_MARKET_CAPABILITIES: Dict[MarketType, MarketCapabilities] = {
 }
 
 
-def get_market_capabilities(
-    market_type: MarketType, data_provider: DataProvider = DataProvider.BINANCE
-) -> MarketCapabilities:
+def get_market_capabilities(market_type: MarketType, data_provider: DataProvider = DataProvider.BINANCE) -> MarketCapabilities:
     """Get capabilities for a specific market type.
 
     Args:
@@ -497,31 +484,21 @@ def get_market_capabilities(
     """
     # Check if the market type is in our predefined capabilities
     # Log debug information to help diagnose enum comparison issues
-    logger.debug(
-        f"Getting capabilities for market_type={market_type}, type={type(market_type)}, provider={data_provider}"
-    )
+    logger.debug(f"Getting capabilities for market_type={market_type}, type={type(market_type)}, provider={data_provider}")
 
     # Select the appropriate capabilities dictionary based on the provider
     if data_provider.name == "OKX":
         capabilities_dict = OKX_MARKET_CAPABILITIES
-        logger.debug(
-            f"Using OKX capabilities, keys: {[k.name for k in capabilities_dict.keys()]}"
-        )
+        logger.debug(f"Using OKX capabilities, keys: {[k.name for k in capabilities_dict.keys()]}")
     else:
         capabilities_dict = MARKET_CAPABILITIES
-        logger.debug(
-            f"Using standard capabilities, keys: {[k.name for k in capabilities_dict.keys()]}"
-        )
+        logger.debug(f"Using standard capabilities, keys: {[k.name for k in capabilities_dict.keys()]}")
 
     # First try direct lookup by name
     for key, value in capabilities_dict.items():
         # Log each comparison to help debug
-        logger.debug(
-            f"Comparing: id(market_type)={id(market_type)}, id of first key={id(key)}"
-        )
-        logger.debug(
-            f"Modules: market_type from {market_type.__module__}, key from {key.__module__}"
-        )
+        logger.debug(f"Comparing: id(market_type)={id(market_type)}, id of first key={id(key)}")
+        logger.debug(f"Modules: market_type from {market_type.__module__}, key from {key.__module__}")
 
         # Use name-based comparison for compatibility with module reloading
         if market_type.name == key.name:
@@ -529,9 +506,7 @@ def get_market_capabilities(
             return value
 
     # If we get here, we couldn't find the market by name
-    raise ValueError(
-        f"Unknown market type: {market_type} for provider: {data_provider.name}"
-    )
+    raise ValueError(f"Unknown market type: {market_type} for provider: {data_provider.name}")
 
 
 def is_interval_supported(market_type: MarketType, interval: Interval) -> bool:
@@ -611,9 +586,7 @@ def get_market_symbol_format(
 
     # Log the expected format to help with debugging
     if data_provider.name == "OKX" and "-" not in expected_format:
-        logger.debug(
-            f"Expected format '{expected_format}' may not match OKX format requirements"
-        )
+        logger.debug(f"Expected format '{expected_format}' may not match OKX format requirements")
 
     # For OKX provider, handle hyphenated symbols
     if data_provider.name == "OKX":
@@ -624,24 +597,16 @@ def get_market_symbol_format(
         # Handle SPOT market (convert BTCUSDT to BTC-USDT)
         if market_type.name == "SPOT":
             # Try to find standard patterns of base/quote currency
-            if len(symbol) >= MIN_LONG_SYMBOL_LENGTH and symbol.endswith(
-                ("USDT", "BUSD", "USDC")
-            ):
+            if len(symbol) >= MIN_LONG_SYMBOL_LENGTH and symbol.endswith(("USDT", "BUSD", "USDC")):
                 base = symbol[:-4]
                 quote = symbol[-4:]
                 return f"{base}-{quote}"
-            if len(symbol) >= MIN_SHORT_SYMBOL_LENGTH and symbol.endswith(
-                ("BTC", "ETH", "USD")
-            ):
+            if len(symbol) >= MIN_SHORT_SYMBOL_LENGTH and symbol.endswith(("BTC", "ETH", "USD")):
                 base = symbol[:-3]
                 quote = symbol[-3:]
                 return f"{base}-{quote}"
             # Default approach: assume last 4 characters are quote currency
-            return (
-                f"{symbol[:-4]}-{symbol[-4:]}"
-                if len(symbol) > MIN_SHORT_SYMBOL_LENGTH
-                else symbol
-            )
+            return f"{symbol[:-4]}-{symbol[-4:]}" if len(symbol) > MIN_SHORT_SYMBOL_LENGTH else symbol
 
         # Handle FUTURES_USDT market (convert to BTC-USD-SWAP format)
         if market_type.name == "FUTURES_USDT":
@@ -717,8 +682,7 @@ def validate_symbol_for_market_type(
 
     # Log market capabilities attributes to aid debugging
     logger.debug(
-        f"Validating symbol '{symbol}' for {market_name} with {data_provider.name} provider"
-        f" (expected format: {capabilities.symbol_format})"
+        f"Validating symbol '{symbol}' for {market_name} with {data_provider.name} provider (expected format: {capabilities.symbol_format})"
     )
 
     # The capabilities object provides full market information
@@ -729,9 +693,7 @@ def validate_symbol_for_market_type(
     if data_provider.name == "OKX":
         # OKX symbols should have hyphen format
         if "-" not in symbol:
-            suggested_symbol = get_market_symbol_format(
-                symbol, market_type, data_provider
-            )
+            suggested_symbol = get_market_symbol_format(symbol, market_type, data_provider)
             raise ValueError(
                 f"Invalid symbol format for OKX {market_name} market: '{symbol}'. "
                 f"OKX symbols should use hyphen format. "
@@ -755,9 +717,7 @@ def validate_symbol_for_market_type(
     elif market_name == "FUTURES_COIN":
         # Check if symbol has PERP suffix for perpetual contracts
         if not symbol.endswith("_PERP") and not any(c.isdigit() for c in symbol):
-            suggested_symbol = get_market_symbol_format(
-                symbol, market_type, data_provider
-            )
+            suggested_symbol = get_market_symbol_format(symbol, market_type, data_provider)
             raise ValueError(
                 f"Invalid symbol format for {market_name} market: '{symbol}'. "
                 f"FUTURES_COIN symbols should end with '_PERP' for perpetual contracts. "
@@ -782,11 +742,7 @@ def validate_symbol_for_market_type(
     # Special validation for OPTIONS market
     elif market_name == "OPTIONS":
         # Options symbols should follow the BTC-YYMMDD-STRIKE-C/P format
-        if not (
-            "-" in symbol
-            and (symbol.endswith("-C") or symbol.endswith("-P"))
-            and len(symbol.split("-")) == OPTIONS_SYMBOL_PARTS
-        ):
+        if not ("-" in symbol and (symbol.endswith("-C") or symbol.endswith("-P")) and len(symbol.split("-")) == OPTIONS_SYMBOL_PARTS):
             raise ValueError(
                 f"Invalid symbol format for {market_name} market: '{symbol}'. "
                 f"OPTIONS symbols should follow the format: BTC-YYMMDD-STRIKE-C/P"
@@ -816,9 +772,7 @@ def get_endpoint_url(
     base_url = capabilities.api_base_url
 
     # Verify the chart type is compatible with the market capabilities
-    if isinstance(chart_type, ChartType) and not chart_type.is_supported_by_market(
-        market_type
-    ):
+    if isinstance(chart_type, ChartType) and not chart_type.is_supported_by_market(market_type):
         logger.warning(
             f"Chart type {chart_type.name} may not be supported for {market_type.name} market. "
             f"Supported intervals: {[i.value for i in capabilities.supported_intervals]}"

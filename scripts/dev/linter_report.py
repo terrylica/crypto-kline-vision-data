@@ -13,7 +13,6 @@ Usage:
 """
 
 import json
-import os
 import re
 import subprocess
 import sys
@@ -60,11 +59,7 @@ def get_error_explanation(code):
                 for line in explanation_lines:
                     # Minimum meaningful line length to avoid short descriptions
                     MIN_LINE_LENGTH = 5
-                    if (
-                        line
-                        and not line.startswith(code)
-                        and len(line) > MIN_LINE_LENGTH
-                    ):
+                    if line and not line.startswith(code) and len(line) > MIN_LINE_LENGTH:
                         return line.strip()
                 # Fallback to the first line if no meaningful line found
                 return explanation_lines[0].strip()
@@ -309,9 +304,7 @@ def generate_file_error_breakdown(issues, sort_by="count"):
         items = sorted(file_errors.items())[:10]
     else:  # Default is by count
         # Sort by total issues per file (descending)
-        items = sorted(
-            file_errors.items(), key=lambda x: sum(x[1].values()), reverse=True
-        )[:10]
+        items = sorted(file_errors.items(), key=lambda x: sum(x[1].values()), reverse=True)[:10]
 
     for file, errors in items:
         try:
@@ -371,18 +364,14 @@ def generate_fix_suggestions(issues):
         if issues_list:
             sample = issues_list[0]
             if "filename" in sample and "line_start" in sample:
-                file_path = Path(sample["filename"]).relative_to(
-                    "/workspaces/raw-data-services"
-                )
+                file_path = Path(sample["filename"]).relative_to("/workspaces/raw-data-services")
                 line = sample.get("line_start", "?")
                 console.print(f"[yellow]Sample location:[/yellow] {file_path}:{line}")
 
 
 @app.command()
 def main(
-    sort_by: str = typer.Option(
-        "count", "--sort-by", "-s", help="Sort by: 'code', 'file', or 'count' (default)"
-    ),
+    sort_by: str = typer.Option("count", "--sort-by", "-s", help="Sort by: 'code', 'file', or 'count' (default)"),
     exclude_pattern: str = typer.Option(
         None,
         "--exclude",
@@ -397,8 +386,6 @@ def main(
     ),
 ):
     """Generate a comprehensive Ruff linter report."""
-    workspace_root = os.environ.get("WORKSPACE_ROOT", "/workspaces/raw-data-services")
-
     console.print("[bold magenta]Ruff Linter Report[/bold magenta]")
     console.print("Analyzing code issues...\n")
 

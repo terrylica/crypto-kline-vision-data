@@ -2,7 +2,6 @@
 """Validation utilities for DSM demo."""
 
 import sys
-from typing import Tuple
 
 import pendulum
 from rich.console import Console
@@ -33,16 +32,11 @@ def validate_interval(market_type: MarketType, interval: Interval) -> None:
         capabilities = get_market_capabilities(market_type)
         supported = [i.value for i in capabilities.supported_intervals]
 
-        console.print(
-            f"[bold red]ERROR: Interval {interval.value} is not supported by {market_type.name} market.[/bold red]"
-        )
+        console.print(f"[bold red]ERROR: Interval {interval.value} is not supported by {market_type.name} market.[/bold red]")
         console.print(f"[yellow]Supported intervals: {', '.join(supported)}[/yellow]")
         console.print("[cyan]Please choose a supported interval and try again.[/cyan]")
 
-        logger.error(
-            f"Interval {interval.value} not supported by {market_type.name} market. "
-            f"Supported intervals: {supported}"
-        )
+        logger.error(f"Interval {interval.value} not supported by {market_type.name} market. Supported intervals: {supported}")
         sys.exit(1)
 
 
@@ -51,7 +45,7 @@ def calculate_date_range(
     end_time: str | None,
     days: int,
     interval: Interval,
-) -> Tuple[pendulum.DateTime, pendulum.DateTime]:
+) -> tuple[pendulum.DateTime, pendulum.DateTime]:
     """Calculate the date range for data fetching.
 
     Args:
@@ -72,9 +66,7 @@ def calculate_date_range(
         et = parse_datetime(end_time) if end_time else None
 
         # Use the core data source manager utility
-        return DataSourceManager.calculate_time_range(
-            start_time=st, end_time=et, days=days, interval=interval
-        )
+        return DataSourceManager.calculate_time_range(start_time=st, end_time=et, days=days, interval=interval)
     except Exception as e:
         print(f"[bold red]Error calculating date range: {e}[/bold red]")
         sys.exit(1)

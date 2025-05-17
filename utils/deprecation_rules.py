@@ -114,9 +114,7 @@ class TimeUnit(str, enum.Enum):
             return _shorthand_map[shorthand.lower()]
         except KeyError as exc:
             valid_units = ", ".join(_shorthand_map.keys())
-            raise IntervalParseError(
-                f"Invalid time unit '{shorthand}'. Valid units are: {valid_units}"
-            ) from exc
+            raise IntervalParseError(f"Invalid time unit '{shorthand}'. Valid units are: {valid_units}") from exc
 
     @classmethod
     def from_market_interval(cls, interval: MarketInterval) -> TimeUnit:
@@ -156,13 +154,9 @@ class Interval:
     def __post_init__(self):
         """Validate interval value after initialization."""
         if not isinstance(self.value, int):
-            raise IntervalParseError(
-                f"Interval value must be an integer, got {type(self.value)}"
-            )
+            raise IntervalParseError(f"Interval value must be an integer, got {type(self.value)}")
         if not self.MIN_VALUE <= self.value <= self.MAX_VALUE:
-            raise IntervalParseError(
-                f"Interval value must be between {self.MIN_VALUE} and {self.MAX_VALUE}, got {self.value}"
-            )
+            raise IntervalParseError(f"Interval value must be between {self.MIN_VALUE} and {self.MAX_VALUE}, got {self.value}")
 
     @classmethod
     def from_string(cls, interval: str) -> Interval:
@@ -184,16 +178,12 @@ class Interval:
         try:
             value = int(numeric)
         except ValueError as exc:
-            raise IntervalParseError(
-                f"Invalid numeric value in interval: {numeric}"
-            ) from exc
+            raise IntervalParseError(f"Invalid numeric value in interval: {numeric}") from exc
 
         try:
             time_unit = TimeUnit.from_shorthand(unit)
         except IntervalParseError as e:
-            raise IntervalParseError(
-                f"Invalid interval format: {interval}. {e!s}"
-            ) from e
+            raise IntervalParseError(f"Invalid interval format: {interval}. {e!s}") from e
 
         return cls(value=value, unit=time_unit)
 
@@ -208,9 +198,7 @@ class Interval:
             value = int(value_str)
             time_unit = TimeUnit.from_shorthand(unit_str)
         except (ValueError, IntervalParseError) as e:
-            raise IntervalParseError(
-                f"Invalid market interval: {interval.value}"
-            ) from e
+            raise IntervalParseError(f"Invalid market interval: {interval.value}") from e
 
         return cls(value=value, unit=time_unit)
 
@@ -227,7 +215,7 @@ class Interval:
         try:
             result = pd.Timedelta(timedelta_str)
             # Explicitly check if result is NaT and cast to ensure type safety
-            if isinstance(result, pd.Timedelta) and not pd.isnull(result):
+            if isinstance(result, pd.Timedelta) and not pd.isna(result):
                 return result
             raise ValueError("Conversion resulted in NaT")
         except ValueError as e:

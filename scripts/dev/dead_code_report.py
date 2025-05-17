@@ -13,7 +13,6 @@ Usage:
     ./scripts/dev/dead_code_report.py [--min-confidence 60] [--sort-by SIZE|PATH|CONFIDENCE] [--exclude PATTERN]
 """
 
-import os
 import re
 import subprocess
 import sys
@@ -124,10 +123,7 @@ def generate_dead_code_summary(items, sort_by="confidence"):
     for item in items:
         confidence_by_type[item["type"]].append(item["confidence"])
 
-    avg_confidence = {
-        t: sum(confidences) / len(confidences)
-        for t, confidences in confidence_by_type.items()
-    }
+    avg_confidence = {t: sum(confidences) / len(confidences) for t, confidences in confidence_by_type.items()}
 
     table = Table(title="Dead Code Summary by Type")
     table.add_column("Count", justify="right", style="cyan")
@@ -138,9 +134,7 @@ def generate_dead_code_summary(items, sort_by="confidence"):
     if sort_by.lower() == "type":
         items = sorted(type_counter.items(), key=lambda x: x[0])
     elif sort_by.lower() == "confidence":
-        items = sorted(
-            type_counter.items(), key=lambda x: avg_confidence[x[0]], reverse=True
-        )
+        items = sorted(type_counter.items(), key=lambda x: avg_confidence[x[0]], reverse=True)
     else:  # Default is by count
         items = type_counter.most_common()
 
@@ -209,14 +203,10 @@ def generate_high_confidence_report(items):
         return
 
     # Filter for high confidence items (90%+)
-    high_confidence = [
-        item for item in items if item["confidence"] >= HIGH_CONFIDENCE_THRESHOLD
-    ]
+    high_confidence = [item for item in items if item["confidence"] >= HIGH_CONFIDENCE_THRESHOLD]
 
     if not high_confidence:
-        console.print(
-            f"\n[[yellow]]No high-confidence ({HIGH_CONFIDENCE_THRESHOLD}%+) dead code found[[/yellow]]"
-        )
+        console.print(f"\n[[yellow]]No high-confidence ({HIGH_CONFIDENCE_THRESHOLD}%+) dead code found[[/yellow]]")
         return
 
     table = Table(title=f"High Confidence Dead Code ({HIGH_CONFIDENCE_THRESHOLD}%)")
@@ -227,16 +217,12 @@ def generate_high_confidence_report(items):
     table.add_column("Name", style="magenta")
 
     # Sort by confidence (highest first), then by file path
-    sorted_items = sorted(
-        high_confidence, key=lambda x: (-x["confidence"], x["filename"], x["line"])
-    )
+    sorted_items = sorted(high_confidence, key=lambda x: (-x["confidence"], x["filename"], x["line"]))
 
     for item in sorted_items:
         # Make the path relative to the workspace
         try:
-            rel_path = Path(item["filename"]).relative_to(
-                "/workspaces/raw-data-services"
-            )
+            rel_path = Path(item["filename"]).relative_to("/workspaces/raw-data-services")
         except ValueError:
             rel_path = item["filename"]
 
@@ -261,9 +247,7 @@ def generate_false_positive_suggestions():
     console.print("   [cyan]vulture . whitelist.py[/cyan]")
 
     console.print("\n[bold green]2. Prefix Unused Variables[/bold green]")
-    console.print(
-        "   For function parameters or variables that can't be removed, prefix with underscore:"
-    )
+    console.print("   For function parameters or variables that can't be removed, prefix with underscore:")
     console.print("   [cyan]def process_data(data, _unused_param):[/cyan]")
 
     console.print("\n[bold green]3. Use the 'del' Keyword[/bold green]")
@@ -279,9 +263,7 @@ def generate_false_positive_suggestions():
 
 @app.command()
 def main(
-    min_confidence: int = typer.Option(
-        60, "--min-confidence", "-c", help="Minimum confidence threshold (0-100)"
-    ),
+    min_confidence: int = typer.Option(60, "--min-confidence", "-c", help="Minimum confidence threshold (0-100)"),
     sort_by: str = typer.Option(
         "count",
         "--sort-by",
@@ -302,7 +284,7 @@ def main(
     ),
 ):
     """Generate a comprehensive dead code report using Vulture."""
-    workspace_root = os.environ.get("WORKSPACE_ROOT", "/workspaces/raw-data-services")
+    # Removed unused variable workspace_root
 
     console.print("[bold magenta]Dead Code Report[/bold magenta]")
     console.print("Analyzing unused code...\n")
@@ -314,15 +296,11 @@ def main(
     items = run_vulture(min_confidence, exclude_pattern, sort_by_size)
 
     if not items:
-        console.print(
-            "[bold red]No unused code found or error running vulture.[/bold red]"
-        )
+        console.print("[bold red]No unused code found or error running vulture.[/bold red]")
         return
 
     # Generate reports
-    console.print(
-        f"[bold blue]Found {len(items)} instances of unused code[/bold blue]\n"
-    )
+    console.print(f"[bold blue]Found {len(items)} instances of unused code[/bold blue]\n")
 
     type_counter = generate_dead_code_summary(items, sort_by)
     console.print()

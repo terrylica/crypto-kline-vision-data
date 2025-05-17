@@ -48,20 +48,12 @@ def print_integrity_results(integrity_result):
     print("\n[bold cyan]Data Integrity Analysis:[/bold cyan]")
     print(f"Expected records: {integrity_result['expected_records']}")
     print(f"Actual records: {integrity_result['actual_records']}")
-    print(
-        f"Missing records: {integrity_result['missing_records']} ({integrity_result.get('missing_percentage', 0):.2f}%)"
-    )
+    print(f"Missing records: {integrity_result['missing_records']} ({integrity_result.get('missing_percentage', 0):.2f}%)")
 
     if integrity_result.get("gaps_found", False):
-        print(
-            f"Found {integrity_result.get('num_gaps', 0)} gaps with {integrity_result.get('total_missing_in_gaps', 0)} missing points"
-        )
-        print(
-            f"Largest gap: {integrity_result.get('largest_gap_seconds', 0) / 60:.1f} minutes"
-        )
-        print(
-            f"Data spans from {integrity_result.get('first_timestamp')} to {integrity_result.get('last_timestamp')}"
-        )
+        print(f"Found {integrity_result.get('num_gaps', 0)} gaps with {integrity_result.get('total_missing_in_gaps', 0)} missing points")
+        print(f"Largest gap: {integrity_result.get('largest_gap_seconds', 0) / 60:.1f} minutes")
+        print(f"Data spans from {integrity_result.get('first_timestamp')} to {integrity_result.get('last_timestamp')}")
 
 
 def format_dataframe_for_display(df):
@@ -91,9 +83,7 @@ def format_dataframe_for_display(df):
     return display_df
 
 
-def save_dataframe_to_csv(
-    df, market_type, symbol, interval, output_dir="./logs/dsm_demo_cli"
-):
+def save_dataframe_to_csv(df, market_type, symbol, interval, output_dir="./logs/dsm_demo_cli"):
     """Save DataFrame to a CSV file in the specified directory.
 
     Args:
@@ -163,13 +153,9 @@ def print_no_data_message(
     if provider:
         print(f"Provider: {provider.name if hasattr(provider, 'name') else provider}")
     if market_type:
-        print(
-            f"Market type: {market_type.name if hasattr(market_type, 'name') else market_type}"
-        )
+        print(f"Market type: {market_type.name if hasattr(market_type, 'name') else market_type}")
     if chart_type:
-        print(
-            f"Chart type: {chart_type.name if hasattr(chart_type, 'name') else chart_type}"
-        )
+        print(f"Chart type: {chart_type.name if hasattr(chart_type, 'name') else chart_type}")
     if symbol:
         print(f"Symbol: {symbol}")
     if interval:
@@ -179,9 +165,7 @@ def print_no_data_message(
     if end_time:
         print(f"End time: {end_time.isoformat()}")
     if enforce_source:
-        print(
-            f"Enforced source: {enforce_source.name if hasattr(enforce_source, 'name') else enforce_source}"
-        )
+        print(f"Enforced source: {enforce_source.name if hasattr(enforce_source, 'name') else enforce_source}")
     if use_cache is not None:
         print(f"Cache enabled: {use_cache}")
 

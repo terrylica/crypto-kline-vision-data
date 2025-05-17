@@ -123,9 +123,7 @@ def save_and_load_arrow(df, filename):
 
 def run_test():
     """Run the timestamp detection and conversion test."""
-    print(
-        "[bold blue]===== Testing Timestamp Format Detection and Conversion =====[/bold blue]"
-    )
+    print("[bold blue]===== Testing Timestamp Format Detection and Conversion =====[/bold blue]")
 
     # Create test data
     ms_df, us_df = create_test_dataframes()
@@ -142,12 +140,8 @@ def run_test():
     us_df_datetime = convert_to_datetime(us_df, "us")
 
     print("\n[bold]Sample datetime values:[/bold]")
-    print(
-        f"Millisecond precision first timestamp: {ms_df_datetime['open_time'].iloc[0]}"
-    )
-    print(
-        f"Microsecond precision first timestamp: {us_df_datetime['open_time'].iloc[0]}"
-    )
+    print(f"Millisecond precision first timestamp: {ms_df_datetime['open_time'].iloc[0]}")
+    print(f"Microsecond precision first timestamp: {us_df_datetime['open_time'].iloc[0]}")
 
     # Create temp directory for Arrow files
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -159,12 +153,8 @@ def run_test():
         us_loaded = save_and_load_arrow(us_df_datetime, us_file)
 
         print("\n[bold]Arrow file roundtrip test:[/bold]")
-        print(
-            f"Millisecond data saved and loaded successfully: {len(ms_loaded) == len(ms_df)}"
-        )
-        print(
-            f"Microsecond data saved and loaded successfully: {len(us_loaded) == len(us_df)}"
-        )
+        print(f"Millisecond data saved and loaded successfully: {len(ms_loaded) == len(ms_df)}")
+        print(f"Microsecond data saved and loaded successfully: {len(us_loaded) == len(us_df)}")
 
         # Check timestamps
         print("\n[bold]Timestamp preservation test:[/bold]")

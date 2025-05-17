@@ -5,7 +5,7 @@ Application options for DSM Demo CLI applications.
 This module contains Typer app options and argument definitions for DSM Demo CLI tools.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import typer
 
@@ -42,7 +42,7 @@ def create_typer_app():
     )
 
 
-def get_standard_options() -> Dict[str, Any]:
+def get_standard_options() -> dict[str, Any]:
     """Get standard CLI options for DSM Demo applications.
 
     Returns:

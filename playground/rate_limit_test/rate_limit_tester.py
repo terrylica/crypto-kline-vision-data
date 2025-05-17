@@ -320,7 +320,7 @@ def read_symbols_from_file(file_path):
     """
     symbols = []
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             for line in f:
                 symbol = line.strip()
                 if symbol:

@@ -21,10 +21,8 @@ class TimeoutLoggerState:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(TimeoutLoggerState, cls).__new__(cls)
-            cls._instance._timeout_log_file = os.environ.get(
-                "TIMEOUT_LOG_FILE", DEFAULT_TIMEOUT_LOG_FILE
-            )
+            cls._instance = super().__new__(cls)
+            cls._instance._timeout_log_file = os.environ.get("TIMEOUT_LOG_FILE", DEFAULT_TIMEOUT_LOG_FILE)
             cls._instance._timeout_logger_configured = False
             cls._instance._timeout_logger = None
         return cls._instance
@@ -82,9 +80,7 @@ def configure_timeout_logger():
     handler = logging.FileHandler(_state.timeout_log_file, mode="a")
 
     # Create a formatter that includes timestamp, module name, and message
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     handler.setFormatter(formatter)
 
     # Add the handler to the logger

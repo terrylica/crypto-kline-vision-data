@@ -21,7 +21,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Generic, TypeVar
 
 import httpx
 import pandas as pd
@@ -87,10 +87,10 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         self,
         symbol: str,
         interval: str = "1s",
-        market_type: Union[str, MarketType] = MarketType.SPOT,
+        market_type: str | MarketType = MarketType.SPOT,
         chart_type: ChartType = ChartType.KLINES,
         base_url: str = "https://data.binance.vision",
-        cache_dir: Optional[Union[str, Path]] = None,
+        cache_dir: str | Path | None = None,
     ):
         """Initialize Vision Data Client.
 
@@ -144,9 +144,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             },
             follow_redirects=True,  # Automatically follow redirects
         )
-        logger.debug(
-            f"Initialized Vision client for {self._symbol} {self._interval_str} ({self._market_type_str})"
-        )
+        logger.debug(f"Initialized Vision client for {self._symbol} {self._interval_str} ({self._market_type_str})")
 
     def __enter__(self) -> "VisionDataClient":
         """Context manager entry."""
@@ -216,7 +214,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         return TimestampedDataFrame(df)
 
-    def validate_data(self, df: pd.DataFrame) -> Tuple[bool, Optional[str]]:
+    def validate_data(self, df: pd.DataFrame) -> tuple[bool, str | None]:
         """Validate that a DataFrame contains valid market data."""
         validator = DataFrameValidator(df)
         return validator.validate_klines_data()
@@ -242,9 +240,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_incrementing(start=1, increment=1, max=3),
-        retry=retry_if_exception_type(
-            (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException)
-        ),
+        retry=retry_if_exception_type((httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException)),
         reraise=True,
         before_sleep=lambda retry_state: logger.warning(
             f"Retry attempt {retry_state.attempt_number}/3 for {retry_state.args[0] if retry_state.args else 'unknown date'} "
@@ -252,9 +248,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             f"waiting {retry_state.attempt_number} seconds"
         ),
     )
-    def _download_file(
-        self, date: datetime
-    ) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
+    def _download_file(self, date: datetime) -> tuple[pd.DataFrame | None, str | None]:
         """Download a data file for a specific date.
 
         Args:
@@ -263,9 +257,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         Returns:
             Tuple of (DataFrame, warning message). DataFrame is None if download failed.
         """
-        logger.debug(
-            f"Downloading data for {date.date()} for {self._symbol} {self._interval_str}"
-        )
+        logger.debug(f"Downloading data for {date.date()} for {self._symbol} {self._interval_str}")
 
         temp_file_path = None
         temp_checksum_path = None
@@ -283,9 +275,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
                 # Validate if interval is supported by market type
                 if interval_enum not in market_caps.supported_intervals:
-                    supported_intervals = [
-                        i.value for i in market_caps.supported_intervals
-                    ]
+                    supported_intervals = [i.value for i in market_caps.supported_intervals]
                     error_msg = (
                         f"Interval {self._interval_str} not supported by {market_type_enum.name} market. "
                         f"Supported intervals: {supported_intervals}"
@@ -293,12 +283,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     logger.error(error_msg)
 
                     # Create a detailed error message with suggestions
-                    min_interval = min(
-                        market_caps.supported_intervals, key=lambda x: x.to_seconds()
-                    )
+                    min_interval = min(market_caps.supported_intervals, key=lambda x: x.to_seconds())
                     suggestion = (
-                        f"Consider using {min_interval.value} (minimum supported interval) "
-                        f"or another supported interval from the list."
+                        f"Consider using {min_interval.value} (minimum supported interval) or another supported interval from the list."
                     )
 
                     from utils.for_core.vision_exceptions import (
@@ -310,9 +297,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 # Use the validated interval for URL construction
                 base_interval = self._interval_str
             except ValueError as e:
-                logger.error(
-                    f"Invalid interval format: {self._interval_str}. Error: {e}"
-                )
+                logger.error(f"Invalid interval format: {self._interval_str}. Error: {e}")
                 return None, f"Invalid interval format: {self._interval_str}"
 
             url = get_vision_url(
@@ -376,9 +361,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             if checksum_response.status_code == HTTP_NOT_FOUND:
                 logger.warning(f"Checksum file not available for {date.date()}")
             elif checksum_response.status_code != HTTP_OK:
-                logger.warning(
-                    f"HTTP error {checksum_response.status_code} when getting checksum for {date.date()}"
-                )
+                logger.warning(f"HTTP error {checksum_response.status_code} when getting checksum for {date.date()}")
             else:
                 # Get checksum content
                 checksum_content = checksum_response.content
@@ -413,28 +396,19 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             with open(temp_checksum_path, "rb") as f:
                                 checksum_content = f.read()
                                 if isinstance(checksum_content, bytes):
-                                    checksum_text = checksum_content.decode(
-                                        "utf-8", errors="replace"
-                                    ).strip()
+                                    checksum_text = checksum_content.decode("utf-8", errors="replace").strip()
                                 else:
                                     checksum_text = checksum_content.strip()
 
                                 # Look for a SHA-256 hash pattern (64 hex chars)
                                 import re
 
-                                hash_match = re.search(
-                                    r"([a-fA-F0-9]{64})", checksum_text
-                                )
+                                hash_match = re.search(r"([a-fA-F0-9]{64})", checksum_text)
                                 if hash_match:
                                     expected_checksum = hash_match.group(1)
 
-                                    if (
-                                        expected_checksum.lower()
-                                        == actual_checksum.lower()
-                                    ):
-                                        logger.info(
-                                            f"Checksum verification passed for {date.date()}"
-                                        )
+                                    if expected_checksum.lower() == actual_checksum.lower():
+                                        logger.info(f"Checksum verification passed for {date.date()}")
                                     else:
                                         logger.critical(
                                             f"Checksum verification failed for {date.date()}. "
@@ -451,15 +425,11 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                             )
                         except Exception as extract_e:
                             # Extraction failed, but we can still self-verify
-                            logger.debug(
-                                f"Could not extract checksum from file: {extract_e}"
-                            )
+                            logger.debug(f"Could not extract checksum from file: {extract_e}")
 
                     except Exception as e:
                         # Only log a warning, don't set checksum_failed
-                        logger.debug(
-                            f"Error in checksum verification for {date.date()}: {e}"
-                        )
+                        logger.debug(f"Error in checksum verification for {date.date()}: {e}")
 
             # Process the zip file
             try:
@@ -483,13 +453,11 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         csv_path = Path(temp_dir) / csv_file
 
                         # Read the CSV file
-                        with open(csv_path, "r") as f:
+                        with open(csv_path) as f:
                             first_lines = [next(f) for _ in range(3)]
 
                             # Check if the first line contains headers (e.g., 'high' keyword)
-                            has_header = any(
-                                "high" in line.lower() for line in first_lines[:1]
-                            )
+                            has_header = any("high" in line.lower() for line in first_lines[:1])
                             logger.debug(f"Headers detected: {has_header}")
 
                             # Reopen the file to read from the beginning
@@ -497,20 +465,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
                         # Read CSV with or without header based on detection
                         if has_header:
-                            logger.info(
-                                "Headers detected in CSV, reading with header=0"
-                            )
+                            logger.info("Headers detected in CSV, reading with header=0")
                             df = pd.read_csv(csv_path, header=0)
                             # Map column names to standard names if needed
-                            if "open_time" not in df.columns and len(df.columns) == len(
-                                KLINE_COLUMNS
-                            ):
+                            if "open_time" not in df.columns and len(df.columns) == len(KLINE_COLUMNS):
                                 df.columns = KLINE_COLUMNS
                         else:
                             # No headers detected, use the standard column names
-                            logger.info(
-                                "No headers detected in CSV, reading with header=None"
-                            )
+                            logger.info("No headers detected in CSV, reading with header=None")
                             df = pd.read_csv(csv_path, header=None, names=KLINE_COLUMNS)
 
                         logger.debug(f"Read {len(df)} rows from CSV")
@@ -572,9 +534,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             - open_time represents the BEGINNING of each candle period
             - close_time represents the END of each candle period
         """
-        logger.info(
-            f"Downloading data for {self._symbol} {self._interval_str} from {start_time.isoformat()} to {end_time.isoformat()}"
-        )
+        logger.info(f"Downloading data for {self._symbol} {self._interval_str} from {start_time.isoformat()} to {end_time.isoformat()}")
 
         # Convert start and end times to date objects for file-based lookups
         start_date = start_time.date()
@@ -598,14 +558,10 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         # For very short intervals like 1s, avoid too many concurrent downloads
         if self._interval_str == "1s" and max_workers > CONCURRENT_DOWNLOADS_LIMIT_1S:
             max_workers = CONCURRENT_DOWNLOADS_LIMIT_1S
-            logger.info(
-                f"Limited concurrent downloads to {max_workers} for 1s interval"
-            )
+            logger.info(f"Limited concurrent downloads to {max_workers} for 1s interval")
 
         # Create date objects to pass to ThreadPoolExecutor
-        date_objects = [
-            datetime(d.year, d.month, d.day, tzinfo=timezone.utc) for d in date_range
-        ]
+        date_objects = [datetime(d.year, d.month, d.day, tzinfo=timezone.utc) for d in date_range]
 
         # Get data files
         if len(date_objects) == 0:
@@ -615,10 +571,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         try:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit download tasks
-                future_to_date = {
-                    executor.submit(self._download_file, date_obj): date_obj
-                    for date_obj in date_objects
-                }
+                future_to_date = {executor.submit(self._download_file, date_obj): date_obj for date_obj in date_objects}
 
                 # Process results as they complete
                 for future in as_completed(future_to_date):
@@ -629,40 +582,26 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             # Handle warnings about fresh data differently
                             if "freshness window" in warning:
                                 fresh_date_failures.append((date, warning))
-                                logger.info(
-                                    f"Expected failure for {date}: {warning} (within VISION_DATA_DELAY_HOURS window)"
-                                )
+                                logger.info(f"Expected failure for {date}: {warning} (within VISION_DATA_DELAY_HOURS window)")
                             # Only track actual checksum failures as warnings
-                            elif (
-                                "Checksum verification failed" in warning
-                                and "extraction" not in warning
-                            ):
+                            elif "Checksum verification failed" in warning and "extraction" not in warning:
                                 checksum_failures.append((date, warning))
-                                logger.critical(
-                                    f"Checksum failure for {date}: {warning}"
-                                )
+                                logger.critical(f"Checksum failure for {date}: {warning}")
                             else:
                                 warning_messages.append(warning)
 
                         if df is not None and not df.empty:
                             # Ensure each dataframe is properly sorted by open_time before adding it
-                            if (
-                                "open_time" in df.columns
-                                and not df["open_time"].is_monotonic_increasing
-                            ):
+                            if "open_time" in df.columns and not df["open_time"].is_monotonic_increasing:
                                 df = df.sort_values("open_time").reset_index(drop=True)
                             downloaded_dfs.append(df)
                     except Exception as exc:
                         # Check if this date is too fresh
                         if self._should_skip_retry_for_fresh_date(date):
                             fresh_date_failures.append((date, f"Error: {exc}"))
-                            logger.info(
-                                f"Expected failure for {date}: {exc} - Date is within the freshness window, skipping retries"
-                            )
+                            logger.info(f"Expected failure for {date}: {exc} - Date is within the freshness window, skipping retries")
                         else:
-                            logger.error(
-                                f"Error downloading data for {date}: {exc} - This date will be treated as unavailable"
-                            )
+                            logger.error(f"Error downloading data for {date}: {exc} - This date will be treated as unavailable")
 
             # After all downloads, check if there were any checksum failures
             if checksum_failures:
@@ -672,9 +611,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     f"Data integrity is compromised. This indicates possible data corruption "
                     f"or tampering with the Binance Vision API data."
                 )
-                logger.warning(
-                    "Proceeding with data despite checksum verification failures"
-                )
+                logger.warning("Proceeding with data despite checksum verification failures")
 
             # Report on fresh date failures, but treat them as expected
             if fresh_date_failures:
@@ -733,40 +670,28 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         # Ensure timestamps are in datetime format
         if "open_time" not in concatenated_df.columns:
-            logger.error(
-                f"Missing 'open_time' column in downloaded data. Columns: {concatenated_df.columns}"
-            )
+            logger.error(f"Missing 'open_time' column in downloaded data. Columns: {concatenated_df.columns}")
             return self.create_empty_dataframe()
 
         # Sort the dataframe by timestamp
         if not concatenated_df["open_time"].is_monotonic_increasing:
-            concatenated_df = concatenated_df.sort_values("open_time").reset_index(
-                drop=True
-            )
+            concatenated_df = concatenated_df.sort_values("open_time").reset_index(drop=True)
 
         # Filter data to requested time range
-        filtered_df = filter_dataframe_by_time(
-            concatenated_df, start_time, end_time, "open_time"
-        )
+        filtered_df = filter_dataframe_by_time(concatenated_df, start_time, end_time, "open_time")
 
         # Log filtering results for debugging
         if not filtered_df.empty:
             logger.debug(f"Filtered dataframe contains {len(filtered_df)} rows")
         else:
-            logger.warning(
-                "Filtered dataframe is empty - no data within requested time range"
-            )
+            logger.warning("Filtered dataframe is empty - no data within requested time range")
 
         # Find gaps in the data
         try:
-            interval_obj = next(
-                (i for i in Interval if i.value == self._interval_str), None
-            )
+            interval_obj = next((i for i in Interval if i.value == self._interval_str), None)
             if interval_obj is None:
                 interval_obj = Interval.MINUTE_1
-                logger.warning(
-                    f"Could not find interval {self._interval_str}, using MINUTE_1 as default for gap detection"
-                )
+                logger.warning(f"Could not find interval {self._interval_str}, using MINUTE_1 as default for gap detection")
         except Exception as e:
             logger.warning(f"Error parsing interval for gap detection: {e}")
             interval_obj = Interval.MINUTE_1
@@ -782,20 +707,13 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 df_for_gap_detection = filtered_df.copy()
 
                 # Ensure open_time is present and is a datetime type
-                if "open_time" not in df_for_gap_detection.columns and isinstance(
-                    df_for_gap_detection.index, pd.DatetimeIndex
-                ):
+                if "open_time" not in df_for_gap_detection.columns and isinstance(df_for_gap_detection.index, pd.DatetimeIndex):
                     df_for_gap_detection["open_time"] = df_for_gap_detection.index
-                elif (
-                    "open_time" in df_for_gap_detection.columns
-                    and not pd.api.types.is_datetime64_any_dtype(
-                        df_for_gap_detection["open_time"]
-                    )
+                elif "open_time" in df_for_gap_detection.columns and not pd.api.types.is_datetime64_any_dtype(
+                    df_for_gap_detection["open_time"]
                 ):
                     try:
-                        df_for_gap_detection["open_time"] = pd.to_datetime(
-                            df_for_gap_detection["open_time"], unit="ms", utc=True
-                        )
+                        df_for_gap_detection["open_time"] = pd.to_datetime(df_for_gap_detection["open_time"], unit="ms", utc=True)
                     except Exception as e:
                         logger.warning(f"Failed to convert open_time to datetime: {e}")
 
@@ -821,9 +739,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         # Try to fill day boundary gaps using REST API
         if boundary_gaps:
-            logger.debug(
-                f"Detected {len(boundary_gaps)} day boundary gaps. Attempting to fill with REST API data."
-            )
+            logger.debug(f"Detected {len(boundary_gaps)} day boundary gaps. Attempting to fill with REST API data.")
             filled_df = fill_boundary_gaps_with_rest(
                 filtered_df,
                 boundary_gaps,
@@ -833,26 +749,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             )
             if filled_df is not None:
                 filtered_df = filled_df
-                logger.debug(
-                    f"Successfully filled boundary gaps with REST API. New row count: {len(filtered_df)}"
-                )
+                logger.debug(f"Successfully filled boundary gaps with REST API. New row count: {len(filtered_df)}")
             else:
-                logger.warning(
-                    f"Failed to fill {len(boundary_gaps)} boundary gaps with REST API."
-                )
+                logger.warning(f"Failed to fill {len(boundary_gaps)} boundary gaps with REST API.")
 
         # Store original timestamp for reference
-        if (
-            "open_time" in filtered_df.columns
-            and "original_timestamp" not in filtered_df.columns
-        ):
+        if "open_time" in filtered_df.columns and "original_timestamp" not in filtered_df.columns:
             filtered_df["original_timestamp"] = filtered_df["open_time"]
 
         # Create TimestampedDataFrame based on available columns
-        if (
-            "open_time_us" not in filtered_df.columns
-            and "open_time" in filtered_df.columns
-        ):
+        if "open_time_us" not in filtered_df.columns and "open_time" in filtered_df.columns:
             df_for_index = filtered_df.copy()
             df_for_index = df_for_index.set_index("open_time")
             return TimestampedDataFrame(df_for_index)
@@ -913,19 +819,13 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         """
         # Validate parameters
         if not isinstance(symbol, str) or not symbol:
-            logger.warning(
-                f"Invalid symbol: {symbol}, using client symbol {self._symbol}"
-            )
+            logger.warning(f"Invalid symbol: {symbol}, using client symbol {self._symbol}")
             symbol = self._symbol
         elif symbol != self._symbol:
-            logger.warning(
-                f"Symbol mismatch: requested {symbol}, client configured for {self._symbol}. Using client configuration."
-            )
+            logger.warning(f"Symbol mismatch: requested {symbol}, client configured for {self._symbol}. Using client configuration.")
 
         if not isinstance(interval, str) or not interval:
-            logger.warning(
-                f"Invalid interval: {interval}, using client interval {self._interval_str}"
-            )
+            logger.warning(f"Invalid interval: {interval}, using client interval {self._interval_str}")
             interval = self._interval_str
         elif interval != self._interval_str:
             logger.warning(
@@ -936,9 +836,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             raise ValueError("Start time and end time must be datetime objects")
 
         if start_time >= end_time:
-            raise ValueError(
-                f"Start time {start_time} must be before end time {end_time}"
-            )
+            raise ValueError(f"Start time {start_time} must be before end time {end_time}")
 
         try:
             # Enforce consistent timezone for time boundaries
@@ -950,9 +848,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
             # Log if it's a large request
             if delta_days > LARGE_REQUEST_DAYS:
-                logger.info(
-                    f"Processing a large date range of {delta_days} days with parallel downloads."
-                )
+                logger.info(f"Processing a large date range of {delta_days} days with parallel downloads.")
 
             # Download data
             try:
@@ -977,18 +873,14 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     if "df" in locals() and df is not None and not df.empty:
                         logger.info(f"Returning {len(df)} rows despite checksum issues")
                         return df
-                    logger.critical(
-                        "No data available due to checksum verification failure"
-                    )
+                    logger.critical("No data available due to checksum verification failure")
                     raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {e!s}")
                 logger.error(f"Error in _download_data: {e}")
                 raise
 
         except Exception as e:
             # Check if this is a checksum error that needs to be propagated
-            if "Checksum verification failed" in str(
-                e
-            ) or "VISION API DATA INTEGRITY ERROR" in str(e):
+            if "Checksum verification failed" in str(e) or "VISION API DATA INTEGRITY ERROR" in str(e):
                 # This is critical and should be propagated to trigger failover
                 raise
 
@@ -1012,13 +904,13 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
     @staticmethod
     def fetch_multiple(
-        symbols: List[str],
+        symbols: list[str],
         start_time: datetime,
         end_time: datetime,
         interval: str = "1m",
-        market_type: Union[str, MarketType] = MarketType.SPOT,
-        max_workers: Optional[int] = None,
-    ) -> Dict[str, TimestampedDataFrame]:
+        market_type: str | MarketType = MarketType.SPOT,
+        max_workers: int | None = None,
+    ) -> dict[str, TimestampedDataFrame]:
         """Fetch data for multiple symbols in parallel.
 
         Args:
@@ -1047,22 +939,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         # Log large requests but don't limit them
         if delta_days > LARGE_REQUEST_DAYS:
-            logger.info(
-                f"Processing a large date range of {delta_days} days for {len(symbols)} symbols with parallel downloads."
-            )
+            logger.info(f"Processing a large date range of {delta_days} days for {len(symbols)} symbols with parallel downloads.")
 
-        logger.info(
-            f"Fetching data for {len(symbols)} symbols using {max_workers} parallel workers"
-        )
+        logger.info(f"Fetching data for {len(symbols)} symbols using {max_workers} parallel workers")
 
-        results: Dict[str, TimestampedDataFrame] = {}
+        results: dict[str, TimestampedDataFrame] = {}
 
         # Define worker function to download data for a single symbol
-        def download_worker(symbol: str) -> Tuple[str, TimestampedDataFrame]:
+        def download_worker(symbol: str) -> tuple[str, TimestampedDataFrame]:
             try:
-                with VisionDataClient(
-                    symbol=symbol, interval=interval, market_type=market_type
-                ) as client:
+                with VisionDataClient(symbol=symbol, interval=interval, market_type=market_type) as client:
                     df = client.fetch(symbol, interval, start_time, end_time)
                 return symbol, df
             except Exception as e:
@@ -1073,21 +959,15 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     raise
 
                 # Return empty dataframe for non-critical errors
-                logger.warning(
-                    f"Non-critical error for {symbol}, returning empty dataframe"
-                )
-                client = VisionDataClient(
-                    symbol=symbol, interval=interval, market_type=market_type
-                )
+                logger.warning(f"Non-critical error for {symbol}, returning empty dataframe")
+                client = VisionDataClient(symbol=symbol, interval=interval, market_type=market_type)
                 empty_df = client.create_empty_dataframe()
                 client.close()
                 return symbol, empty_df
 
         # Use ThreadPoolExecutor to parallelize downloads across symbols
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_symbol = {
-                executor.submit(download_worker, symbol): symbol for symbol in symbols
-            }
+            future_to_symbol = {executor.submit(download_worker, symbol): symbol for symbol in symbols}
 
             # Process results as they complete
             for i, future in enumerate(as_completed(future_to_symbol)):
@@ -1095,26 +975,18 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 try:
                     symbol_result, df = future.result()
                     results[symbol_result] = df
-                    logger.info(
-                        f"Completed download for {symbol} ({i + 1}/{len(symbols)}): {len(df)} records"
-                    )
+                    logger.info(f"Completed download for {symbol} ({i + 1}/{len(symbols)}): {len(df)} records")
                 except Exception as e:
                     logger.error(f"Error processing result for {symbol}: {e}")
                     # Create empty dataframe for failed symbols
-                    client = VisionDataClient(
-                        symbol=symbol, interval=interval, market_type=market_type
-                    )
+                    client = VisionDataClient(symbol=symbol, interval=interval, market_type=market_type)
                     results[symbol] = client.create_empty_dataframe()
                     client.close()
 
         # Check if all downloads failed (all results are empty dataframes)
         all_empty = all(df.empty for df in results.values()) if results else True
         if all_empty and symbols:
-            logger.critical(
-                f"CRITICAL ERROR: All {len(symbols)} symbols failed to download"
-            )
-            raise RuntimeError(
-                "All symbol downloads failed. No data available from Vision API."
-            )
+            logger.critical(f"CRITICAL ERROR: All {len(symbols)} symbols failed to download")
+            raise RuntimeError("All symbol downloads failed. No data available from Vision API.")
 
         return results

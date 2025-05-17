@@ -9,7 +9,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from utils.config import SECONDS_IN_HOUR
 from utils.logger_setup import logger
@@ -26,7 +26,7 @@ class RestMetricsTracker:
         """Create a singleton instance."""
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(RestMetricsTracker, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
                 cls._instance._initialized = False
             return cls._instance
 
@@ -64,12 +64,12 @@ class RestMetricsTracker:
     def record_api_call(
         self,
         endpoint: str,
-        params: Dict,
+        params: dict,
         start_time: float,
         end_time: float,
         success: bool,
-        error_type: Optional[str] = None,
-        status_code: Optional[int] = None,
+        error_type: str | None = None,
+        status_code: int | None = None,
     ) -> None:
         """Record metrics for an API call.
 
@@ -108,12 +108,10 @@ class RestMetricsTracker:
                     self._rate_limit_windows.append(datetime.now())
                     # Clean up old rate limit windows (older than 1 hour)
                     self._rate_limit_windows = [
-                        t
-                        for t in self._rate_limit_windows
-                        if (datetime.now() - t).total_seconds() < SECONDS_IN_HOUR
+                        t for t in self._rate_limit_windows if (datetime.now() - t).total_seconds() < SECONDS_IN_HOUR
                     ]
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current metrics.
 
         Returns:
@@ -121,18 +119,10 @@ class RestMetricsTracker:
         """
         with self._lock:
             # Calculate average response time
-            avg_response_time = (
-                sum(self._response_times) / len(self._response_times)
-                if self._response_times
-                else 0
-            )
+            avg_response_time = sum(self._response_times) / len(self._response_times) if self._response_times else 0
 
             # Calculate success rate
-            success_rate = (
-                (self._successful_calls / self._total_calls) * 100
-                if self._total_calls > 0
-                else 0
-            )
+            success_rate = (self._successful_calls / self._total_calls) * 100 if self._total_calls > 0 else 0
 
             # Get rate limiting frequency (per hour)
             rate_limit_frequency = len(self._rate_limit_windows)
@@ -183,7 +173,7 @@ class RestMetricsTracker:
 metrics_tracker = RestMetricsTracker()
 
 
-def track_api_call(endpoint: str, params: Dict[str, Any]) -> callable:
+def track_api_call(endpoint: str, params: dict[str, Any]) -> callable:
     """Decorator to track API call metrics.
 
     Args:

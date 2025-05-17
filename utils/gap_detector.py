@@ -9,7 +9,7 @@ based on expected intervals defined in market_constraints.py.
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 from rich import print
@@ -37,7 +37,7 @@ def detect_gaps(
     gap_threshold: float = 0.3,  # 30% threshold
     day_boundary_threshold: float = 1.5,  # Use higher threshold for day boundaries
     enforce_min_span: bool = True,  # Enforce minimum timespan requirement
-) -> Tuple[List[Gap], Dict[str, Any]]:
+) -> tuple[list[Gap], dict[str, Any]]:
     """
     Detect gaps in time series data based on a fixed interval.
 
@@ -160,28 +160,19 @@ def detect_gaps(
         "total_gaps": len(gaps),
         "day_boundary_gaps": sum(1 for gap in gaps if gap.crosses_day_boundary),
         "non_boundary_gaps": sum(1 for gap in gaps if not gap.crosses_day_boundary),
-        "max_gap_duration": max(
-            (gap.duration for gap in gaps), default=pd.Timedelta(0)
-        ),
+        "max_gap_duration": max((gap.duration for gap in gaps), default=pd.Timedelta(0)),
         "total_records": len(df),
-        "first_timestamp": (
-            df_sorted[time_column].min() if not df_sorted.empty else None
-        ),
+        "first_timestamp": (df_sorted[time_column].min() if not df_sorted.empty else None),
         "last_timestamp": df_sorted[time_column].max() if not df_sorted.empty else None,
         "timespan_hours": (
-            (
-                df_sorted[time_column].max() - df_sorted[time_column].min()
-            ).total_seconds()
-            / 3600
-            if not df_sorted.empty
-            else 0
+            (df_sorted[time_column].max() - df_sorted[time_column].min()).total_seconds() / 3600 if not df_sorted.empty else 0
         ),
     }
 
     return gaps, stats
 
 
-def format_gaps_for_display(gaps: List[Gap]) -> pd.DataFrame:
+def format_gaps_for_display(gaps: list[Gap]) -> pd.DataFrame:
     """
     Format gaps into a DataFrame for display or analysis.
 
@@ -217,7 +208,7 @@ def analyze_file_for_gaps(
     time_unit: str = "ms",
     gap_threshold: float = 0.3,
     enforce_min_span: bool = True,
-) -> Tuple[List[Gap], Dict[str, Any]]:
+) -> tuple[list[Gap], dict[str, Any]]:
     """
     Analyze a CSV file for gaps in time series data.
 
@@ -261,9 +252,7 @@ def analyze_file_for_gaps(
             df[time_column] = pd.to_datetime(df[time_column], unit=time_unit, utc=True)
 
         # Detect gaps
-        return detect_gaps(
-            df, interval, time_column, gap_threshold, enforce_min_span=enforce_min_span
-        )
+        return detect_gaps(df, interval, time_column, gap_threshold, enforce_min_span=enforce_min_span)
 
     except Exception as e:
         logger.error(f"Error analyzing file {file_path}: {e!s}")
@@ -271,7 +260,7 @@ def analyze_file_for_gaps(
 
 
 def combine_daily_files(
-    file_paths: List[Path],
+    file_paths: list[Path],
     interval: Interval,
     time_column: str = "open_time",
     time_unit: str = "ms",
@@ -317,9 +306,7 @@ def combine_daily_files(
 
             # Convert timestamp column to datetime if it's not already
             if pd.api.types.is_numeric_dtype(df[time_column]):
-                df[time_column] = pd.to_datetime(
-                    df[time_column], unit=time_unit, utc=True
-                )
+                df[time_column] = pd.to_datetime(df[time_column], unit=time_unit, utc=True)
 
             dfs.append(df)
         except Exception as e:

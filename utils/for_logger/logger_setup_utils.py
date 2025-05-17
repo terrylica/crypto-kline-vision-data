@@ -89,14 +89,10 @@ def setup_rich_handler(console=None):
         RichHandler: Configured RichHandler
     """
     if not RICH_AVAILABLE:
-        raise ImportError(
-            "Rich library is not available. Install with 'pip install rich'"
-        )
+        raise ImportError("Rich library is not available. Install with 'pip install rich'")
 
     if console is None:
-        console = Console(
-            highlight=False
-        )  # Disable syntax highlighting to preserve markup
+        console = Console(highlight=False)  # Disable syntax highlighting to preserve markup
 
     # Use Rich handler with explicit filename display
     handler = RichHandler(
@@ -130,9 +126,7 @@ def use_rich_logging(enable=True, level=None, setup_root_logger=None):
     """
     if enable and not RICH_AVAILABLE:
         tmp_logger = logging.getLogger(__name__)
-        tmp_logger.warning(
-            "Rich library not available. Install with 'pip install rich'"
-        )
+        tmp_logger.warning("Rich library not available. Install with 'pip install rich'")
         return False
 
     if setup_root_logger:

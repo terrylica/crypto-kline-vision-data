@@ -51,10 +51,7 @@ def count_md_files(directory: Path) -> int:
 
 def needs_readme(directory: Path) -> bool:
     """Check if directory needs a README.md file."""
-    return (
-        count_md_files(directory) >= MIN_FILES_FOR_README
-        and not (directory / "README.md").exists()
-    )
+    return count_md_files(directory) >= MIN_FILES_FOR_README and not (directory / "README.md").exists()
 
 
 def process_directory(directory: Path, dry_run: bool = False) -> int:
@@ -82,9 +79,7 @@ def process_directory(directory: Path, dry_run: bool = False) -> int:
 @app.command()
 def main(
     start_dir: str = typer.Argument(".", help="Starting directory path"),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", "-d", help="Show what would be done without creating files"
-    ),
+    dry_run: bool = typer.Option(False, "--dry-run", "-d", help="Show what would be done without creating files"),
 ):
     """
     Recursively find directories with 2 or more markdown files (.md) and create

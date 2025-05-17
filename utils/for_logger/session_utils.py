@@ -51,9 +51,7 @@ def configure_session_logging(session_name, log_level="DEBUG", logger=None):
 
     # Configure logging
     logger.setLevel(log_level)
-    logger.add_file_handler(
-        str(main_log_path), level=log_level, mode="w", strip_rich_markup=True
-    )
+    logger.add_file_handler(str(main_log_path), level=log_level, mode="w", strip_rich_markup=True)
     logger.enable_error_logging(str(error_log_path))
 
     # Verify log files exist
@@ -67,12 +65,8 @@ def configure_session_logging(session_name, log_level="DEBUG", logger=None):
 
     # Use original print to ensure this message gets through regardless of log level
     if hasattr(builtins, "_original_print"):
-        builtins._original_print(
-            f"Main log created: {main_exists}, size: {main_size} bytes"
-        )
-        builtins._original_print(
-            f"Error log created: {error_exists}, size: {error_size} bytes"
-        )
+        builtins._original_print(f"Main log created: {main_exists}, size: {main_size} bytes")
+        builtins._original_print(f"Error log created: {error_exists}, size: {error_size} bytes")
 
     # Log initialization
     logger.info(f"Session logging initialized for {session_name}")

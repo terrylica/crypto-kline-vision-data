@@ -9,7 +9,6 @@ from the Binance Vision API using SHA-256 checksums.
 import hashlib
 import re
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 from rich import print as rprint
 
@@ -17,9 +16,7 @@ from utils.config import SHA256_HASH_LENGTH
 from utils.logger_setup import logger
 
 
-def verify_file_checksum(
-    file_path: Path, checksum_path: Path
-) -> Tuple[bool, Optional[str]]:
+def verify_file_checksum(file_path: Path, checksum_path: Path) -> tuple[bool, str | None]:
     """
     Verify the integrity of a file downloaded from Binance Vision API by comparing
     its SHA-256 checksum with the expected value from the checksum file.
@@ -51,8 +48,7 @@ def verify_file_checksum(
         # If we couldn't extract a valid checksum, this is an error
         if expected_checksum is None:
             error_msg = (
-                f"Could not extract checksum from {checksum_path.name} - "
-                f"checksum verification failed. Data integrity cannot be verified."
+                f"Could not extract checksum from {checksum_path.name} - checksum verification failed. Data integrity cannot be verified."
             )
             logger.warning(error_msg)
             return False, error_msg
@@ -79,7 +75,7 @@ def verify_file_checksum(
         return False, error_msg
 
 
-def extract_checksum_from_file(checksum_path: Path) -> Optional[str]:
+def extract_checksum_from_file(checksum_path: Path) -> str | None:
     """
     Extract the SHA-256 checksum from a Binance Vision API checksum file.
 
@@ -112,14 +108,10 @@ def extract_checksum_from_file(checksum_path: Path) -> Optional[str]:
                 # If text reading fails, try binary
                 with open(checksum_path, "rb") as f:
                     binary_content = f.read()
-                    text_content = binary_content.decode(
-                        "utf-8", errors="replace"
-                    ).strip()
+                    text_content = binary_content.decode("utf-8", errors="replace").strip()
                     logger.debug(f"Checksum content (binary): '{text_content}'")
             except Exception as bin_error:
-                logger.error(
-                    f"Failed to read checksum file in binary mode: {bin_error}"
-                )
+                logger.error(f"Failed to read checksum file in binary mode: {bin_error}")
                 return None
 
         # If the content is empty, return None
@@ -131,10 +123,7 @@ def extract_checksum_from_file(checksum_path: Path) -> Optional[str]:
 
         # Method 1: Common case - file contains a single line with hash and filename
         # Format: <sha256_hash>  <filename>
-        if (
-            " " in text_content
-            and len(text_content.split(" ", 1)[0]) == SHA256_HASH_LENGTH
-        ):
+        if " " in text_content and len(text_content.split(" ", 1)[0]) == SHA256_HASH_LENGTH:
             checksum = text_content.split(" ", 1)[0].strip()
             logger.debug(f"Extracted checksum from standard format: {checksum}")
             if is_valid_sha256(checksum):
@@ -218,7 +207,7 @@ def get_checksum_url(data_url: str) -> str:
     return f"{data_url}.CHECKSUM"
 
 
-def calculate_checksums_multiple_methods(file_path: Path) -> Dict[str, str]:
+def calculate_checksums_multiple_methods(file_path: Path) -> dict[str, str]:
     """
     Calculate file checksum using SHA-256 method.
 
@@ -272,8 +261,6 @@ def verify_checksum_cli(file_path: str, checksum_path: str | None = None) -> Non
 
     # Print results
     if success:
-        rprint(
-            f"[green]✓ Checksum verification successful for {file_path_obj.name}[/green]"
-        )
+        rprint(f"[green]✓ Checksum verification successful for {file_path_obj.name}[/green]")
     else:
         rprint(f"[red]✗ Checksum verification failed: {error}[/red]")

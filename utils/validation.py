@@ -4,7 +4,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 import pandas as pd
 
@@ -38,9 +38,7 @@ ALL_COLUMNS = [
 # Regex Patterns
 TICKER_PATTERN = re.compile(r"^[A-Z0-9]{1,20}$")  # Match individual tickers
 SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{1,20}(USDT|BTC|ETH|BNB)$")  # Trading pairs
-INTERVAL_PATTERN = re.compile(
-    r"^(1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M)$"
-)  # Valid intervals
+INTERVAL_PATTERN = re.compile(r"^(1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M)$")  # Valid intervals
 
 
 class ValidationError(Exception):
@@ -50,7 +48,7 @@ class ValidationError(Exception):
 class DataValidation:
     """Centralized data validation utilities."""
 
-    def __init__(self, api_boundary_validator: Optional[ApiBoundaryValidator] = None):
+    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None):
         """Initialize the DataValidation class.
 
         Args:
@@ -60,9 +58,9 @@ class DataValidation:
 
     @staticmethod
     def validate_dates(
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        relative_to: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        relative_to: datetime | None = None,
     ) -> tuple[datetime, datetime]:
         """Validate date inputs and normalize timezone information.
 
@@ -93,27 +91,19 @@ class DataValidation:
 
         # First ensure timezone awareness by normalizing to UTC if needed
         if start_time.tzinfo is None or start_time.tzinfo.utcoffset(start_time) is None:
-            raise ValueError(
-                f"Start time ({start_time.isoformat()}) must be timezone-aware"
-            )
+            raise ValueError(f"Start time ({start_time.isoformat()}) must be timezone-aware")
 
         if end_time.tzinfo is None or end_time.tzinfo.utcoffset(end_time) is None:
-            raise ValueError(
-                f"End time ({end_time.isoformat()}) must be timezone-aware"
-            )
+            raise ValueError(f"End time ({end_time.isoformat()}) must be timezone-aware")
 
         # Then check time ordering
         if start_time >= end_time:
-            raise ValueError(
-                f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
-            )
+            raise ValueError(f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})")
 
         return start_time, end_time
 
     @staticmethod
-    def validate_time_window(
-        start_time: datetime, end_time: datetime
-    ) -> tuple[datetime, datetime]:
+    def validate_time_window(start_time: datetime, end_time: datetime) -> tuple[datetime, datetime]:
         """Validate time window for market data and normalize timezones.
 
         Args:
@@ -153,8 +143,8 @@ class DataValidation:
 
     @staticmethod
     def validate_time_range(
-        start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
-    ) -> tuple[Optional[datetime], Optional[datetime]]:
+        start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> tuple[datetime | None, datetime | None]:
         """Validate and normalize time range parameters.
 
         Args:
@@ -180,9 +170,7 @@ class DataValidation:
         start_time, end_time = DataValidation.validate_dates(start_time, end_time)
 
         # Check for future dates and get normalized values
-        start_time, end_time = DataValidation.validate_future_dates(
-            start_time, end_time
-        )
+        start_time, end_time = DataValidation.validate_future_dates(start_time, end_time)
 
         return start_time, end_time
 
@@ -190,7 +178,7 @@ class DataValidation:
         self,
         start_time: datetime,
         end_time: datetime,
-        interval: Union[str, Interval],
+        interval: str | Interval,
         symbol: str = "BTCUSDT",
     ) -> bool:
         """Validates time range against Binance API boundaries using ApiBoundaryValidator.
@@ -208,25 +196,21 @@ class DataValidation:
             ValueError: If ApiBoundaryValidator is not provided
         """
         if not self.api_boundary_validator:
-            raise ValueError(
-                "ApiBoundaryValidator is required for API time range validation"
-            )
+            raise ValueError("ApiBoundaryValidator is required for API time range validation")
 
         # Convert interval to Interval enum if needed
         if isinstance(interval, str):
             interval = Interval(interval)
 
-        return self.api_boundary_validator.is_valid_time_range_sync(
-            start_time, end_time, interval, symbol=symbol
-        )
+        return self.api_boundary_validator.is_valid_time_range_sync(start_time, end_time, interval, symbol=symbol)
 
     def get_api_aligned_boundaries(
         self,
         start_time: datetime,
         end_time: datetime,
-        interval: Union[str, Interval],
+        interval: str | Interval,
         symbol: str = "BTCUSDT",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get API-aligned boundaries for the given time range and interval.
 
         Args:
@@ -242,17 +226,13 @@ class DataValidation:
             ValueError: If ApiBoundaryValidator is not provided
         """
         if not self.api_boundary_validator:
-            raise ValueError(
-                "ApiBoundaryValidator is required for API boundary alignment"
-            )
+            raise ValueError("ApiBoundaryValidator is required for API boundary alignment")
 
         # Convert interval to Interval enum if needed
         if isinstance(interval, str):
             interval = Interval(interval)
 
-        return self.api_boundary_validator.get_api_boundaries_sync(
-            start_time, end_time, interval, symbol=symbol
-        )
+        return self.api_boundary_validator.get_api_boundaries_sync(start_time, end_time, interval, symbol=symbol)
 
     @staticmethod
     def validate_interval(interval: str, market_type: str = "SPOT") -> None:
@@ -309,10 +289,7 @@ class DataValidation:
             market = "SPOT"  # Default to SPOT intervals
 
         if interval not in supported_intervals[market]:
-            raise ValueError(
-                f"Invalid interval: {interval}. "
-                f"Supported intervals for {market}: {supported_intervals[market]}"
-            )
+            raise ValueError(f"Invalid interval: {interval}. Supported intervals for {market}: {supported_intervals[market]}")
 
     @staticmethod
     def validate_symbol_format(symbol: str, market_type: str = "SPOT") -> None:
@@ -326,19 +303,12 @@ class DataValidation:
             ValueError: If symbol format is invalid
         """
         if not isinstance(symbol, str) or not symbol:
-            raise ValueError(
-                f"Invalid {market_type} symbol format: Symbol must be a non-empty string."
-            )
+            raise ValueError(f"Invalid {market_type} symbol format: Symbol must be a non-empty string.")
         if not symbol.isupper():
-            raise ValueError(
-                f"Invalid {market_type} symbol format: {symbol}. "
-                "Symbols should be uppercase (e.g., BTCUSDT)."
-            )
+            raise ValueError(f"Invalid {market_type} symbol format: {symbol}. Symbols should be uppercase (e.g., BTCUSDT).")
 
     @staticmethod
-    def validate_data_availability(
-        start_time: datetime, end_time: datetime, buffer_hours: int = 24
-    ) -> tuple[datetime, datetime]:
+    def validate_data_availability(start_time: datetime, end_time: datetime, buffer_hours: int = 24) -> tuple[datetime, datetime]:
         """Validate that data is likely to be available for the requested time range.
 
         Args:
@@ -370,8 +340,8 @@ class DataValidation:
     @staticmethod
     def is_data_likely_available(
         target_date: datetime,
-        interval: Optional[Union[str, Interval]] = None,
-        consolidation_delay: Optional[timedelta] = None,
+        interval: str | Interval | None = None,
+        consolidation_delay: timedelta | None = None,
     ) -> bool:
         """Check if data is likely available for the specified date and interval.
 
@@ -393,15 +363,11 @@ class DataValidation:
         target_date = DataValidation.enforce_utc_timestamp(target_date)
         now = datetime.now(timezone.utc)
 
-        logger.debug(
-            f"Checking data availability for target_date={target_date.isoformat()}, interval={interval}, now={now.isoformat()}"
-        )
+        logger.debug(f"Checking data availability for target_date={target_date.isoformat()}, interval={interval}, now={now.isoformat()}")
 
         # If we're in the future already, data is certainly not available
         if target_date > now:
-            logger.debug(
-                f"Target date {target_date.isoformat()} is in the future - data not available"
-            )
+            logger.debug(f"Target date {target_date.isoformat()} is in the future - data not available")
             return False
 
         # If an explicit delay was provided, use it
@@ -420,15 +386,11 @@ class DataValidation:
                 try:
                     from utils.market_constraints import Interval
 
-                    logger.debug(
-                        f"Converting string interval '{interval}' to Interval enum"
-                    )
+                    logger.debug(f"Converting string interval '{interval}' to Interval enum")
                     interval = Interval(interval)
                 except (ValueError, ImportError) as e:
                     # If we can't parse it, fall back to default delay
-                    logger.debug(
-                        f"Could not parse interval '{interval}' due to {type(e).__name__}: {e!s}, using default delay"
-                    )
+                    logger.debug(f"Could not parse interval '{interval}' due to {type(e).__name__}: {e!s}, using default delay")
                     consolidation_delay = timedelta(minutes=5)
             else:
                 # For real intervals, use interval-specific delays
@@ -445,55 +407,37 @@ class DataValidation:
 
                     # Align the target date to PREVIOUS interval boundary
                     # This is how align_time_boundaries works: it aligns to the start of the interval
-                    aligned_target, _ = align_time_boundaries(
-                        target_date, target_date, interval
-                    )
+                    aligned_target, _ = align_time_boundaries(target_date, target_date, interval)
                     logger.debug(f"Aligned target date to {aligned_target.isoformat()}")
 
                     # If the aligned time is after the target date, it means we aligned to the next interval
                     # Adjust to the previous interval in that case
                     if aligned_target > target_date:
-                        logger.debug(
-                            f"Target date is {target_date.isoformat()}, which is between intervals"
-                        )
-                        aligned_target = aligned_target - timedelta(
-                            seconds=interval_seconds
-                        )
-                        logger.debug(
-                            f"Adjusted to previous interval: {aligned_target.isoformat()}"
-                        )
+                        logger.debug(f"Target date is {target_date.isoformat()}, which is between intervals")
+                        aligned_target = aligned_target - timedelta(seconds=interval_seconds)
+                        logger.debug(f"Adjusted to previous interval: {aligned_target.isoformat()}")
                     else:
-                        logger.debug(
-                            f"Target date is {target_date.isoformat()}, which is exactly at interval boundary"
-                        )
+                        logger.debug(f"Target date is {target_date.isoformat()}, which is exactly at interval boundary")
 
                     # Special case: if target_date is very close to the current time AND at interval boundary,
                     # the data for that interval is likely not consolidated yet
                     time_since_target = now - target_date
                     seconds_since_target = time_since_target.total_seconds()
-                    logger.debug(
-                        f"Time since target: {seconds_since_target:.2f} seconds"
-                    )
+                    logger.debug(f"Time since target: {seconds_since_target:.2f} seconds")
 
                     # We only need a small buffer after the aligned target time
                     buffer_seconds = max(30, interval_seconds * 0.2)
                     consolidation_buffer = timedelta(seconds=buffer_seconds)
-                    logger.debug(
-                        f"Using consolidation buffer of {buffer_seconds} seconds"
-                    )
+                    logger.debug(f"Using consolidation buffer of {buffer_seconds} seconds")
 
                     # If aligned time plus buffer is in the past, data should be available
                     is_available = (aligned_target + consolidation_buffer) <= now
-                    logger.debug(
-                        f"Threshold time is {(aligned_target + consolidation_buffer).isoformat()}, is_available={is_available}"
-                    )
+                    logger.debug(f"Threshold time is {(aligned_target + consolidation_buffer).isoformat()}, is_available={is_available}")
 
                     # Special case: if we're extremely close to a new interval starting (within a few seconds),
                     # the data for the previous interval might not be fully consolidated yet
                     if is_available and seconds_since_target < buffer_seconds:
-                        logger.debug(
-                            f"Very recent target date ({seconds_since_target:.2f}s ago), treating as potentially not consolidated"
-                        )
+                        logger.debug(f"Very recent target date ({seconds_since_target:.2f}s ago), treating as potentially not consolidated")
                         is_available = False
 
                     # Add metadata to target_date if it's a datetime object
@@ -519,15 +463,11 @@ class DataValidation:
 
         consolidation_threshold = now - consolidation_delay
         is_available = target_date <= consolidation_threshold
-        logger.debug(
-            f"Default check: threshold={consolidation_threshold.isoformat()}, is_available={is_available}"
-        )
+        logger.debug(f"Default check: threshold={consolidation_threshold.isoformat()}, is_available={is_available}")
         return is_available
 
     @staticmethod
-    def validate_future_dates(
-        start_time: datetime, end_time: datetime
-    ) -> tuple[datetime, datetime]:
+    def validate_future_dates(start_time: datetime, end_time: datetime) -> tuple[datetime, datetime]:
         """Validate that dates are not in the future and normalize to UTC.
 
         Args:
@@ -549,13 +489,9 @@ class DataValidation:
 
         # Check for future dates
         if start_time > now:
-            raise ValueError(
-                f"Start time ({start_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})"
-            )
+            raise ValueError(f"Start time ({start_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})")
         if end_time > now:
-            raise ValueError(
-                f"End time ({end_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})"
-            )
+            raise ValueError(f"End time ({end_time.isoformat()}) cannot be in the future (current time: {now.isoformat()})")
 
         return start_time, end_time
 
@@ -564,10 +500,10 @@ class DataValidation:
         start_time: datetime,
         end_time: datetime,
         max_future_seconds: int = 0,
-        reference_time: Optional[datetime] = None,
+        reference_time: datetime | None = None,
         handle_future_dates: str = "error",
-        interval: Optional[Union[str, Interval]] = None,
-    ) -> Tuple[datetime, datetime, Dict[str, Any]]:
+        interval: str | Interval | None = None,
+    ) -> tuple[datetime, datetime, dict[str, Any]]:
         """Comprehensive validation of query time boundaries.
 
         Args:
@@ -609,9 +545,7 @@ class DataValidation:
 
         # Validate sequential ordering (start_time < end_time)
         if start_time >= end_time:
-            raise ValueError(
-                f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})"
-            )
+            raise ValueError(f"Start time ({start_time.isoformat()}) must be before end time ({end_time.isoformat()})")
 
         # Validate against future dates
         allowed_future = reference_time + timedelta(seconds=max_future_seconds)
@@ -626,13 +560,9 @@ class DataValidation:
                 metadata["is_truncated"] = True
                 start_time = reference_time
             elif handle_future_dates == "allow":
-                metadata["warnings"].append(
-                    message + " - allowed but may return empty results"
-                )
+                metadata["warnings"].append(message + " - allowed but may return empty results")
             else:
-                raise ValueError(
-                    f"Invalid handle_future_dates value: {handle_future_dates}"
-                )
+                raise ValueError(f"Invalid handle_future_dates value: {handle_future_dates}")
 
         # Handle end time in future
         if end_time > allowed_future:
@@ -644,13 +574,9 @@ class DataValidation:
                 metadata["is_truncated"] = True
                 end_time = reference_time
             elif handle_future_dates == "allow":
-                metadata["warnings"].append(
-                    message + " - allowed but may return empty results"
-                )
+                metadata["warnings"].append(message + " - allowed but may return empty results")
             else:
-                raise ValueError(
-                    f"Invalid handle_future_dates value: {handle_future_dates}"
-                )
+                raise ValueError(f"Invalid handle_future_dates value: {handle_future_dates}")
 
         # Re-validate sequential ordering after potential truncation
         if start_time >= end_time:
@@ -659,13 +585,9 @@ class DataValidation:
             )
 
         # Add data availability info but don't warn yet - let caller decide
-        logger.debug(
-            f"Checking data availability for end_time={end_time.isoformat()} with interval={interval}"
-        )
+        logger.debug(f"Checking data availability for end_time={end_time.isoformat()} with interval={interval}")
         is_available = DataValidation.is_data_likely_available(end_time, interval)
-        logger.debug(
-            f"Data availability result for end_time={end_time.isoformat()}: {is_available}"
-        )
+        logger.debug(f"Data availability result for end_time={end_time.isoformat()}: {is_available}")
 
         # Copy any metadata from end_time to our metadata
         if hasattr(end_time, "metadata") and isinstance(end_time.metadata, dict):
@@ -680,9 +602,7 @@ class DataValidation:
         if is_available is False:
             # Add more details to the warning message
             seconds_since_target = (reference_time - end_time).total_seconds()
-            buffer = metadata.get(
-                "consolidation_buffer_seconds", 30
-            )  # Default to 30 seconds if not set
+            buffer = metadata.get("consolidation_buffer_seconds", 30)  # Default to 30 seconds if not set
 
             metadata["data_availability_message"] = (
                 f"Data for end time ({end_time.isoformat()}) may not be fully consolidated yet. "
@@ -701,9 +621,7 @@ class DataValidation:
         return start_time, end_time, metadata
 
     @staticmethod
-    def validate_date_range_for_api(
-        start_time: datetime, end_time: datetime, max_future_seconds: int = 0
-    ) -> Tuple[bool, str]:
+    def validate_date_range_for_api(start_time: datetime, end_time: datetime, max_future_seconds: int = 0) -> tuple[bool, str]:
         """Validate a date range for API requests to prevent requesting future data.
 
         Args:
@@ -759,9 +677,7 @@ class DataValidation:
             True if file passes all integrity checks, False otherwise
         """
         # Check basic integrity first
-        integrity_result = DataFrameValidator.validate_cache_integrity(
-            file_path, min_size, max_age
-        )
+        integrity_result = DataFrameValidator.validate_cache_integrity(file_path, min_size, max_age)
         if integrity_result is not None:
             # Failed basic validation
             return False
@@ -771,7 +687,7 @@ class DataValidation:
             try:
                 actual_checksum = DataValidation.calculate_checksum(file_path)
                 return actual_checksum == expected_checksum
-            except (IOError, OSError) as e:
+            except OSError as e:
                 logger.error(f"Error calculating checksum for {file_path}: {e}")
                 return False
 
@@ -779,9 +695,7 @@ class DataValidation:
         return True
 
     @staticmethod
-    def validate_dataframe_time_boundaries(
-        df: pd.DataFrame, start_time: datetime, end_time: datetime
-    ) -> None:
+    def validate_dataframe_time_boundaries(df: pd.DataFrame, start_time: datetime, end_time: datetime) -> None:
         """Validate that DataFrame covers the requested time range.
 
         Args:
@@ -805,14 +719,10 @@ class DataValidation:
 
         # Check time boundaries (with small tolerance for floating point precision)
         if actual_start > start_time + timedelta(microseconds=1000):
-            raise ValueError(
-                f"DataFrame starts at {actual_start}, which is after the requested start time {start_time}"
-            )
+            raise ValueError(f"DataFrame starts at {actual_start}, which is after the requested start time {start_time}")
 
         if actual_end < end_time - timedelta(microseconds=1000):
-            raise ValueError(
-                f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}"
-            )
+            raise ValueError(f"DataFrame ends at {actual_end}, which is before the requested end time {end_time}")
 
 
 class DataFrameValidator:
@@ -845,9 +755,7 @@ class DataFrameValidator:
         # Check if index is DatetimeIndex
         logger.debug(f"Checking index type: {type(df.index).__name__}")
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError(
-                f"DataFrame index must be DatetimeIndex, got {type(df.index).__name__}"
-            )
+            raise ValueError(f"DataFrame index must be DatetimeIndex, got {type(df.index).__name__}")
 
         # Check if index is timezone-aware
         logger.debug("Checking if index is timezone-aware")
@@ -865,14 +773,9 @@ class DataFrameValidator:
         logger.debug("Continuing validation after timezone checks...")
 
         # Check if index is named correctly
-        logger.debug(
-            f"Checking index name: {df.index.name} vs expected: {CANONICAL_INDEX_NAME}"
-        )
+        logger.debug(f"Checking index name: {df.index.name} vs expected: {CANONICAL_INDEX_NAME}")
         if df.index.name != CANONICAL_INDEX_NAME:
-            raise ValueError(
-                f"DataFrame index must be named '{CANONICAL_INDEX_NAME}', "
-                f"got '{df.index.name}'"
-            )
+            raise ValueError(f"DataFrame index must be named '{CANONICAL_INDEX_NAME}', got '{df.index.name}'")
 
         # Check for duplicate indices
         logger.debug(f"Checking for duplicate indices in DataFrame with {len(df)} rows")
@@ -895,7 +798,7 @@ class DataFrameValidator:
         logger.debug("DataFrame validation completed successfully")
         logger.debug("==== END OF DATAFRAME VALIDATION FUNCTION ====")
 
-    def validate_klines_data(self) -> Tuple[bool, Optional[str]]:
+    def validate_klines_data(self) -> tuple[bool, str | None]:
         """Validate that a DataFrame contains valid klines market data.
 
         This method ensures:
@@ -923,42 +826,27 @@ class DataFrameValidator:
                 # If timestamps have microsecond precision (from Vision API 2025+ data)
                 # we need to truncate to millisecond precision
                 sample_ts = self.df.index[0].value
-                if (
-                    len(str(abs(sample_ts))) > MILLISECOND_DIGITS
-                ):  # More than millisecond precision
-                    logger.debug(
-                        "Converting timestamps from microsecond to millisecond precision"
-                    )
+                if len(str(abs(sample_ts))) > MILLISECOND_DIGITS:  # More than millisecond precision
+                    logger.debug("Converting timestamps from microsecond to millisecond precision")
 
                     # For datetime index - round to milliseconds
                     if isinstance(self.df.index, pd.DatetimeIndex):
                         # Round to millisecond precision
                         rounded_index = pd.DatetimeIndex(
-                            [
-                                pd.Timestamp(
-                                    ts.timestamp() * 1000, unit="ms", tz=timezone.utc
-                                )
-                                for ts in self.df.index
-                            ],
+                            [pd.Timestamp(ts.timestamp() * 1000, unit="ms", tz=timezone.utc) for ts in self.df.index],
                             name=self.df.index.name,
                         )
                         self.df.index = rounded_index
 
                     # Also handle open_time and close_time columns if present
-                    if (
-                        "open_time" in self.df.columns
-                        and pd.api.types.is_datetime64_dtype(self.df["open_time"])
-                    ):
+                    if "open_time" in self.df.columns and pd.api.types.is_datetime64_dtype(self.df["open_time"]):
                         self.df["open_time"] = pd.to_datetime(
                             (self.df["open_time"].astype(int) // 1000000) * 1000,
                             unit="ms",
                             utc=True,
                         )
 
-                    if (
-                        "close_time" in self.df.columns
-                        and pd.api.types.is_datetime64_dtype(self.df["close_time"])
-                    ):
+                    if "close_time" in self.df.columns and pd.api.types.is_datetime64_dtype(self.df["close_time"]):
                         self.df["close_time"] = pd.to_datetime(
                             (self.df["close_time"].astype(int) // 1000000) * 1000,
                             unit="ms",
@@ -967,14 +855,8 @@ class DataFrameValidator:
 
             # Verify required numeric columns have proper data types
             for col, dtype in OUTPUT_DTYPES.items():
-                if (
-                    col in self.df.columns
-                    and not pd.api.types.is_numeric_dtype(self.df[col])
-                    and "time" not in col
-                ):
-                    logger.warning(
-                        f"Column {col} has non-numeric dtype: {self.df[col].dtype}"
-                    )
+                if col in self.df.columns and not pd.api.types.is_numeric_dtype(self.df[col]) and "time" not in col:
+                    logger.warning(f"Column {col} has non-numeric dtype: {self.df[col].dtype}")
                     try:
                         self.df[col] = self.df[col].astype(dtype)
                     except Exception as e:
@@ -997,9 +879,7 @@ class DataFrameValidator:
             return False, str(e)
 
     @staticmethod
-    def format_dataframe(
-        df: pd.DataFrame, output_dtypes: Dict[str, str] = OUTPUT_DTYPES
-    ) -> pd.DataFrame:
+    def format_dataframe(df: pd.DataFrame, output_dtypes: dict[str, str] = OUTPUT_DTYPES) -> pd.DataFrame:
         """Format DataFrame to ensure consistent structure.
 
         Args:
@@ -1019,9 +899,7 @@ class DataFrameValidator:
             empty_df = pd.DataFrame(columns=list(output_dtypes.keys()))
             for col, dtype in output_dtypes.items():
                 empty_df[col] = empty_df[col].astype(dtype)
-            empty_df.index = pd.DatetimeIndex(
-                [], name=CANONICAL_INDEX_NAME, tz=timezone.utc
-            )
+            empty_df.index = pd.DatetimeIndex([], name=CANONICAL_INDEX_NAME, tz=timezone.utc)
             logger.debug(f"Empty DataFrame index timezone: {empty_df.index.tz}")
             logger.debug(f"Is timezone.utc? {empty_df.index.tz is timezone.utc}")
             logger.debug("==== END OF FORMAT_DATAFRAME (EMPTY DF) ====")
@@ -1032,13 +910,8 @@ class DataFrameValidator:
         formatted_df = df.copy()
         logger.debug(f"Copy created with shape {formatted_df.shape}")
 
-        if (
-            isinstance(formatted_df.index, pd.DatetimeIndex)
-            and formatted_df.index.tz is not None
-        ):
-            logger.debug(
-                f"Input DataFrame timezone before processing: {formatted_df.index.tz}"
-            )
+        if isinstance(formatted_df.index, pd.DatetimeIndex) and formatted_df.index.tz is not None:
+            logger.debug(f"Input DataFrame timezone before processing: {formatted_df.index.tz}")
             logger.debug(f"Is timezone.utc? {formatted_df.index.tz is timezone.utc}")
 
         # Ensure index is DatetimeIndex in UTC
@@ -1050,9 +923,7 @@ class DataFrameValidator:
                 formatted_df = formatted_df.set_index("open_time")
             else:
                 logger.error("Cannot find open_time column for index conversion")
-                raise ValueError(
-                    "DataFrame must have 'open_time' column or DatetimeIndex"
-                )
+                raise ValueError("DataFrame must have 'open_time' column or DatetimeIndex")
 
         # Ensure index is named correctly
         logger.debug(f"Setting index name to {CANONICAL_INDEX_NAME}")
@@ -1067,10 +938,7 @@ class DataFrameValidator:
             logger.debug(f"Converting from {formatted_df.index.tz} to timezone.utc")
             # Create a new DatetimeIndex with timezone.utc explicitly
             new_index = pd.DatetimeIndex(
-                [
-                    dt.replace(tzinfo=timezone.utc)
-                    for dt in formatted_df.index.to_pydatetime()
-                ],
+                [dt.replace(tzinfo=timezone.utc) for dt in formatted_df.index.to_pydatetime()],
                 name=formatted_df.index.name,
             )
             formatted_df.index = new_index
@@ -1086,7 +954,7 @@ class DataFrameValidator:
         file_path: pd.DataFrame,
         min_size: int = MIN_VALID_FILE_SIZE,
         max_age: timedelta = MAX_CACHE_AGE,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Validate cache file integrity.
 
         Args:

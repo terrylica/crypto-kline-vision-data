@@ -228,9 +228,7 @@ def handle_error(error, start_time_perf=None):
         # Safely handle the error to prevent rich text formatting issues
         error_msg = str(error)
         # Sanitize error message to replace non-printable characters
-        safe_error_msg = "".join(
-            c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_msg
-        )
+        safe_error_msg = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_msg)
         print(f"[bold red]CRITICAL ERROR: {safe_error_msg}[/bold red]")
         import traceback
 
@@ -278,9 +276,7 @@ def adjust_symbol_for_market(symbol, market_type):
     adjusted_symbol = get_market_symbol_format(symbol, market_type)
 
     if adjusted_symbol != symbol:
-        logger.debug(
-            f"Adjusted symbol for {market_type.name} market: {adjusted_symbol}"
-        )
+        logger.debug(f"Adjusted symbol for {market_type.name} market: {adjusted_symbol}")
 
     # Then validate the adjusted symbol
     try:

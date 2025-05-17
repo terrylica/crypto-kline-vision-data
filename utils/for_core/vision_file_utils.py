@@ -7,7 +7,6 @@ the Binance Vision API, including boundary gap filling and related operations.
 """
 
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 import pandas as pd
 
@@ -19,11 +18,11 @@ from utils.market_constraints import Interval, MarketType
 
 def fill_boundary_gaps_with_rest(
     df: pd.DataFrame,
-    boundary_gaps: List[Gap],
+    boundary_gaps: list[Gap],
     symbol: str,
     interval_obj: Interval,
     market_type: MarketType,
-) -> Optional[pd.DataFrame]:
+) -> pd.DataFrame | None:
     """Fill day boundary gaps using REST API data.
 
     This method is used to fill specific gaps that occur at day boundaries
@@ -65,10 +64,7 @@ def fill_boundary_gaps_with_rest(
             gap_start = gap.start_time - timedelta(seconds=buffer_seconds)
             gap_end = gap.end_time + timedelta(seconds=buffer_seconds)
 
-            logger.debug(
-                f"Fetching gap data from REST API: {gap_start} to {gap_end} "
-                f"(to fill missing data)"
-            )
+            logger.debug(f"Fetching gap data from REST API: {gap_start} to {gap_end} (to fill missing data)")
 
             # Fetch the gap data using REST API
             gap_data = rest_client.fetch(
@@ -92,15 +88,10 @@ def fill_boundary_gaps_with_rest(
                 )
 
                 # Look for records near midnight
-                midnight_records = gap_data[
-                    (gap_data["open_time"] - midnight_time).abs()
-                    < timedelta(seconds=interval_seconds)
-                ]
+                midnight_records = gap_data[(gap_data["open_time"] - midnight_time).abs() < timedelta(seconds=interval_seconds)]
 
                 if not midnight_records.empty:
-                    logger.debug(
-                        f"Found {len(midnight_records)} records near midnight in REST API data"
-                    )
+                    logger.debug(f"Found {len(midnight_records)} records near midnight in REST API data")
                 else:
                     logger.debug("No midnight records found in REST API data")
 
@@ -122,7 +113,7 @@ def fill_boundary_gaps_with_rest(
         return None
 
 
-def find_day_boundary_gaps(gaps: List[Gap]) -> List[Gap]:
+def find_day_boundary_gaps(gaps: list[Gap]) -> list[Gap]:
     """Find gaps that occur at day boundaries (midnight).
 
     Args:
@@ -136,16 +127,8 @@ def find_day_boundary_gaps(gaps: List[Gap]) -> List[Gap]:
         boundary_gaps = [
             gap
             for gap in gaps
-            if (
-                gap.start_time.hour == 0
-                and gap.start_time.minute == 0
-                and gap.start_time.second == 0
-            )
-            or (
-                gap.end_time.hour == 0
-                and gap.end_time.minute == 0
-                and gap.end_time.second == 0
-            )
+            if (gap.start_time.hour == 0 and gap.start_time.minute == 0 and gap.start_time.second == 0)
+            or (gap.end_time.hour == 0 and gap.end_time.minute == 0 and gap.end_time.second == 0)
         ]
     except Exception as e:
         logger.error(f"Error checking for boundary gaps: {e}")

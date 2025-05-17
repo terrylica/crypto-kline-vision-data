@@ -81,14 +81,10 @@ def test_market_constraint_access():
 
         # Check if data exists
         print(f"  Path: {file_path}")
-        print(
-            f"  Exists: [{'green' if file_path and Path(file_path).exists() else 'red'}]"
-        )
+        print(f"  Exists: [{'green' if file_path and Path(file_path).exists() else 'red'}]")
 
         # Get the path components used in the database query
-        _, path_pattern = reader._get_cache_path_components(
-            symbol=symbol, interval=case["interval"], market_type=case["market_type"]
-        )
+        _, path_pattern = reader._get_cache_path_components(symbol=symbol, interval=case["interval"], market_type=case["market_type"])
         print(f"  Path pattern for DB query: {path_pattern}")
 
         print()
@@ -100,9 +96,7 @@ def validate_market_constraints_compatibility():
     """
     Validate that the market_constraints enums are being used properly in the cache system.
     """
-    print(
-        "\n[bold magenta]Validating market_constraints compatibility...[/bold magenta]"
-    )
+    print("\n[bold magenta]Validating market_constraints compatibility...[/bold magenta]")
 
     # Check if ChartType enum values are properly mapped to vision_api_path
     print("\n[bold cyan]ChartType vision_api_path mappings:[/bold cyan]")
@@ -123,20 +117,14 @@ def validate_market_constraints_compatibility():
     print("\n[bold cyan]Support matrix for chart types:[/bold cyan]")
     for chart_type in ChartType:
         print(f"  {chart_type.name}:")
-        print(
-            f"    - Supported markets: {[m.name for m in chart_type.supported_markets]}"
-        )
-        print(
-            f"    - Supported providers: {[p.name for p in chart_type.supported_providers]}"
-        )
+        print(f"    - Supported markets: {[m.name for m in chart_type.supported_markets]}")
+        print(f"    - Supported providers: {[p.name for p in chart_type.supported_providers]}")
 
     return True
 
 
 if __name__ == "__main__":
-    print(
-        "[bold green]===== Testing market_constraints integration with Arrow Cache =====[/bold green]"
-    )
+    print("[bold green]===== Testing market_constraints integration with Arrow Cache =====[/bold green]")
 
     # Validate the market_constraints enums
     validate_market_constraints_compatibility()

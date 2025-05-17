@@ -47,22 +47,20 @@ class TimestampedDataFrame(pd.DataFrame):
         try:
             if "open_time" not in self.columns:
                 if hasattr(self.index, "name") and self.index.name == "open_time":
-                    logger.debug(
-                        "Ensuring open_time exists as column (copied from index)"
-                    )
-                    # Fix: Use reset_index and set_index operations instead of direct assignment
+                    logger.debug("Ensuring open_time exists as column (copied from index)")
+                    # Fix: Use reset_index and set_index operations without reassigning self
                     temp_df = self.reset_index()
                     self._update_inplace(temp_df)
-                    self.set_index("open_time", inplace=True)
+                    # Instead of reassigning self, modify the index directly
+                    self.index = temp_df["open_time"]
+                    self.index.name = "open_time"
                     logger.debug(
                         f"Added open_time column, dtype: {self['open_time'].dtype if 'open_time' in self.columns else 'N/A'} (represents BEGINNING of candle)"
                     )
         except Exception as e:
             logger.error(f"Error ensuring open_time as column: {e}")
             logger.error(f"Columns available: {list(self.columns)}")
-            logger.error(
-                f"Index type: {type(self.index)}, name: {getattr(self.index, 'name', None)}"
-            )
+            logger.error(f"Index type: {type(self.index)}, name: {getattr(self.index, 'name', None)}")
             # Don't raise the exception - keep the DataFrame as is
 
     def _validate_and_normalize_index(self):
@@ -91,18 +89,13 @@ class TimestampedDataFrame(pd.DataFrame):
 
             # Log final state
             logger.debug(
-                f"TimestampedDataFrame index properly validated: {len(self)} rows, "
-                f"index represents BEGINNING of each candle period"
+                f"TimestampedDataFrame index properly validated: {len(self)} rows, index represents BEGINNING of each candle period"
             )
 
             # Verify semantic meaning of timestamps
             if len(self) > 0 and "close_time" in self.columns:
-                first_open = (
-                    self.index[0] if isinstance(self.index, pd.DatetimeIndex) else None
-                )
-                first_close = (
-                    self["close_time"].iloc[0] if "close_time" in self.columns else None
-                )
+                first_open = self.index[0] if isinstance(self.index, pd.DatetimeIndex) else None
+                first_close = self["close_time"].iloc[0] if "close_time" in self.columns else None
 
                 if first_open is not None and first_close is not None:
                     time_diff = (first_close - first_open).total_seconds()
@@ -139,10 +132,6 @@ class TimestampedDataFrame(pd.DataFrame):
     def __setitem__(self, key, value):
         """Override to prevent modification of index."""
         if key == CANONICAL_INDEX_NAME:
-            logger.warning(
-                f"Setting {CANONICAL_INDEX_NAME} directly - this may cause issues. Use index operations instead."
-            )
-            logger.debug(
-                f"Remember: {CANONICAL_INDEX_NAME} represents the BEGINNING of each candle period"
-            )
+            logger.warning(f"Setting {CANONICAL_INDEX_NAME} directly - this may cause issues. Use index operations instead.")
+            logger.debug(f"Remember: {CANONICAL_INDEX_NAME} represents the BEGINNING of each candle period")
         super().__setitem__(key, value)
