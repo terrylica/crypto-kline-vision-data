@@ -1,1 +1,1 @@
-"""Utilities for the core raw data services package."""
+"""Utilities for the core data source manager package."""

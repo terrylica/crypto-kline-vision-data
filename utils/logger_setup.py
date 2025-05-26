@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Advanced Logging System for Raw Data Services
+Advanced Logging System for Data Source Manager
 
 This module provides a sophisticated logging system that extends Python's standard
 logging facilities with additional features:

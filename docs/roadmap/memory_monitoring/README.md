@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Memory Monitoring System is a comprehensive solution for monitoring, diagnosing, and optimizing memory usage in the Raw Data Services infrastructure. This project evolves from the successful diagnostic garbage collection tools developed in playground demos.
+The Memory Monitoring System is a comprehensive solution for monitoring, diagnosing, and optimizing memory usage in the Data Source Manager infrastructure. This project evolves from the successful diagnostic garbage collection tools developed in playground demos.
 
 ## Key Documentation
 

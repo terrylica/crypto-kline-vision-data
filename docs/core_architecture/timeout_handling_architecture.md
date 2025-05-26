@@ -2,7 +2,7 @@
 
 ## Overview
 
-The centralized timeout handling system in Raw Data Services provides a consistent, reliable approach to managing network operations with proper time constraints. This architecture ensures that all data retrieval operations have uniform timeout behavior, detailed logging of timeout incidents, and clean resource management when timeouts occur.
+The centralized timeout handling system in Data Source Manager provides a consistent, reliable approach to managing network operations with proper time constraints. This architecture ensures that all data retrieval operations have uniform timeout behavior, detailed logging of timeout incidents, and clean resource management when timeouts occur.
 
 ```diagram
 ┌─────────────────┐      ┌─────────────────────┐      ┌─────────────────────────┐

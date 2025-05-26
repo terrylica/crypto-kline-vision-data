@@ -179,7 +179,7 @@ def generate_file_summary(items, sort_by="count"):
     for file, count in items:
         # Make the path relative to the workspace
         try:
-            rel_path = Path(file).relative_to("/workspaces/raw-data-services")
+            rel_path = Path(file).relative_to("/workspaces/data-source-manager")
         except ValueError:
             rel_path = file  # Fall back to full path if relative path fails
 
@@ -222,7 +222,7 @@ def generate_high_confidence_report(items):
     for item in sorted_items:
         # Make the path relative to the workspace
         try:
-            rel_path = Path(item["filename"]).relative_to("/workspaces/raw-data-services")
+            rel_path = Path(item["filename"]).relative_to("/workspaces/data-source-manager")
         except ValueError:
             rel_path = item["filename"]
 

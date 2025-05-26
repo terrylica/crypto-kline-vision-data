@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Raw Data Service package for efficient market data retrieval.
+"""Data Source Manager package for efficient market data retrieval.
 
 This package provides tools for downloading and caching market data from Binance Vision.
 The primary interface is the VisionDataClient, which uses Apache Arrow MMAP for
@@ -15,19 +15,19 @@ Key Features:
 """
 
 from core.providers.binance.vision_data_client import VisionDataClient
-from utils.dataframe_types import TimestampedDataFrame
+from core.sync.data_source_manager import DataSource, DataSourceConfig
 from core.sync.dsm_lib import fetch_market_data
-from core.sync.data_source_manager import DataSourceConfig, DataSource
-from utils.market_constraints import MarketType, DataProvider, ChartType, Interval
+from utils.dataframe_types import TimestampedDataFrame
+from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 __all__ = [
+    "ChartType",
+    "DataProvider",
+    "DataSource",
+    "DataSourceConfig",
+    "Interval",
+    "MarketType",
     "TimestampedDataFrame",
     "VisionDataClient",
     "fetch_market_data",
-    "DataSourceConfig",
-    "MarketType",
-    "DataProvider",
-    "ChartType",
-    "Interval",
-    "DataSource",
 ]

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how to migrate from `curl_cffi` to `httpx` to resolve hanging issues in the Raw Data Services library, particularly in Python 3.13.
+This guide explains how to migrate from `curl_cffi` to `httpx` to resolve hanging issues in the Data Source Manager library, particularly in Python 3.13.
 
 ## Background
 

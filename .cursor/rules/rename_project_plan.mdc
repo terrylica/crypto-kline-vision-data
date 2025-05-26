@@ -1,0 +1,124 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Rename Project Plan (Detailed)
+
+This rule provides a detailed step-by-step plan to rename the project from `data-source-manager` to `data-source-manager`.
+
+## Detailed Refactoring Plan
+
+This plan includes checklist items and verification steps for each stage.
+
+### 1. Update Project Name in `pyproject.toml`
+
+- **Action:** Change the `name` field in the `[project]` section to `"data-source-manager"`.
+  - [pyproject.toml](mdc:pyproject.toml)
+- **Checklist:**
+  - [ ] Confirm `name = "data-source-manager"` is set in `[project]`.
+- **Verification:**
+  - Run `poetry show` (if using poetry) or inspect the `.egg-info` directory name after a build to see the new package name.
+
+### 2. Update Docstring in `setup.py`
+
+- **Action:** Modify the docstring to reflect the new project name.
+  - [setup.py](mdc:setup.py)
+- **Checklist:**
+  - [ ] Confirm the docstring at the top of the file references `data-source-manager`.
+- **Verification:**
+  - Read the `setup.py` file content to visually verify the docstring update.
+
+### 3. Update `APP_NAME` in `utils/app_paths.py`
+
+- **Action:** Change the value of the `APP_NAME` constant to `"data-source-manager"`.
+  - [utils/app_paths.py](mdc:utils/app_paths.py)
+- **Checklist:**
+  - [ ] Confirm `APP_NAME = "data-source-manager"` is set.
+- **Verification:**
+  - Run a simple script that imports `APP_NAME` from `utils.app_paths` and prints it to confirm the new value.
+
+### 4. Update Docstring in `utils/for_demo/dsm_cache_utils.py`
+
+- **Action:** Update the docstring to refer to the new project name.
+  - [utils/for_demo/dsm_cache_utils.py](mdc:utils/for_demo/dsm_cache_utils.py)
+- **Checklist:**
+  - [ ] Confirm the relevant docstring mentions `data-source-manager`.
+- **Verification:**
+  - Read the `utils/for_demo/dsm_cache_utils.py` file content to visually verify the docstring update.
+
+### 5. Update Hardcoded Workspace Paths in Scripts and Config Files
+
+- **Action:** Replace occurrences of `/workspaces/data-source-manager` with `/workspaces/data-source-manager`.
+  - [scripts/dev/dead_code_report.py](mdc:scripts/dev/dead_code_report.py)
+  - [scripts/dev/linter_report.py](mdc:scripts/dev/linter_report.py)
+  - [playground/rate_limit_test/extract_symbols.py](mdc:playground/rate_limit_test/extract_symbols.py)
+  - [.devcontainer/make-scripts-executable.sh](mdc:.devcontainer/make-scripts-executable.sh)
+  - [playground/rate_limit_test/run_direct_test.sh](mdc:playground/rate_limit_test/run_direct_test.sh)
+- **Consideration:** Evaluate if a more dynamic approach for determining the workspace root would be more robust for these scripts in the long term.
+- **Checklist:**
+  - [ ] All identified hardcoded paths in the listed files are updated.
+- **Verification:**
+  - Use `grep` or your IDE's search functionality to search for `/workspaces/data-source-manager` (and the new path) within these specific files to confirm changes.
+
+### 6. Update `README.md`
+
+- **Action:** Update all references to the old project name and repository URL.
+  - Update the project title and description.
+  - Change the `git clone` command.
+  - Update the dependency string example.
+  - [README.md](mdc:README.md)
+- **Checklist:**
+  - [ ] Project name updated in title/description.
+  - [ ] Git clone command updated.
+  - [ ] Dependency string example updated.
+- **Verification:**
+  - Read through the `README.md` to ensure all mentions of the old name/URL are replaced.
+
+### 7. Recreate Virtual Environment
+
+- **Action:** The virtual environment often contains paths and references related to the old project name. It's safest to remove and recreate it.
+  - Delete the existing virtual environment directory (e.g., `.venv`).
+  - Recreate the virtual environment using your preferred method (e.g., `python3 -m venv .venv` or `poetry install`).
+- **Checklist:**
+  - [ ] Virtual environment directory deleted.
+  - [ ] Virtual environment recreated.
+  - [ ] Project dependencies reinstalled in the new environment.
+- **Verification:**
+  - Activate the new virtual environment.
+  - Run a simple import test for a module within your project (e.g., `python -c "import core"`) to ensure the project is correctly installed and discoverable.
+
+### 8. Rename Remote GitHub Repository
+
+- **Action:** Rename the repository on GitHub.
+  - Go to your repository on GitHub.
+  - Navigate to Settings > General.
+  - Under "Repository name", change `data-source-manager` to `data-source-manager`.
+  - Click "Rename".
+- **Checklist:**
+  - [ ] Repository successfully renamed on GitHub.
+- **Verification:**
+  - Verify the repository URL in your web browser.
+
+### 9. Update Local Git Remote URL
+
+- **Action:** Update the remote URL in your local repository to point to the new GitHub repository name.
+  - Open your terminal in the project directory.
+  - Run the command: `git remote set-url origin git@github.com:Eon-Labs/data-source-manager.git`
+- **Checklist:**
+  - [ ] Git remote URL updated locally.
+- **Verification:**
+  - Run `git remote -v` to verify the updated fetch and push URLs.
+
+### 10. Final Review and Test
+
+- **Action:** Perform a final review and run all project tests.
+  - Review all the changes made during the refactoring process.
+  - Run your project's test suite (`pytest` or your equivalent command) to ensure everything is working correctly.
+- **Checklist:**
+  - [ ] All code changes reviewed.
+  - [ ] All tests passed.
+- **Verification:**
+  - Confirm no errors or failures are reported during the test run.
+  - Consider running any example scripts or demo applications to verify functionality.

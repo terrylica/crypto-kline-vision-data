@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines a comprehensive plan for implementing a centralized error tracking and classification system within the Raw Data Services architecture. The system aims to standardize error handling, improve monitoring, and provide insights into data invalidness patterns.
+This document outlines a comprehensive plan for implementing a centralized error tracking and classification system within the Data Source Manager architecture. The system aims to standardize error handling, improve monitoring, and provide insights into data invalidness patterns.
 
 ## Problem Statement
 

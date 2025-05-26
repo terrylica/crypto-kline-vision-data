@@ -17,4 +17,4 @@ mkdir -p ${SCRIPT_DIR}/results
 
 # Set PYTHONPATH and run the direct API test with the specified duration and limit
 echo "Running direct API test for $DURATION seconds with $LIMIT data points per request..."
-PYTHONPATH=/workspaces/raw-data-services python ${SCRIPT_DIR}/direct_api_test.py --duration $DURATION --limit $LIMIT 
+PYTHONPATH=/workspaces/data-source-manager python ${SCRIPT_DIR}/direct_api_test.py --duration $DURATION --limit $LIMIT 

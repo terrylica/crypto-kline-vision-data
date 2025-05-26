@@ -1,8 +1,9 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
+
 # Principles
 
 - Only focus on most low-hanging real-world user cases.
@@ -52,5 +53,5 @@ On API related issues, always use `CURL` from terminal to find the root causes f
 ### Example Usage:
 
 ```bash
-PYTHONPATH=/workspaces/raw-data-services pytest "tests/market_types/test_vision_market_types.py::test_data_source_manager_market_types" -v --asyncio-mode=auto --no-header
+PYTHONPATH=/workspaces/data-source-manager pytest "tests/market_types/test_vision_market_types.py::test_data_source_manager_market_types" -v --asyncio-mode=auto --no-header
 ```

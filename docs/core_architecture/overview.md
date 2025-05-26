@@ -1,6 +1,6 @@
 # Demystify the Py Files in the Core Folder
 
-The Raw Data Services core module represents a sophisticated orchestration of crypto­currency market data acquisition systems designed specifically for financial time series forecasting. This analysis will elucidate the architectural components and their interrelationships within the data sourcing pipeline — a critical foundation for constructing LSTM columnar features.
+The Data Source Manager core module represents a sophisticated orchestration of crypto­currency market data acquisition systems designed specifically for financial time series forecasting. This analysis will elucidate the architectural components and their interrelationships within the data sourcing pipeline — a critical foundation for constructing LSTM columnar features.
 
 At the apex of this ecosystem resides the `DataSourceManager` — a meticulously designed _mediator pattern_ implementation that arbitrates between disparate data sources while maintaining a unified interface. This component makes intelligent decisions about which underlying API to utilize based on temporal constraints, data availability, and performance considerations. The manager serves as a **central point of contact** for data retrieval operations, abstracting away the complexities of source selection, format standardization, and cache management from consumer code. This abstraction layer provides tremendous flexibility in how financial time series data is sourced without requiring modifications to dependent systems.
 

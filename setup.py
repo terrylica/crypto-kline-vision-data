@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Setup configuration for raw-data-services."""
+"""Setup configuration for data-source-manager."""
 
 from setuptools import setup
 

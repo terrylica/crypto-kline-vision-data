@@ -1,1 +1,1 @@
-"""Core package for raw data services."""
+"""Core package for data source manager."""

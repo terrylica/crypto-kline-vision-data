@@ -15,11 +15,11 @@ import platformdirs
 from utils.logger_setup import logger
 
 # Application information
-APP_NAME = "raw-data-services"
+APP_NAME = "data-source-manager"
 APP_AUTHOR = "eon-labs"
 
 # Environment variable names for overriding default paths
-ENV_VAR_PREFIX = "RDS"  # Raw Data Services
+ENV_VAR_PREFIX = "RDS"  # Data Source Manager
 ENV_CACHE_DIR = f"{ENV_VAR_PREFIX}_CACHE_DIR"
 ENV_DATA_DIR = f"{ENV_VAR_PREFIX}_DATA_DIR"
 ENV_CONFIG_DIR = f"{ENV_VAR_PREFIX}_CONFIG_DIR"

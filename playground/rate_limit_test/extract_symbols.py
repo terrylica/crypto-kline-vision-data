@@ -39,7 +39,7 @@ def extract_symbols(csv_path, output_path):
 
 if __name__ == "__main__":
     # Set paths
-    workspace_root = Path("/workspaces/raw-data-services")
+    workspace_root = Path("/workspaces/data-source-manager")
     csv_path = (
         workspace_root / "scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv"
     )

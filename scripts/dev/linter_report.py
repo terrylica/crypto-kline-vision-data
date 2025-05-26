@@ -198,7 +198,7 @@ def generate_file_summary(issues, sort_by="count"):
     for file, count in items:
         # Make the path relative to the workspace
         try:
-            rel_path = Path(file).relative_to("/workspaces/raw-data-services")
+            rel_path = Path(file).relative_to("/workspaces/data-source-manager")
         except ValueError:
             rel_path = file  # Fall back to full path if relative path fails
 
@@ -267,7 +267,7 @@ def generate_file_error_combinations(issues, sort_by="count"):
 
             # Make the path relative to the workspace
             try:
-                rel_path = Path(file).relative_to("/workspaces/raw-data-services")
+                rel_path = Path(file).relative_to("/workspaces/data-source-manager")
             except ValueError:
                 rel_path = file  # Fall back to full path if relative path fails
 
@@ -308,7 +308,7 @@ def generate_file_error_breakdown(issues, sort_by="count"):
 
     for file, errors in items:
         try:
-            rel_path = Path(file).relative_to("/workspaces/raw-data-services")
+            rel_path = Path(file).relative_to("/workspaces/data-source-manager")
         except ValueError:
             rel_path = file  # Fall back to full path if relative path fails
 
@@ -364,7 +364,7 @@ def generate_fix_suggestions(issues):
         if issues_list:
             sample = issues_list[0]
             if "filename" in sample and "line_start" in sample:
-                file_path = Path(sample["filename"]).relative_to("/workspaces/raw-data-services")
+                file_path = Path(sample["filename"]).relative_to("/workspaces/data-source-manager")
                 line = sample.get("line_start", "?")
                 console.print(f"[yellow]Sample location:[/yellow] {file_path}:{line}")
 

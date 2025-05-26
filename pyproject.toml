@@ -3,36 +3,34 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raw-data-services"
+name = "data-source-manager"
 version = "0.1.0"
 description = "High-performance package for efficient market data retrieval from Binance"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Proprietary"}
-authors = [
-    {name = "Eon Labs"}
-]
+license = { text = "Proprietary" }
+authors = [{ name = "Eon Labs" }]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10"
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
     "attrs",
     "pyarrow>=19.0.1", # for local cache files in MMAP Array format
-    "polars", # resample and aggregate data faster than pandas
-    "pandas", # compatbility with existing code
-    "numpy", # for numerical operations
-    "fsspec", # for downloading remote files and local file hyrarchy matching of remote files
-    "requests", # fsspec compatible HTTP client
-    "httpx>=0.24.0", # as preferred HTTP client
-    "aiohttp", # for HTTP requests
-    "tenacity", # for retrying operations
-    "colorlog", # for colored logging
-    "psutil", # for system monitoring
-    "typer", # for CLI
-    "rich", # for elegant logging and CLI output
-    "pendulum", # for date and time operations
-    "platformdirs" # for platform-specific directory paths
+    "polars",          # resample and aggregate data faster than pandas
+    "pandas",          # compatbility with existing code
+    "numpy",           # for numerical operations
+    "fsspec",          # for downloading remote files and local file hyrarchy matching of remote files
+    "requests",        # fsspec compatible HTTP client
+    "httpx>=0.24.0",   # as preferred HTTP client
+    "aiohttp",         # for HTTP requests
+    "tenacity",        # for retrying operations
+    "colorlog",        # for colored logging
+    "psutil",          # for system monitoring
+    "typer",           # for CLI
+    "rich",            # for elegant logging and CLI output
+    "pendulum",        # for date and time operations
+    "platformdirs",    # for platform-specific directory paths
 ]
 
 [project.optional-dependencies]
@@ -45,7 +43,7 @@ dev = [
     "build>=1.2.0,<1.3.0", # allow patch version changes; for building the package according to the latest best practices suggested by PEP 621 – Storing project metadata in pyproject.toml https://peps.python.org/pep-0621/
     # the following is for linting and formatting so we can use the latest minor version
     "pyupgrade>=3.19.0,<4.0.0", # allow upgrade within major version; for upgrading Python code to match the `requires-python` version
-    "ruff>=0.11.1,<1.0.0", # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
+    "ruff>=0.11.1,<1.0.0",      # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
     # Uncomment the following two lines only if you insist on using the legacy `setup.py` approach or else the `build` command will take the build-system.requires from the pyproject.toml file to build the package
     # "setuptools>=80.6.0,<81.7.0", # allow patch version changes; Ensuring newer setuptools in dev environment
     # "wheel>=0.45.0,<0.46.0", # allow patch version changes
@@ -59,8 +57,14 @@ recmove = "scripts.dev.refactor_move:app"
 
 # Using find_packages to ensure all subdirectories are properly included
 [tool.setuptools.packages.find]
-where = ["."]  # Look for packages in the root directory
-include = ["core*", "utils*", "examples*", "utils_for_debug*", "scripts*"]  # Include all subdirectories with their subpackages
+where = ["."] # Look for packages in the root directory
+include = [
+    "core*",
+    "utils*",
+    "examples*",
+    "utils_for_debug*",
+    "scripts*",
+] # Include all subdirectories with their subpackages
 
 # Add package data to ensure all Python files are included
 [tool.setuptools.package-data]
@@ -73,22 +77,8 @@ include = ["core*", "utils*", "examples*", "utils_for_debug*", "scripts*"]  # In
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
-python_functions = "test_*" 
+python_functions = "test_*"
 
-[tool.ruff]
-# preview = true # Enable preview rules
-lint.select = [
-    # "PD",        # pandas-vet: Common pandas pitfalls
-    "RET",       # flake8-return: Improper return statements
-    "PL",        # Pylint: All Pylint rules - Ruff covers many, but PL includes Pylint-specific ones not fully redundant
-    "RUF",       # Ruff-specific rules (idiomatic suggestions) - Essential for Ruff's unique checks
-]
-lint.ignore = [
-    "E501",      # Line too long - Allow longer lines for better readability in some cases
-    "PLR0912",   # Too many branches - Allow functions with many branches when necessary
-    "PLR0913",   # Too many arguments - Allow functions with many args when necessary
-    "PLR0915",   # Too many class variables - Allow class variables when necessary
-]
 # Align with project.requires-python (>=3.11)
 # Ruff comment - this cannot be inherited automatically
 target-version = "py310"
@@ -101,21 +91,11 @@ respect-gitignore = true
 # Exclude directories from Ruff checks
 lint.exclude = ["playground/", "tests/", ".git/", "__pycache__/"]
 
-[tool.ruff.lint.isort]
-# Note: This cannot automatically inherit from project dependencies.
-# Make sure to keep this list in sync with [project] dependencies and [project.optional-dependencies]
-known-third-party = ["pandas", "numpy", "polars", "pyarrow", "httpx", "tenacity", "rich", "typer", "pytest", "gitpython", "rope", "pylint", "autoflake", "vulture", "twine"]
-
-[tool.vulture]
-# Paths to scan for dead code
-paths = ["utils/", "core/", "scripts/"]
-# Exclude test-related files
-exclude = ["tests/", "*/test_*.py", "*/conftest.py"]
-# Minimum confidence threshold (0-100)
-min_confidence = 80
-# Sort by size to focus on larger unused functions first
-sort_by_size = true
-# Ignore certain naming patterns that might be used for required interfaces
-ignore_names = ["__*__", "setup_*", "teardown_*"]
-# Ignore certain decorators that might create false positives
-ignore_decorators = ["@app.route", "@property", "@classmethod", "@staticmethod"]
+[tool.basedpyright]
+exclude = ["**/__pycache__", "**/.cache", ".venv"]
+ignore = ["**/tests/**/*.py", "tests/**/*.py", "ml_feature_set/tests/**/*.py"]
+defineConstant = { DEBUG = true }
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+typeCheckingMode = "basic"

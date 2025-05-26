@@ -81,7 +81,7 @@ def ensure_cache_directory(cache_dir=None):
 
 
 def clear_all_cache_directories():
-    """Clear all application cache directories used by raw-data-services.
+    """Clear all application cache directories used by data-source-manager.
 
     This is more comprehensive than just clearing the dsm-demo directory,
     as it will also clear market data caches.

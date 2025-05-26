@@ -1,8 +1,8 @@
-# SR&ED Claim - Enhancing Data Retrieval Techniques in Raw Data Services
+# SR&ED Claim - Enhancing Data Retrieval Techniques in Data Source Manager
 
 ## Project Overview
 
-This project was undertaken to develop a robust, high-performance data retrieval system within the Raw Data Services platform. The focus was on addressing challenges related to asynchronous resource management, efficient caching, and handling of various market data retrieval scenarios. Our custom solution enables immediate resource deallocation and reliable error handling, ensuring seamless operation even under high concurrency.
+This project was undertaken to develop a robust, high-performance data retrieval system within the Data Source Manager platform. The focus was on addressing challenges related to asynchronous resource management, efficient caching, and handling of various market data retrieval scenarios. Our custom solution enables immediate resource deallocation and reliable error handling, ensuring seamless operation even under high concurrency.
 
 ## Technical Challenges and Innovative Solutions
 

@@ -1,10 +1,10 @@
-# Raw Data Service
+# Data Source Manager
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
 ## Installation
 
-There are two main ways to install Raw Data Service, depending on your needs:
+There are two main ways to install Data Source Manager, depending on your needs:
 
 ### 1. For Development or Running Demos Directly
 
@@ -12,8 +12,8 @@ If you want to run the provided demos directly from the cloned repository or use
 
 ```bash
 # Clone the repository
-git clone https://github.com/Eon-Labs/raw-data-services.git
-cd raw-data-services
+git clone https://github.com/Eon-Labs/data-source-manager.git
+cd data-source-manager
 
 # Install the core package in editable mode
 pip install -e .
@@ -30,11 +30,11 @@ This method keeps all the source files in your workspace and includes necessary 
 
 ### 2. As a Dependency in Your Project (`pyproject.toml`)
 
-If you want to use Raw Data Service as a library in your own Python project (managed with `pyproject.toml`) without including its entire source code in your project's directory, you can add it as a Git dependency.
+If you want to use Data Source Manager as a library in your own Python project (managed with `pyproject.toml`) without including its entire source code in your project's directory, you can add it as a Git dependency.
 
 **Prerequisites:**
 
-- Ensure you have SSH access configured for `github.com`, as this is a private repository. Your SSH key must be authorized to access `Eon-Labs/raw-data-services`.
+- Ensure you have SSH access configured for `github.com`, as this is a private repository. Your SSH key must be authorized to access `Eon-Labs/data-source-manager`.
 
 Add the following to your project's `pyproject.toml` file under the `[project.dependencies]` array (as per PEP 621):
 
@@ -43,15 +43,15 @@ Add the following to your project's `pyproject.toml` file under the `[project.de
 # ... other project configurations like name, version ...
 dependencies = [
     # ... other dependencies ...
-    "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git"
+    "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git"
     # You can also specify a particular branch, tag, or commit hash:
-    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git@main"
-    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git@v1.0.0"
-    # "raw-data-services @ git+ssh://git@github.com/Eon-Labs/raw-data-services.git#egg=raw-data-services" # egg part is good practice
+    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git@main"
+    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git@v1.0.0"
+    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git#egg=data-source-manager" # egg part is good practice
 ]
 ```
 
-This will install Raw Data Service into your Python environment's `site-packages` directory, keeping your project workspace clean.
+This will install Data Source Manager into your Python environment's `site-packages` directory, keeping your project workspace clean.
 
 **Note on CLI Tools:**
 The installation process (through either method) automatically registers the CLI commands (`dsm-demo-cli` and `dsm-demo-module`) as executable scripts in your Python environment. These commands will be available in your terminal after successful installation.
@@ -93,7 +93,7 @@ dsm-demo-module
 
 ## Using as a Library
 
-The core data fetching functionality of Raw Data Service is available for direct import and use in your Python projects after installation.
+The core data fetching functionality of Data Source Manager is available for direct import and use in your Python projects after installation.
 
 The main function for retrieving market data is `fetch_market_data`.
 
@@ -101,7 +101,7 @@ The main function for retrieving market data is `fetch_market_data`.
 
 ```python
 from datetime import datetime
-from raw_data_services import fetch_market_data, MarketType, DataProvider, Interval, ChartType
+from data_source_manager import fetch_market_data, MarketType, DataProvider, Interval, ChartType
 
 # Define parameters
 provider = DataProvider.BINANCE
@@ -136,7 +136,7 @@ This example demonstrates how to fetch data backward from a precise end time in 
 
 ```python
 import pendulum
-from raw_data_services import fetch_market_data, MarketType, DataProvider, Interval, ChartType
+from data_source_manager import fetch_market_data, MarketType, DataProvider, Interval, ChartType
 
 # Define parameters
 provider = DataProvider.BINANCE
@@ -169,9 +169,9 @@ if df is not None:
     print(df.head())
 ```
 
-You can import `fetch_market_data` directly from the `raw_data_services` package. The necessary enums (`MarketType`, `DataProvider`, `ChartType`, `Interval`, `DataSource`) and `DataSourceConfig` are also exposed at the top level for easy access.
+You can import `fetch_market_data` directly from the `data_source_manager` package. The necessary enums (`MarketType`, `DataProvider`, `ChartType`, `Interval`, `DataSource`) and `DataSourceConfig` are also exposed at the top level for easy access.
 
-Refer to the source code of `raw_data_services.core.sync.dsm_lib.fetch_market_data` and `raw_data_services.core.sync.data_source_manager.DataSourceConfig` for detailed parameter information and usage.
+Refer to the source code of `data_source_manager.core.sync.dsm_lib.fetch_market_data` and `data_source_manager.core.sync.data_source_manager.DataSourceConfig` for detailed parameter information and usage.
 
 ## Data Source Manager (DSM) Demo
 
