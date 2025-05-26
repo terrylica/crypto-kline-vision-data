@@ -79,7 +79,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 
-# Align with project.requires-python (>=3.11)
+# Align with project.requires-python (>=3.10)
 # Ruff comment - this cannot be inherited automatically
 target-version = "py310"
 # Allow autofix for all enabled rules
