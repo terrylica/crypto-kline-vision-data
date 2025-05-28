@@ -20,12 +20,15 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-python.python",
-        "ms-azuretools.vscode-docker",
-        "eamodio.gitlens",
-        "davidanson.vscode-markdownlint", // auto lint markdown files, keyboard shortcut: ctrl+shift+p -> Lint all Markdown files in the workspace with markdownlint
-        "tamasfe.even-better-toml", // Colorize and lint TOML files, especially for pyproject.toml and ruff.toml
-        "charliermarsh.ruff" // respect any Ruff configuration as defined in your project's pyproject.toml, ruff.toml, or .ruff.toml file
+        "ms-azuretools.vscode-docker", // Manage Docker containers, images, etc.
+        "ms-vscode-remote.remote-containers", // Develop inside a container
+        "ms-python.python", // Core Python language support
+        "ms-python.basedpyright", // Static type checking for Python
+        "ms-python.black-formatter", // Format Python code using Black
+        "esbenp.prettier-vscode", // Code formatter for various languages (e.g., JSON, YAML, Markdown, etc.)
+        "eamodio.gitlens", // Enhance Git capabilities in VS Code
+        "tamasfe.even-better-toml", // Colorize and lint TOML files (e.g., pyproject.toml, ruff.toml)
+        "charliermarsh.ruff" // Linter for common pitfalls and errors in Python code
       ],
       "settings": {
         "extensions.verifySignature": false,
