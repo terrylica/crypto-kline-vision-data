@@ -24,14 +24,10 @@
 #   - Flexible Parameter Handling: Properly processes command-line arguments like
 #     the pytest pattern filter (-k) and other flags, passing them directly to
 #     pytest in both interactive and non-interactive modes.
-#   - asyncio Configuration: Configures asyncio loop scope to 'function'
-#     (`asyncio_default_fixture_loop_scope=function`) to prevent pytest-asyncio
-#     deprecation warnings and ensure consistent behavior for asynchronous tests.
 #   - Error Summary: Collects and displays a summary of all errors and warnings,
 #     even from passing tests, to help identify issues that don't cause test failures.
-#   - Enhanced Asyncio Error Detection: Provides specialized detection and reporting
-#     for common asyncio issues like task destruction errors, with severity scoring
-#     to prioritize the most critical problems.
+#   - Enhanced Error Detection: Provides specialized detection and reporting
+#     for common issues with severity scoring to prioritize the most critical problems.
 #   - Profiling Capabilities: Supports performance profiling via pytest-profiling
 #     with options to generate line-by-line profiling data (.prof files) and
 #     SVG visualizations of the call graph.
@@ -133,12 +129,6 @@
 #   - Serial Test Marking: Use @pytest.mark.serial to mark tests that should not run
 #     in parallel with other tests. This script automatically detects and separates
 #     these tests to run sequentially even in parallel mode, ensuring test stability.
-#   - asyncio Configuration: The script automatically configures
-#     `asyncio_default_fixture_loop_scope=function` via pytest command-line option,
-#     preventing pytest-asyncio deprecation warnings and ensuring consistent
-#     async test behavior, independent of `pytest.ini` settings. This is critical
-#     for proper cleanup of asyncio resources between tests and avoids KeyError
-#     issues with pytest-xdist.
 #   - Parallel Execution Efficiency: Parallel testing with `-n8` significantly
 #     reduces test execution time. Adjust the worker count (`-n`) based on your
 #     system's CPU cores and resources for optimal performance.
@@ -147,11 +137,8 @@
 #   - Error Summary: Use the -e/--error-summary option to see all errors and warnings
 #     logged during tests, even from passing tests, helping identify hidden issues.
 #   - Error Severity Scoring: The error summary includes a severity score (1-10) for
-#     each error type, with asyncio task destruction (9/10) and connection errors (8/10)
+#     each error type, with connection errors (8/10) and timeout errors (7/10)
 #     being the most critical to address.
-#   - Asyncio Troubleshooting: For tests with asyncio issues, the script provides
-#     targeted diagnostics that help identify tasks that weren't properly awaited
-#     or were destroyed while still pending.
 #   - Profiling Capabilities: Supports performance profiling via pytest-profiling
 #     with options to generate line-by-line profiling data (.prof files) and
 #     SVG visualizations of the call graph.
@@ -186,7 +173,7 @@ BOLD='\033[1m'
 
 # Simple script configuration
 SCRIPT_DIR=$(dirname "$0")
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${PROJECT_ROOT}"
 
 # Create a temp file for error logs
@@ -224,7 +211,6 @@ show_help() {
     echo -e ""
     echo -e "${YELLOW}Test Markers:${NC}"
     echo -e "  ${GREEN}@pytest.mark.serial${NC}    : Mark tests that should run serially (not in parallel)"
-    echo -e "  ${GREEN}@pytest.mark.asyncio${NC}   : Mark async tests (automatically uses function-scoped event loops)"
     echo -e "  ${GREEN}@pytest.mark.real${NC}      : Mark tests that run against real data/resources"
     echo -e "  ${GREEN}@pytest.mark.integration${NC}: Mark tests that integrate with external services"
     echo -e ""
@@ -249,8 +235,7 @@ show_help() {
     echo -e ""
     echo -e "${YELLOW}Async/Serial Test Handling:${NC}"
     echo -e "  - Tests marked with ${CYAN}@pytest.mark.serial${NC} are automatically run sequentially"
-    echo -e "  - Async tests use function-scoped event loops for better isolation"
-    echo -e "  - Parallel tests use proper caplog fixtures to avoid KeyError issues"
+    echo -e "  - Parallel tests use proper caplog fixtures to avoid logging issues"
   fi
   
   echo -e "${BOLD}${BLUE}======================================================${NC}"
@@ -313,9 +298,6 @@ extract_errors() {
   
   # Define severity scores for different error types
   local -A severity_scores=(
-    ["asyncio_task_destroyed"]=9
-    ["asyncio_task_cancelled"]=7
-    ["logging_error"]=6
     ["connection_error"]=8
     ["timeout_error"]=7
     ["assertion_error"]=5
@@ -327,100 +309,6 @@ extract_errors() {
   local special_errors=""
   local has_special_errors=false
   local special_error_count=0
-  local in_task_error=false
-  
-  # Map to track asyncio errors by test
-  local -A asyncio_errors_by_test
-  local current_asyncio_error=""
-  
-  # First, check for any asyncio task destruction errors, even without context
-  if grep "Task was destroyed but it is pending" "$log_file" > /dev/null; then
-    # Extract all task destruction error contexts - collect all related lines
-    local task_errors=$(grep -A 2 -B 2 "Task was destroyed but it is pending" "$log_file")
-    
-    # Try to identify which test case this error belongs to
-    while IFS= read -r line; do
-      if [[ "$line" =~ tests/.*::test_.* ]]; then
-        # Extract test name - handles both normal and parameterized tests
-        if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+ ]]; then
-          local test_name=$(echo "$line" | grep -o "tests/[^[:space:]]*::test_[^[:space:]^[^]]*")
-          # For parameterized tests, try to extract the parameter too
-          if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+\[[^\]]+\] ]]; then
-            local param=$(echo "$line" | grep -o "\[[^]]*\]")
-            test_name="${test_name}${param}"
-          fi
-          
-          # Store in the map
-          if [[ -n "${asyncio_errors_by_test[$test_name]}" ]]; then
-            asyncio_errors_by_test[$test_name]="${asyncio_errors_by_test[$test_name]}\n${task_errors}"
-          else
-            asyncio_errors_by_test[$test_name]="$task_errors"
-          fi
-        fi
-      fi
-    done < <(grep -B 10 "Task was destroyed but it is pending" "$log_file")
-    
-    has_special_errors=true
-    special_error_count=$(grep -c "Task was destroyed but it is pending" "$log_file")
-    special_errors+="${RED}${BOLD}Found ${special_error_count} asyncio task destruction errors (Severity: ${severity_scores["asyncio_task_destroyed"]}/10)${NC}\n"
-    
-    # If we couldn't associate errors with specific tests
-    if [[ ${#asyncio_errors_by_test[@]} -eq 0 ]]; then
-      special_errors+="${RED}${task_errors}${NC}\n\n"
-    fi
-    
-    # Mark these lines as already processed
-    in_task_error=true
-  fi
-  
-  # Check for task cancellation errors with test context
-  if grep -A 10 -B 3 "Task .* was cancelled" "$log_file" > /tmp/task_cancel_errors.txt; then
-    if [[ -s /tmp/task_cancel_errors.txt ]]; then
-      has_special_errors=true
-      local cancel_count=$(grep -c "Task .* was cancelled" "$log_file")
-      special_error_count=$((special_error_count + cancel_count))
-      special_errors+="${RED}${BOLD}Task cancellation error detected (${cancel_count} occurrences) (Severity: ${severity_scores["asyncio_task_cancelled"]}/10)${NC}\n"
-      
-      # Try to associate these errors with test cases
-      while IFS= read -r line; do
-        if [[ "$line" =~ tests/.*::test_.* ]]; then
-          # Extract test name as before
-          if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+ ]]; then
-            local test_name=$(echo "$line" | grep -o "tests/[^[:space:]]*::test_[^[:space:]^[^]]*")
-            if [[ "$line" =~ tests/[^\ ]+::test_[^\ \[\]]+\[[^\]]+\] ]]; then
-              local param=$(echo "$line" | grep -o "\[[^]]*\]")
-              test_name="${test_name}${param}"
-            fi
-            current_asyncio_error="$test_name"
-          fi
-        elif [[ "$line" == *"Task .* was cancelled"* ]]; then
-          if [[ -n "$current_asyncio_error" ]]; then
-            if [[ -n "${asyncio_errors_by_test[$current_asyncio_error]}" ]]; then
-              asyncio_errors_by_test[$current_asyncio_error]="${asyncio_errors_by_test[$current_asyncio_error]}\n$line"
-            else
-              asyncio_errors_by_test[$current_asyncio_error]="$line"
-            fi
-          fi
-        fi
-      done < <(grep -B 10 "Task .* was cancelled" "$log_file")
-      
-      # If we couldn't associate errors with specific tests
-      if [[ ${#asyncio_errors_by_test[@]} -eq 0 ]]; then
-        special_errors+="${RED}$(cat /tmp/task_cancel_errors.txt)${NC}\n\n"
-      fi
-    fi
-  fi
-  
-  # Check for logging errors that often accompany asyncio issues
-  if grep -A 10 -B 3 "Logging error" "$log_file" > /tmp/logging_errors.txt; then
-    if [[ -s /tmp/logging_errors.txt ]]; then
-      has_special_errors=true
-      local logging_count=$(grep -c "Logging error" "$log_file")
-      special_error_count=$((special_error_count + logging_count))
-      special_errors+="${RED}${BOLD}Logging error detected (${logging_count} occurrences, possibly related to asyncio) (Severity: ${severity_scores["logging_error"]}/10)${NC}\n"
-      special_errors+="${RED}$(cat /tmp/logging_errors.txt)${NC}\n\n"
-    fi
-  fi
   
   # Check for JSON structured logs
   if grep -E '^\s*\{.*"level":("|)?(debug|info|warning|error|critical)("|)?.*\}' "$log_file" > /tmp/json_logs.txt; then
@@ -528,30 +416,11 @@ extract_errors() {
     fi
   done < "$log_file"
   
-  # Output the asyncio errors by test 
-  if [[ ${#asyncio_errors_by_test[@]} -gt 0 ]]; then
-    echo -e "\n${BOLD}${RED}Asyncio errors by test case:${NC}"
-    for test_name in "${!asyncio_errors_by_test[@]}"; do
-      echo -e "${BOLD}$test_name:${NC}"
-      echo -e "${RED}${asyncio_errors_by_test[$test_name]}${NC}"
-      echo -e ""
-    done
-  fi
-  
-  # Add special errors section if any were found
-  if [[ "$has_special_errors" == "true" && -z ${#asyncio_errors_by_test[@]} ]]; then
-    echo -e "\n${BOLD}${RED}Special errors detected:${NC}"
-    echo -e "$special_errors"
-  fi
-  
-  # Add special errors to total count
-  error_count=$((error_count + special_error_count))
-  
   echo -e "\n${BOLD}Total: $error_count errors, $warning_count warnings${NC}"
   echo -e "${BOLD}${BLUE}======================================================${NC}"
   
   # Clean up temp files
-  rm -f /tmp/asyncio_errors.txt /tmp/task_cancel_errors.txt /tmp/logging_errors.txt /tmp/json_logs.txt /tmp/json_errors.txt /tmp/json_warnings.txt
+  rm -f /tmp/json_logs.txt /tmp/json_errors.txt /tmp/json_warnings.txt
 }
 
 # Check if help is requested
@@ -863,8 +732,6 @@ if ! $SEQUENTIAL && ! [[ "$ADDITIONAL_ARGS_STR" =~ "-k" ]]; then
       -vv \
       -o testpaths=tests \
       -o python_files=test_*.py \
-      --asyncio-mode=auto \
-      -o asyncio_default_fixture_loop_scope=function \
       -m serial \
       -o 'filterwarnings=ignore::ResourceWarning' \
       --showlocals \
@@ -901,8 +768,6 @@ PARALLEL_CMD="PYTHONPATH=${PROJECT_ROOT} pytest \"${TEST_PATH}\" \
   -vv \
   -o testpaths=tests \
   -o python_files=test_*.py \
-  --asyncio-mode=auto \
-  -o asyncio_default_fixture_loop_scope=function \
   -o 'filterwarnings=ignore::ResourceWarning' \
   --showlocals \
   -rA"
@@ -931,7 +796,7 @@ if $ERROR_SUMMARY; then
   echo "  less -R $LOG_FILE in another terminal"
   
   # Set shell variables to improve test output
-  CMD_WITH_ENV="PYTHONUNBUFFERED=1 FORCE_COLOR=1 PYTHONASYNCIOEBUG=1 COLUMNS=80 $PARALLEL_CMD --color=yes"
+  CMD_WITH_ENV="PYTHONUNBUFFERED=1 FORCE_COLOR=1 COLUMNS=80 $PARALLEL_CMD --color=yes"
   echo "Executing: $CMD_WITH_ENV"
   
   # Run the command and capture output to log file

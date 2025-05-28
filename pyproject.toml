@@ -4,50 +4,47 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-source-manager"
-version = "0.1.0"
-description = "High-performance package for efficient market data retrieval from Binance"
+version = "0.1.32"
+description = "Binance OHLCV data from Vision API (on AWS S3) and their REST API"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Proprietary" }
-authors = [{ name = "Eon Labs" }]
+license = "LicenseRef-Proprietary" # Custom SPDX identifier for proprietary license (PEP 639 compliant)
+license-files = ["LICENSE"]  # Path to license file (required for custom licenses)
+authors = [
+    {name = "EonLabs", email = "chen@eonlabs.com"},
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "attrs",
-    "pyarrow>=19.0.1", # for local cache files in MMAP Array format
-    "polars",          # resample and aggregate data faster than pandas
-    "pandas",          # compatbility with existing code
-    "numpy",           # for numerical operations
-    "fsspec",          # for downloading remote files and local file hyrarchy matching of remote files
-    "requests",        # fsspec compatible HTTP client
-    "httpx>=0.24.0",   # as preferred HTTP client
-    "aiohttp",         # for HTTP requests
-    "tenacity",        # for retrying operations
-    "colorlog",        # for colored logging
-    "psutil",          # for system monitoring
-    "typer",           # for CLI
-    "rich",            # for elegant logging and CLI output
-    "pendulum",        # for date and time operations
-    "platformdirs",    # for platform-specific directory paths
+    "attrs>=25.3.0,<25.4.0", # allow patch version changes
+    "pyarrow>=20.0.0,<21.0.0", # for local cache files in MMAP Array format
+    "polars>=1.30.0,<1.31.0", # resample and aggregate data faster than pandas
+    "pandas>=2.2.3,<2.3.0", # allow patch version changes; compatibility with existing code
+    "numpy==1.24.4", # most sensitive to version changes so locked on 1.24.4 unless there is a good reason to upgrade
+    "fsspec>=2025.5.1",          # for downloading remote files and local file hyrarchy matching of remote files
+    "requests>=2.32.3,<2.33.0",        # fsspec compatible HTTP client
+    "httpx>=0.28.1,<0.29.0",   # as preferred HTTP client
+    "aiohttp>=3.12.2,<3.13.0", # for HTTP requests
+    "tenacity>=9.1.2,<9.3.0", # for retrying operations
+    "colorlog>=6.9.1,<6.10.0", # for colored logging
+    "psutil>=7.0.0,<7.1.0", # for system monitoring
+    "typer>=0.16.0,<0.17.0", # for CLI
+    "rich>=14.0.0,<15.0.0", # for elegant logging and CLI output
+    "pendulum>=3.1.0,<3.2.0", # for date and time operations
+    "platformdirs>=4.3.8,<4.4.0", # for platform-specific directory paths
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
-    "pytest-xdist",
+dev = [ # allow upgrade within major version; for Binance Vision & REST API data sources
+    "custom-logger>=0.1.1,<0.2.0", # allow upgrade within major version; for adding custom logging and log file management
+    "twine>=6.1.0,<7.0.0", # allow upgrade within major version; for uploading the package to PyPI
+    "pytest>=8.3.5,<9.0.0", # allow upgrade within major version; for testing
+    "pytest-xdist>=3.5.0,<4.0.0", # allow upgrade within major version; for testing code coverage
     "pytest-profiling",
-    "build>=1.2.0,<1.3.0", # allow patch version changes; for building the package according to the latest best practices suggested by PEP 621 – Storing project metadata in pyproject.toml https://peps.python.org/pep-0621/
-    # the following is for linting and formatting so we can use the latest minor version
-    "pyupgrade>=3.19.0,<4.0.0", # allow upgrade within major version; for upgrading Python code to match the `requires-python` version
-    "ruff>=0.11.1,<1.0.0",      # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
-    # Uncomment the following two lines only if you insist on using the legacy `setup.py` approach or else the `build` command will take the build-system.requires from the pyproject.toml file to build the package
-    # "setuptools>=80.6.0,<81.7.0", # allow patch version changes; Ensuring newer setuptools in dev environment
-    # "wheel>=0.45.0,<0.46.0", # allow patch version changes
-    "vulture", # for dead code detection
+    "pyupgrade>=3.20.0,<4.0.0", # allow upgrade within major version; for upgrading Python code to match the `requires-python` version
+    "ruff>=0.11.11,<0.12.0", # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
 ]
 # Command-line scripts defined here
 [project.scripts]
