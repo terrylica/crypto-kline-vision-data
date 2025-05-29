@@ -310,11 +310,12 @@ def main(
     output_subdir = Path(data_dir) / "data_source_manager" / "data" / "bybit" / category / symbol / f"{interval}m"
     output_subdir.mkdir(parents=True, exist_ok=True)
 
+    formatted_symbol = symbol.replace("_", "-")
     # Modify filename based on category
     if category == "spot":
-        output_filename = f"bybit-{symbol}-{interval}m.csv"
+        output_filename = f"bybit-{formatted_symbol}-{interval}m.csv"
     else:
-        output_filename = f"bybit-{category}-{symbol}-{interval}m.csv"  # Include category in filename
+        output_filename = f"bybit-{category}-{formatted_symbol}-{interval}m.csv"  # Include category in filename
 
     output_file = output_subdir / output_filename
 
