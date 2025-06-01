@@ -26,9 +26,9 @@ dependencies = [
     "fsspec>=2025.5.1",          # for downloading remote files and local file hyrarchy matching of remote files
     "requests>=2.32.3,<2.33.0",        # fsspec compatible HTTP client
     "httpx>=0.28.1,<0.29.0",   # as preferred HTTP client
-    "aiohttp>=3.12.2,<3.13.0", # for HTTP requests
+    "aiohttp>=3.12.6,<3.13.0", # for HTTP requests
     "tenacity>=9.1.2,<9.3.0", # for retrying operations
-    "colorlog>=6.9.1,<6.10.0", # for colored logging
+    "colorlog>=6.9.0,<6.10.0", # for colored logging
     "psutil>=7.0.0,<7.1.0", # for system monitoring
     "typer>=0.16.0,<0.17.0", # for CLI
     "rich>=14.0.0,<15.0.0", # for elegant logging and CLI output
@@ -41,10 +41,10 @@ dev = [ # allow upgrade within major version; for Binance Vision & REST API data
     "custom-logger>=0.1.1,<0.2.0", # allow upgrade within major version; for adding custom logging and log file management
     "twine>=6.1.0,<7.0.0", # allow upgrade within major version; for uploading the package to PyPI
     "pytest>=8.3.5,<9.0.0", # allow upgrade within major version; for testing
-    "pytest-xdist>=3.5.0,<4.0.0", # allow upgrade within major version; for testing code coverage
+    "pytest-xdist>=3.7.0,<4.0.0", # allow upgrade within major version; for testing code coverage
     "pytest-profiling",
     "pyupgrade>=3.20.0,<4.0.0", # allow upgrade within major version; for upgrading Python code to match the `requires-python` version
-    "ruff>=0.11.11,<0.12.0", # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
+    "ruff>=0.11.12,<0.12.0", # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
 ]
 # Command-line scripts defined here
 [project.scripts]
