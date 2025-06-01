@@ -384,7 +384,7 @@ def main(
         False,
         "--force",
         "-f",
-        help="Force download even if symbol doesn't match the expected pattern for the category."
+        help="Force download even if symbol doesn't match the expected pattern for the category. WARNING: Using incorrect symbol formats may result in receiving data from a different market than requested (e.g., using BTCUSDT with inverse category returns linear market data)."
     ),
 ):
     """
@@ -402,6 +402,7 @@ def main(
     * Perform data integrity checks including duplicate detection
     * Format data in standard OHLCV format
     * Advanced logging with loguru (including log rotation and compression)
+    * Strict symbol validation to prevent data integrity issues
 
     Example usage:
 
@@ -415,6 +416,18 @@ def main(
     Symbol naming conventions:
     * For inverse markets: Use USD suffix (e.g. BTCUSD, ETHUSD)
     * For linear markets: Use USDT suffix (e.g. BTCUSDT, ETHUSDT)
+    
+    ⚠️ Important API Behavior Warning:
+    Our empirical testing has revealed that when using incorrect symbol formats with the Bybit API
+    (e.g., requesting BTCUSDT with category=inverse), the API returns potentially misleading data:
+    
+    * When using inverse category with USDT-suffixed symbols, the API returns linear market data
+      but incorrectly labels it as "inverse" in the response
+    * The data values and timestamps are identical to what would be returned from linear market
+    * This can lead to data integrity issues and incorrect analysis
+    
+    The script validates symbol formats to prevent this issue, but if you override with --force, 
+    be aware that you may receive data from a different market than intended.
     """
     if interval not in ["5", "15"]:
         console.print("[bold red]Error:[/bold red] Only 5 and 15 minute intervals are supported for this test.")
