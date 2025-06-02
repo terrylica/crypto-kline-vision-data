@@ -51,7 +51,7 @@ from utils.app_paths import get_cache_dir, get_log_dir
 from utils.deprecation_rules import Interval as DeprecationInterval
 from utils.for_demo.dsm_cache_utils import print_cache_info
 from utils.for_demo.dsm_display_utils import display_results
-from utils.logger_setup import configure_session_logging, logger
+from utils.loguru_setup import configure_session_logging, logger
 
 
 def showcase_backward_retrieval(

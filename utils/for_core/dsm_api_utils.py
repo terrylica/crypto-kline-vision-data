@@ -9,7 +9,7 @@ import pandas as pd
 
 from utils.config import VISION_DATA_DELAY_HOURS, create_empty_dataframe
 from utils.for_core.vision_constraints import is_date_too_fresh_for_vision
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, Interval, MarketType
 from utils.time_utils import align_time_boundaries, filter_dataframe_by_time
 
@@ -167,7 +167,7 @@ def fetch_from_vision(
             logger.critical(f"Error handling also failed: {type(nested_error).__name__}")
 
             # Propagate the error to trigger failover
-            raise RuntimeError("CRITICAL: Vision API error could not be handled properly")
+            raise RuntimeError("CRITICAL: Vision API error could not be handled properly") from e
 
 
 def fetch_from_rest(
@@ -256,7 +256,7 @@ def fetch_from_rest(
             logger.critical(f"Error handling also failed: {type(nested_error).__name__}")
 
             # Propagate the error
-            raise RuntimeError("CRITICAL: REST API error could not be handled properly")
+            raise RuntimeError("CRITICAL: REST API error could not be handled properly") from e
 
 
 def create_client_if_needed(
@@ -314,7 +314,8 @@ def create_client_if_needed(
     # Check if this is a VisionDataClient
     if client_class.__name__ == "VisionDataClient":
         logger.debug(
-            f"Setting up {client_class.__name__} with symbol={symbol}, interval={interval}, market_type={market_type}, chart_type={chart_type}"
+            f"Setting up {client_class.__name__} with symbol={symbol}, interval={interval}, "
+            f"market_type={market_type}, chart_type={chart_type}"
         )
 
         # Vision client needs symbol, interval, and market_type

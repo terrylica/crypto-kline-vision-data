@@ -9,22 +9,21 @@ This module provides helper functions for:
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Tuple, Union
 
 import pandas as pd
 
 from utils.config import CANONICAL_INDEX_NAME
 from utils.dataframe_utils import ensure_open_time_as_index
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 
 
 def safely_reindex_dataframe(
     df: pd.DataFrame,
-    start_time: Union[datetime, str, pd.Timestamp],
-    end_time: Union[datetime, str, pd.Timestamp],
-    interval: Union[Interval, str],
-    fill_method: Optional[str] = None,
+    start_time: datetime | str | pd.Timestamp,
+    end_time: datetime | str | pd.Timestamp,
+    interval: Interval | str,
+    fill_method: str | None = None,
 ) -> pd.DataFrame:
     """
     Safely reindex a DataFrame to a complete time range with the given interval.
@@ -136,7 +135,7 @@ def safely_reindex_dataframe(
         return df
 
 
-def ensure_consistent_timezone(dt: Union[datetime, pd.Timestamp, str, None]) -> Union[datetime, None]:
+def ensure_consistent_timezone(dt: datetime | pd.Timestamp | str | None) -> datetime | None:
     """
     Ensure a datetime object has a consistent timezone (UTC).
 
@@ -186,9 +185,7 @@ def ensure_consistent_timezone(dt: Union[datetime, pd.Timestamp, str, None]) -> 
     return dt
 
 
-def safe_timestamp_comparison(
-    ts1: Union[int, float, datetime, pd.Timestamp, str], ts2: Union[int, float, datetime, pd.Timestamp, str]
-) -> int:
+def safe_timestamp_comparison(ts1: int | float | datetime | pd.Timestamp | str, ts2: int | float | datetime | pd.Timestamp | str) -> int:
     """
     Safely compare two timestamps of potentially different types.
 
@@ -228,7 +225,7 @@ def safe_timestamp_comparison(
     return 0
 
 
-def _convert_to_datetime(ts: Union[int, float, datetime, pd.Timestamp, str]) -> datetime:
+def _convert_to_datetime(ts: int | float | datetime | pd.Timestamp | str) -> datetime:
     """
     Convert various timestamp formats to a standard datetime object.
 
@@ -238,7 +235,7 @@ def _convert_to_datetime(ts: Union[int, float, datetime, pd.Timestamp, str]) -> 
     Returns:
         datetime object
     """
-    if isinstance(ts, (int, float)):
+    if isinstance(ts, int | float):
         # Determine if milliseconds or seconds based on magnitude
         if ts > 1e11:  # Likely milliseconds (13 digits for recent years)
             return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
@@ -299,7 +296,7 @@ def get_data_source_info(df: pd.DataFrame) -> dict:
     return {"sources": ["UNKNOWN"], "source_counts": {"UNKNOWN": len(df)}}
 
 
-def check_window_data_completeness(df: pd.DataFrame, window_size: int, min_required_pct: float = 80.0) -> Tuple[bool, float]:
+def check_window_data_completeness(df: pd.DataFrame, window_size: int, min_required_pct: float = 80.0) -> tuple[bool, float]:
     """
     Check if a DataFrame has enough data for window-based calculations.
 

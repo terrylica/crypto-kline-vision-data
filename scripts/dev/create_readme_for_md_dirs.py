@@ -39,7 +39,7 @@ from pathlib import Path
 import typer
 
 from utils.config import MIN_FILES_FOR_README
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 app = typer.Typer()
 

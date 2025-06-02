@@ -32,7 +32,7 @@ from rich.table import Table
 
 from utils.config import HTTP_OK, TEXT_PREVIEW_LENGTH
 from utils.for_core.vision_checksum import extract_checksum_from_file
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def setup_argparse() -> argparse.ArgumentParser:

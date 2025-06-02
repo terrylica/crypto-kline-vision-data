@@ -18,7 +18,7 @@ from utils.config import (
     OUTPUT_DTYPES,
     TIMESTAMP_PRECISION,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 
 # Column name constants
@@ -76,10 +76,7 @@ class DataValidation:
             ValueError: If start_time is after end_time
         """
         # Set default reference time
-        if relative_to is None:
-            relative_to = datetime.now(timezone.utc)
-        else:
-            relative_to = DataValidation.enforce_utc_timestamp(relative_to)
+        relative_to = datetime.now(timezone.utc) if relative_to is None else DataValidation.enforce_utc_timestamp(relative_to)
 
         # Set default start time
         if start_time is None:
@@ -375,7 +372,8 @@ class DataValidation:
             consolidation_threshold = now - consolidation_delay
             is_available = target_date <= consolidation_threshold
             logger.debug(
-                f"Using explicit consolidation_delay={consolidation_delay}, threshold={consolidation_threshold.isoformat()}, is_available={is_available}"
+                f"Using explicit consolidation_delay={consolidation_delay}, "
+                f"threshold={consolidation_threshold.isoformat()}, is_available={is_available}"
             )
             return is_available
 
@@ -536,10 +534,7 @@ class DataValidation:
         end_time = DataValidation.enforce_utc_timestamp(end_time)
 
         # Set reference time if not provided
-        if reference_time is None:
-            reference_time = datetime.now(timezone.utc)
-        else:
-            reference_time = DataValidation.enforce_utc_timestamp(reference_time)
+        reference_time = datetime.now(timezone.utc) if reference_time is None else DataValidation.enforce_utc_timestamp(reference_time)
 
         metadata["reference_time"] = reference_time
 

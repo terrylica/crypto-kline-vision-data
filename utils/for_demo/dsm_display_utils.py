@@ -11,7 +11,7 @@ from rich import print
 from rich.table import Table
 
 from utils.config import LOG_SEARCH_WINDOW_SECONDS
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils_for_debug.dataframe_output import (
     format_dataframe_for_display,
 )
@@ -85,7 +85,7 @@ def display_results(
             print("[yellow]Warning: Could not find open_time column or index for timeline display[/yellow]")
             return None
 
-        date_groups = df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
+        date_groups = df.groupby("date")["_data_source"].value_counts().pivot_table(fill_value=0)
 
         # Display timeline visualization
         timeline_table = Table(title="Sources by Date")
@@ -189,7 +189,8 @@ def display_results(
                                     print(f"[green]Detailed logs: {log_file} ({log_size:,} bytes)[/green]")
                                     # Log the timestamp difference for debugging
                                     logger.debug(
-                                        f"Found log file with similar timestamp: {file_timestamp_str} (difference: {(expected_timestamp - file_timestamp).total_seconds()} seconds)"
+                                        f"Found log file with similar timestamp: {file_timestamp_str} "
+                                        f"(difference: {(expected_timestamp - file_timestamp).total_seconds()} seconds)"
                                     )
                                     break
                             except Exception as e:
@@ -280,8 +281,10 @@ def display_results(
                                     else:
                                         print(f"[green]Error logs: {error_file} (empty - no errors)[/green]")
                                     # Log the timestamp difference for debugging
+                                    time_diff = (expected_timestamp - file_timestamp).total_seconds()
                                     logger.debug(
-                                        f"Found error log file with similar timestamp: {file_timestamp_str} (difference: {(expected_timestamp - file_timestamp).total_seconds()} seconds)"
+                                        f"Found error log file with similar timestamp: {file_timestamp_str} "
+                                        f"(difference: {time_diff} seconds)"
                                     )
                                     break
                             except Exception as e:

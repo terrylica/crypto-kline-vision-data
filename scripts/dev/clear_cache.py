@@ -13,7 +13,7 @@ import fsspec
 import typer
 from rich import print
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 logger.setLevel(logging.DEBUG)
 
@@ -252,7 +252,8 @@ def clear_directory(
             print(f"[green]Successfully cleared directory: {directory}[/green]")
 
         print(
-            f"[green]Files {('would be ' if test_mode else '')}deleted: {files_deleted}, Empty directories {('would be ' if test_mode else '')}removed: {dirs_removed}[/green]"
+            f"[green]Files {('would be ' if test_mode else '')}deleted: {files_deleted}, "
+            f"Empty directories {('would be ' if test_mode else '')}removed: {dirs_removed}[/green]"
         )
 
     except Exception as e:

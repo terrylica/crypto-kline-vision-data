@@ -10,7 +10,7 @@ import pendulum
 from core.providers.binance.vision_path_mapper import (
     FSSpecVisionHandler,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 

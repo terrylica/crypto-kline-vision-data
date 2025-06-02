@@ -31,7 +31,7 @@ def configure_session_logging(session_name, log_level="DEBUG", logger=None):
         tuple: (main_log_path, error_log_path, timestamp) for reference
     """
     if logger is None:
-        from utils.logger_setup import logger as default_logger
+        from utils.loguru_setup import logger as default_logger
 
         logger = default_logger
 

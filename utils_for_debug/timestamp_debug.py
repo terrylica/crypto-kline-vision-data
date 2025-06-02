@@ -10,7 +10,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def trace_dataframe_timestamps(
@@ -144,7 +144,8 @@ def analyze_filter_conditions(
                 earliest_time = earliest_after_start[time_column].min()
                 time_diff = (earliest_time - start_time).total_seconds()
                 logger.debug(
-                    f"[TIMESTAMP TRACE] No exact start_time match. Earliest timestamp after start_time is {earliest_time}, which is {time_diff} seconds later"
+                    f"[TIMESTAMP TRACE] No exact start_time match. Earliest timestamp "
+                    f"after start_time is {earliest_time}, which is {time_diff} seconds later"
                 )
 
     logger.debug(f"[TIMESTAMP TRACE] Unable to analyze filter conditions for column {time_column}")
@@ -185,5 +186,6 @@ def compare_filtered_results(
             qualifying_rows = input_df[(input_df[time_column] >= start_time) & (input_df[time_column] <= end_time)]
             if len(qualifying_rows) != len(output_df):
                 logger.warning(
-                    f"[TIMESTAMP TRACE] Potential data loss: {len(qualifying_rows)} rows qualify in input, but output has {len(output_df)} rows"
+                    f"[TIMESTAMP TRACE] Potential data loss: {len(qualifying_rows)} rows qualify in input, "
+                    f"but output has {len(output_df)} rows"
                 )

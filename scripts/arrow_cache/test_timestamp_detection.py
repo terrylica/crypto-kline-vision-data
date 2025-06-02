@@ -109,9 +109,8 @@ def save_and_load_arrow(df, filename):
     """
     # Save to Arrow
     table = pa.Table.from_pandas(df)
-    with pa.OSFile(filename, "wb") as f:
-        with pa.RecordBatchFileWriter(f, table.schema) as writer:
-            writer.write_table(table)
+    with pa.OSFile(filename, "wb") as f, pa.RecordBatchFileWriter(f, table.schema) as writer:
+        writer.write_table(table)
 
     # Load from Arrow
     with pa.OSFile(filename, "rb") as f:

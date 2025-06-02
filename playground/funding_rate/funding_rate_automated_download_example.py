@@ -14,7 +14,7 @@ from scripts.funding_rate_downloader.automate_funding_rate_download import (
     parse_arguments,
     process_all_symbols,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def run_automated_download_example():

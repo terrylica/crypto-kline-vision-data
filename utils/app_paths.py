@@ -12,7 +12,7 @@ from pathlib import Path
 
 import platformdirs
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Application information
 APP_NAME = "data-source-manager"

@@ -10,7 +10,7 @@ import re
 
 import pandas as pd
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 from utils.time_utils import detect_timestamp_unit
 
@@ -185,8 +185,8 @@ def parse_interval(interval_str: str) -> Interval:
             # Try by enum name (upper case with _ instead of number)
             try:
                 interval_obj = Interval[interval_str.upper()]
-            except KeyError:
-                raise ValueError(f"Invalid interval: {interval_str}")
+            except KeyError as e:
+                raise ValueError(f"Invalid interval: {interval_str}") from e
 
         logger.debug(f"Using interval {interval_obj.name} ({interval_obj.value})")
 

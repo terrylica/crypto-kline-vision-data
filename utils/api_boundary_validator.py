@@ -19,7 +19,7 @@ from utils.config import (
     HTTP_OK,
     MILLISECOND_TOLERANCE,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, Interval, MarketType, get_endpoint_url
 from utils.network_utils import create_client, safely_close_client
 from utils.time_utils import (

@@ -120,11 +120,11 @@ def classify_error(error: Exception) -> str:
     Returns:
         Standardized error type string
     """
-    if isinstance(error, (httpx.HTTPError,)):
+    if isinstance(error, httpx.HTTPError):
         return ERROR_TYPES["NETWORK"]
     if isinstance(error, OSError):
         return ERROR_TYPES["FILE_SYSTEM"]
-    if isinstance(error, (ValueError, TypeError)):
+    if isinstance(error, ValueError | TypeError):
         return ERROR_TYPES["VALIDATION"]
     if isinstance(error, pa.ArrowInvalid):
         return ERROR_TYPES["DATA_INTEGRITY"]
@@ -186,7 +186,7 @@ def get_vision_url(
     # Format date string
     date_str = date.strftime("%Y-%m-%d")
 
-    from utils.logger_setup import logger
+    from utils.loguru_setup import logger
 
     logger.debug(f"Creating Vision API URL for {symbol} {interval} on {date_str} (market: {market_type})")
 

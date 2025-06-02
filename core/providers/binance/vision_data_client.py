@@ -59,7 +59,7 @@ from utils.for_core.vision_file_utils import (
 )
 from utils.for_core.vision_timestamp import parse_interval, process_timestamp_columns
 from utils.gap_detector import detect_gaps
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import (
     ChartType,
     DataProvider,
@@ -194,9 +194,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             except (KeyError, AttributeError):
                 try:
                     self._market_type_obj = MarketType.from_string(market_type)
-                except ValueError:
+                except ValueError as e:
                     logger.error(f"Invalid market type: {market_type}")
-                    raise ValueError(f"Invalid market type: {market_type}")
+                    raise ValueError(f"Invalid market type: {market_type}") from e
 
         # Parse interval string to Interval object using imported function
         self.interval_obj = parse_interval(interval)
@@ -214,7 +214,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         self._client = httpx.Client(
             timeout=30.0,  # Increased timeout for better reliability
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ),
                 "Accept": "application/json, application/zip",
             },
             follow_redirects=True,  # Automatically follow redirects
@@ -228,17 +230,15 @@ class VisionDataClient(DataClientInterface, Generic[T]):
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit."""
         # Release resources
-        if hasattr(self, "_client") and self._client:
-            if hasattr(self._client, "close") and callable(self._client.close):
-                self._client.close()
+        if hasattr(self, "_client") and self._client and hasattr(self._client, "close") and callable(self._client.close):
+            self._client.close()
 
     def close(self) -> None:
         """Close the client and release resources."""
-        if hasattr(self, "_client") and self._client:
-            if hasattr(self._client, "close") and callable(self._client.close):
-                self._client.close()
-                self._client = None
-                logger.debug("Closed Vision API HTTP client")
+        if hasattr(self, "_client") and self._client and hasattr(self._client, "close") and callable(self._client.close):
+            self._client.close()
+            self._client = None
+            logger.debug("Closed Vision API HTTP client")
 
     @property
     def provider(self) -> DataProvider:
@@ -961,10 +961,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 timestamped_df = self._download_data(start_time, end_time)
 
                 # Convert to standard pandas DataFrame
-                if hasattr(timestamped_df, "to_pandas"):
-                    df = timestamped_df.to_pandas()
-                else:
-                    df = pd.DataFrame(timestamped_df)
+                df = timestamped_df.to_pandas() if hasattr(timestamped_df, "to_pandas") else pd.DataFrame(timestamped_df)
 
                 # Ensure open_time is properly handled
                 return ensure_open_time_as_column(df)
@@ -980,7 +977,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         logger.info(f"Returning {len(df)} rows despite checksum issues")
                         return df
                     logger.critical("No data available due to checksum verification failure")
-                    raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {e!s}")
+                    raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {e!s}") from e
                 logger.error(f"Error in _download_data: {e}")
                 raise
 
@@ -1006,7 +1003,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 f"CRITICAL ERROR fetching historical data from Vision API: {e}. "
                 f"This data should be available in Vision API but could not be retrieved."
             )
-            raise RuntimeError(f"Vision API failed to retrieve historical data: {e!s}")
+            raise RuntimeError(f"Vision API failed to retrieve historical data: {e!s}") from e
 
     @staticmethod
     def fetch_multiple(

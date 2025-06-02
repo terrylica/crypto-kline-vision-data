@@ -8,7 +8,7 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 OKX_API_BASE_URL = "https://www.okx.com/api/v5"
 CANDLES_ENDPOINT = f"{OKX_API_BASE_URL}/market/candles"

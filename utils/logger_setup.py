@@ -18,7 +18,7 @@ for the standard logging module with enhanced capabilities.
 
 Basic Usage Examples:
     # Import the logger
-    from utils.logger_setup import logger
+    from utils.loguru_setup import logger
 
     # Basic logging with auto-detected module name
     logger.debug("Debug message")

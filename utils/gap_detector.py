@@ -15,7 +15,7 @@ import pandas as pd
 from rich import print
 
 from utils.config import MIN_ROWS_FOR_GAP_DETECTION
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 
 

@@ -38,7 +38,7 @@ import pyarrow as pa
 from rich import print
 
 from utils.config import MAX_PREVIEW_ITEMS, MIN_FILES_FOR_README
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 

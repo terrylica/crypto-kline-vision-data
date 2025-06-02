@@ -12,7 +12,7 @@ from pathlib import Path
 import fsspec
 import pendulum
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, Interval, MarketType
 
 
@@ -64,7 +64,10 @@ class VisionPathMapper:
         file_ext = ".zip.CHECKSUM" if components.file_extension.endswith(".CHECKSUM") else ".zip"
         filename = f"{components.safe_symbol.upper()}-{components.interval}-{components.date_str}{file_ext}"
 
-        url = f"{self.base_url}/data/{market_path}/daily/{components.chart_type.vision_api_path}/{components.safe_symbol.upper()}/{components.interval}/{filename}"
+        url = (
+            f"{self.base_url}/data/{market_path}/daily/{components.chart_type.vision_api_path}/"
+            f"{components.safe_symbol.upper()}/{components.interval}/{filename}"
+        )
         logger.debug(f"Generated URL: {url}")
         return url
 
@@ -110,7 +113,7 @@ class VisionPathMapper:
             match = re.search(pattern, str(local_path), re.IGNORECASE)
 
             if not match:
-                raise ValueError(f"Can't map to remote URL: {local_path}")
+                raise ValueError(f"Can't map to remote URL: {local_path}") from None
 
             market, chart_type, symbol, interval, _, _, date, _ = match.groups()
 

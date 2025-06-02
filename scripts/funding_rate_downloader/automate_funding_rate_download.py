@@ -10,7 +10,7 @@ import httpx
 import pandas as pd
 
 from utils.config import HTTP_OK
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
 DEFAULT_INTERVAL_MINUTES = 60  # Default to download every hour
@@ -118,7 +118,7 @@ def process_all_symbols(symbols: list[str], output_dir: str = DEFAULT_OUTPUT_DIR
     results = [process_symbol(symbol, output_dir) for symbol in symbols]
 
     # Create results summary
-    return {symbol: result for symbol, result in zip(symbols, results, strict=False)}
+    return dict(zip(symbols, results, strict=False))
 
 
 def main_loop(symbols: list[str], interval_minutes: int, output_dir: str):

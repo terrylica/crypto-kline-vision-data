@@ -17,7 +17,7 @@ import argparse
 from rich.panel import Panel
 from rich.table import Table
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def main():

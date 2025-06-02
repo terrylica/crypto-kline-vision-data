@@ -18,7 +18,7 @@ from utils.app_paths import (
     get_cache_dir,
     get_market_cache_dir,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def get_dsm_demo_cache_dir() -> Path:
@@ -169,10 +169,12 @@ def print_cache_info():
     # Check if directories exist and print status
     print("\n[cyan]Directory Status:[/cyan]")
     print(
-        f"• Base cache exists: [{'green' if cache_dir.exists() else 'red'}]{cache_dir.exists()}[/{'green' if cache_dir.exists() else 'red'}]"
+        f"• Base cache exists: [{'green' if cache_dir.exists() else 'red'}]"
+        f"{cache_dir.exists()}[/{'green' if cache_dir.exists() else 'red'}]"
     )
     print(
-        f"• Demo cache exists: [{'green' if demo_cache_dir.exists() else 'red'}]{demo_cache_dir.exists()}[/{'green' if demo_cache_dir.exists() else 'red'}]"
+        f"• Demo cache exists: [{'green' if demo_cache_dir.exists() else 'red'}]"
+        f"{demo_cache_dir.exists()}[/{'green' if demo_cache_dir.exists() else 'red'}]"
     )
 
     # Show market cache examples

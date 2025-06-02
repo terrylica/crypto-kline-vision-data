@@ -7,7 +7,7 @@ for the Binance Vision API component. By using custom exceptions, calling code c
 catch specific error types and handle them appropriately.
 """
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 class VisionAPIError(Exception):

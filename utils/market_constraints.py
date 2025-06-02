@@ -45,7 +45,7 @@ from utils.config import (
     MIN_SHORT_SYMBOL_LENGTH,
     OPTIONS_SYMBOL_PARTS,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 class DataProvider(Enum):
@@ -235,10 +235,7 @@ class ChartType(Enum):
             True if this chart type is supported by the specified market type
         """
         # Use name-based comparison for compatibility with module reloading
-        for supported_market in self.supported_markets:
-            if safe_enum_compare(market_type, supported_market):
-                return True
-        return False
+        return any(safe_enum_compare(market_type, supported_market) for supported_market in self.supported_markets)
 
     def is_supported_by_provider(self, provider: DataProvider) -> bool:
         """Check if this chart type is supported by the specified data provider.
@@ -250,10 +247,7 @@ class ChartType(Enum):
             True if this chart type is supported by the specified data provider
         """
         # Use name-based comparison for compatibility with module reloading
-        for supported_provider in self.supported_providers:
-            if safe_enum_compare(provider, supported_provider):
-                return True
-        return False
+        return any(safe_enum_compare(provider, supported_provider) for supported_provider in self.supported_providers)
 
 
 class Interval(Enum):
@@ -437,7 +431,7 @@ MARKET_CAPABILITIES: dict[MarketType, MarketCapabilities] = {
         ],
         data_only_endpoint="https://data-api.binance.vision",
         api_version="v3",
-        supported_intervals=[interval for interval in Interval],  # All intervals including 1s
+        supported_intervals=list(Interval),  # All intervals including 1s
         symbol_format="BTCUSDT",
         description=(
             "Spot market with comprehensive support for all intervals including 1-second data. "
@@ -619,10 +613,10 @@ def get_market_capabilities(market_type: MarketType, data_provider: DataProvider
     # Select the appropriate capabilities dictionary based on the provider
     if data_provider.name == "OKX":
         capabilities_dict = OKX_MARKET_CAPABILITIES
-        logger.debug(f"Using OKX capabilities, keys: {[k.name for k in capabilities_dict.keys()]}")
+        logger.debug(f"Using OKX capabilities, keys: {[k.name for k in capabilities_dict]}")
     else:
         capabilities_dict = MARKET_CAPABILITIES
-        logger.debug(f"Using standard capabilities, keys: {[k.name for k in capabilities_dict.keys()]}")
+        logger.debug(f"Using standard capabilities, keys: {[k.name for k in capabilities_dict]}")
 
     # First try direct lookup by name
     for key, value in capabilities_dict.items():

@@ -96,10 +96,9 @@ def enable_smart_print(enabled=True, console=None):
             logging.debug("Smart print enabled - print statements now respect log level")
 
         # Always show this message regardless of level
-        if logging.getLogger().level >= logging.ERROR:
+        if logging.getLogger().level >= logging.ERROR and hasattr(builtins, "_original_print"):
             # For ERROR and CRITICAL, use the original print function to show a message
-            if hasattr(builtins, "_original_print"):
-                builtins._original_print("Smart print enabled - print output will be suppressed at current log level")
+            builtins._original_print("Smart print enabled - print output will be suppressed at current log level")
     # Restore original print if we have it stored
     elif hasattr(builtins, "_original_print"):
         builtins.print = builtins._original_print

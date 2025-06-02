@@ -17,7 +17,7 @@ import pandas as pd
 import pyarrow as pa
 
 from utils.api_boundary_validator import ApiBoundaryValidator
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 from utils.validation import DataFrameValidator
 
@@ -109,36 +109,32 @@ class SafeMemoryMap:
         Raises:
             Various exceptions if reading fails
         """
-        with SafeMemoryMap(path) as source:
-            with pa.ipc.open_file(source) as reader:
-                if columns:
-                    # Ensure index column is included
-                    all_cols = reader.schema.names
-                    if "open_time" in all_cols and "open_time" not in columns:
-                        cols_to_read = ["open_time", *list(columns)]
-                    else:
-                        cols_to_read = list(columns)
-                    table = reader.read_all().select(cols_to_read)
-                else:
-                    table = reader.read_all()
+        with SafeMemoryMap(path) as source, pa.ipc.open_file(source) as reader:
+            if columns:
+                # Ensure index column is included
+                all_cols = reader.schema.names
+                cols_to_read = ["open_time", *list(columns)] if "open_time" in all_cols and "open_time" not in columns else list(columns)
+                table = reader.read_all().select(cols_to_read)
+            else:
+                table = reader.read_all()
 
-                df = table.to_pandas(
-                    zero_copy_only=False,  # More robust but might copy data
-                    date_as_object=False,
-                    use_threads=True,
-                )
+            df = table.to_pandas(
+                zero_copy_only=False,  # More robust but might copy data
+                date_as_object=False,
+                use_threads=True,
+            )
 
-                # Set index if needed
-                if "open_time" in df.columns and df.index.name != "open_time":
-                    df = df.set_index("open_time")
+            # Set index if needed
+            if "open_time" in df.columns and df.index.name != "open_time":
+                df = df.set_index("open_time")
 
-                # Ensure index is datetime with timezone
-                if not isinstance(df.index, pd.DatetimeIndex):
-                    df.index = pd.to_datetime(df.index, utc=True)
-                elif df.index.tz is None:
-                    df.index = df.index.tz_localize("UTC")
+            # Ensure index is datetime with timezone
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index, utc=True)
+            elif df.index.tz is None:
+                df.index = df.index.tz_localize("UTC")
 
-                return df
+            return df
 
 
 @dataclass
@@ -411,36 +407,35 @@ class CacheValidator:
         """
         try:
             # Use a local copy of the implementation to avoid protected member access
-            with SafeMemoryMap(file_path) as source:
-                with pa.ipc.open_file(source) as reader:
-                    if columns:
-                        # Ensure index column is included
-                        all_cols = reader.schema.names
-                        if "open_time" in all_cols and "open_time" not in columns:
-                            cols_to_read = ["open_time", *list(columns)]
-                        else:
-                            cols_to_read = list(columns)
-                        table = reader.read_all().select(cols_to_read)
+            with SafeMemoryMap(file_path) as source, pa.ipc.open_file(source) as reader:
+                if columns:
+                    # Ensure index column is included
+                    all_cols = reader.schema.names
+                    if "open_time" in all_cols and "open_time" not in columns:
+                        cols_to_read = ["open_time", *list(columns)]
                     else:
-                        table = reader.read_all()
+                        cols_to_read = list(columns)
+                    table = reader.read_all().select(cols_to_read)
+                else:
+                    table = reader.read_all()
 
-                    df = table.to_pandas(
-                        zero_copy_only=False,  # More robust but might copy data
-                        date_as_object=False,
-                        use_threads=True,
-                    )
+                df = table.to_pandas(
+                    zero_copy_only=False,  # More robust but might copy data
+                    date_as_object=False,
+                    use_threads=True,
+                )
 
-                    # Set index if needed
-                    if "open_time" in df.columns and df.index.name != "open_time":
-                        df = df.set_index("open_time")
+                # Set index if needed
+                if "open_time" in df.columns and df.index.name != "open_time":
+                    df = df.set_index("open_time")
 
-                    # Ensure index is datetime with timezone
-                    if not isinstance(df.index, pd.DatetimeIndex):
-                        df.index = pd.to_datetime(df.index, utc=True)
-                    elif df.index.tz is None:
-                        df.index = df.index.tz_localize("UTC")
+                # Ensure index is datetime with timezone
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    df.index = pd.to_datetime(df.index, utc=True)
+                elif df.index.tz is None:
+                    df.index = df.index.tz_localize("UTC")
 
-                    return df
+                return df
         except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
             logger.error("Error reading Arrow file %s: %s", file_path, e)
             return None
@@ -671,9 +666,8 @@ class VisionCacheManager:
 
         # Write to file
         try:
-            with pa.OSFile(str(cache_path), "wb") as sink:
-                with pa.ipc.new_file(sink, table.schema) as writer:
-                    writer.write_table(table)
+            with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
+                writer.write_table(table)
 
             # Calculate checksum
             checksum = CacheValidator.calculate_checksum(cache_path)

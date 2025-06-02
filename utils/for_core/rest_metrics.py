@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from utils.config import SECONDS_IN_HOUR
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 class RestMetricsTracker:

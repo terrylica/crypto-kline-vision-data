@@ -258,7 +258,7 @@ def create_empty_dataframe(chart_type=None) -> pd.DataFrame:
     Returns:
         An empty DataFrame with correct column types and index
     """
-    from utils.logger_setup import logger
+    from utils.loguru_setup import logger
     from utils.market_constraints import ChartType
 
     # Determine chart type

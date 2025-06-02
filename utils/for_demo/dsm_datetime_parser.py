@@ -8,7 +8,7 @@ This module provides consistent datetime parsing functionality for all DSM Demos
 import pendulum
 
 from utils.config import DATE_STRING_LENGTH
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def parse_datetime(dt_str):
@@ -56,7 +56,7 @@ def parse_datetime(dt_str):
 
         error_msg = f"Unable to parse datetime: {dt_str!r}. Error: {e!s}"
         logger.error(error_msg)
-        raise ValueError(error_msg)
+        raise ValueError(error_msg) from e
 
 
 def calculate_date_range(start_time, end_time, days):
@@ -83,7 +83,8 @@ def calculate_date_range(start_time, end_time, days):
             start_datetime = parse_datetime(start_time)
             end_datetime = parse_datetime(end_time)
             logger.debug(
-                f"Successfully parsed dates: {start_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')}"
+                f"Successfully parsed dates: {start_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')} to "
+                f"{end_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')}"
             )
             return start_datetime, end_datetime
         except ValueError as e:
@@ -92,7 +93,8 @@ def calculate_date_range(start_time, end_time, days):
             end_datetime = current_time
             start_datetime = end_datetime.subtract(days=days)
             logger.warning(
-                f"Using fallback date range: {start_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')}"
+                f"Using fallback date range: {start_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')} to "
+                f"{end_datetime.format('YYYY-MM-DD HH:mm:ss.SSS')}"
             )
             return start_datetime, end_datetime
     else:

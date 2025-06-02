@@ -12,7 +12,7 @@ from utils.for_core.dsm_time_range_utils import (
     merge_dataframes,
 )
 from utils.for_core.vision_exceptions import UnsupportedIntervalError
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import (
     Interval,
     MarketType,
@@ -258,7 +258,8 @@ def verify_final_data(
     # Check if result covers the entire requested range
     if min_time > aligned_start or max_time < aligned_end:
         logger.warning(
-            f"[FCP] Result does not cover full requested range. Missing start: {min_time > aligned_start}, Missing end: {max_time < aligned_end}"
+            f"[FCP] Result does not cover full requested range. "
+            f"Missing start: {min_time > aligned_start}, Missing end: {max_time < aligned_end}"
         )
 
         if min_time > aligned_start:

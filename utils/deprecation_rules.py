@@ -40,7 +40,7 @@ from typing import ClassVar
 
 import pandas as pd
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 from .market_constraints import Interval as MarketInterval
 

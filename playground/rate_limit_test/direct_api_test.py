@@ -19,7 +19,7 @@ from rich import print
 from rich.console import Console
 
 from utils.config import HTTP_OK, SECONDS_IN_MINUTE
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Configure logging
 logger.setup_root(level="INFO")

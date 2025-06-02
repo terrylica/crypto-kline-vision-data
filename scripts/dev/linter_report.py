@@ -23,7 +23,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Initialize console for rich output
 console = Console()
@@ -151,10 +151,7 @@ def generate_error_code_summary(issues, sort_by="count"):
     table.add_column("Description", style="yellow")
 
     # Sort according to preference
-    if sort_by.lower() == "code":
-        items = sorted(code_counter.items(), key=lambda x: x[0])
-    else:  # Default is by count
-        items = code_counter.most_common()
+    items = sorted(code_counter.items(), key=lambda x: x[0]) if sort_by.lower() == "code" else code_counter.most_common()
 
     # Cache error explanations to avoid redundant subprocess calls
     explanation_cache = {}
@@ -190,10 +187,7 @@ def generate_file_summary(issues, sort_by="count"):
     table.add_column("File", style="green")
 
     # Sort according to preference
-    if sort_by.lower() == "file":
-        items = sorted(file_counter.items(), key=lambda x: x[0])[:15]
-    else:  # Default is by count
-        items = file_counter.most_common(15)
+    items = sorted(file_counter.items(), key=lambda x: x[0])[:15] if sort_by.lower() == "file" else file_counter.most_common(15)
 
     for file, count in items:
         # Make the path relative to the workspace
@@ -316,10 +310,7 @@ def generate_file_error_breakdown(issues, sort_by="count"):
 
         # Format the error breakdown
         # Sort by code for consistent output if requested
-        if sort_by.lower() == "code":
-            error_items = sorted(errors.items())
-        else:
-            error_items = errors.most_common()
+        error_items = sorted(errors.items()) if sort_by.lower() == "code" else errors.most_common()
 
         error_str = " ".join(f"{code}({count})" for code, count in error_items)
 

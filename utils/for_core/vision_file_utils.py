@@ -12,7 +12,7 @@ import pandas as pd
 
 from core.providers.binance.rest_data_client import RestDataClient
 from utils.gap_detector import Gap
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval, MarketType
 
 

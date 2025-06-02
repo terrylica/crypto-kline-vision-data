@@ -16,7 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from core.sync.data_source_manager import DataSource, DataSourceManager
 from utils.app_paths import get_cache_dir
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import (
     ChartType,
     DataProvider,

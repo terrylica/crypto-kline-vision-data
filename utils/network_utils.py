@@ -41,7 +41,7 @@ from utils.config import (
     MEDIUM_BATCH_SIZE,
     SMALL_BATCH_SIZE,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Define a generic Client type for HTTP clients
 Client = httpx.Client
@@ -139,9 +139,9 @@ def create_client(
     try:
         logger.debug(f"Creating httpx client with {len(kwargs)} additional parameters")
         return create_httpx_client(timeout, max_connections, headers, **kwargs)
-    except ImportError:
+    except ImportError as e:
         logger.error("httpx is not available. Please install httpx: pip install httpx>=0.24.0")
-        raise ImportError("httpx is required but not available. Install with: pip install httpx>=0.24.0")
+        raise ImportError("httpx is required but not available. Install with: pip install httpx>=0.24.0") from e
 
 
 def create_legacy_client(
@@ -221,10 +221,7 @@ class DownloadProgressTracker:
         elapsed = current_time - self.start_time
 
         # Calculate speed
-        if elapsed > 0:
-            speed = self.bytes_received / elapsed
-        else:
-            speed = 0
+        speed = self.bytes_received / elapsed if elapsed > 0 else 0
 
         # Check if progress is stalled
         if current_time - self.last_progress_time >= self.check_interval:

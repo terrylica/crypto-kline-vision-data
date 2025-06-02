@@ -35,7 +35,7 @@ import traceback
 import pandas as pd
 
 from utils.config import CANONICAL_INDEX_NAME
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 class TimestampedDataFrame(pd.DataFrame):
@@ -113,18 +113,18 @@ class TimestampedDataFrame(pd.DataFrame):
         # After initialization, ensure open_time is available as a column
         # This is critical for compatibility with standard pandas operations
         try:
-            if "open_time" not in self.columns:
-                if hasattr(self.index, "name") and self.index.name == "open_time":
-                    logger.debug("Ensuring open_time exists as column (copied from index)")
-                    # Fix: Use reset_index and set_index operations without reassigning self
-                    temp_df = self.reset_index()
-                    self._update_inplace(temp_df)
-                    # Instead of reassigning self, modify the index directly
-                    self.index = temp_df["open_time"]
-                    self.index.name = "open_time"
-                    logger.debug(
-                        f"Added open_time column, dtype: {self['open_time'].dtype if 'open_time' in self.columns else 'N/A'} (represents BEGINNING of candle)"
-                    )
+            if "open_time" not in self.columns and hasattr(self.index, "name") and self.index.name == "open_time":
+                logger.debug("Ensuring open_time exists as column (copied from index)")
+                # Fix: Use reset_index and set_index operations without reassigning self
+                temp_df = self.reset_index()
+                self._update_inplace(temp_df)
+                # Instead of reassigning self, modify the index directly
+                self.index = temp_df["open_time"]
+                self.index.name = "open_time"
+                logger.debug(
+                    f"Added open_time column, dtype: {self['open_time'].dtype if 'open_time' in self.columns else 'N/A'} "
+                    f"(represents BEGINNING of candle)"
+                )
         except Exception as e:
             logger.error(f"Error ensuring open_time as column: {e}")
             logger.error(f"Columns available: {list(self.columns)}")

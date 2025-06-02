@@ -14,7 +14,7 @@ from scripts.funding_rate_downloader.download_funding_rate import (
     fetch_funding_rate_history,
     save_to_csv,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # No need to initialize logger with get_logger anymore
 

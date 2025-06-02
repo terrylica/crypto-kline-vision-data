@@ -31,7 +31,7 @@ from core.providers.binance.rest_data_client import RestDataClient
 # For API access
 from core.sync.data_source_manager import DataSourceManager
 from utils.config import SECONDS_IN_MINUTE
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import DataProvider, Interval, MarketType
 from utils.network_utils import create_httpx_client
 

@@ -25,7 +25,10 @@ DEFAULT_LOG_COLORS = {
 FORMAT_BASE = "%(log_color)s%(levelname)-8s%(reset)s %(name)s: %(message)s"
 
 # Format with custom file/line information from our proxy
-CUSTOM_FORMAT_WITH_FILENAME = "%(log_color)s%(levelname)-8s%(reset)s %(name)s: %(message)s%(blue)s [%(cyan)s%(source_file)s%(blue)s:%(yellow)s%(source_line)s%(blue)s]%(reset)s"
+CUSTOM_FORMAT_WITH_FILENAME = (
+    "%(log_color)s%(levelname)-8s%(reset)s %(name)s: %(message)s%(blue)s "
+    "[%(cyan)s%(source_file)s%(blue)s:%(yellow)s%(source_line)s%(blue)s]%(reset)s"
+)
 
 # Rich format (Rich handles the styling)
 RICH_FORMAT = "%(message)s"

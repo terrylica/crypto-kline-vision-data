@@ -77,7 +77,7 @@ from utils.for_demo.dsm_doc_utils import (
 )
 
 # Import the logger or logging and rich formatting
-from utils.logger_setup import configure_session_logging, logger
+from utils.loguru_setup import configure_session_logging, logger
 
 # Start the performance timer at module initialization
 start_time_perf = perf_counter()

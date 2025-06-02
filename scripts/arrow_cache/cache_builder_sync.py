@@ -32,7 +32,7 @@ import pandas as pd
 import pyarrow as pa
 
 from utils.config import HTTP_NOT_FOUND, SMALL_FILE_SIZE
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval, MarketType
 
 
@@ -619,11 +619,7 @@ def download_data_with_checksum(
 
     date_str = date.strftime("%Y-%m-%d")
     # Check if date is a datetime object or already a date object
-    if hasattr(date, "date"):
-        compare_date = date.date()
-    else:
-        # Already a date object
-        compare_date = date
+    compare_date = date.date() if hasattr(date, "date") else date
     is_current_day = compare_date == datetime.now().date()
 
     if is_current_day:
@@ -650,9 +646,8 @@ def download_data_with_checksum(
 
         # Handle symbol name adjustments for certain market types
         adjusted_symbol = symbol
-        if "futures_coin" in market_type or "futures/cm" in vision_api_path:
-            if not adjusted_symbol.endswith("_PERP"):
-                adjusted_symbol = f"{adjusted_symbol}_PERP"
+        if ("futures_coin" in market_type or "futures/cm" in vision_api_path) and not adjusted_symbol.endswith("_PERP"):
+            adjusted_symbol = f"{adjusted_symbol}_PERP"
 
         # Construct URLs for data and checksum files
         base_url = f"{BINANCE_VISION_BASE_URL}/data/{vision_api_path}/daily/{chart_type.lower()}/{adjusted_symbol}/{interval_str}"
@@ -720,7 +715,8 @@ def download_data_with_checksum(
                         content_length = len(content)
                         preview_length = min(40, content_length)
                         logger.debug(
-                            f"Raw checksum file content: '{content[:preview_length]}' (+ {content_length - preview_length} more chars, {content_length} total)"
+                            f"Raw checksum file content: '{content[:preview_length]}' "
+                            f"(+ {content_length - preview_length} more chars, {content_length} total)"
                         )
                         logger.debug(f"Expected checksum: '{expected}'")
 
@@ -880,9 +876,8 @@ def save_to_arrow_cache(df, symbol, interval_str, date):
         table = pa.Table.from_pandas(save_df)
 
         # Write to Arrow file - Convert path to string
-        with pa.OSFile(str(file_path), "wb") as f:
-            with pa.RecordBatchFileWriter(f, table.schema) as writer:
-                writer.write_table(table)
+        with pa.OSFile(str(file_path), "wb") as f, pa.RecordBatchFileWriter(f, table.schema) as writer:
+            writer.write_table(table)
 
         logger.info(f"Saved {len(df)} records to {file_path}")
         return True
@@ -1006,7 +1001,8 @@ def verify_checksum(data_file, checksum_file, symbol, interval_str, date):
             content_length = len(content)
             preview_length = min(40, content_length)
             logger.debug(
-                f"Raw checksum file content: '{content[:preview_length]}' (+ {content_length - preview_length} more chars, {content_length} total)"
+                f"Raw checksum file content: '{content[:preview_length]}' "
+                f"(+ {content_length - preview_length} more chars, {content_length} total)"
             )
             logger.debug(f"Expected checksum: '{expected}'")
 
@@ -1197,9 +1193,8 @@ def process_date(
 
             # Convert to Arrow table and save
             table = pa.Table.from_pandas(data)
-            with pa.OSFile(str(cache_path), "wb") as f:
-                with pa.RecordBatchFileWriter(f, table.schema) as writer:
-                    writer.write_table(table)
+            with pa.OSFile(str(cache_path), "wb") as f, pa.RecordBatchFileWriter(f, table.schema) as writer:
+                writer.write_table(table)
 
             # Get file size
             file_size = cache_path.stat().st_size
@@ -1312,7 +1307,8 @@ def cache_symbol_data(
         records_per_second = interval_records / interval_duration if interval_duration > 0 else 0
 
         logger.info(
-            f"Completed {symbol} {interval_str}: {interval_records} records in {interval_duration:.2f}s ({records_per_second:.2f} records/s)"
+            f"Completed {symbol} {interval_str}: {interval_records} records in "
+            f"{interval_duration:.2f}s ({records_per_second:.2f} records/s)"
         )
 
         interval_stats[interval_str] = {
@@ -1639,12 +1635,8 @@ def should_process_date(symbol, interval_str, date, args):
     if args.force_update:
         return True
 
-    # Skip if the file exists and we're in incremental mode
-    if args.incremental and check_cache_file_exists(symbol, interval_str, date):
-        return False
-
-    # Process all other cases
-    return True
+    # Return the negated condition directly
+    return not (args.incremental and check_cache_file_exists(symbol, interval_str, date))
 
 
 if __name__ == "__main__":

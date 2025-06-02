@@ -49,7 +49,7 @@ from utils.for_demo.dsm_data_fetcher import fetch_data_with_fcp
 from utils.for_demo.dsm_validation_utils import calculate_date_range, validate_interval
 
 # Import the logger
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Import core types and constraints
 from utils.market_constraints import (

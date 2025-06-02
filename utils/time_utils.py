@@ -51,7 +51,7 @@ from utils.config import (
     TIMESTAMP_PRECISION,
 )
 from utils.deprecation_rules import TimeUnit
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval as MarketInterval
 
 # Re-export the get_interval_micros function at the module level for direct import

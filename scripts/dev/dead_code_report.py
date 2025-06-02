@@ -23,7 +23,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # Initialize console for rich output
 console = Console()
@@ -171,10 +171,7 @@ def generate_file_summary(items, sort_by="count"):
     table.add_column("Breakdown by Type", style="yellow")
 
     # Sort according to preference
-    if sort_by.lower() == "path":
-        items = sorted(file_counter.items(), key=lambda x: x[0])[:15]
-    else:  # Default is by count
-        items = file_counter.most_common(15)
+    items = sorted(file_counter.items(), key=lambda x: x[0])[:15] if sort_by.lower() == "path" else file_counter.most_common(15)
 
     for file, count in items:
         # Make the path relative to the workspace

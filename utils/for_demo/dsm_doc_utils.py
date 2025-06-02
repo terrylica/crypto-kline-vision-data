@@ -23,7 +23,7 @@ from utils.for_demo.dsm_help_content import (
     RETRIEVES_DATA,
     SAMPLE_COMMANDS,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def generate_markdown_docs_with_typer_cli(
@@ -329,7 +329,7 @@ def verify_and_install_typer_cli() -> bool:
     import subprocess
     import sys
 
-    from utils.logger_setup import logger
+    from utils.loguru_setup import logger
 
     typer_cli_available = shutil.which("typer") is not None
 

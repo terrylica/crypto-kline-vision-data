@@ -16,4 +16,4 @@ def interval():
     Provide the trading interval for OKX tests.
     Returns a default value of 1m (1 minute).
     """
-    return "1m" 
+    return "1m"

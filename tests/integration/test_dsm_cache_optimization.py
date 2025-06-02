@@ -10,7 +10,7 @@ import pendulum
 
 from core.sync.data_source_manager import DataSourceManager
 from utils.config import FEATURE_FLAGS
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 logger.setup_root(level="DEBUG")

@@ -11,7 +11,7 @@ import pyarrow as pa
 import pyarrow.ipc
 
 from utils.config import MIN_CACHE_KEY_COMPONENTS
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 class UnifiedCacheManager:
@@ -214,10 +214,7 @@ class UnifiedCacheManager:
                 market_path = market_type
 
             # Handle special symbols for coin-margined futures
-            if market_type in ("futures_coin", "cm") and not symbol.endswith("_perp"):
-                symbol_safe = f"{symbol}_perp"
-            else:
-                symbol_safe = symbol
+            symbol_safe = f"{symbol}_perp" if market_type in ("futures_coin", "cm") and not symbol.endswith("_perp") else symbol
 
             # Create path components similar to Vision API structure
             path_components = [
@@ -365,10 +362,9 @@ class UnifiedCacheManager:
 
         # Ensure data is sorted by open_time before caching for KLINES chart type
         # This is the final safety check to prevent unsorted cache entries
-        if "open_time" in df.columns and chart_type.upper() == "KLINES":
-            if not df["open_time"].is_monotonic_increasing:
-                logger.debug(f"UnifiedCacheManager: Sorting data by open_time before caching for {symbol}")
-                df = df.sort_values("open_time").reset_index(drop=True)
+        if "open_time" in df.columns and chart_type.upper() == "KLINES" and not df["open_time"].is_monotonic_increasing:
+            logger.debug(f"UnifiedCacheManager: Sorting data by open_time before caching for {symbol}")
+            df = df.sort_values("open_time").reset_index(drop=True)
 
         # Generate cache key
         cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type, market_type)
@@ -413,9 +409,8 @@ class UnifiedCacheManager:
             table = pa.Table.from_pandas(df)
 
             # Write to file using Arrow IPC format (not Parquet)
-            with pa.OSFile(str(cache_path), "wb") as sink:
-                with pa.ipc.new_file(sink, table.schema) as writer:
-                    writer.write_table(table)
+            with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
+                writer.write_table(table)
 
             # Update metadata
             metadata_entry["file_size_bytes"] = cache_path.stat().st_size

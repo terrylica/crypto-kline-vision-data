@@ -7,7 +7,7 @@ import httpx
 import pandas as pd
 
 from utils.config import HTTP_OK
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # No need to initialize logger with get_logger anymore
 

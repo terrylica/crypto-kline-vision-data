@@ -72,7 +72,7 @@ from utils.for_core.dsm_fcp_utils import (
 from utils.for_core.dsm_time_range_utils import (
     standardize_columns,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 from utils.time_utils import align_time_boundaries
 
@@ -788,7 +788,8 @@ class DataSourceManager:
             validate_interval(self.market_type, interval)
 
             logger.debug(
-                f"[FCP] get_data called with use_cache={self.use_cache} for symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
+                f"[FCP] get_data called with use_cache={self.use_cache} for "
+                f"symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
             )
             logger.debug(f"[FCP] Time range: {start_time.isoformat()} to {end_time.isoformat()}")
 

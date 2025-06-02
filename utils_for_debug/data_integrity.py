@@ -8,7 +8,7 @@ data integrity issues in DataFrames containing market data.
 
 import pandas as pd
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def analyze_data_integrity(df, start_time, end_time, interval):

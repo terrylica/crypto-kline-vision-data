@@ -10,6 +10,7 @@ across the codebase, particularly for:
 4. Ensuring proper index configuration
 """
 
+import contextlib
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -20,7 +21,7 @@ from utils.config import (
     FUNDING_RATE_DTYPES,
     OUTPUT_DTYPES,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def ensure_open_time_as_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -153,14 +154,17 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
             logger.debug("Setting open_time column as index")
 
             # Ensure the column is properly timezone-aware
-            if pd.api.types.is_datetime64_dtype(df[CANONICAL_INDEX_NAME]):
-                if hasattr(df[CANONICAL_INDEX_NAME], "dt") and hasattr(df[CANONICAL_INDEX_NAME].dt, "tz"):
-                    if df[CANONICAL_INDEX_NAME].dt.tz is None:
-                        logger.debug("Localizing open_time column to UTC before setting as index")
-                        df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_localize(timezone.utc)
-                    elif df[CANONICAL_INDEX_NAME].dt.tz != timezone.utc:
-                        logger.debug(f"Converting open_time column timezone from {df[CANONICAL_INDEX_NAME].dt.tz} to UTC")
-                        df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_convert(timezone.utc)
+            if (
+                pd.api.types.is_datetime64_dtype(df[CANONICAL_INDEX_NAME])
+                and hasattr(df[CANONICAL_INDEX_NAME], "dt")
+                and hasattr(df[CANONICAL_INDEX_NAME].dt, "tz")
+            ):
+                if df[CANONICAL_INDEX_NAME].dt.tz is None:
+                    logger.debug("Localizing open_time column to UTC before setting as index")
+                    df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_localize(timezone.utc)
+                elif df[CANONICAL_INDEX_NAME].dt.tz != timezone.utc:
+                    logger.debug(f"Converting open_time column timezone from {df[CANONICAL_INDEX_NAME].dt.tz} to UTC")
+                    df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_convert(timezone.utc)
 
             try:
                 return df.set_index(CANONICAL_INDEX_NAME)
@@ -255,10 +259,8 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
         if CANONICAL_INDEX_NAME in df.columns:
             logger.warning("Fallback: Using existing open_time column as index despite error")
             # Last resort, try a simple set_index operation
-            try:
+            with contextlib.suppress(Exception):
                 df = df.set_index(CANONICAL_INDEX_NAME)
-            except Exception:
-                pass
         else:
             logger.warning("Fallback: Creating a new synthetic index despite error")
             # Last resort, create a new empty index
@@ -526,10 +528,7 @@ def convert_to_standardized_formats(df: pd.DataFrame, output_format: str = "defa
         return df
 
     # Select appropriate dtype mapping based on chart type
-    if chart_type.lower() == "funding_rate":
-        dtypes = FUNDING_RATE_DTYPES
-    else:
-        dtypes = OUTPUT_DTYPES
+    dtypes = FUNDING_RATE_DTYPES if chart_type.lower() == "funding_rate" else OUTPUT_DTYPES
 
     # Ensure correct data types
     for col, dtype in dtypes.items():

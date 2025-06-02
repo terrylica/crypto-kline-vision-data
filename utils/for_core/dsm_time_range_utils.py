@@ -7,7 +7,7 @@ import pandas as pd
 
 from utils.config import REST_IS_STANDARD
 from utils.dataframe_utils import ensure_open_time_as_column, standardize_dataframe
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 from utils.time_utils import standardize_timestamp_precision
 

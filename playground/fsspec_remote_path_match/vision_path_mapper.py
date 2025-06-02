@@ -9,7 +9,7 @@ import pendulum
 import typer
 from rich import print
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, MarketType
 
 

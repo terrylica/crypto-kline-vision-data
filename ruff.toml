@@ -60,6 +60,9 @@ convention = "google" # Use Google-style docstrings
 [lint.per-file-ignores]
 # Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
 "__init__.py" = ["E402"]
+# Ignore `E402` in example scripts that need path manipulation
+"examples/sync/dsm_datetime_example.py" = ["E402"]
+"examples/sync/dsm_one_second_test.py" = ["E402"]
 # Ignore `D` rules everywhere except for the `src/` directory.
 "!src/**.py" = ["D"]
 # Add any per-file ignore rules here if needed

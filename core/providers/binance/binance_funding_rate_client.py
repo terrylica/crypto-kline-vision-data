@@ -15,7 +15,7 @@ from utils.config import (
     MIN_FUNDING_RATE,
     create_empty_funding_rate_dataframe,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 from utils.market_utils import get_market_type_str
 from utils.network_utils import create_client
@@ -175,11 +175,14 @@ class BinanceFundingRateClient(DataClientInterface):
                                 try:
                                     converted = df[col].astype(dtype)
                                     # For numeric types, check for data loss in conversion
-                                    if pd.api.types.is_numeric_dtype(df[col]) and pd.api.types.is_numeric_dtype(converted):
-                                        if not (converted.dropna().to_numpy() == original_values).all():
-                                            dtype_errors.append(
-                                                f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
-                                            )
+                                    if (
+                                        pd.api.types.is_numeric_dtype(df[col])
+                                        and pd.api.types.is_numeric_dtype(converted)
+                                        and not (converted.dropna().to_numpy() == original_values).all()
+                                    ):
+                                        dtype_errors.append(
+                                            f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
+                                        )
 
                                 except Exception as e:
                                     dtype_errors.append(f"Column {col} cannot be converted from {df[col].dtype} to {dtype}: {e}")
@@ -240,7 +243,7 @@ class BinanceFundingRateClient(DataClientInterface):
             ValueError: If parameters are invalid
         """
         # Extract any useful parameters from kwargs for future extensions
-        cache_mode = kwargs.get("cache_mode", None)
+        cache_mode = kwargs.get("cache_mode")
         if cache_mode:
             logger.debug(f"Cache mode hint: {cache_mode} (ignored by funding rate client)")
 

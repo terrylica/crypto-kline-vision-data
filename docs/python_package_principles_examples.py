@@ -164,10 +164,7 @@ def validate_example_input(
         raise ValueError("Identifier cannot be empty")
 
     # Convert datetime objects to pendulum for better timezone handling
-    if end_time is None:
-        end_time = pendulum.now("UTC")
-    else:
-        end_time = pendulum.instance(end_time)
+    end_time = pendulum.now("UTC") if end_time is None else pendulum.instance(end_time)
 
     # Calculate start_time based on days if provided
     if start_time is None and days is not None:

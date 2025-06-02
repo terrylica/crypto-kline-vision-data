@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from core.sync.data_source_manager import DataSourceManager
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 

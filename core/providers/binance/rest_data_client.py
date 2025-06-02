@@ -34,7 +34,7 @@ from utils.for_core.rest_exceptions import (
     RestAPIError,
     TimeoutError,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import (
     ChartType,
     DataProvider,

@@ -8,7 +8,7 @@ from rich.console import Console
 
 from core.sync.data_source_manager import DataSourceManager
 from utils.for_demo.dsm_datetime_parser import parse_datetime
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import (
     Interval,
     MarketType,

@@ -17,7 +17,7 @@ import pendulum
 from pendulum import DateTime
 
 from utils.config import DATE_STRING_LENGTH
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 from utils.time_utils import align_time_boundaries
 
@@ -67,7 +67,7 @@ def parse_datetime_string(dt_str: str | None) -> DateTime | None:
 
         error_msg = f"Unable to parse datetime: {dt_str!r}. Error: {e!s}"
         logger.error(error_msg)
-        raise ValueError(error_msg)
+        raise ValueError(error_msg) from e
 
 
 def calculate_date_range(

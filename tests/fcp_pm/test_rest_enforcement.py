@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from core.sync.data_source_manager import DataSource, DataSourceManager
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 # Set log level to DEBUG to see detailed logging

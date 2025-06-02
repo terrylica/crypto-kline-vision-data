@@ -183,13 +183,15 @@ CLI_OPTIONS = {
     "start_time": {
         "long_flag": "--start-time",
         "short_flag": "-st",
-        "help": "Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Can be used alone with --days to fetch forward, or with --end-time for exact range",
+        "help": "Start time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. "
+        "Can be used alone with --days to fetch forward, or with --end-time for exact range",
         "default": None,
     },
     "end_time": {
         "long_flag": "--end-time",
         "short_flag": "-et",
-        "help": "End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. Can be used alone with --days to fetch backward, or with --start-time for exact range",
+        "help": "End time in ISO format (YYYY-MM-DDTHH:MM:SS) or YYYY-MM-DD. "
+        "Can be used alone with --days to fetch backward, or with --start-time for exact range",
         "default": None,
     },
     "days": {

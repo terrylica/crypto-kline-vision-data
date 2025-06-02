@@ -18,11 +18,11 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
-# Import DSM components
+# Project imports (after path setup)
 from core.sync.data_source_manager import DataSourceManager
 from utils.dataframe_utils import verify_data_completeness
 from utils.for_core.dsm_utilities import safely_reindex_dataframe
-from utils.logger_setup import configure_session_logging, logger
+from utils.loguru_setup import configure_session_logging, logger
 from utils.market_constraints import DataProvider, Interval, MarketType
 
 # Console for rich output

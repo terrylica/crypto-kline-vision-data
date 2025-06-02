@@ -30,7 +30,7 @@ from utils.for_core.rest_exceptions import (
     TimeoutError,
 )
 from utils.for_core.rest_metrics import metrics_tracker, track_api_call
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 from utils.market_constraints import Interval
 
 
@@ -117,7 +117,7 @@ def fetch_chunk(
                 data = response.json()
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode JSON response: {e}")
-                raise JSONDecodeError(f"Failed to decode JSON response: {e!s}")
+                raise JSONDecodeError(f"Failed to decode JSON response: {e!s}") from e
 
             # Check for API error
             if isinstance(data, dict) and "code" in data and data.get("code", 0) != 0:
@@ -130,15 +130,15 @@ def fetch_chunk(
 
         except requests.ConnectionError as e:
             logger.error(f"Network connection error: {e}")
-            raise NetworkError(f"Connection error: {e!s}")
+            raise NetworkError(f"Connection error: {e!s}") from e
         except requests.Timeout as e:
             logger.error(f"Request timeout: {e}")
-            raise TimeoutError(f"Request timed out: {e!s}")
+            raise TimeoutError(f"Request timed out: {e!s}") from e
         except (requests.RequestException, Exception) as e:
             # Catch any other requests exceptions
             if not isinstance(e, RestAPIError):  # Avoid wrapping our own exceptions
                 logger.error(f"Request error: {e}")
-                raise RestAPIError(f"Request error: {e!s}")
+                raise RestAPIError(f"Request error: {e!s}") from e
             raise
 
     # Call the wrapped function
@@ -274,8 +274,8 @@ def parse_interval_string(interval_str: str, default_interval: Interval = Interv
             # Try by enum name if value lookup failed
             try:
                 interval_enum = Interval[interval_str.upper()]
-            except KeyError:
-                raise ValueError(f"Invalid interval: {interval_str}")
+            except KeyError as e:
+                raise ValueError(f"Invalid interval: {interval_str}") from e
         return interval_enum
     except Exception as e:
         logger.warning(f"Error converting interval string '{interval_str}': {e}")

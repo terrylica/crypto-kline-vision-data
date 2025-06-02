@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 # No need to import rich.print separately as it's handled by logger
 

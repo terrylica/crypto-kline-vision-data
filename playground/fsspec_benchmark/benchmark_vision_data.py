@@ -31,7 +31,7 @@ from rich import print
 from utils.config import (
     HTTP_OK,
 )
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 app = typer.Typer(
     help="Benchmark ZIP file handling methods for Binance Vision API data",

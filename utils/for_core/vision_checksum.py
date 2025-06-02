@@ -13,7 +13,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from utils.config import SHA256_HASH_LENGTH
-from utils.logger_setup import logger
+from utils.loguru_setup import logger
 
 
 def verify_file_checksum(file_path: Path, checksum_path: Path) -> tuple[bool, str | None]:
@@ -251,10 +251,7 @@ def verify_checksum_cli(file_path: str, checksum_path: str | None = None) -> Non
     file_path_obj = Path(file_path)
 
     # If checksum_path is not provided, look for it in the same directory
-    if checksum_path is None:
-        checksum_path_obj = Path(f"{file_path}.CHECKSUM")
-    else:
-        checksum_path_obj = Path(checksum_path)
+    checksum_path_obj = Path(f"{file_path}.CHECKSUM") if checksum_path is None else Path(checksum_path)
 
     # Verify the checksum
     success, error = verify_file_checksum(file_path_obj, checksum_path_obj)

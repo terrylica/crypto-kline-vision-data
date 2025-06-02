@@ -2,6 +2,16 @@
 
 A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
 
+## Features
+
+- **Failover Control Protocol (FCP)**: Robust data retrieval from multiple sources
+- **Local Cache**: Fast access to previously downloaded data using Apache Arrow
+- **Vision API**: Efficient historical data from Binance Vision API on AWS S3
+- **REST API**: Real-time and recent data from Binance REST API
+- **Automatic Retry**: Built-in retry logic with exponential backoff
+- **Data Validation**: Comprehensive data integrity checks
+- **Rich Logging**: Beautiful, configurable logging with loguru support
+
 ## Installation
 
 There are two main ways to install Data Source Manager, depending on your needs:
@@ -226,3 +236,79 @@ Some of the key tools and libraries used across these scripts include:
 - **fsspec**: For seamless interaction with various filesystems.
 
 Explore the scripts and their individual READMEs within the [`scripts/dev`](scripts/dev) directory for more details.
+
+## Logging Control
+
+DSM now supports **loguru** for much easier log level control:
+
+### Simple Environment Variable Control
+
+```bash
+# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+export DSM_LOG_LEVEL=DEBUG
+
+# Optional: Log to file with automatic rotation
+export DSM_LOG_FILE=./logs/dsm.log
+
+# Run your application
+python your_script.py
+```
+
+### Programmatic Control
+
+```python
+from utils.loguru_setup import logger
+
+# Set log level
+logger.configure_level("DEBUG")
+
+# Enable file logging
+logger.configure_file("./logs/dsm.log")
+
+# Use rich formatting
+logger.info("Status: <green>SUCCESS</green>")
+```
+
+### Migration from Old Logger
+
+If you're using the old `utils.logger_setup`, migrate easily:
+
+```bash
+# Automatic migration (recommended)
+python scripts/dev/migrate_to_loguru.py
+
+# Or manually change imports:
+# Old: from utils.logger_setup import logger
+# New: from utils.loguru_setup import logger
+```
+
+### Demo
+
+Try the logging demo to see the benefits:
+
+```bash
+# Basic demo
+python examples/loguru_demo.py
+
+# With different log levels
+DSM_LOG_LEVEL=DEBUG python examples/loguru_demo.py
+DSM_LOG_LEVEL=ERROR python examples/loguru_demo.py
+```
+
+## Benefits of Loguru
+
+- **🎯 Easy Control**: `DSM_LOG_LEVEL=DEBUG` vs complex logging configuration
+- **🚀 Better Performance**: Loguru is faster than Python's standard logging
+- **🔄 Auto Rotation**: Built-in log file rotation and compression
+- **🎨 Rich Formatting**: Beautiful colored output with module/function info
+- **🔧 Same API**: All existing logging calls work unchanged
+
+## Documentation
+
+- [Migration Guide](docs/howto/loguru_migration.md) - How to migrate to loguru
+- [API Documentation](docs/api/) - Complete API reference
+- [Examples](examples/) - Usage examples and demos
+
+## License
+
+Proprietary - See [LICENSE](LICENSE) file for details.
