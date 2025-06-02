@@ -704,52 +704,65 @@ class DataSourceManager:
         chart_type: ChartType | None = None,
         include_source_info: bool = True,
         enforce_source: DataSource = DataSource.AUTO,
+        auto_reindex: bool = True,
     ) -> pd.DataFrame:
-        """Retrieve market data using the Failover Control Protocol.
+        """Retrieve market data for a symbol within a specified time range.
 
-        This method implements the core Failover Control Protocol (FCP) to retrieve
-        market data in the most efficient and reliable way:
+        This method implements the Failover Control Protocol (FCP) to ensure robust
+        data retrieval from multiple sources:
 
-        1. First checks local cache for available data (if use_cache=True)
-        2. For missing data segments, attempts to download from Vision API
-        3. Falls back to REST API for any remaining gaps or recent data
+        1. **Cache (Local Arrow files)**: Check cached data first for fast access
+        2. **Vision API**: For missing data, try Binance Vision API (historical data)
+        3. **REST API**: If Vision fails or is unavailable, use REST API as fallback
 
-        The method handles time alignment, data merging, and ensures a consistent
-        output format regardless of the data source.
+        The method automatically handles:
+        - Time boundary alignment based on the specified interval
+        - Progressive merging of data from different sources
+        - Retry logic with exponential backoff for network failures
+        - Consistent data format standardization across all sources
+        - Optional reindexing to create complete time series
 
         Args:
-            symbol: Trading symbol (e.g., "BTCUSDT" for spot, "BTC_PERP" for CM futures)
-            start_time: Start datetime for data window (UTC)
-            end_time: End datetime for data window (UTC)
-            interval: Data interval (e.g., MINUTE_1, HOUR_1)
-            chart_type: Type of chart data to retrieve (defaults to instance chart_type)
-            include_source_info: Whether to include a "_data_source" column showing where each record came from
-            enforce_source: Force the use of a specific data source (AUTO, CACHE, VISION, or REST)
+            symbol: Trading symbol (e.g., "BTCUSDT", "ETHUSDT")
+            start_time: Start time for data retrieval (timezone-aware datetime)
+            end_time: End time for data retrieval (timezone-aware datetime)
+            interval: Time interval for data points (default: 1 minute)
+            chart_type: Type of chart data to retrieve (default: uses instance setting)
+            include_source_info: Whether to include data source information in results
+            enforce_source: Force use of specific data source (default: AUTO for FCP)
+            auto_reindex: Whether to automatically reindex to create complete time series.
+                         When True (default), missing timestamps are filled with NaN.
+                         When False, only returns available data without artificial padding.
 
         Returns:
-            pd.DataFrame: DataFrame with market data, indexed by open_time with standardized columns
+            DataFrame containing the requested market data with columns:
+            - open_time: Opening time of the interval
+            - open, high, low, close: OHLC price data
+            - volume: Trading volume
+            - quote_asset_volume: Quote asset volume
+            - count: Number of trades
+            - taker_buy_volume: Taker buy volume
+            - taker_buy_quote_volume: Taker buy quote volume
+            - _data_source: Source of each record (if include_source_info=True)
 
         Raises:
-            ValueError: If time range is invalid or interval is unsupported
-            RuntimeError: If data retrieval fails from all sources
+            ValueError: If start_time >= end_time or invalid parameters
+            RuntimeError: If all data sources fail and no data can be retrieved
 
         Examples:
-            >>> from datetime import datetime, timedelta
-            >>> from utils.market_constraints import Interval
+            >>> # Basic usage with automatic source selection
+            >>> df = manager.get_data("BTCUSDT", start_time, end_time, Interval.MINUTE_1)
             >>>
-            >>> # Basic retrieval
-            >>> start = datetime(2023, 1, 1)
-            >>> end = start + timedelta(days=7)
-            >>> df = manager.get_data("BTCUSDT", start, end, Interval.MINUTE_15)
-            >>>
-            >>> # Force REST API only (bypass cache and Vision)
-            >>> from core.sync.data_source_manager import DataSource
+            >>> # Force use of REST API only
             >>> df = manager.get_data(
-            ...     "ETHUSDT",
-            ...     start,
-            ...     end,
-            ...     Interval.HOUR_1,
+            ...     "BTCUSDT", start_time, end_time, Interval.MINUTE_1,
             ...     enforce_source=DataSource.REST
+            ... )
+            >>>
+            >>> # Get only available data without NaN padding
+            >>> df = manager.get_data(
+            ...     "BTCUSDT", start_time, end_time, Interval.MINUTE_1,
+            ...     auto_reindex=False
             ... )
             >>>
             >>> # Access data sources used
@@ -761,6 +774,10 @@ class DataSourceManager:
             When the current time is close to end_time, Vision API data may not be
             available due to the VISION_DATA_DELAY_HOURS constraint (typically 48 hours).
             In such cases, the method will automatically use the REST API for recent data.
+
+            When auto_reindex=False and only partial cache data is available, the method
+            will return only the cached data without attempting to fetch missing data
+            from APIs, preventing artificial NaN value creation.
         """
         # Use chart_type from instance if None is provided
         if chart_type is None:
@@ -854,16 +871,42 @@ class DataSourceManager:
             # ----------------------------------------------------------------
             verify_final_data(result_df, aligned_start, aligned_end)
 
-            # Import additional utilities for enhanced functionality
-            from utils.for_core.dsm_utilities import safely_reindex_dataframe
-
             # First standardize columns to ensure consistent data types and format
             result_df = standardize_columns(result_df)
 
-            # Then safely reindex to ensure a complete time series with no gaps
-            # This gives users a complete DataFrame with the expected number of rows
-            # even if some data could not be retrieved
-            result_df = safely_reindex_dataframe(df=result_df, start_time=aligned_start, end_time=aligned_end, interval=interval)
+            # ----------------------------------------------------------------
+            # Intelligent Reindexing Logic
+            # ----------------------------------------------------------------
+            # Only reindex if explicitly requested AND if we have some data to work with
+            if auto_reindex and not result_df.empty:
+                # Import additional utilities for enhanced functionality
+                from utils.for_core.dsm_utilities import safely_reindex_dataframe
+
+                # Check if we have significant missing ranges that couldn't be filled
+                if missing_ranges:
+                    # Calculate the percentage of missing data
+                    total_expected_seconds = (aligned_end - aligned_start).total_seconds()
+                    missing_seconds = sum((end - start).total_seconds() for start, end in missing_ranges)
+                    missing_percentage = (missing_seconds / total_expected_seconds) * 100 if total_expected_seconds > 0 else 0
+
+                    # If more than 50% of data is missing and we couldn't fetch it from APIs,
+                    # warn the user about potential NaN padding
+                    if missing_percentage > 50:
+                        logger.warning(
+                            f"[FCP] Reindexing will create {missing_percentage:.1f}% NaN values. "
+                            f"Consider setting auto_reindex=False to get only available data, "
+                            f"or ensure API access to fetch missing data."
+                        )
+
+                # Safely reindex to ensure a complete time series with no gaps
+                # This gives users a complete DataFrame with the expected number of rows
+                # even if some data could not be retrieved
+                result_df = safely_reindex_dataframe(df=result_df, start_time=aligned_start, end_time=aligned_end, interval=interval)
+
+            elif not auto_reindex:
+                logger.info(
+                    f"[FCP] auto_reindex=False: Returning {len(result_df)} available records without NaN padding for missing timestamps"
+                )
 
             # Skip source info column if not requested
             if not include_source_info and "_data_source" in result_df.columns:
