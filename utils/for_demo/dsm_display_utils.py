@@ -5,6 +5,7 @@ Display utilities for the Failover Control Protocol (FCP) mechanism.
 
 from pathlib import Path
 
+import pandas as pd
 import pendulum
 from rich import print
 from rich.table import Table
@@ -68,8 +69,22 @@ def display_results(
         # Show timeline visualization of source distribution
         print("\n[bold cyan]Source Distribution Timeline:[/bold cyan]")
 
-        # First, create a new column with the date part only
-        df["date"] = df["open_time"].dt.date
+        # Handle open_time which might be either a column or the index
+        # First, check if open_time is a column
+        if "open_time" in df.columns:
+            logger.debug("Using open_time from DataFrame columns")
+            # Create a new column with the date part only
+            df["date"] = df["open_time"].dt.date
+        # If not, check if it's the index
+        elif df.index.name == "open_time" or isinstance(df.index, pd.DatetimeIndex):
+            logger.debug("Using open_time from DataFrame index")
+            # Create a date column from the index
+            df["date"] = df.index.date
+        else:
+            logger.warning("Could not find open_time in columns or index, timeline display will be skipped")
+            print("[yellow]Warning: Could not find open_time column or index for timeline display[/yellow]")
+            return None
+
         date_groups = df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
 
         # Display timeline visualization

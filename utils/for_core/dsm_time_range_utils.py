@@ -58,6 +58,7 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     2. Consistent data types for all columns
     3. Timestamp precision standardization (to milliseconds, matching REST API)
     4. Proper handling of all timestamp-related columns
+    5. Consistent timezone-aware datetime handling in UTC
 
     Args:
         df: DataFrame to standardize
@@ -93,6 +94,47 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     # First apply the centralized standardize_dataframe function
     # This function ensures proper column structure and data types
     df = standardize_dataframe(df)
+
+    # Ensure open_time is a proper datetime column with UTC timezone
+    if "open_time" in df.columns:
+        # Convert integer/float timestamps to datetime if needed
+        if pd.api.types.is_numeric_dtype(df["open_time"]):
+            logger.debug("Converting numeric open_time to datetime64[ns, UTC]")
+            df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
+        # Ensure timezone awareness for datetime columns
+        elif pd.api.types.is_datetime64_dtype(df["open_time"]):
+            if df["open_time"].dt.tz is None:
+                logger.debug("Localizing naive datetime open_time to UTC")
+                df["open_time"] = df["open_time"].dt.tz_localize("UTC")
+            elif df["open_time"].dt.tz.zone != "UTC":
+                logger.debug(f"Converting open_time timezone from {df['open_time'].dt.tz.zone} to UTC")
+                df["open_time"] = df["open_time"].dt.tz_convert("UTC")
+
+    # Apply the same timezone standardization to close_time
+    if "close_time" in df.columns:
+        if pd.api.types.is_numeric_dtype(df["close_time"]):
+            logger.debug("Converting numeric close_time to datetime64[ns, UTC]")
+            df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)
+        elif pd.api.types.is_datetime64_dtype(df["close_time"]):
+            if df["close_time"].dt.tz is None:
+                logger.debug("Localizing naive datetime close_time to UTC")
+                df["close_time"] = df["close_time"].dt.tz_localize("UTC")
+            elif df["close_time"].dt.tz.zone != "UTC":
+                logger.debug(f"Converting close_time timezone from {df['close_time'].dt.tz.zone} to UTC")
+                df["close_time"] = df["close_time"].dt.tz_convert("UTC")
+
+    # Set the index to open_time for standard representation
+    if "open_time" in df.columns and df.index.name != "open_time":
+        logger.debug("Setting index to open_time for standard representation")
+        df = df.set_index("open_time")
+
+    # Reset the index to keep open_time as a column too
+    # This ensures both index and column are available to consumers
+    if df.index.name == "open_time" and "open_time" not in df.columns:
+        logger.debug("Adding open_time as column while keeping it as index")
+        df = df.reset_index()
+        # And set it back as index to have both
+        df = df.set_index("open_time")
 
     # Then standardize timestamp precision to align with REST API format
     # This ensures Vision API data (which may use microsecond precision in 2025+)

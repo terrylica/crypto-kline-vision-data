@@ -133,103 +133,117 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug(f"DataFrame index type: {type(df.index)}")
 
     try:
-        # Case 1: open_time exists as both index and column
-        if (
-            hasattr(df, "index")
-            and hasattr(df.index, "name")
-            and df.index.name == CANONICAL_INDEX_NAME
-            and CANONICAL_INDEX_NAME in df.columns
-        ):
-            logger.debug("Resolving ambiguity: open_time exists as both index and column")
-            # Use column version as the definitive one
-            df = df.reset_index(drop=True)
-            df = df.set_index(CANONICAL_INDEX_NAME)
+        # Case 1: open_time is already properly set as index
+        if isinstance(df.index, pd.DatetimeIndex) and df.index.name == CANONICAL_INDEX_NAME:
+            logger.debug("open_time already properly set as index")
 
-        # Case 2: open_time exists only as column
-        elif CANONICAL_INDEX_NAME in df.columns:
+            # Case 1a: index is timezone-naive - localize to UTC
+            if df.index.tz is None:
+                logger.debug("Localizing timezone-naive DatetimeIndex to UTC")
+                df.index = df.index.tz_localize(timezone.utc)
+            # Case 1b: index has non-UTC timezone - convert to UTC
+            elif df.index.tz != timezone.utc:
+                logger.debug(f"Converting DatetimeIndex timezone from {df.index.tz} to UTC")
+                df.index = df.index.tz_convert(timezone.utc)
+
+            return df
+
+        # Case 2: open_time exists as a column - use it as index
+        if CANONICAL_INDEX_NAME in df.columns:
             logger.debug("Setting open_time column as index")
-            df = df.set_index(CANONICAL_INDEX_NAME)
 
-        # Case 3: index is already correct
-        elif hasattr(df, "index") and hasattr(df.index, "name") and df.index.name == CANONICAL_INDEX_NAME:
-            logger.debug("open_time index already set correctly")
+            # Ensure the column is properly timezone-aware
+            if pd.api.types.is_datetime64_dtype(df[CANONICAL_INDEX_NAME]):
+                if hasattr(df[CANONICAL_INDEX_NAME], "dt") and hasattr(df[CANONICAL_INDEX_NAME].dt, "tz"):
+                    if df[CANONICAL_INDEX_NAME].dt.tz is None:
+                        logger.debug("Localizing open_time column to UTC before setting as index")
+                        df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_localize(timezone.utc)
+                    elif df[CANONICAL_INDEX_NAME].dt.tz != timezone.utc:
+                        logger.debug(f"Converting open_time column timezone from {df[CANONICAL_INDEX_NAME].dt.tz} to UTC")
+                        df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_convert(timezone.utc)
 
-        # Case 4: index is unnamed or has a different name
-        else:
-            logger.warning("No suitable open_time found - attempting recovery")
+            try:
+                return df.set_index(CANONICAL_INDEX_NAME)
+            except Exception as e:
+                logger.error(f"Error setting {CANONICAL_INDEX_NAME} as index: {e}")
+                # Continue to recovery options
 
-            # If the index is a DatetimeIndex but has the wrong name
-            if isinstance(df.index, pd.DatetimeIndex):
-                logger.debug("Renaming existing DatetimeIndex to open_time")
-                df.index.name = CANONICAL_INDEX_NAME
+            # Case 4: index is unnamed or has a different name
             else:
-                # Try to find any time-related columns
-                time_col = None
-                for col in df.columns:
-                    if "time" in col.lower() and pd.api.types.is_datetime64_any_dtype(df[col]):
-                        time_col = col
-                        break
+                logger.warning("No suitable open_time found - attempting recovery")
 
-                if time_col:
-                    logger.debug(f"Using {time_col} as open_time index")
+                # If the index is a DatetimeIndex but has the wrong name
+                if isinstance(df.index, pd.DatetimeIndex):
+                    logger.debug("Renaming existing DatetimeIndex to open_time")
+                    df.index.name = CANONICAL_INDEX_NAME
+                else:
+                    # Try to find any time-related columns
+                    time_col = None
+                    for col in df.columns:
+                        if "time" in col.lower() and pd.api.types.is_datetime64_any_dtype(df[col]):
+                            time_col = col
+                            break
+
+                    if time_col:
+                        logger.debug(f"Using {time_col} as open_time index")
+                        try:
+                            df = df.set_index(time_col)
+                            df.index.name = CANONICAL_INDEX_NAME
+                        except Exception as e:
+                            logger.error(f"Error setting {time_col} as index: {e}")
+                            # Create a copy of the column first before setting as index
+                            df[CANONICAL_INDEX_NAME] = df[time_col]
+                            df = df.set_index(CANONICAL_INDEX_NAME)
+                    else:
+                        # Last resort - try to create an open_time column based on row number
+                        logger.warning("Creating synthetic open_time based on row number")
+                        now = datetime.now(timezone.utc)
+                        base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+                        # Create evenly spaced timestamps - Using minute intervals
+                        df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
+                        df = df.set_index(CANONICAL_INDEX_NAME)
+
+                        logger.warning("Created synthetic timestamps. This is a fallback and may not represent real data timestamps.")
+
+                # Ensure index is datetime type with UTC timezone
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    logger.debug("Converting index to DatetimeIndex")
+                    # Try to convert the index to datetime (if it's not already)
                     try:
-                        df = df.set_index(time_col)
+                        df.index = pd.to_datetime(df.index, utc=True)
                         df.index.name = CANONICAL_INDEX_NAME
                     except Exception as e:
-                        logger.error(f"Error setting {time_col} as index: {e}")
-                        # Create a copy of the column first before setting as index
-                        df[CANONICAL_INDEX_NAME] = df[time_col]
+                        logger.error(f"Error converting index to datetime: {e}")
+                        # Create a new DatetimeIndex if conversion fails
+                        old_index = df.index.copy()
+                        df = df.reset_index()
+                        now = datetime.now(timezone.utc)
+                        base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+                        df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
+                        # Add the old index as a column with a different name for reference
+                        df["original_index"] = old_index
                         df = df.set_index(CANONICAL_INDEX_NAME)
-                else:
-                    # Last resort - try to create an open_time column based on row number
-                    logger.warning("Creating synthetic open_time based on row number")
-                    now = datetime.now(timezone.utc)
-                    base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+                        logger.warning("Created synthetic index. Original index preserved in 'original_index' column.")
 
-                    # Create evenly spaced timestamps - Using minute intervals
-                    df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
-                    df = df.set_index(CANONICAL_INDEX_NAME)
+                # Ensure timezone is UTC
+                if isinstance(df.index, pd.DatetimeIndex):
+                    if df.index.tz is None:
+                        logger.debug("Localizing index to UTC")
+                        df.index = df.index.tz_localize(timezone.utc)
+                    elif df.index.tz != timezone.utc:
+                        logger.debug("Converting index timezone to UTC")
+                        df.index = df.index.tz_convert(timezone.utc)
 
-                    logger.warning("Created synthetic timestamps. This is a fallback and may not represent real data timestamps.")
+            # Ensure index is sorted
+            if not df.index.is_monotonic_increasing:
+                logger.debug("Sorting DataFrame by index")
+                df = df.sort_index()
 
-            # Ensure index is datetime type with UTC timezone
-            if not isinstance(df.index, pd.DatetimeIndex):
-                logger.debug("Converting index to DatetimeIndex")
-                # Try to convert the index to datetime (if it's not already)
-                try:
-                    df.index = pd.to_datetime(df.index, utc=True)
-                    df.index.name = CANONICAL_INDEX_NAME
-                except Exception as e:
-                    logger.error(f"Error converting index to datetime: {e}")
-                    # Create a new DatetimeIndex if conversion fails
-                    old_index = df.index.copy()
-                    df = df.reset_index()
-                    now = datetime.now(timezone.utc)
-                    base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-                    df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
-                    # Add the old index as a column with a different name for reference
-                    df["original_index"] = old_index
-                    df = df.set_index(CANONICAL_INDEX_NAME)
-                    logger.warning("Created synthetic index. Original index preserved in 'original_index' column.")
-
-            # Ensure timezone is UTC
-            if isinstance(df.index, pd.DatetimeIndex):
-                if df.index.tz is None:
-                    logger.debug("Localizing index to UTC")
-                    df.index = df.index.tz_localize(timezone.utc)
-                elif df.index.tz != timezone.utc:
-                    logger.debug("Converting index timezone to UTC")
-                    df.index = df.index.tz_convert(timezone.utc)
-
-        # Ensure index is sorted
-        if not df.index.is_monotonic_increasing:
-            logger.debug("Sorting DataFrame by index")
-            df = df.sort_index()
-
-        # Remove duplicates from index
-        if df.index.has_duplicates:
-            logger.warning("Removing duplicate indices")
-            df = df[~df.index.duplicated(keep="first")]
+            # Remove duplicates from index
+            if df.index.has_duplicates:
+                logger.warning("Removing duplicate indices")
+                df = df[~df.index.duplicated(keep="first")]
 
     except Exception as e:
         logger.error(f"Error in ensure_open_time_as_index: {e}")
@@ -253,6 +267,107 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug(f"Final DataFrame index name: {df.index.name}")
     logger.debug(f"Final DataFrame index type: {type(df.index)}")
     return df
+
+
+def verify_data_completeness(
+    df: pd.DataFrame, start_time: datetime, end_time: datetime, interval: str
+) -> tuple[bool, list[tuple[datetime, datetime]]]:
+    """
+    Verify data completeness and identify any gaps in the time series.
+
+    This function checks if the provided DataFrame contains all expected data points
+    within the given time range at the specified interval. It identifies and returns
+    any gaps in the data.
+
+    Args:
+        df: DataFrame to check for completeness
+        start_time: Start time of the expected range (timezone-aware)
+        end_time: End time of the expected range (timezone-aware)
+        interval: Interval string (e.g., "1m", "1h", "1d")
+
+    Returns:
+        tuple containing:
+            - bool: True if data is complete, False if gaps exist
+            - list of (start, end) tuples representing gaps in the data
+    """
+    if df.empty:
+        logger.warning("Empty DataFrame - entire requested range is missing")
+        return False, [(start_time, end_time)]
+
+    # Ensure we have open_time as index
+    df = ensure_open_time_as_index(df)
+
+    # Create a complete time index at the specified interval
+    # Parse the interval string to create a proper frequency string for pandas
+    freq = None
+    if interval.endswith("s"):
+        freq = f"{interval[:-1]}S"  # seconds
+    elif interval.endswith("m"):
+        freq = f"{interval[:-1]}min"  # minutes (updated from 'T' to 'min')
+    elif interval.endswith("h"):
+        freq = f"{interval[:-1]}H"  # hours
+    elif interval.endswith("d"):
+        freq = f"{interval[:-1]}D"  # days
+    elif interval.endswith("w"):
+        freq = f"{interval[:-1]}W"  # weeks
+
+    if not freq:
+        logger.error(f"Unrecognized interval format: {interval}")
+        return False, [(start_time, end_time)]
+
+    # Create the expected index
+    expected_index = pd.date_range(
+        start=start_time,
+        end=end_time,
+        freq=freq,
+        inclusive="left",  # Include start_time but not end_time
+        name=CANONICAL_INDEX_NAME,
+    )
+
+    # Find missing timestamps
+    missing_timestamps = expected_index.difference(df.index)
+
+    if len(missing_timestamps) == 0:
+        logger.info("Data is complete - no gaps detected")
+        return True, []
+
+    # Convert missing timestamps to ranges
+    gaps = []
+    if len(missing_timestamps) > 0:
+        # Sort missing timestamps
+        missing_timestamps = missing_timestamps.sort_values()
+
+        # Group consecutive missing timestamps into ranges
+        gap_start = missing_timestamps[0]
+        prev_ts = missing_timestamps[0]
+
+        for ts in missing_timestamps[1:]:
+            # If this timestamp is not right after the previous one, we have a new gap
+            expected_next = prev_ts + pd.Timedelta(freq)
+            if ts != expected_next:
+                # Add the previous gap to our list
+                gaps.append((gap_start, prev_ts + pd.Timedelta(freq)))
+                # Start a new gap
+                gap_start = ts
+            prev_ts = ts
+
+        # Add the last gap
+        gaps.append((gap_start, prev_ts + pd.Timedelta(freq)))
+
+    # Log information about gaps
+    total_missing = len(missing_timestamps)
+    total_expected = len(expected_index)
+    missing_pct = (total_missing / total_expected) * 100 if total_expected > 0 else 0
+
+    logger.warning(
+        f"Data incomplete: {total_missing}/{total_expected} timestamps missing ({missing_pct:.2f}%). Found {len(gaps)} gaps in the data."
+    )
+
+    for i, (gap_start, gap_end) in enumerate(gaps):
+        gap_duration = (gap_end - gap_start).total_seconds()
+        logger.debug(f"Gap {i + 1}: {gap_start} to {gap_end} ({gap_duration}s)")
+
+    return False, gaps
 
 
 def standardize_dataframe(df: pd.DataFrame, keep_as_column: bool = True) -> pd.DataFrame:

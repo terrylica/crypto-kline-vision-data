@@ -241,8 +241,18 @@ def verify_final_data(
         raise RuntimeError("All data sources failed. Unable to retrieve data for the requested time range.")
 
     # Final verification of the result
-    min_time = result_df["open_time"].min()
-    max_time = result_df["open_time"].max()
+    # Handle cases where open_time might be in columns or as index
+    if "open_time" in result_df.columns:
+        min_time = result_df["open_time"].min()
+        max_time = result_df["open_time"].max()
+    elif hasattr(result_df, "index") and hasattr(result_df.index, "name") and result_df.index.name == "open_time":
+        min_time = result_df.index.min()
+        max_time = result_df.index.max()
+    else:
+        # If open_time is not available, log a warning and return without verification
+        logger.warning("[FCP] Cannot verify time range: open_time not found in columns or index")
+        return
+
     logger.debug(f"[FCP] Final result spans from {min_time} to {max_time} with {len(result_df)} records")
 
     # Check if result covers the entire requested range

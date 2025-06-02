@@ -854,12 +854,31 @@ class DataSourceManager:
             # ----------------------------------------------------------------
             verify_final_data(result_df, aligned_start, aligned_end)
 
-            # Standardize columns
+            # Import additional utilities for enhanced functionality
+            from utils.for_core.dsm_utilities import safely_reindex_dataframe
+
+            # First standardize columns to ensure consistent data types and format
             result_df = standardize_columns(result_df)
+
+            # Then safely reindex to ensure a complete time series with no gaps
+            # This gives users a complete DataFrame with the expected number of rows
+            # even if some data could not be retrieved
+            result_df = safely_reindex_dataframe(df=result_df, start_time=aligned_start, end_time=aligned_end, interval=interval)
 
             # Skip source info column if not requested
             if not include_source_info and "_data_source" in result_df.columns:
                 result_df = result_df.drop(columns=["_data_source"])
+
+            # Final consistency check and logging
+            from utils.dataframe_utils import verify_data_completeness
+
+            is_complete, gaps = verify_data_completeness(result_df, aligned_start, aligned_end, interval.value)
+
+            if not is_complete:
+                logger.warning(
+                    f"Data retrieval for {symbol} has {len(gaps)} gaps in the time series. "
+                    f"The DataFrame contains NaN values for missing timestamps."
+                )
 
             logger.info(f"[FCP] Successfully retrieved {len(result_df)} records for {symbol}")
             return result_df
