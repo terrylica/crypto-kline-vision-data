@@ -693,11 +693,17 @@ def align_time_boundaries(start_time: datetime, end_time: datetime, interval: Ma
     start_floor = start_microseconds - (start_microseconds % interval_microseconds)
     end_floor = end_microseconds - (end_microseconds % interval_microseconds)
 
-    # Apply Binance API boundary rules:
-    # - startTime: Round UP to next interval boundary if not exactly on boundary
-    # - endTime: Round DOWN to previous interval boundary if not exactly on boundary
-    aligned_start_microseconds = start_floor if start_microseconds == start_floor else start_floor + interval_microseconds
+    # Apply corrected boundary alignment rules:
+    # - startTime: Round DOWN to interval boundary (floor)
+    # - endTime: Round DOWN to interval boundary (floor)
+    # This ensures aligned_start <= aligned_end always
+    aligned_start_microseconds = start_floor
     aligned_end_microseconds = end_floor
+
+    # Ensure aligned_end is not before aligned_start
+    # If they're equal, we need at least one interval
+    if aligned_end_microseconds <= aligned_start_microseconds:
+        aligned_end_microseconds = aligned_start_microseconds + interval_microseconds
 
     # Convert back to datetime
     aligned_start = datetime.fromtimestamp(aligned_start_microseconds / 1_000_000, tz=timezone.utc)
