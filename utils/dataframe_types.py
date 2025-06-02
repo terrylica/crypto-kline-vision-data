@@ -4,6 +4,30 @@
 This module centralizes custom DataFrame types and extensions used throughout
 the data services. These types are designed to enforce specific constraints
 and behaviors for consistent data handling.
+
+The main class provided is TimestampedDataFrame, which enforces proper
+timestamp handling and index naming for market data.
+
+Example:
+    >>> import pandas as pd
+    >>> from utils.dataframe_types import TimestampedDataFrame
+    >>> from datetime import datetime, timezone
+    >>>
+    >>> # Create a TimestampedDataFrame from a dictionary
+    >>> data = {
+    ...     'open': [100.0, 101.0],
+    ...     'high': [102.0, 103.0],
+    ...     'low': [99.0, 100.0],
+    ...     'close': [101.0, 102.0],
+    ...     'volume': [1000, 1200]
+    ... }
+    >>> dates = [
+    ...     datetime(2023, 1, 1, 0, 0, tzinfo=timezone.utc),
+    ...     datetime(2023, 1, 1, 1, 0, tzinfo=timezone.utc)
+    ... ]
+    >>> df = TimestampedDataFrame(data, index=pd.DatetimeIndex(dates, name='open_time'))
+    >>> print(df.index.name)
+    open_time
 """
 
 import traceback
@@ -15,20 +39,64 @@ from utils.logger_setup import logger
 
 
 class TimestampedDataFrame(pd.DataFrame):
-    """DataFrame with enforced UTC timestamp index.
+    """DataFrame with enforced UTC timestamp index for market data.
 
-    This class enforces:
+    This specialized DataFrame extension enforces strict requirements for
+    market data timestamps to ensure consistency throughout the application.
+    It manages the relationship between the index and the 'open_time' column,
+    ensuring that both are properly synchronized.
+
+    Requirements enforced:
     1. Index must be DatetimeIndex
     2. Index must be timezone-aware and in UTC
     3. Index must be named 'open_time' (representing the BEGINNING of each candle period)
     4. Index must be monotonically increasing
     5. No duplicate indices allowed
+
+    Attributes:
+        All pandas.DataFrame attributes are inherited
+
+    Methods:
+        to_pandas: Convert to standard pandas DataFrame with open_time as a column
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> import pandas as pd
+        >>> from utils.dataframe_types import TimestampedDataFrame
+        >>>
+        >>> # Create sample data
+        >>> dates = [
+        ...     datetime(2023, 1, 1, 0, 0, tzinfo=timezone.utc),
+        ...     datetime(2023, 1, 1, 1, 0, tzinfo=timezone.utc)
+        ... ]
+        >>> data = {'close': [100.0, 101.0]}
+        >>>
+        >>> # Create TimestampedDataFrame
+        >>> df = TimestampedDataFrame(
+        ...     data,
+        ...     index=pd.DatetimeIndex(dates, name='open_time')
+        ... )
+        >>>
+        >>> # Both index and column are available
+        >>> print(df.index.name)
+        open_time
+        >>> print('open_time' in df.columns)
+        True
     """
 
     def __init__(self, *args, **kwargs):
         """Initialize a TimestampedDataFrame.
 
-        Ensures that open_time is consistently handled, either as an index or both index and column.
+        Creates a DataFrame that enforces timestamp requirements and ensures
+        that open_time is consistently handled, both as an index and as a column.
+
+        Args:
+            *args: Arguments passed to pandas.DataFrame constructor
+            **kwargs: Keyword arguments passed to pandas.DataFrame constructor
+
+        Notes:
+            If initialization fails due to invalid timestamp data, an empty
+            DataFrame will be created instead of raising an exception.
         """
         super().__init__(*args, **kwargs)
 
@@ -66,7 +134,15 @@ class TimestampedDataFrame(pd.DataFrame):
     def _validate_and_normalize_index(self):
         """Validate and normalize the index to meet requirements.
 
-        Preserves the semantic meaning of open_time as the BEGINNING of each candle period.
+        Ensures the DataFrame has a properly formatted DatetimeIndex named 'open_time'
+        that is timezone-aware, in UTC, monotonically increasing, and without duplicates.
+
+        Raises:
+            Various exceptions depending on what validation fails, which are caught
+            in the __init__ method.
+
+        Notes:
+            Preserves the semantic meaning of open_time as the BEGINNING of each candle period.
         """
         # Import here to avoid circular imports
         from utils.dataframe_utils import ensure_open_time_as_index
@@ -112,10 +188,27 @@ class TimestampedDataFrame(pd.DataFrame):
         """Convert to standard pandas DataFrame with open_time as a column.
 
         This ensures the DataFrame can be used in contexts where open_time
-        is expected to be a column, not just an index.
+        is expected to be a column, not just an index. The resulting DataFrame
+        is a standard pandas DataFrame, not a TimestampedDataFrame.
 
         Returns:
-            A standard pandas DataFrame with open_time as a column
+            pd.DataFrame: A standard pandas DataFrame with open_time as a column
+
+        Example:
+            >>> from datetime import datetime, timezone
+            >>> import pandas as pd
+            >>> from utils.dataframe_types import TimestampedDataFrame
+            >>>
+            >>> # Create TimestampedDataFrame
+            >>> dates = [datetime(2023, 1, 1, tzinfo=timezone.utc)]
+            >>> df = TimestampedDataFrame({'close': [100.0]}, index=pd.DatetimeIndex(dates, name='open_time'))
+            >>>
+            >>> # Convert to standard pandas DataFrame
+            >>> std_df = df.to_pandas()
+            >>> print(type(std_df).__name__)
+            DataFrame
+            >>> print('open_time' in std_df.columns)
+            True
         """
         # Import here to avoid circular imports
         from utils.dataframe_utils import ensure_open_time_as_column
@@ -130,7 +223,15 @@ class TimestampedDataFrame(pd.DataFrame):
         return df
 
     def __setitem__(self, key, value):
-        """Override to prevent modification of index."""
+        """Override to prevent modification of index.
+
+        Warns when attempting to directly modify the 'open_time' column,
+        as this may cause inconsistencies with the index.
+
+        Args:
+            key: Column name or index
+            value: Value to set
+        """
         if key == CANONICAL_INDEX_NAME:
             logger.warning(f"Setting {CANONICAL_INDEX_NAME} directly - this may cause issues. Use index operations instead.")
             logger.debug(f"Remember: {CANONICAL_INDEX_NAME} represents the BEGINNING of each candle period")

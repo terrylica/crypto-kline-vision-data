@@ -1,0 +1,88 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Principles and Tools for Python Package Documentation
+
+This guide outlines key principles and tools for creating discoverable, well-documented Python packages that are usable even in offline environments.
+
+## Core Principles
+
+### 1. Self-Documentation
+
+_Principle_: A package should explain itself without requiring external resources.
+
+_Implementation_:
+
+- Use descriptive names for modules, classes, functions, and variables
+- Provide comprehensive docstrings at all levels
+- Include examples within docstrings showing actual usage
+- Make help accessible through standard Python mechanisms
+
+### 2. Accessibility
+
+_Principle_: Documentation should be accessible through multiple standard pathways.
+
+_Implementation_:
+
+- Support standard Python help mechanisms
+- Provide command-line help through standard interfaces
+- Include offline-accessible examples and tutorials
+- Structure the package to follow Python conventions
+
+### 3. Progressive Disclosure
+
+_Principle_: Present information in layers of increasing detail.
+
+_Implementation_:
+
+- Provide high-level overview in module docstrings
+- Give more detailed explanations in class docstrings
+- Include specific parameter details in function docstrings
+- Offer in-depth examples for complex functionality
+
+### 4. Consistency
+
+_Principle_: Follow consistent patterns for documentation.
+
+_Implementation_:
+
+- Choose a single docstring style (Google, NumPy, or reStructuredText) and use it consistently
+- Maintain consistent terminology throughout documentation
+- Structure all similar components in the same way
+- Use consistent formatting and organization
+
+## Recommended Tools and Standards
+
+### Documentation Generation
+
+- **Docstring Formats**: Choose between Google style, NumPy style, or reStructuredText
+- **Documentation Generators**:
+  - Sphinx for comprehensive documentation
+  - pydoc for built-in documentation access
+  - MkDocs for lightweight documentation websites
+
+### Code Organization
+
+- **Package Structure**: Follow standard Python package layout conventions
+- **Entry Points**: Provide standard entry points like `__main__.py`
+- **Import Paths**: Design clear, logical import paths
+
+### Accessibility Tools
+
+- **Built-in Help**: Python's built-in `help()` function
+- **Command-line Interface**: Standard argparse-based CLI with help flags
+- **Interactive Examples**: Jupyter notebooks or runnable scripts in examples directory
+
+## Validation Approaches
+
+To ensure your package is well-documented, verify that users can:
+
+1. Understand package functionality without internet access
+2. Access help through standard Python mechanisms
+3. Run examples as documentation without external dependencies
+4. Navigate the package structure intuitively
+
+By following these principles and using these tools, package authors can create documentation that respects user autonomy while providing necessary guidance.

@@ -1,14 +1,44 @@
 #!/usr/bin/env python3
-"""
-DSM Demo Library: Core functionality for data source management demo.
-This module provides reusable functions for data fetching and processing,
-independent of any CLI or presentation logic.
+"""Data Source Manager library interface module.
+
+This module provides the primary high-level interface for the Data Source Manager,
+implementing the Failover Control Protocol (FCP) for robust data retrieval.
+
+The FCP mechanism consists of three integrated phases:
+1. Local Cache Retrieval: Quickly obtain data from local Apache Arrow files
+2. Vision API Retrieval: Supplement missing data segments from Vision API
+3. REST API Fallback: Ensure complete data coverage for any remaining segments
+
+The main entry point is the fetch_market_data function, which orchestrates
+data retrieval from all available sources based on the provided parameters.
+
+Key components:
+- setup_environment: Prepare the environment for data fetching
+- process_market_parameters: Validate and process market parameters
+- fetch_market_data: Primary interface for retrieving market data using FCP
+
+Example:
+    >>> from data_source_manager import fetch_market_data, MarketType, DataProvider, Interval, ChartType
+    >>> from datetime import datetime
+    >>>
+    >>> df, elapsed_time, records_count = fetch_market_data(
+    ...     provider=DataProvider.BINANCE,
+    ...     market_type=MarketType.SPOT,
+    ...     chart_type=ChartType.KLINES,
+    ...     symbol="BTCUSDT",
+    ...     interval=Interval.MINUTE_1,
+    ...     start_time=datetime(2023, 1, 1),
+    ...     end_time=datetime(2023, 1, 10),
+    ...     use_cache=True,
+    ... )
 """
 
+from datetime import datetime
 from time import perf_counter
-from typing import Any
+from typing import Optional, Tuple, Union
 
 from core.sync.data_source_manager import DataSource
+from utils.dataframe_types import TimestampedDataFrame
 
 # Import utility modules
 from utils.for_demo.dsm_cache_utils import (
@@ -33,14 +63,27 @@ from utils.market_constraints import (
 
 
 def setup_environment(clear_cache: bool = False) -> bool:
-    """
-    Set up the environment for data fetching.
+    """Set up the environment for data fetching.
+
+    This function prepares the environment for data fetching operations by:
+    1. Verifying the project root location
+    2. Ensuring the cache directory exists
+    3. Optionally clearing existing cache data
 
     Args:
-        clear_cache: Whether to clear the cache directory
+        clear_cache: Whether to clear the cache directory before fetching data.
+                    If True, all cached data will be removed.
 
     Returns:
-        bool: True if setup successful, False otherwise
+        bool: True if setup was successful, False otherwise
+
+    Raises:
+        OSError: If cache directory creation fails
+
+    Example:
+        >>> success = setup_environment(clear_cache=False)
+        >>> print(success)
+        True
     """
     try:
         # Verify project root (always returns True now, kept for backward compatibility)
@@ -63,19 +106,37 @@ def setup_environment(clear_cache: bool = False) -> bool:
 
 def process_market_parameters(
     provider: str, market: str, chart_type: str, symbol: str, interval: str
-) -> tuple[DataProvider, MarketType, ChartType, str, Interval]:
-    """
-    Process and validate market-related parameters.
+) -> Tuple[DataProvider, MarketType, ChartType, str, Interval]:
+    """Process and validate market-related parameters.
+
+    This function converts string parameters to their appropriate enum types,
+    validates that the parameters are compatible with each other, and performs
+    market-specific validations.
 
     Args:
-        provider: Data provider name
-        market: Market type name
-        chart_type: Chart type name
-        symbol: Trading symbol
-        interval: Time interval
+        provider: Data provider name (e.g., "binance")
+        market: Market type name (e.g., "spot", "futures_usdt", "futures_coin")
+        chart_type: Chart type name (e.g., "klines")
+        symbol: Trading symbol (e.g., "BTCUSDT" for spot, "BTC_PERP" for CM)
+        interval: Time interval (e.g., "1m", "1h")
 
     Returns:
-        Tuple containing processed enums and validated symbol
+        Tuple containing:
+        - provider_enum: Validated DataProvider enum
+        - market_type: Validated MarketType enum
+        - chart_type_enum: Validated ChartType enum
+        - symbol: Validated symbol string (default provided if empty)
+        - interval_enum: Validated Interval enum
+
+    Raises:
+        ValueError: If any parameter is invalid or incompatible with others
+
+    Example:
+        >>> provider, market, chart, sym, interval = process_market_parameters(
+        ...     "binance", "spot", "klines", "BTCUSDT", "1m"
+        ... )
+        >>> print(market)
+        spot
     """
     # Convert strings to enums
     provider_enum = DataProvider.from_string(provider)
@@ -107,34 +168,59 @@ def fetch_market_data(
     chart_type: ChartType,
     symbol: str,
     interval: Interval,
-    start_time: str | None = None,
-    end_time: str | None = None,
+    start_time: Optional[Union[datetime, str]] = None,
+    end_time: Optional[Union[datetime, str]] = None,
     days: int = 3,
     use_cache: bool = True,
     enforce_source: str = "AUTO",
     max_retries: int = 3,
-) -> tuple[Any, float, int]:
-    """
-    Fetch market data using the Failover Control Protocol.
+) -> Tuple[Optional[TimestampedDataFrame], float, int]:
+    """Fetch market data using the Failover Control Protocol.
+
+    This function retrieves market data from multiple sources using a progressive
+    approach that prioritizes speed and reliability:
+    1. First attempts to retrieve data from local cache (if use_cache=True)
+    2. Then retrieves missing data from Vision API
+    3. Finally falls back to REST API for any remaining data
+
+    The function handles time range validation, data normalization, and merging
+    data from multiple sources into a consistent DataFrame.
 
     Args:
-        provider: Data provider enum
-        market_type: Market type enum
-        chart_type: Chart type enum
-        symbol: Trading symbol
-        interval: Time interval enum
-        start_time: Start time in ISO format
-        end_time: End time in ISO format
-        days: Number of days to fetch
-        use_cache: Whether to use cache
-        enforce_source: Enforce specific data source
-        max_retries: Maximum retry attempts
+        provider: The data provider (e.g., BINANCE)
+        market_type: Type of market (SPOT, UM, CM)
+        chart_type: Type of chart data (KLINES, etc.)
+        symbol: Trading pair symbol (e.g., 'BTCUSDT')
+        interval: Time interval (e.g., MINUTE_1, HOUR_1)
+        start_time: Start datetime (UTC) or ISO format string
+        end_time: End datetime (UTC) or ISO format string
+        days: Number of days to fetch (backward from end_time)
+        use_cache: Whether to use the local cache
+        enforce_source: Enforce specific data source ("AUTO", "CACHE", "VISION", "REST")
+        max_retries: Maximum retry attempts for API calls
 
     Returns:
         Tuple containing:
-        - DataFrame with market data
+        - DataFrame with market data (or None if error)
         - Elapsed time in seconds
-        - Number of records fetched
+        - Number of records retrieved
+
+    Raises:
+        ValueError: If time parameters are invalid or incompatible
+        RuntimeError: If data cannot be retrieved from any source
+
+    Example:
+        >>> df, elapsed_time, count = fetch_market_data(
+        ...     provider=DataProvider.BINANCE,
+        ...     market_type=MarketType.SPOT,
+        ...     chart_type=ChartType.KLINES,
+        ...     symbol="BTCUSDT",
+        ...     interval=Interval.MINUTE_1,
+        ...     end_time=datetime(2023, 1, 10),
+        ...     days=5,
+        ...     use_cache=True
+        ... )
+        >>> print(f"Retrieved {count} records in {elapsed_time:.2f} seconds")
     """
     start_time_perf = perf_counter()
 

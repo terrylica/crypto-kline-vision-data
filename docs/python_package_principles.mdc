@@ -1,0 +1,184 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+# Python Package Principles for Data Source Manager
+
+This document outlines the Python package principles applied to the Data Source Manager package, ensuring it follows best practices for documentation, discoverability, and usability.
+
+## Self-Documentation Principles
+
+The Data Source Manager package follows these self-documentation principles:
+
+### 1. Descriptive Naming
+
+- Module names clearly indicate their purpose (e.g., `data_source_manager.py`, `market_constraints.py`)
+- Class and function names use descriptive verbs and nouns (`fetch_market_data`, `DataSourceConfig`)
+- Enum values use clear, consistent naming conventions (`MarketType`, `Interval`, `DataSource`)
+
+### 2. Comprehensive Docstrings
+
+All modules, classes, functions, and methods include docstrings that:
+
+- Explain purpose and functionality
+- Document parameters, return values, and exceptions
+- Provide usage examples where appropriate
+- Use consistent docstring format (Google style)
+
+Example docstring format:
+
+```python
+def fetch_market_data(
+    provider: DataProvider,
+    market_type: MarketType,
+    chart_type: ChartType,
+    symbol: str,
+    interval: Interval,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    days: Optional[int] = None,
+    use_cache: bool = True,
+) -> Tuple[Optional[TimestampedDataFrame], float, int]:
+    """Fetch market data using the Failover Control Protocol.
+
+    Args:
+        provider: The data provider (e.g., BINANCE)
+        market_type: Type of market (SPOT, UM, CM)
+        chart_type: Type of chart data (KLINES, etc.)
+        symbol: Trading pair symbol (e.g., 'BTCUSDT')
+        interval: Time interval (e.g., MINUTE_1, HOUR_1)
+        start_time: Start datetime (UTC)
+        end_time: End datetime (UTC)
+        days: Number of days to fetch (backward from end_time)
+        use_cache: Whether to use the local cache
+
+    Returns:
+        Tuple containing:
+        - DataFrame with market data (or None if error)
+        - Elapsed time in seconds
+        - Number of records retrieved
+
+    Example:
+        >>> df, elapsed_time, count = fetch_market_data(
+        ...     provider=DataProvider.BINANCE,
+        ...     market_type=MarketType.SPOT,
+        ...     chart_type=ChartType.KLINES,
+        ...     symbol="BTCUSDT",
+        ...     interval=Interval.MINUTE_1,
+        ...     start_time=datetime(2023, 1, 1),
+        ...     end_time=datetime(2023, 1, 10),
+        ...     use_cache=True
+        ... )
+    """
+```
+
+### 3. Module-Level Documentation
+
+Each module includes a module-level docstring explaining:
+
+- The module's purpose
+- Key classes and functions
+- How the module fits into the broader package
+- Usage examples where appropriate
+
+## Accessibility Principles
+
+The package implements these accessibility principles:
+
+### 1. Standard Help Mechanisms
+
+- All docstrings are accessible via Python's built-in `help()` function
+- Classes and functions expose their interfaces through standard Python introspection
+
+### 2. Command-Line Interfaces
+
+- CLI tools provide comprehensive help through standard flags (`--help`, `-h`)
+- Error messages are clear and actionable
+- Commands follow consistent patterns and naming conventions
+
+### 3. Examples and Tutorials
+
+- Concrete examples in docstrings show actual usage
+- Standalone example scripts demonstrate key functionality
+- Example CLI commands in documentation
+
+## Progressive Disclosure Principles
+
+Information is presented in layers of increasing detail:
+
+### 1. High-Level Overview
+
+- Package `__init__.py` provides a concise overview of functionality
+- README.md gives a high-level introduction and quick-start guide
+- Module docstrings provide component-level context
+
+### 2. Detailed Documentation
+
+- Class and function docstrings give detailed parameter information
+- In-depth examples for complex functionality
+- Internal implementation details are documented for maintainers
+
+## Consistency Principles
+
+Documentation follows consistent patterns:
+
+### 1. Docstring Style
+
+- Google-style docstrings used consistently throughout the codebase
+- Consistent terminology across all documentation
+- Standardized parameter descriptions across similar functions
+
+### 2. Code Organization
+
+- Follows standard Python package layout
+- Clear separation of concerns (core functionality, utilities, examples)
+- Consistent import patterns
+
+### 3. API Design
+
+- Consistent parameter ordering across related functions
+- Enums used for constrained values
+- Type hints applied consistently
+
+## Tools and Standards
+
+The package uses these tools and standards for documentation:
+
+### 1. Docstring Format
+
+- Google-style docstrings for all Python objects
+- Type hints for parameters and return values
+- Examples embedded in docstrings
+
+### 2. Package Structure
+
+- Standard Python package layout
+- Clear entry points via `__init__.py`
+- Logical import paths (e.g., `from data_source_manager import fetch_market_data`)
+
+### 3. CLI Tools
+
+- CLI tools built with typer for standardized command-line interfaces
+- Self-documented help output
+- Consistent flag naming and behavior
+
+## Documentation Validation
+
+Documentation quality is validated by ensuring:
+
+1. Users can understand package functionality without internet access
+2. Help is accessible through standard Python mechanisms
+3. Examples can be run as documentation
+4. Package structure is navigable intuitively
+
+## Implementation in Data Source Manager
+
+The Data Source Manager package implements these principles through:
+
+1. Comprehensive docstrings at all levels
+2. Exposed APIs through `__init__.py` for clean imports
+3. CLI tools with built-in help
+4. Example scripts showing usage patterns
+5. Consistent naming and organization throughout

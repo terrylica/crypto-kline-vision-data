@@ -1,0 +1,28 @@
+# Prettier configuration for YAML, JSON, and Markdown formatting.
+# Integrated via .vscode/settings.json.
+
+# Use tabs for indentation.
+useTabs = true
+
+# Specify the line ending character. "lf" (\n), for Linux, "crlf" (\r\n) for Windows
+endOfLine = "lf"
+
+# Specify the formatting of embedded language fragments.
+embeddedLanguageFormatting = "auto"
+
+# Add semicolons at the end of statements.
+semi = true
+
+# Add trailing commas wherever valid in ES5 (objects, arrays, etc.), including in function parameters/arguments.
+trailingComma = "all"
+
+# Use single quotes instead of double quotes for strings.
+singleQuote = true
+
+# Change when properties in objects are quoted.
+quoteProps = "consistent"
+
+# Control how prose (Markdown, HTML, etc.) is wrapped. "preserve" means no automatic wrapping, preserving existing line breaks.
+proseWrap = "preserve"
+# Specify the line length that the printer will wrap on.
+printWidth = 140 # Ineffective for proseWrap = "preserve", unless proseWrap = "always"

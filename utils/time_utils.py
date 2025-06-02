@@ -1,15 +1,40 @@
 #!/usr/bin/env python
-"""Time utilities for handling time alignment and boundaries in Binance API requests.
+"""Time utilities for handling time alignment and boundaries in market data operations.
 
-This module centralizes all time-related functionality, providing a single source of truth for:
+This module centralizes all time-related functionality for working with financial market data,
+providing a single source of truth for timestamp handling, interval calculations, and time
+boundary management. It ensures consistent time handling across the entire application.
+
+Key functionality:
 1. Time zone conversion and normalization
-2. Interval calculations and manipulations
-3. Time boundary alignment for API requests
-4. Time window validation
-5. Timestamp unit detection and formatting (for Binance Vision API compatibility)
+2. Interval calculations and boundary alignment
+3. Timestamp precision management (milliseconds/microseconds)
+4. Time window validation and filtering
+5. Bar/candle completion detection
+6. Record count estimation
 
-The module combines functionality previously scattered across time_alignment.py and
-api_boundary_validator.py to ensure consistent behavior throughout the application.
+The module is particularly important for:
+- Aligning time boundaries for API requests to Binance and other providers
+- Ensuring consistent timestamp handling across different data sources
+- Calculating precise time intervals for market data analysis
+- Properly handling timezone information for global market data
+
+Example:
+    >>> from utils.time_utils import align_time_boundaries, datetime_to_milliseconds
+    >>> from utils.market_constraints import Interval
+    >>> from datetime import datetime, timezone
+    >>>
+    >>> # Align time boundaries for a 1-minute interval request
+    >>> start = datetime(2023, 1, 1, 12, 34, 56, tzinfo=timezone.utc)
+    >>> end = datetime(2023, 1, 1, 15, 45, 23, tzinfo=timezone.utc)
+    >>> aligned_start, aligned_end = align_time_boundaries(start, end, Interval.MINUTE_1)
+    >>>
+    >>> print(f"Original: {start} to {end}")
+    >>> print(f"Aligned: {aligned_start} to {aligned_end}")
+    >>>
+    >>> # Convert datetime to milliseconds for API requests
+    >>> ms_timestamp = datetime_to_milliseconds(aligned_start)
+    >>> print(f"Millisecond timestamp: {ms_timestamp}")
 """
 
 import re
@@ -264,13 +289,37 @@ def enforce_utc_timezone(dt: datetime) -> datetime:
 
 
 def get_interval_micros(interval: MarketInterval) -> int:
-    """Convert interval to microseconds.
+    """Convert market interval to microseconds for precise time calculations.
+
+    This function provides a standardized way to convert any market interval
+    (1s, 1m, 1h, 1d, etc.) to its equivalent duration in microseconds.
+    It's a foundational utility that enables precise time calculations across
+    the application.
 
     Args:
-        interval: The interval specification
+        interval: The market interval to convert (e.g., MINUTE_1, HOUR_1)
 
     Returns:
         int: Interval duration in microseconds
+
+    Raises:
+        ValueError: If the interval format is invalid or unsupported
+
+    Example:
+        >>> from utils.market_constraints import Interval
+        >>> from utils.time_utils import get_interval_micros
+        >>>
+        >>> # Convert different intervals to microseconds
+        >>> minute_micros = get_interval_micros(Interval.MINUTE_1)
+        >>> hour_micros = get_interval_micros(Interval.HOUR_1)
+        >>> day_micros = get_interval_micros(Interval.DAY_1)
+        >>>
+        >>> print(f"1 minute = {minute_micros} microseconds")
+        >>> print(f"1 hour = {hour_micros} microseconds")
+        >>> print(f"1 day = {day_micros} microseconds")
+        1 minute = 60000000 microseconds
+        1 hour = 3600000000 microseconds
+        1 day = 86400000000 microseconds
     """
     # Parse interval value and unit
     match = re.match(r"(\d+)([a-zA-Z]+)", interval.value)
@@ -304,25 +353,64 @@ def get_interval_micros(interval: MarketInterval) -> int:
 
 
 def get_interval_seconds(interval: MarketInterval) -> int:
-    """Get interval duration in seconds.
+    """Convert market interval to seconds for standard time calculations.
+
+    This function provides a more convenient alternative to get_interval_micros
+    when working with seconds is more appropriate (e.g., for API requests,
+    human-readable durations, or compatibility with libraries that use seconds).
 
     Args:
-        interval: The interval to convert
+        interval: The market interval to convert (e.g., MINUTE_1, HOUR_1)
 
     Returns:
-        Number of seconds in the interval
+        int: Interval duration in seconds
+
+    Example:
+        >>> from utils.market_constraints import Interval
+        >>> from utils.time_utils import get_interval_seconds
+        >>>
+        >>> # Compare interval durations in seconds
+        >>> intervals = [Interval.MINUTE_1, Interval.MINUTE_5, Interval.HOUR_1, Interval.DAY_1]
+        >>> for interval in intervals:
+        ...     seconds = get_interval_seconds(interval)
+        ...     print(f"{interval.value} = {seconds} seconds")
+        1m = 60 seconds
+        5m = 300 seconds
+        1h = 3600 seconds
+        1d = 86400 seconds
     """
     return get_interval_micros(interval) // 1_000_000
 
 
 def get_interval_timedelta(interval: MarketInterval) -> timedelta:
-    """Convert interval to timedelta.
+    """Convert market interval to timedelta for datetime arithmetic.
+
+    This function is particularly useful for datetime calculations where you need
+    to add or subtract a market interval from a datetime object. Using timedelta
+    objects ensures proper handling of calendar rules (month/year boundaries, DST changes).
 
     Args:
-        interval: The interval specification
+        interval: The market interval to convert (e.g., MINUTE_1, HOUR_1)
 
     Returns:
-        timedelta: Interval duration
+        timedelta: Interval as a Python timedelta object
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> from utils.market_constraints import Interval
+        >>> from utils.time_utils import get_interval_timedelta
+        >>>
+        >>> # Add different intervals to a datetime
+        >>> now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        >>> intervals = [Interval.MINUTE_1, Interval.HOUR_1, Interval.DAY_1]
+        >>>
+        >>> for interval in intervals:
+        ...     delta = get_interval_timedelta(interval)
+        ...     future = now + delta
+        ...     print(f"{now} + {interval.value} = {future}")
+        2023-01-01 12:00:00+00:00 + 1m = 2023-01-01 12:01:00+00:00
+        2023-01-01 12:00:00+00:00 + 1h = 2023-01-01 13:00:00+00:00
+        2023-01-01 12:00:00+00:00 + 1d = 2023-01-02 12:00:00+00:00
     """
     return timedelta(microseconds=get_interval_micros(interval))
 
@@ -418,22 +506,49 @@ def filter_dataframe_by_time(
     end_time: datetime,
     time_column: str = "open_time",
 ) -> pd.DataFrame:
-    """Filter DataFrame by time range.
+    """Filter a DataFrame by time range with robust handling of different timestamp formats.
 
-    This function filters a DataFrame to include only rows where the time column
-    is within the specified time range. It preserves the exact timestamps from
-    the raw data without any shifting, maintaining the semantic meaning:
-    - open_time represents the BEGINNING of each candle period
-    - close_time represents the END of each candle period
+    This function provides a consistent way to filter market data by a time range,
+    handling various timestamp formats and edge cases:
+
+    1. Both DatetimeIndex and regular column-based filtering
+    2. Different timestamp precisions (milliseconds/microseconds)
+    3. Different timestamp formats (datetime objects, epoch timestamps)
+    4. Proper timezone handling (converting all to UTC)
 
     Args:
-        df: DataFrame to filter
-        start_time: Start time (inclusive)
-        end_time: End time (inclusive)
-        time_column: Name of the column containing timestamps (default: "open_time")
+        df: DataFrame to filter, can have DatetimeIndex or time column
+        start_time: Start of time range (inclusive)
+        end_time: End of time range (inclusive)
+        time_column: Name of timestamp column to filter by (defaults to "open_time")
 
     Returns:
-        Filtered DataFrame with preserved timestamp semantics
+        pd.DataFrame: Filtered DataFrame containing only rows within the specified time range
+
+    Example:
+        >>> import pandas as pd
+        >>> from datetime import datetime, timezone, timedelta
+        >>> from utils.time_utils import filter_dataframe_by_time
+        >>>
+        >>> # Create sample data
+        >>> now = datetime.now(timezone.utc)
+        >>> dates = [now - timedelta(minutes=i) for i in range(10)]
+        >>> df = pd.DataFrame({
+        ...     'open_time': dates,
+        ...     'value': range(10)
+        ... })
+        >>>
+        >>> # Filter for last 5 minutes
+        >>> start = now - timedelta(minutes=5)
+        >>> filtered_df = filter_dataframe_by_time(df, start, now)
+        >>>
+        >>> print(f"Original rows: {len(df)}")
+        >>> print(f"Filtered rows: {len(filtered_df)}")
+
+    Note:
+        The function handles both the case where the timestamp is the index
+        and where it's a regular column. It prioritizes using DatetimeIndex
+        filtering for better performance when available.
     """
     if df.empty:
         return df.copy()
@@ -525,32 +640,43 @@ def filter_dataframe_by_time(
 
 
 def align_time_boundaries(start_time: datetime, end_time: datetime, interval: MarketInterval) -> tuple[datetime, datetime]:
-    """Align time boundaries according to Binance REST API behavior.
+    """Align time boundaries to exact interval points for precise data retrieval.
 
-    This is the unified implementation that correctly handles time boundaries for both
-    REST and Vision APIs, following the Liskov Substitution Principle.
+    This function ensures that start and end times align perfectly with interval boundaries.
+    For example, for a 1-minute interval:
+    - 2023-01-01 12:34:56 would be aligned to 2023-01-01 12:34:00
+    - 2023-01-01 12:34:56 would be aligned to 2023-01-01 12:35:00 for the end time
 
-    Key Binance API boundary handling rules:
-    - startTime: Rounds UP to the next interval boundary if not exactly on a boundary
-    - endTime: Rounds DOWN to the previous interval boundary if not exactly on a boundary
-    - Both boundaries are treated as INCLUSIVE after alignment
-    - Microsecond/millisecond precision is ignored and rounded to interval boundaries
-
-    This implementation preserves the semantic meaning of timestamps:
-    - The aligned start_time represents the BEGINNING of the first candle in the range
-    - The aligned end_time represents the BEGINNING of the last candle in the range
-      (the actual end of the data range is end_time + interval_duration - 1 microsecond)
-
-    This implementation is mathematically precise and works for all interval types:
-    1s, 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M.
+    Proper alignment is critical for:
+    1. Ensuring data completeness (no partial bars)
+    2. Avoiding off-by-one errors in record counts
+    3. Consistent handling across different data sources
+    4. Accurate gap detection between time periods
 
     Args:
-        start_time: User-provided start time
-        end_time: User-provided end time
-        interval: Data interval
+        start_time: Start datetime to align (naive or timezone-aware)
+        end_time: End datetime to align (naive or timezone-aware)
+        interval: Market interval to align to (e.g., MINUTE_1, HOUR_1)
 
     Returns:
-        Tuple of (aligned_start_time, aligned_end_time) with proper boundary handling
+        tuple: (aligned_start, aligned_end) as timezone-aware datetime objects
+            - aligned_start: Floored to the nearest interval boundary
+            - aligned_end: Ceiled to the nearest interval boundary
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> from utils.market_constraints import Interval
+        >>> from utils.time_utils import align_time_boundaries
+        >>>
+        >>> # Align a 1-hour interval request
+        >>> start = datetime(2023, 1, 1, 14, 30, 0, tzinfo=timezone.utc)
+        >>> end = datetime(2023, 1, 1, 16, 45, 0, tzinfo=timezone.utc)
+        >>>
+        >>> aligned_start, aligned_end = align_time_boundaries(start, end, Interval.HOUR_1)
+        >>> print(f"Original: {start.isoformat()} to {end.isoformat()}")
+        >>> print(f"Aligned: {aligned_start.isoformat()} to {aligned_end.isoformat()}")
+        Original: 2023-01-01T14:30:00+00:00 to 2023-01-01T16:45:00+00:00
+        Aligned: 2023-01-01T14:00:00+00:00 to 2023-01-01T17:00:00+00:00
     """
     # Ensure timezone awareness
     start_time = enforce_utc_timezone(start_time)
@@ -597,21 +723,51 @@ def align_time_boundaries(start_time: datetime, end_time: datetime, interval: Ma
 
 
 def estimate_record_count(start_time: datetime, end_time: datetime, interval: MarketInterval) -> int:
-    """Estimate number of records between two timestamps for a given interval.
+    """Estimate the number of data points between two timestamps for capacity planning.
 
-    The Binance API uses specific boundary treatment:
-    1. For exact boundaries: inclusive-inclusive (returns both start and end timestamps)
-    2. For timestamps with milliseconds:
-       - startTime: rounds UP to next interval boundary
-       - endTime: rounds DOWN to previous interval boundary
+    This function calculates how many data points (candles/bars) would exist between
+    two timestamps for a given interval. It's useful for:
+
+    1. Capacity planning before data retrieval
+    2. Validating that retrieved data is complete
+    3. Pre-allocating arrays or dataframes of appropriate size
+    4. Detecting missing data by comparing actual vs. expected record counts
+
+    The calculation accounts for:
+    - Proper time boundary alignment
+    - Future date handling (returns 0 for future dates)
+    - Current time limitations (no data exists beyond now)
 
     Args:
-        start_time: Start time
-        end_time: End time
-        interval: Data interval
+        start_time: Start time for data range
+        end_time: End time for data range
+        interval: Market interval (e.g., MINUTE_1, HOUR_1)
 
     Returns:
-        Estimated number of records
+        int: Estimated number of data points/records between start and end time
+
+    Example:
+        >>> from datetime import datetime, timezone, timedelta
+        >>> from utils.market_constraints import Interval
+        >>> from utils.time_utils import estimate_record_count
+        >>>
+        >>> # Calculate records for different time spans and intervals
+        >>> now = datetime.now(timezone.utc)
+        >>> yesterday = now - timedelta(days=1)
+        >>> last_week = now - timedelta(days=7)
+        >>>
+        >>> # Estimate records for different intervals
+        >>> minute_records = estimate_record_count(yesterday, now, Interval.MINUTE_1)
+        >>> hour_records = estimate_record_count(last_week, now, Interval.HOUR_1)
+        >>>
+        >>> print(f"Expected 1-minute bars for last day: {minute_records}")
+        >>> print(f"Expected 1-hour bars for last week: {hour_records}")
+        >>> print(f"For 1-minute data, 1 day should have exactly 1440 records: {minute_records == 1440}")
+
+    Note:
+        When calculating storage requirements, remember that each record typically
+        has multiple fields (open, high, low, close, volume, etc.), so the total
+        storage needed will be: record_count * fields_per_record * bytes_per_field.
     """
     # Ensure timezone awareness
     start_time = enforce_utc_timezone(start_time)

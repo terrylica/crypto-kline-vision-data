@@ -1,7 +1,34 @@
 #!/usr/bin/env python3
-"""
-DSM Demo CLI: Command-line interface for data source management demo.
-This module provides a CLI wrapper around the core DSM functionality.
+"""Data Source Manager CLI demo tool.
+
+This module provides a command-line interface for demonstrating the Failover Control
+Protocol (FCP) mechanism implemented in the Data Source Manager package. It allows
+users to fetch market data from multiple sources with a single command.
+
+The FCP mechanism consists of three integrated phases:
+1. Local Cache Retrieval: Quickly obtain data from local Apache Arrow files
+2. Vision API Retrieval: Supplement missing data segments from Vision API
+3. REST API Fallback: Ensure complete data coverage for any remaining segments
+
+Key features:
+- Comprehensive command-line options for data selection
+- Flexible time range specification
+- Cache control for improved performance
+- Rich terminal output with data visualization
+- Detailed performance metrics
+
+Example usage:
+    # Basic usage with default parameters
+    dsm-demo-cli
+
+    # Fetch ETHUSDT data for the last 5 days with 1-hour intervals
+    dsm-demo-cli -s ETHUSDT -i 1h -d 5
+
+    # Fetch data for a specific date range
+    dsm-demo-cli -s BTCUSDT --start-time 2023-01-01 --end-time 2023-01-05
+
+    # Force data retrieval from REST API (bypass cache and Vision API)
+    dsm-demo-cli -s BTCUSDT -e REST
 """
 
 from utils.for_demo.dsm_help_content import MAIN_DOCSTRING
@@ -10,8 +37,10 @@ __doc__ = MAIN_DOCSTRING
 
 import sys
 from time import perf_counter
+from typing import Optional
 
 import pendulum
+from rich.console import Console
 
 # Import library functions
 from core.sync.dsm_lib import (
@@ -60,6 +89,9 @@ app = create_typer_app()
 # Get standard options and their defaults
 options = get_standard_options()
 
+# Console for rich output
+console = Console()
+
 
 @app.command(help=get_cmd_help_text())
 def main(
@@ -70,8 +102,8 @@ def main(
     symbol: str = options["symbol"],
     interval: str = options["interval"],
     # Time Range options
-    start_time: str | None = options["start_time"],
-    end_time: str | None = options["end_time"],
+    start_time: Optional[str] = options["start_time"],
+    end_time: Optional[str] = options["end_time"],
     days: int = options["days"],
     # Data Source options
     enforce_source: DataSourceChoice = options["enforce_source"],
@@ -79,15 +111,34 @@ def main(
     # Cache Control options
     no_cache: bool = options["no_cache"],
     clear_cache: bool = options["clear_cache"],
+    show_cache_info: bool = options["show_cache_info"],
     # Documentation options
     gen_doc: bool = options["gen_doc"],
     gen_lint_config: bool = options["gen_lint_config"],
-    # New options
-    show_cache_info: bool = False,
     # Other options
     log_level: LogLevel = options["log_level"],
 ):
-    """DSM Demo: Demonstrates the Failover Control Protocol (FCP) mechanism."""
+    """Fetch and display market data using the Failover Control Protocol.
+
+    This demo tool demonstrates the Data Source Manager's ability to retrieve
+    market data from multiple sources using a progressive approach that
+    prioritizes speed and reliability:
+
+    1. First attempts to retrieve data from local cache (if use_cache=True)
+    2. Then retrieves missing data from Vision API
+    3. Finally falls back to REST API for any remaining data
+
+    The tool will automatically handle time range validation, data normalization,
+    and merging data from multiple sources into a consistent output.
+
+    Example usage:
+
+        dsm-demo-cli -s BTCUSDT -i 1m -d 10
+
+        dsm-demo-cli --symbol ETHUSDT --interval 1h --days 5 --no-cache
+
+        dsm-demo-cli -s BTCUSDT --start-time 2023-01-01 --end-time 2023-01-05
+    """
     # Convert shorthand log levels to full names
     level = resolve_log_level(log_level.value)
 
@@ -136,6 +187,7 @@ def main(
 
         # Set up environment
         if not setup_environment(clear_cache):
+            console.print("[bold red]Failed to set up environment. Exiting.[/bold red]")
             sys.exit(1)
 
         # Display configuration
@@ -203,7 +255,7 @@ def main(
             print_performance_panel(elapsed_time, records_count)
 
         except ValueError as e:
-            print(f"[bold red]Error: {e}[/bold red]")
+            console.print(f"[bold red]Error: {e}[/bold red]")
             import traceback
 
             traceback.print_exc()

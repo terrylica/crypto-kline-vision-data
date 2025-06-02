@@ -1,9 +1,38 @@
 #!/usr/bin/env python3
-"""
-DSM Demo Showcase: Example of end time backward retrieval with log control.
-This module demonstrates how to use the DSM library functions directly for
-fetching historical data from a specified end time, similar to the CLI usage:
+"""Data Source Manager (DSM) Library Module Usage Demonstration.
 
+This module demonstrates how to use the DSM library API programmatically in your
+own Python applications. It showcases:
+
+1. Proper configuration and initialization of the DSM library
+2. Fetching historical market data with flexible time parameters
+3. Processing and displaying the retrieved data
+4. Error handling and logging best practices
+5. Cache management and performance optimization
+
+The module is structured as a reusable example that you can adapt for your own
+applications. It includes both a showcased function for backward data retrieval
+and a main entry point that demonstrates different usage patterns.
+
+Example usage as a script:
+    $ python examples/lib_module/dsm_demo_module.py
+
+Example usage as a module:
+    >>> from examples.lib_module.dsm_demo_module import showcase_backward_retrieval
+    >>>
+    >>> # Basic usage with default parameters
+    >>> showcase_backward_retrieval()
+    >>>
+    >>> # Custom parameters for specific data retrieval
+    >>> showcase_backward_retrieval(
+    ...     symbol="ETHUSDT",
+    ...     end_time="2025-01-01T00:00:00",
+    ...     interval="5m",
+    ...     days=3,
+    ...     log_level="DEBUG"
+    ... )
+
+This is analogous to the CLI command:
     dsm-demo-cli -s BTCUSDT -et 2025-04-14T15:59:59 -i 1m -d 10 -l E
 """
 
@@ -33,22 +62,56 @@ def showcase_backward_retrieval(
     log_level: str = "INFO",
     log_timestamp: str | None = None,
 ) -> None:
-    """
-    Demonstrate backward data retrieval from a specified end time.
+    """Demonstrate backward data retrieval from a specified end time with rich display.
 
-    This function shows how to:
-    1. Configure logging with specific level
-    2. Process market parameters
-    3. Fetch historical data going backward from end time
-    4. Handle and display results
+    This function provides a complete example of using the DSM library API for retrieving
+    historical market data, starting from a specified end time and going backward for a
+    given number of days. It demonstrates proper parameter processing, data retrieval,
+    and result visualization.
+
+    Key aspects demonstrated:
+    1. Configuring logging with appropriate levels
+    2. Parameter validation and transformation
+    3. Market data retrieval with progress tracking
+    4. Rich terminal display of results
+    5. Statistics generation and data range validation
 
     Args:
-        symbol: Trading symbol (e.g., "BTCUSDT")
+        symbol: Trading symbol to retrieve data for (e.g., "BTCUSDT", "ETHUSDT")
         end_time: End time in ISO format (YYYY-MM-DDTHH:mm:ss)
-        interval: Time interval (e.g., "1m", "5m", "1h")
-        days: Number of days to fetch backward
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_timestamp: Timestamp string for log file naming
+            This is the point from which to retrieve data backward
+        interval: Time interval for data points (e.g., "1s", "1m", "5m", "1h")
+            Supported values match those in utils.market_constraints.Interval
+        days: Number of days to retrieve backward from end_time
+            Larger values will result in more data and longer retrieval times
+        log_level: Logging level to use (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            DEBUG provides the most detailed output, INFO is recommended for general use
+        log_timestamp: Optional timestamp string for log file naming
+            If None, current timestamp will be used
+
+    Returns:
+        None: Results are displayed to the console and written to log files
+
+    Examples:
+        Basic usage with default parameters:
+
+        >>> showcase_backward_retrieval()
+
+        Custom parameters for specific data needs:
+
+        >>> showcase_backward_retrieval(
+        ...     symbol="ETHUSDT",  # Use Ethereum instead of Bitcoin
+        ...     end_time="2025-01-01T00:00:00",  # Specific date
+        ...     interval="5m",  # 5-minute intervals for less granular data
+        ...     days=3,  # Just 3 days of data
+        ...     log_level="DEBUG"  # More detailed logging
+        ... )
+
+    Note:
+        This function relies on the DSM library's fetch_market_data function, which
+        handles data source selection, caching, and error handling automatically.
+        The display portion uses Rich for terminal formatting, but could be modified
+        to output to files, databases, or other visualization tools.
     """
     # Set the log level from the parameter
     logger.setLevel(log_level)
@@ -151,7 +214,42 @@ def showcase_backward_retrieval(
 
 
 def main():
-    """Run the backward retrieval showcase example."""
+    """Run the DSM demo showcase with multiple examples.
+
+    This function serves as the main entry point when this module is executed directly.
+    It demonstrates:
+
+    1. Environment setup and initialization
+    2. Logging configuration for both console and file output
+    3. Cache information display and management
+    4. Multiple example runs with different parameters
+    5. Error handling and graceful failure modes
+
+    The function runs two demonstration scenarios:
+    1. Default example: BTCUSDT with 1-minute intervals for 10 days
+    2. Custom example: ETHUSDT with 5-minute intervals for 5 days
+
+    This allows you to compare behavior across different symbols and intervals.
+
+    Returns:
+        None: Results are displayed to the console and written to log files
+
+    Examples:
+        To run this function directly:
+
+        $ python examples/lib_module/dsm_demo_module.py
+
+        Or from Python:
+
+        >>> from examples.lib_module.dsm_demo_module import main
+        >>> main()
+
+    Note:
+        You can modify this function to create your own custom examples
+        by adding more calls to showcase_backward_retrieval with different
+        parameters, or by implementing additional showcase functions for
+        other retrieval patterns.
+    """
     # Show execution environment info
     cwd = os.getcwd()
     logger.debug(f"Current working directory: {cwd}")

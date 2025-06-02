@@ -1,4 +1,39 @@
 #!/usr/bin/env python
+"""Market constraints and configuration for data retrieval operations.
+
+This module defines the core enums, constants, and utility functions that govern
+market-specific behaviors throughout the Data Source Manager. It serves as the
+single source of truth for market types, intervals, and data providers.
+
+Key components:
+- DataProvider: Enum for different data providers (Binance, OKX, etc.)
+- MarketType: Enum for market types (SPOT, FUTURES_USDT, FUTURES_COIN, etc.)
+- ChartType: Enum for different types of chart data (klines, funding rate, etc.)
+- Interval: Enum for time intervals (1m, 5m, 1h, etc.)
+- MarketCapabilities: Class that defines capabilities and constraints of markets
+- Utility functions for symbol validation, endpoint construction, etc.
+
+The module is designed to abstract away provider-specific details while providing
+a consistent interface for the rest of the application.
+
+Example:
+    >>> from utils.market_constraints import DataProvider, MarketType, Interval, ChartType
+    >>>
+    >>> # Check if an interval is supported for a market type
+    >>> is_supported = is_interval_supported(MarketType.SPOT, Interval.MINUTE_1)
+    >>> print(f"Is 1m supported for SPOT? {is_supported}")
+    Is 1m supported for SPOT? True
+    >>>
+    >>> # Get the default symbol for a market type
+    >>> symbol = get_default_symbol(MarketType.FUTURES_USDT)
+    >>> print(f"Default symbol for FUTURES_USDT: {symbol}")
+    Default symbol for FUTURES_USDT: BTCUSDT
+    >>>
+    >>> # Convert string representations to enum values
+    >>> market = MarketType.from_string("spot")
+    >>> interval = Interval("1h")
+    >>> chart = ChartType.from_string("klines")
+"""
 
 import re
 from enum import Enum, auto
@@ -222,6 +257,53 @@ class ChartType(Enum):
 
 
 class Interval(Enum):
+    """Time intervals for market data retrieval.
+
+    This enum defines the standard time intervals available for market data,
+    from 1 second to 1 month. Each enum value maps to the string representation
+    used in API requests.
+
+    Most market types support all intervals except for 1-second data, which is
+    typically only available for SPOT markets.
+
+    Attributes:
+        SECOND_1: 1-second interval (available only for some SPOT markets)
+        MINUTE_1: 1-minute interval (common default for most operations)
+        MINUTE_3: 3-minute interval
+        MINUTE_5: 5-minute interval
+        MINUTE_15: 15-minute interval
+        MINUTE_30: 30-minute interval
+        HOUR_1: 1-hour interval
+        HOUR_2: 2-hour interval
+        HOUR_4: 4-hour interval
+        HOUR_6: 6-hour interval
+        HOUR_8: 8-hour interval
+        HOUR_12: 12-hour interval
+        DAY_1: 1-day interval
+        DAY_3: 3-day interval
+        WEEK_1: 1-week interval
+        MONTH_1: 1-month interval (approximate - uses 30 days)
+
+    Example:
+        >>> from utils.market_constraints import Interval
+        >>>
+        >>> # Get the interval enum from string
+        >>> interval = Interval("1m")
+        >>> print(interval)
+        1m
+        >>>
+        >>> # Convert interval to seconds for calculations
+        >>> seconds = interval.to_seconds()
+        >>> print(f"A 1-minute interval is {seconds} seconds")
+        A 1-minute interval is 60 seconds
+        >>>
+        >>> # Check if one interval is longer than another
+        >>> hour = Interval.HOUR_1
+        >>> minute = Interval.MINUTE_1
+        >>> print(f"Is hour longer than minute? {hour.to_seconds() > minute.to_seconds()}")
+        Is hour longer than minute? True
+    """
+
     SECOND_1 = "1s"
     MINUTE_1 = "1m"
     MINUTE_3 = "3m"
@@ -240,7 +322,30 @@ class Interval(Enum):
     MONTH_1 = "1M"
 
     def to_seconds(self) -> int:
-        """Convert interval to seconds."""
+        """Convert interval to seconds for duration calculations.
+
+        This method parses the interval string and converts it to a total
+        number of seconds, which is useful for time range calculations.
+
+        Returns:
+            int: Number of seconds in this interval
+
+        Raises:
+            ValueError: If the interval format is invalid
+
+        Note:
+            For MONTH_1, this uses an approximation of 30 days (2,592,000 seconds).
+
+        Example:
+            >>> from utils.market_constraints import Interval
+            >>>
+            >>> # Calculate seconds for different intervals
+            >>> minute = Interval.MINUTE_1.to_seconds()
+            >>> hour = Interval.HOUR_1.to_seconds()
+            >>> day = Interval.DAY_1.to_seconds()
+            >>> print(f"1m = {minute}s, 1h = {hour}s, 1d = {day}s")
+            1m = 60s, 1h = 3600s, 1d = 86400s
+        """
         value = self.value
         match = re.match(r"(\d+)([smhdwM])", value)
         if not match:
@@ -262,10 +367,35 @@ class Interval(Enum):
 
     @classmethod
     def get_default(cls) -> "Interval":
-        """Get default interval (1 second)."""
+        """Get default interval (1 second).
+
+        Returns:
+            Interval: The default interval (SECOND_1)
+
+        Example:
+            >>> from utils.market_constraints import Interval
+            >>>
+            >>> # Get default interval
+            >>> default = Interval.get_default()
+            >>> print(f"Default interval: {default}")
+            Default interval: 1s
+        """
         return cls.SECOND_1
 
     def __str__(self) -> str:
+        """Return the string representation of the interval.
+
+        Returns:
+            str: String representation (e.g., "1m", "1h")
+
+        Example:
+            >>> from utils.market_constraints import Interval
+            >>>
+            >>> # Convert interval to string
+            >>> interval = Interval.HOUR_4
+            >>> print(f"String representation: {str(interval)}")
+            String representation: 4h
+        """
         return self.value
 
 
@@ -510,16 +640,61 @@ def get_market_capabilities(market_type: MarketType, data_provider: DataProvider
 
 
 def is_interval_supported(market_type: MarketType, interval: Interval) -> bool:
-    """Check if an interval is supported by a specific market type."""
-    return interval in MARKET_CAPABILITIES[market_type].supported_intervals
+    """Check if a specific interval is supported for a market type.
+
+    This function checks if the given interval is available for the specified market type
+    by looking up the supported intervals in the market capabilities.
+
+    Args:
+        market_type: The market type to check (e.g., SPOT, FUTURES_USDT)
+        interval: The interval to check (e.g., MINUTE_1, HOUR_1)
+
+    Returns:
+        bool: True if the interval is supported for the market type, False otherwise
+
+    Example:
+        >>> from utils.market_constraints import MarketType, Interval, is_interval_supported
+        >>>
+        >>> # Check if 1-second data is supported for SPOT market
+        >>> is_interval_supported(MarketType.SPOT, Interval.SECOND_1)
+        True
+        >>>
+        >>> # Check if 1-second data is supported for futures market
+        >>> is_interval_supported(MarketType.FUTURES_USDT, Interval.SECOND_1)
+        False
+    """
+    capabilities = get_market_capabilities(market_type)
+    return interval in capabilities.supported_intervals
 
 
 def get_minimum_interval(market_type: MarketType) -> Interval:
-    """Get the minimum supported interval for a market type."""
-    return min(
-        MARKET_CAPABILITIES[market_type].supported_intervals,
-        key=lambda x: x.to_seconds(),
-    )
+    """Get the minimum supported interval for a market type.
+
+    This function returns the smallest time interval supported by the specified market type.
+    For example, SPOT markets typically support 1-second data, while futures markets
+    only support down to 1-minute data.
+
+    Args:
+        market_type: The market type to check (e.g., SPOT, FUTURES_USDT)
+
+    Returns:
+        Interval: The minimum supported interval for the market type
+
+    Example:
+        >>> from utils.market_constraints import MarketType, get_minimum_interval
+        >>>
+        >>> # Get minimum interval for SPOT market
+        >>> min_spot = get_minimum_interval(MarketType.SPOT)
+        >>> print(f"Minimum interval for SPOT: {min_spot}")
+        Minimum interval for SPOT: 1s
+        >>>
+        >>> # Get minimum interval for futures market
+        >>> min_futures = get_minimum_interval(MarketType.FUTURES_USDT)
+        >>> print(f"Minimum interval for FUTURES_USDT: {min_futures}")
+        Minimum interval for FUTURES_USDT: 1m
+    """
+    capabilities = get_market_capabilities(market_type)
+    return min(capabilities.supported_intervals, key=lambda x: x.to_seconds())
 
 
 def safe_enum_compare(enum1: Enum, enum2: Enum) -> bool:
@@ -539,16 +714,29 @@ def safe_enum_compare(enum1: Enum, enum2: Enum) -> bool:
 
 
 def get_default_symbol(market_type: MarketType) -> str:
-    """Get the default symbol for a specific market type.
+    """Get the default trading symbol for a market type.
+
+    This function returns the standard default symbol used for the specified
+    market type. This is useful when no specific symbol is provided.
 
     Args:
-        market_type: Market type to get default symbol for
+        market_type: The market type to get the default symbol for
 
     Returns:
-        str: Default symbol for the market type
+        str: The default symbol for the market type
+            SPOT/FUTURES_USDT: "BTCUSDT"
+            FUTURES_COIN: "BTCUSD_PERP"
+            OPTIONS: "BTC-230630-25000-C"
 
-    Raises:
-        ValueError: If the market type is not found in capabilities dictionary
+    Example:
+        >>> from utils.market_constraints import MarketType, get_default_symbol
+        >>>
+        >>> # Get default symbols for different market types
+        >>> spot_symbol = get_default_symbol(MarketType.SPOT)
+        >>> futures_symbol = get_default_symbol(MarketType.FUTURES_USDT)
+        >>> coin_futures_symbol = get_default_symbol(MarketType.FUTURES_COIN)
+        >>> print(f"SPOT: {spot_symbol}, UM: {futures_symbol}, CM: {coin_futures_symbol}")
+        SPOT: BTCUSDT, UM: BTCUSDT, CM: BTCUSD_PERP
     """
     capabilities = get_market_capabilities(market_type)
     return capabilities.default_symbol
@@ -653,21 +841,34 @@ def validate_symbol_for_market_type(
     market_type: MarketType,
     data_provider: DataProvider = DataProvider.BINANCE,
 ) -> bool:
-    """Validate that a symbol is appropriate for the specified market type.
+    """Validate that a symbol follows the correct format for a market type.
 
-    This function checks if the symbol format matches the expected pattern for
-    the given market type and raises an exception if there's a mismatch.
+    This function checks if the provided symbol matches the expected format
+    for the specified market type. Different market types have different
+    symbol format requirements:
+
+    - SPOT/FUTURES_USDT: Base asset + Quote asset (e.g., "BTCUSDT")
+    - FUTURES_COIN: Base asset + Quote asset + "_PERP" (e.g., "BTCUSD_PERP")
+    - OPTIONS: Base asset + expiration date + strike price + call/put (e.g., "BTC-230630-25000-C")
 
     Args:
-        symbol: Trading symbol to validate, or None to use default
-        market_type: Market type to validate against
-        data_provider: Data provider to use, defaults to BINANCE
+        symbol: Symbol to validate (e.g., "BTCUSDT" or "BTCUSD_PERP")
+        market_type: Market type to validate the symbol against
+        data_provider: Data provider (defaults to BINANCE)
 
     Returns:
-        bool: True if the symbol is valid for the market type
+        bool: True if the symbol is valid for the market type, False otherwise
 
-    Raises:
-        ValueError: If the symbol is not valid for the specified market type
+    Example:
+        >>> from utils.market_constraints import MarketType, DataProvider, validate_symbol_for_market_type
+        >>>
+        >>> # Validate symbols for different market types
+        >>> validate_symbol_for_market_type("BTCUSDT", MarketType.SPOT)
+        True
+        >>> validate_symbol_for_market_type("BTCUSD_PERP", MarketType.FUTURES_COIN)
+        True
+        >>> validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
+        False
     """
     # If symbol is None, use default symbol for validation
     # But empty strings should raise an error

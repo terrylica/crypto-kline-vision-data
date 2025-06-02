@@ -77,10 +77,62 @@ T = TypeVar("T")
 class VisionDataClient(DataClientInterface, Generic[T]):
     """Vision Data Client for direct access to Binance historical data.
 
+    This client provides efficient access to historical market data through the
+    Binance Vision API, which serves pre-generated data files for various markets,
+    symbols, and intervals. It handles downloading, validating, and processing
+    these files into pandas DataFrames.
+
+    Key features:
+    - Concurrent downloads for improved performance
+    - Automatic retry with backoff for network errors
+    - Data validation and integrity checks
+    - Timestamp standardization for consistent handling
+    - Gap detection and boundary handling
+
     Important note on timestamp semantics:
     - open_time represents the BEGINNING of the candle period (standard in financial data)
     - close_time represents the END of the candle period
     - This implementation preserves this semantic meaning across all interval types
+
+    Attributes:
+        symbol (str): Trading pair symbol (e.g., "BTCUSDT")
+        interval (str): Time interval string (e.g., "1m", "1h")
+        market_type (MarketType): Market type enum (SPOT, FUTURES_USDT, FUTURES_COIN)
+        chart_type (ChartType): Chart type enum (KLINES, FUNDING_RATE)
+        base_url (str): Base URL for the Binance Vision API
+        cache_dir (Path): Directory for local cache storage
+
+    Examples:
+        >>> from core.providers.binance.vision_data_client import VisionDataClient
+        >>> from utils.market_constraints import MarketType, ChartType
+        >>> from datetime import datetime, timedelta
+        >>>
+        >>> # Create a client for BTC/USDT 1-minute data
+        >>> client = VisionDataClient(
+        ...     symbol="BTCUSDT",
+        ...     interval="1m",
+        ...     market_type=MarketType.SPOT,
+        ...     chart_type=ChartType.KLINES
+        ... )
+        >>>
+        >>> # Fetch one week of historical data
+        >>> end_time = datetime(2023, 1, 10)
+        >>> start_time = end_time - timedelta(days=7)
+        >>> df = client.fetch(
+        ...     symbol="BTCUSDT",
+        ...     interval="1m",
+        ...     start_time=start_time,
+        ...     end_time=end_time
+        ... )
+        >>>
+        >>> # Using context manager for automatic resource cleanup
+        >>> with VisionDataClient(symbol="ETHUSDT", interval="1h") as client:
+        ...     df = client.fetch(
+        ...         symbol="ETHUSDT",
+        ...         interval="1h",
+        ...         start_time=start_time,
+        ...         end_time=end_time
+        ...     )
     """
 
     def __init__(
@@ -94,13 +146,36 @@ class VisionDataClient(DataClientInterface, Generic[T]):
     ):
         """Initialize Vision Data Client.
 
+        Creates a new client instance configured for the specified symbol,
+        interval, market type, and chart type. The client is ready to fetch
+        data from the Binance Vision API after initialization.
+
         Args:
-            symbol: Trading pair to retrieve data for
-            interval: Kline interval e.g. '1s', '1m'
-            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
-            chart_type: Chart type (KLINES, FUNDING_RATE)
+            symbol: Trading pair to retrieve data for (e.g., "BTCUSDT")
+            interval: Kline interval (e.g., "1s", "1m", "1h")
+            market_type: Market type as enum or string (SPOT, FUTURES_USDT, FUTURES_COIN)
+            chart_type: Chart type to retrieve (KLINES, FUNDING_RATE)
             base_url: Base URL for Binance Vision API
-            cache_dir: Directory to store cached files
+            cache_dir: Directory to store cached files (default: ./cache)
+
+        Raises:
+            ValueError: If market_type is invalid or cannot be parsed
+
+        Example:
+            >>> from core.providers.binance.vision_data_client import VisionDataClient
+            >>> from utils.market_constraints import MarketType, ChartType
+            >>>
+            >>> # Basic initialization
+            >>> client = VisionDataClient("BTCUSDT", "1m")
+            >>>
+            >>> # Initialization with specific parameters
+            >>> client = VisionDataClient(
+            ...     symbol="ETHUSDT",
+            ...     interval="1h",
+            ...     market_type=MarketType.FUTURES_USDT,
+            ...     chart_type=ChartType.KLINES,
+            ...     cache_dir="/path/to/cache"
+            ... )
         """
         self._symbol = symbol.upper()
         self._interval_str = interval
@@ -790,11 +865,18 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         end_time: datetime,
         **kwargs,
     ) -> pd.DataFrame:
-        """Fetch data for a specific time range from the Binance Vision API.
+        """Fetch market data for a specific time range from the Binance Vision API.
 
-        This method implements the DataClientInterface fetch method.
-        It downloads data from Binance Vision API using daily data files and
-        handles date boundaries correctly.
+        This is the primary method for retrieving historical market data. It downloads
+        data from Binance Vision API using daily data files, processes the files,
+        and returns a standardized DataFrame.
+
+        The method handles:
+        - Concurrent downloads for better performance
+        - Data integrity verification through checksums
+        - Date boundary handling
+        - Gap detection and mitigation
+        - Timestamp standardization
 
         Args:
             symbol: Trading pair symbol (e.g., "BTCUSDT")
@@ -804,18 +886,42 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             **kwargs: Additional parameters (unused, for interface compatibility)
 
         Returns:
-            DataFrame with data, where open_time is both a column and the index name
+            pd.DataFrame: DataFrame with market data where:
+                - open_time is both a column and the index name
+                - All timestamps are in UTC
+                - Data is filtered to exactly match the requested time range
 
         Raises:
-            Exception: If checksum verification fails, indicating data integrity issues
+            ValueError: If time parameters are invalid
+            RuntimeError: If data integrity verification fails or data cannot be retrieved
 
         Note:
             This client is optimized for historical data. For recent data (< 2 days old),
             use the RestDataClient as Vision API typically has a 24-48 hour delay.
 
-            Timestamps in the returned data preserve their semantic meaning:
-            - open_time represents the BEGINNING of each candle period
-            - close_time represents the END of each candle period
+            When requesting data at the edge of the availability window, the client
+            will return an empty DataFrame rather than raising an error, allowing
+            the calling code to fall back to other data sources.
+
+        Example:
+            >>> from core.providers.binance.vision_data_client import VisionDataClient
+            >>> from datetime import datetime, timezone
+            >>>
+            >>> client = VisionDataClient("BTCUSDT", "1h")
+            >>> start = datetime(2023, 1, 1, tzinfo=timezone.utc)
+            >>> end = datetime(2023, 1, 7, tzinfo=timezone.utc)
+            >>>
+            >>> # Fetch one week of hourly data
+            >>> df = client.fetch(
+            ...     symbol="BTCUSDT",
+            ...     interval="1h",
+            ...     start_time=start,
+            ...     end_time=end
+            ... )
+            >>>
+            >>> print(f"Retrieved {len(df)} hourly candles")
+            >>> print(f"First candle: {df['open_time'].min()}")
+            >>> print(f"Last candle: {df['open_time'].max()}")
         """
         # Validate parameters
         if not isinstance(symbol, str) or not symbol:
@@ -911,18 +1017,55 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         market_type: str | MarketType = MarketType.SPOT,
         max_workers: int | None = None,
     ) -> dict[str, TimestampedDataFrame]:
-        """Fetch data for multiple symbols in parallel.
+        """Fetch data for multiple symbols in parallel with optimized performance.
+
+        This static method provides efficient parallel downloading of data for multiple
+        symbols over the same time period. It creates multiple VisionDataClient instances
+        and manages them using a thread pool for concurrent downloads.
+
+        The method intelligently limits concurrency based on system constraints and
+        handles error cases gracefully, ensuring that errors with one symbol don't
+        affect the retrieval of others.
 
         Args:
-            symbols: List of trading symbols to fetch data for
-            start_time: Start time for data
-            end_time: End time for data
-            interval: Kline interval e.g. '1s', '1m'
-            market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN) or string
-            max_workers: Maximum number of parallel workers (defaults to min(MAXIMUM_CONCURRENT_DOWNLOADS, len(symbols)))
+            symbols: List of trading symbols to fetch data for (e.g., ["BTCUSDT", "ETHUSDT"])
+            start_time: Start time for data retrieval (timezone-aware datetime)
+            end_time: End time for data retrieval (timezone-aware datetime)
+            interval: Kline interval (e.g., "1m", "1h", "1d")
+            market_type: Market type as enum or string (SPOT, FUTURES_USDT, FUTURES_COIN)
+            max_workers: Maximum number of parallel workers
+                         (defaults to min(MAXIMUM_CONCURRENT_DOWNLOADS, len(symbols)))
 
         Returns:
-            Dictionary mapping symbols to their respective DataFrames
+            dict: Dictionary mapping symbols to their respective TimestampedDataFrames
+                 Empty DataFrames are returned for symbols where data retrieval failed
+
+        Raises:
+            RuntimeError: Only for critical errors that affect the entire batch
+
+        Example:
+            >>> from core.providers.binance.vision_data_client import VisionDataClient
+            >>> from datetime import datetime, timezone, timedelta
+            >>> from utils.market_constraints import MarketType
+            >>>
+            >>> # Set up time range for the last week
+            >>> end = datetime.now(timezone.utc)
+            >>> start = end - timedelta(days=7)
+            >>>
+            >>> # Fetch data for multiple symbols
+            >>> symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+            >>> result = VisionDataClient.fetch_multiple(
+            ...     symbols=symbols,
+            ...     start_time=start,
+            ...     end_time=end,
+            ...     interval="1h",
+            ...     market_type=MarketType.SPOT,
+            ...     max_workers=3
+            ... )
+            >>>
+            >>> # Process results
+            >>> for symbol, df in result.items():
+            ...     print(f"{symbol}: {len(df)} records")
         """
         if not symbols:
             logger.warning("No symbols provided to fetch_multiple")
