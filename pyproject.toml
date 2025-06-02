@@ -39,6 +39,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [ # allow upgrade within major version; for Binance Vision & REST API data sources
+    "build>=1.2.2,<2.0.0", # Add build tool for creating distributions
     "custom-logger>=0.1.1,<0.2.0", # allow upgrade within major version; for adding custom logging and log file management
     "twine>=6.1.0,<7.0.0", # allow upgrade within major version; for uploading the package to PyPI
     "pytest>=8.3.5,<9.0.0", # allow upgrade within major version; for testing
