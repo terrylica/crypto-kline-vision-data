@@ -56,7 +56,7 @@ from loguru import logger as _loguru_logger
 _loguru_logger.remove()
 
 # Configuration from environment
-DEFAULT_LOG_LEVEL = os.getenv("DSM_LOG_LEVEL", "INFO").upper()
+DEFAULT_LOG_LEVEL = os.getenv("DSM_LOG_LEVEL", "ERROR").upper()
 LOG_FILE = os.getenv("DSM_LOG_FILE")
 DISABLE_COLORS = os.getenv("DSM_DISABLE_COLORS", "false").lower() == "true"
 

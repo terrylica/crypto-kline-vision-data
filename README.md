@@ -241,10 +241,53 @@ Explore the scripts and their individual READMEs within the [`scripts/dev`](scri
 
 DSM now supports **loguru** for much easier log level control:
 
+### DSM Logging Suppression for Feature Engineering
+
+**Problem**: DSM produces extensive logging that clutters console output during feature engineering workflows.
+
+**Solution**: Use `DSM_LOG_LEVEL=CRITICAL` to suppress all non-critical DSM logs:
+
+```python
+# Clean feature engineering code - no boilerplate needed!
+import os
+os.environ["DSM_LOG_LEVEL"] = "CRITICAL"
+
+from core.sync.data_source_manager import DataSourceManager
+from utils.market_constraints import DataProvider, MarketType, Interval
+
+# Create DSM instance - minimal logging
+dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+
+# Fetch data - clean output, only your logs visible
+data = dsm.get_data(
+    symbol="SOLUSDT",
+    start_time=start_time,
+    end_time=end_time,
+    interval=Interval.MINUTE_1,
+)
+# ✅ Clean output - no more cluttered DSM logs!
+```
+
+**Benefits**:
+
+- ✅ **No Boilerplate**: Eliminates 15+ lines of logging suppression code
+- ✅ **Clean Output**: Professional console output for feature engineering
+- ✅ **Easy Control**: Single environment variable controls all DSM logging
+- ✅ **Cleaner Default**: Default ERROR level provides quieter operation
+
 ### Simple Environment Variable Control
 
 ```bash
-# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# Clean output for feature engineering (suppress DSM logs)
+export DSM_LOG_LEVEL=CRITICAL
+
+# Normal development with basic info
+export DSM_LOG_LEVEL=INFO
+
+# Default behavior (errors and critical only)
+# No need to set anything - ERROR is the default
+
+# Detailed debugging
 export DSM_LOG_LEVEL=DEBUG
 
 # Optional: Log to file with automatic rotation
@@ -284,15 +327,25 @@ python scripts/dev/migrate_to_loguru.py
 
 ### Demo
 
-Try the logging demo to see the benefits:
+Try the logging demos to see the benefits:
 
 ```bash
-# Basic demo
+# DSM logging control demo
+python examples/dsm_logging_demo.py
+
+# Test different log levels with actual DSM
+python examples/dsm_logging_demo.py --log-level CRITICAL --test-dsm
+python examples/dsm_logging_demo.py --log-level DEBUG --test-dsm
+
+# Clean feature engineering example
+python examples/clean_feature_engineering_example.py
+
+# General loguru demo
 python examples/loguru_demo.py
 
-# With different log levels
-DSM_LOG_LEVEL=DEBUG python examples/loguru_demo.py
-DSM_LOG_LEVEL=ERROR python examples/loguru_demo.py
+# Environment variable control
+DSM_LOG_LEVEL=CRITICAL python examples/clean_feature_engineering_example.py
+DSM_LOG_LEVEL=DEBUG python examples/dsm_logging_demo.py --test-dsm
 ```
 
 ## Benefits of Loguru
