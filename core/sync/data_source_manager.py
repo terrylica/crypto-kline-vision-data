@@ -119,6 +119,12 @@ class DataSourceConfig:
             Default is True. Set to False to always fetch fresh data.
         retry_count: Number of retries for failed requests.
             Default is 5. Increase for less stable networks.
+        log_level: Logging level for DSM operations.
+            Default is 'WARNING'. Can be 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.
+        suppress_http_debug: Whether to suppress HTTP debug logging.
+            Default is True. Set to False to see detailed HTTP request/response logs.
+        quiet_mode: Whether to suppress all non-error logging.
+            Default is False. Set to True for completely silent operation except for errors.
 
     Example:
         >>> from utils.market_constraints import DataProvider, MarketType, ChartType
@@ -130,13 +136,22 @@ class DataSourceConfig:
         ...     provider=DataProvider.BINANCE
         ... )
         >>>
-        >>> # Configuration with custom settings
+        >>> # Configuration with custom logging settings
         >>> config = DataSourceConfig(
         ...     market_type=MarketType.FUTURES_USDT,
         ...     provider=DataProvider.BINANCE,
         ...     chart_type=ChartType.FUNDING_RATE,
         ...     cache_dir=Path("./custom_cache"),
-        ...     retry_count=10
+        ...     retry_count=10,
+        ...     log_level='DEBUG',
+        ...     suppress_http_debug=False  # Show detailed HTTP debugging
+        ... )
+        >>>
+        >>> # Configuration for quiet operation
+        >>> config = DataSourceConfig(
+        ...     market_type=MarketType.SPOT,
+        ...     provider=DataProvider.BINANCE,
+        ...     quiet_mode=True  # Only show errors
         ... )
     """
 
@@ -153,6 +168,18 @@ class DataSourceConfig:
     )
     use_cache: bool = attr.field(default=True, validator=attr.validators.instance_of(bool))
     retry_count: int = attr.field(default=5, validator=[attr.validators.instance_of(int), lambda _, __, value: value >= 0])
+    
+    # New logging control parameters
+    log_level: str = attr.field(
+        default='WARNING',
+        validator=[
+            attr.validators.instance_of(str),
+            attr.validators.in_(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+        ],
+        converter=str.upper
+    )
+    suppress_http_debug: bool = attr.field(default=True, validator=attr.validators.instance_of(bool))
+    quiet_mode: bool = attr.field(default=False, validator=attr.validators.instance_of(bool))
 
     @classmethod
     def create(cls: type[T], provider: DataProvider, market_type: MarketType, **kwargs) -> T:
@@ -176,17 +203,19 @@ class DataSourceConfig:
             >>> from utils.market_constraints import DataProvider, MarketType
             >>> from pathlib import Path
             >>>
-            >>> # Basic config for SPOT market with Binance provider
-            >>> config = DataSourceConfig.create(
-            ...     DataProvider.BINANCE,
-            ...     MarketType.SPOT
+            >>> # Basic configuration for SPOT market
+            >>> config = DataSourceConfig(
+            ...     market_type=MarketType.SPOT,
+            ...     provider=DataProvider.BINANCE
             ... )
             >>>
-            >>> # Config for FUTURES with custom cache directory
-            >>> config = DataSourceConfig.create(
-            ...     DataProvider.BINANCE,
-            ...     MarketType.FUTURES_USDT,
-            ...     cache_dir=Path("./my_cache")
+            >>> # Configuration with custom settings
+            >>> config = DataSourceConfig(
+            ...     market_type=MarketType.FUTURES_USDT,
+            ...     provider=DataProvider.BINANCE,
+            ...     chart_type=ChartType.FUNDING_RATE,
+            ...     cache_dir=Path("./custom_cache"),
+            ...     retry_count=10
             ... )
         """
         return cls(market_type=market_type, provider=provider, **kwargs)
@@ -375,6 +404,9 @@ class DataSourceManager:
                 - cache_dir: Directory to store cache files (default: platform-specific cache dir)
                 - use_cache: Whether to use caching (default: True)
                 - retry_count: Number of retries for failed requests (default: 3)
+                - log_level: Logging level for DSM operations (default: 'WARNING')
+                - suppress_http_debug: Whether to suppress HTTP debug logging (default: True)
+                - quiet_mode: Whether to suppress all non-error logging (default: False)
 
         Returns:
             DataSourceManager: Initialized DataSourceManager instance
@@ -383,11 +415,26 @@ class DataSourceManager:
             ValueError: If provider is None
 
         Examples:
-            >>> # Basic creation with required parameters
+            >>> # Basic creation with required parameters (clean output by default)
             >>> from core.sync.data_source_manager import DataSourceManager
             >>> from utils.market_constraints import DataProvider, MarketType
             >>>
             >>> manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+            >>>
+            >>> # Creation with debug logging for troubleshooting
+            >>> manager = DataSourceManager.create(
+            ...     DataProvider.BINANCE,
+            ...     MarketType.SPOT,
+            ...     log_level='DEBUG',
+            ...     suppress_http_debug=False  # Show detailed HTTP logs
+            ... )
+            >>>
+            >>> # Creation for feature engineering (completely quiet)
+            >>> manager = DataSourceManager.create(
+            ...     DataProvider.BINANCE,
+            ...     MarketType.SPOT,
+            ...     quiet_mode=True  # Only show errors
+            ... )
             >>>
             >>> # Creation with additional parameters
             >>> from utils.market_constraints import ChartType
@@ -398,7 +445,8 @@ class DataSourceManager:
             ...     MarketType.FUTURES_USDT,
             ...     chart_type=ChartType.FUNDING_RATE,
             ...     cache_dir=Path("./custom_cache"),
-            ...     retry_count=5
+            ...     retry_count=5,
+            ...     log_level='INFO'
             ... )
         """
         # Provider is now mandatory
@@ -418,6 +466,9 @@ class DataSourceManager:
             cache_dir=config.cache_dir,
             use_cache=config.use_cache,
             retry_count=config.retry_count,
+            log_level=config.log_level,
+            suppress_http_debug=config.suppress_http_debug,
+            quiet_mode=config.quiet_mode,
         )
 
     @classmethod
@@ -451,6 +502,9 @@ class DataSourceManager:
         use_cache: bool = True,
         cache_dir: Path | None = None,
         retry_count: int = 3,
+        log_level: str = 'WARNING',
+        suppress_http_debug: bool = True,
+        quiet_mode: bool = False,
     ):
         """Initialize the data source manager.
 
@@ -461,12 +515,23 @@ class DataSourceManager:
             use_cache: Whether to use local cache
             cache_dir: Directory to store cache files (default: platform-specific cache dir)
             retry_count: Number of retries for network operations
+            log_level: Logging level for DSM operations ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+            suppress_http_debug: Whether to suppress HTTP debug logging (default: True)
+            quiet_mode: Whether to suppress all non-error logging (default: False)
         """
         self.provider = provider
         self.market_type = market_type
         self.chart_type = chart_type
         self.use_cache = use_cache
         self.retry_count = retry_count
+        
+        # Store logging configuration
+        self.log_level = log_level.upper()
+        self.suppress_http_debug = suppress_http_debug
+        self.quiet_mode = quiet_mode
+        
+        # Configure logging based on user preferences
+        self._configure_logging()
 
         # Set up cache directory
         if cache_dir is not None:
@@ -498,6 +563,77 @@ class DataSourceManager:
         # Initialize API clients
         self.rest_client = None
         self.vision_client = None
+
+    def _configure_logging(self) -> None:
+        """Configure logging levels based on user preferences.
+        
+        This method implements the logging behavior recommendations:
+        1. Suppress HTTP debug logging by default
+        2. Allow users to control DSM log levels
+        3. Provide quiet mode for feature engineering workflows
+        """
+        import logging
+        
+        # Configure DSM's own logging level
+        if self.quiet_mode:
+            # In quiet mode, only show errors and critical messages
+            effective_level = 'ERROR'
+        else:
+            effective_level = self.log_level
+            
+        # Configure the main DSM logger
+        logger.configure_level(effective_level)
+        
+        # Configure HTTP library logging
+        if self.suppress_http_debug:
+            # Suppress noisy HTTP debugging by default
+            # This addresses the main user complaint about log clutter
+            logging.getLogger('httpcore').setLevel(logging.WARNING)
+            logging.getLogger('httpx').setLevel(logging.WARNING)
+            logging.getLogger('urllib3').setLevel(logging.WARNING)
+            logging.getLogger('requests').setLevel(logging.WARNING)
+        else:
+            # User wants to see HTTP debugging (for troubleshooting)
+            logging.getLogger('httpcore').setLevel(logging.DEBUG)
+            logging.getLogger('httpx').setLevel(logging.DEBUG)
+            logging.getLogger('urllib3').setLevel(logging.DEBUG)
+            logging.getLogger('requests').setLevel(logging.DEBUG)
+            
+        # Log the configuration for debugging
+        if not self.quiet_mode:
+            logger.debug(f"DSM logging configured: level={effective_level}, suppress_http_debug={self.suppress_http_debug}")
+        
+    def reconfigure_logging(self, log_level: str | None = None, suppress_http_debug: bool | None = None, quiet_mode: bool | None = None) -> None:
+        """Reconfigure logging settings after initialization.
+        
+        This method allows users to change logging behavior dynamically,
+        which is useful for debugging or changing verbosity during runtime.
+        
+        Args:
+            log_level: New logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+            suppress_http_debug: Whether to suppress HTTP debug logging
+            quiet_mode: Whether to enable quiet mode
+            
+        Example:
+            >>> # Start with default settings (quiet for feature engineering)
+            >>> dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+            >>> 
+            >>> # Enable debug mode for troubleshooting
+            >>> dsm.reconfigure_logging(log_level='DEBUG', suppress_http_debug=False)
+            >>> 
+            >>> # Return to quiet mode
+            >>> dsm.reconfigure_logging(quiet_mode=True)
+        """
+        # Update configuration if new values provided
+        if log_level is not None:
+            self.log_level = log_level.upper()
+        if suppress_http_debug is not None:
+            self.suppress_http_debug = suppress_http_debug
+        if quiet_mode is not None:
+            self.quiet_mode = quiet_mode
+            
+        # Re-apply logging configuration
+        self._configure_logging()
 
     def _get_market_type_str(self) -> MarketType:
         """Get the market type enum.
