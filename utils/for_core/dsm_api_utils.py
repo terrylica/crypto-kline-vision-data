@@ -105,16 +105,16 @@ def fetch_from_vision(
             logger.info(f"Retrieved {len(filtered_df)} records from Vision API (after filtering to requested range)")
 
             return filtered_df
-        logger.warning(f"Vision API returned no data for {symbol}")
+        logger.info(f"Vision API returned no data for {symbol}")
         # Check if end_time is within the Vision API delay window using our centralized function
         if is_date_too_fresh_for_vision(end_time):
-            logger.warning(
+            logger.info(
                 f"No data returned from Vision API - end_time {end_time.isoformat()} "
                 f"is within the {VISION_DATA_DELAY_HOURS}h delay window. "
                 f"This is expected for recent data. Trying REST API."
             )
         else:
-            logger.warning(
+            logger.info(
                 f"No data returned from Vision API for {symbol} despite being outside "
                 f"the {VISION_DATA_DELAY_HOURS}h delay window. "
                 f"This is unexpected for historical data. Trying REST API as fallback."

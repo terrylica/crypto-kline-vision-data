@@ -305,7 +305,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         """
         # Skip retries for dates within the freshness window
         if is_date_too_fresh_for_vision(date):
-            logger.warning(
+            logger.info(
                 f"Skipping retry for {date.date()} as it's within the Vision data delay window "
                 f"({VISION_DATA_DELAY_HOURS} hours). This failure is expected for fresh data."
             )
@@ -722,12 +722,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         f"Returning empty dataframe - higher-level components may fall back to REST API."
                     )
                 else:
-                    logger.warning(
+                    logger.info(
                         "No data downloaded from Binance Vision API - this may happen for recent data or less common markets. "
                         "Returning empty dataframe - higher-level components may fall back to REST API."
                     )
             else:
-                logger.warning(
+                logger.info(
                     "No data downloaded from Binance Vision API - this may happen for recent data or less common markets. "
                     "Returning empty dataframe - higher-level components may fall back to REST API."
                 )

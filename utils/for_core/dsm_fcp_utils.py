@@ -257,15 +257,34 @@ def verify_final_data(
 
     # Check if result covers the entire requested range
     if min_time > aligned_start or max_time < aligned_end:
-        logger.warning(
-            f"[FCP] Result does not cover full requested range. "
-            f"Missing start: {min_time > aligned_start}, Missing end: {max_time < aligned_end}"
-        )
+        # Calculate the total expected range and missing portions
+        total_range_seconds = (aligned_end - aligned_start).total_seconds()
+        missing_start_seconds = (min_time - aligned_start).total_seconds() if min_time > aligned_start else 0
+        missing_end_seconds = (aligned_end - max_time).total_seconds() if max_time < aligned_end else 0
+        total_missing_seconds = missing_start_seconds + missing_end_seconds
+        missing_percentage = (total_missing_seconds / total_range_seconds) * 100 if total_range_seconds > 0 else 0
 
-        if min_time > aligned_start:
-            logger.warning(f"[FCP] Missing data at start: {aligned_start} to {min_time}")
-        if max_time < aligned_end:
-            logger.warning(f"[FCP] Missing data at end: {max_time} to {aligned_end}")
+        # Use context-aware logging: INFO for small gaps (<1%), WARNING for significant gaps
+        if missing_percentage < 1.0:
+            # Small gaps are typical for real-time data - use INFO level
+            logger.info(
+                f"[FCP] Result covers {100 - missing_percentage:.2f}% of requested range. "
+                f"Missing start: {min_time > aligned_start}, Missing end: {max_time < aligned_end}"
+            )
+            if min_time > aligned_start:
+                logger.info(f"[FCP] Missing data at start: {aligned_start} to {min_time}")
+            if max_time < aligned_end:
+                logger.info(f"[FCP] Missing data at end: {max_time} to {aligned_end}")
+        else:
+            # Significant gaps warrant user attention - use WARNING level
+            logger.warning(
+                f"[FCP] Result does not cover full requested range ({missing_percentage:.1f}% missing). "
+                f"Missing start: {min_time > aligned_start}, Missing end: {max_time < aligned_end}"
+            )
+            if min_time > aligned_start:
+                logger.warning(f"[FCP] Missing data at start: {aligned_start} to {min_time}")
+            if max_time < aligned_end:
+                logger.warning(f"[FCP] Missing data at end: {max_time} to {aligned_end}")
 
 
 def handle_error(e: Exception) -> None:
