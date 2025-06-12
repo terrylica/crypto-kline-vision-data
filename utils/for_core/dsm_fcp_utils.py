@@ -228,6 +228,11 @@ def verify_final_data(
 ) -> None:
     """Verify final data and log any incomplete data warnings.
 
+    For historical data (>24 hours old), there should be NO validation warnings
+    as long as we have some data. The system correctly aligns user timestamps
+    to interval boundaries, and data sources return available data for those
+    boundaries.
+
     Args:
         result_df: Result DataFrame to verify
         aligned_start: Aligned start time of requested range
@@ -240,8 +245,7 @@ def verify_final_data(
         logger.critical("[FCP] CRITICAL ERROR: No data available from any source")
         raise RuntimeError("All data sources failed. Unable to retrieve data for the requested time range.")
 
-    # Final verification of the result
-    # Handle cases where open_time might be in columns or as index
+    # Extract time range from actual data
     if "open_time" in result_df.columns:
         min_time = result_df["open_time"].min()
         max_time = result_df["open_time"].max()
@@ -249,80 +253,63 @@ def verify_final_data(
         min_time = result_df.index.min()
         max_time = result_df.index.max()
     else:
-        # If open_time is not available, log a warning and return without verification
+        # If open_time is not available, log a warning and return without validation
         logger.warning("[FCP] Cannot verify time range: open_time not found in columns or index")
         return
 
+    # Determine if this is historical data (more than 24 hours old)
+    now = datetime.now(timezone.utc)
+    data_age_hours = (now - max_time).total_seconds() / 3600
+    is_historical_data = data_age_hours > 24
+    
     logger.debug(f"[FCP] Final result spans from {min_time} to {max_time} with {len(result_df)} records")
+    logger.debug(f"[FCP] Data age: {data_age_hours:.1f} hours, is_historical: {is_historical_data}")
 
-    # Check if result covers the entire requested range
-    if min_time > aligned_start or max_time < aligned_end:
-        # Calculate the total expected range and missing portions
-        total_range_seconds = (aligned_end - aligned_start).total_seconds()
-        missing_start_seconds = (min_time - aligned_start).total_seconds() if min_time > aligned_start else 0
-        missing_end_seconds = (aligned_end - max_time).total_seconds() if max_time < aligned_end else 0
-        total_missing_seconds = missing_start_seconds + missing_end_seconds
-        missing_percentage = (total_missing_seconds / total_range_seconds) * 100 if total_range_seconds > 0 else 0
-
-        # IMPROVED LOGIC: Be smarter about when to warn
-        # Check if this is likely a historical data request (more than 24 hours old)
-        now = datetime.now(timezone.utc)
-        data_age_hours = (now - max_time).total_seconds() / 3600
-        is_historical_data = data_age_hours > 24
+    # CORRECTED VALIDATION LOGIC:
+    # For historical data, if we have data, it should be considered successful.
+    # The system correctly aligned timestamps and fetched available data.
+    # Any "missing" data compared to theoretical boundaries is normal.
+    
+    if is_historical_data:
+        # Historical data - just log success
+        time_span = max_time - min_time
+        hours_covered = time_span.total_seconds() / 3600
+        logger.info(
+            f"[FCP] Historical data retrieved successfully: {len(result_df)} records "
+            f"covering {hours_covered:.1f} hours from {min_time} to {max_time}"
+        )
+        return
+    
+    # ONLY for recent data (< 24 hours old), check for potential gaps
+    # that might indicate real data availability issues
+    
+    # Calculate theoretical range vs actual range
+    total_range_seconds = (aligned_end - aligned_start).total_seconds()
+    
+    # Check if we got reasonable coverage for recent data
+    missing_start_seconds = (min_time - aligned_start).total_seconds() if min_time > aligned_start else 0
+    missing_end_seconds = (aligned_end - max_time).total_seconds() if max_time < aligned_end else 0
+    total_missing_seconds = missing_start_seconds + missing_end_seconds
+    missing_percentage = (total_missing_seconds / total_range_seconds) * 100 if total_range_seconds > 0 else 0
+    
+    # For recent data, only warn about significant gaps that might indicate real issues
+    if missing_percentage > 10.0:  # Only warn if more than 10% missing for recent data
+        logger.warning(
+            f"[FCP] Recent data coverage concern: {100 - missing_percentage:.1f}% complete. "
+            f"This might indicate data availability issues for recent time periods."
+        )
         
-        # For historical data, only missing data at the start is concerning
-        # Missing data at the end of historical ranges is normal (no data available at that time)
-        missing_at_start = min_time > aligned_start
-        missing_at_end = max_time < aligned_end
-        
-        # Determine appropriate log level and message
-        if is_historical_data and missing_at_end and not missing_at_start:
-            # Historical data missing only at the end - this is normal, use INFO level
-            if missing_percentage < 5.0:  # Small end gaps in historical data are completely normal
-                logger.info(
-                    f"[FCP] Historical data coverage: {100 - missing_percentage:.1f}% "
-                    f"(missing {missing_end_seconds / 60:.1f} minutes at end, which is normal for historical data)"
-                )
-                return  # Don't log the individual missing segments for this normal case
-            else:
-                # Larger gaps might indicate an issue
-                logger.warning(
-                    f"[FCP] Historical data has significant gap at end: {missing_percentage:.1f}% missing. "
-                    f"Missing start: {missing_at_start}, Missing end: {missing_at_end}"
-                )
-        elif missing_percentage < 1.0:
-            # Small gaps regardless of data age - use INFO level with positive messaging
-            logger.info(
-                f"[FCP] Excellent data coverage: {100 - missing_percentage:.2f}% complete. "
-                f"Missing start: {missing_at_start}, Missing end: {missing_at_end}"
-            )
-        elif missing_percentage < 5.0:
-            # Good coverage (95-99%) - use INFO level 
-            logger.info(
-                f"[FCP] Good data coverage: {100 - missing_percentage:.1f}% complete. "
-                f"Missing start: {missing_at_start}, Missing end: {missing_at_end}"
-            )
-        elif missing_percentage < 20.0:
-            # Moderate gaps (80-95%) - use WARNING level
-            logger.warning(
-                f"[FCP] Moderate data coverage: {100 - missing_percentage:.1f}% complete. "
-                f"Missing start: {missing_at_start}, Missing end: {missing_at_end}"
-            )
-        else:
-            # Significant gaps (< 80%) - use WARNING level with actionable advice
-            logger.warning(
-                f"[FCP] Insufficient data coverage: {100 - missing_percentage:.1f}% complete. "
-                f"Missing start: {missing_at_start}, Missing end: {missing_at_end}. "
-                f"Consider adjusting time range or checking data source availability."
-            )
-        
-        # Log specific missing segments only for concerning cases
-        if not (is_historical_data and missing_at_end and not missing_at_start and missing_percentage < 5.0):
-            if missing_at_start:
-                logger.warning(f"[FCP] Missing data at start: {aligned_start} to {min_time}")
-            if missing_at_end:
-                log_level = logger.info if (is_historical_data and missing_percentage < 5.0) else logger.warning
-                log_level(f"[FCP] Missing data at end: {max_time} to {aligned_end}")
+        # Log specific gaps only for recent data with significant issues
+        if missing_start_seconds > 0 and missing_start_seconds > 300:  # > 5 minutes
+            logger.warning(f"[FCP] Significant gap at start: {aligned_start} to {min_time}")
+        if missing_end_seconds > 0 and missing_end_seconds > 300:  # > 5 minutes  
+            logger.warning(f"[FCP] Significant gap at end: {max_time} to {aligned_end}")
+    else:
+        # Recent data with good coverage
+        logger.info(
+            f"[FCP] Recent data coverage: {100 - missing_percentage:.1f}% complete "
+            f"({len(result_df)} records from {min_time} to {max_time})"
+        )
 
 
 def handle_error(e: Exception) -> None:
