@@ -102,45 +102,28 @@ def get_from_cache(
         # Move to next day
         current_date = current_date.add(days=1)
 
-    # Calculate missing time ranges
+    # Calculate missing time ranges using proper gap detection
     missing_ranges = []
     if result_df.empty:
         # If nothing was found in cache, the entire range is missing
         missing_ranges.append((start_time, end_time))
     else:
         # Sort by open_time to ensure proper range detection
-        result_df = result_df.iloc[result_df["open_time"].argsort()]
-
-        # Identify missing ranges within the loaded data
-        # This would require a more complex algorithm to identify gaps
-        # For simplicity, we'll just check if we're missing any days
-        start_day = pendulum.instance(start_time).start_of("day").date()
-        end_day = pendulum.instance(end_time).start_of("day").date()
-
-        current_day = start_day
-        while current_day <= end_day:
-            if current_day not in loaded_days:
-                day_start = datetime.combine(current_day, datetime.min.time())
-                day_end = datetime.combine(current_day, datetime.max.time())
-
-                # Make day_start and day_end timezone-aware if start_time is timezone-aware
-                if start_time.tzinfo is not None:
-                    # Convert to pendulum instances with the correct timezone
-                    day_start = pendulum.instance(day_start).in_timezone(start_time.tzinfo)
-                    day_end = pendulum.instance(day_end).in_timezone(end_time.tzinfo)
-
-                # Adjust boundary times if necessary
-                if day_start < start_time and current_day == start_day:
-                    day_start = start_time
-                if day_end > end_time and current_day == end_day:
-                    day_end = end_time
-
-                missing_ranges.append((day_start, day_end))
-
-            # Move to next day
-            current_day = pendulum.instance(current_day) + pendulum.duration(days=1)
-            if hasattr(current_day, "date"):
-                current_day = current_day.date()
+        result_df = result_df.sort_values("open_time")
+        
+        # Use the proper gap detection function to identify missing segments
+        # This will detect both missing days and intraday gaps
+        from utils.for_core.dsm_time_range_utils import identify_missing_segments
+        
+        logger.debug(f"[CACHE] Using gap detection to find missing ranges between {start_time} and {end_time}")
+        missing_ranges = identify_missing_segments(result_df, start_time, end_time, interval)
+        
+        if missing_ranges:
+            logger.debug(f"[CACHE] Gap detection found {len(missing_ranges)} missing segments:")
+            for i, (miss_start, miss_end) in enumerate(missing_ranges):
+                logger.debug(f"[CACHE]   Missing segment {i+1}: {miss_start} to {miss_end}")
+        else:
+            logger.debug("[CACHE] Gap detection found no missing segments - cache provides complete coverage")
 
     # Log summary
     if result_df.empty:
