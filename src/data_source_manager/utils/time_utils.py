@@ -20,8 +20,8 @@ The module is particularly important for:
 - Properly handling timezone information for global market data
 
 Example:
-    >>> from utils.time_utils import align_time_boundaries, datetime_to_milliseconds
-    >>> from utils.market_constraints import Interval
+    >>> from data_source_manager.utils.time_utils import align_time_boundaries, datetime_to_milliseconds
+    >>> from data_source_manager.utils.market_constraints import Interval
     >>> from datetime import datetime, timezone
     >>>
     >>> # Align time boundaries for a 1-minute interval request
@@ -306,8 +306,8 @@ def get_interval_micros(interval: MarketInterval) -> int:
         ValueError: If the interval format is invalid or unsupported
 
     Example:
-        >>> from utils.market_constraints import Interval
-        >>> from utils.time_utils import get_interval_micros
+        >>> from data_source_manager.utils.market_constraints import Interval
+        >>> from data_source_manager.utils.time_utils import get_interval_micros
         >>>
         >>> # Convert different intervals to microseconds
         >>> minute_micros = get_interval_micros(Interval.MINUTE_1)
@@ -366,8 +366,8 @@ def get_interval_seconds(interval: MarketInterval) -> int:
         int: Interval duration in seconds
 
     Example:
-        >>> from utils.market_constraints import Interval
-        >>> from utils.time_utils import get_interval_seconds
+        >>> from data_source_manager.utils.market_constraints import Interval
+        >>> from data_source_manager.utils.time_utils import get_interval_seconds
         >>>
         >>> # Compare interval durations in seconds
         >>> intervals = [Interval.MINUTE_1, Interval.MINUTE_5, Interval.HOUR_1, Interval.DAY_1]
@@ -397,8 +397,8 @@ def get_interval_timedelta(interval: MarketInterval) -> timedelta:
 
     Example:
         >>> from datetime import datetime, timezone
-        >>> from utils.market_constraints import Interval
-        >>> from utils.time_utils import get_interval_timedelta
+        >>> from data_source_manager.utils.market_constraints import Interval
+        >>> from data_source_manager.utils.time_utils import get_interval_timedelta
         >>>
         >>> # Add different intervals to a datetime
         >>> now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -528,7 +528,7 @@ def filter_dataframe_by_time(
     Example:
         >>> import pandas as pd
         >>> from datetime import datetime, timezone, timedelta
-        >>> from utils.time_utils import filter_dataframe_by_time
+        >>> from data_source_manager.utils.time_utils import filter_dataframe_by_time
         >>>
         >>> # Create sample data
         >>> now = datetime.now(timezone.utc)
@@ -665,8 +665,8 @@ def align_time_boundaries(start_time: datetime, end_time: datetime, interval: Ma
 
     Example:
         >>> from datetime import datetime, timezone
-        >>> from utils.market_constraints import Interval
-        >>> from utils.time_utils import align_time_boundaries
+        >>> from data_source_manager.utils.market_constraints import Interval
+        >>> from data_source_manager.utils.time_utils import align_time_boundaries
         >>>
         >>> # Align a 1-hour interval request
         >>> start = datetime(2023, 1, 1, 14, 30, 0, tzinfo=timezone.utc)
@@ -754,8 +754,8 @@ def estimate_record_count(start_time: datetime, end_time: datetime, interval: Ma
 
     Example:
         >>> from datetime import datetime, timezone, timedelta
-        >>> from utils.market_constraints import Interval
-        >>> from utils.time_utils import estimate_record_count
+        >>> from data_source_manager.utils.market_constraints import Interval
+        >>> from data_source_manager.utils.time_utils import estimate_record_count
         >>>
         >>> # Calculate records for different time spans and intervals
         >>> now = datetime.now(timezone.utc)

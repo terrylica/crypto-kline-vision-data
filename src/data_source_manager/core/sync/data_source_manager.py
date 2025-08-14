@@ -16,7 +16,7 @@ The main classes are:
 
 Example:
     >>> from core.sync.data_source_manager import DataSourceManager, DataSource
-    >>> from utils.market_constraints import DataProvider, MarketType, Interval
+    >>> from data_source_manager import DataProvider, MarketType, Interval
     >>> from datetime import datetime
     >>>
     >>> # Create a manager for spot market
@@ -127,7 +127,7 @@ class DataSourceConfig:
             Default is False. Set to True for completely silent operation except for errors.
 
     Example:
-        >>> from utils.market_constraints import DataProvider, MarketType, ChartType
+        >>> from data_source_manager import DataProvider, MarketType, ChartType
         >>> from pathlib import Path
         >>>
         >>> # Basic configuration for SPOT market
@@ -200,7 +200,7 @@ class DataSourceConfig:
             ValueError: If any parameter values are invalid
 
         Example:
-            >>> from utils.market_constraints import DataProvider, MarketType
+            >>> from data_source_manager import DataProvider, MarketType
             >>> from pathlib import Path
             >>>
             >>> # Basic configuration for SPOT market
@@ -247,7 +247,7 @@ class DataSourceManager:
 
     Examples:
         >>> from core.sync.data_source_manager import DataSourceManager
-        >>> from utils.market_constraints import DataProvider, MarketType, Interval, ChartType
+        >>> from data_source_manager import DataProvider, MarketType, Interval, ChartType
         >>> from datetime import datetime
         >>>
         >>> # Basic usage
@@ -417,7 +417,7 @@ class DataSourceManager:
         Examples:
             >>> # Basic creation with required parameters (clean output by default)
             >>> from core.sync.data_source_manager import DataSourceManager
-            >>> from utils.market_constraints import DataProvider, MarketType
+            >>> from data_source_manager import DataProvider, MarketType
             >>>
             >>> manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
             >>>
@@ -437,7 +437,7 @@ class DataSourceManager:
             ... )
             >>>
             >>> # Creation with additional parameters
-            >>> from utils.market_constraints import ChartType
+            >>> from data_source_manager.utils.market_constraints import ChartType
             >>> from pathlib import Path
             >>>
             >>> manager = DataSourceManager.create(
@@ -484,7 +484,7 @@ class DataSourceManager:
         Example:
             >>> # Configure FUTURES_USDT as the default market type
             >>> from core.sync.data_source_manager import DataSourceManager
-            >>> from utils.market_constraints import MarketType
+            >>> from data_source_manager.utils.market_constraints import MarketType
             >>>
             >>> DataSourceManager.configure_defaults(MarketType.FUTURES_USDT)
             >>>

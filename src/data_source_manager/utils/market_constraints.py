@@ -17,7 +17,7 @@ The module is designed to abstract away provider-specific details while providin
 a consistent interface for the rest of the application.
 
 Example:
-    >>> from utils.market_constraints import DataProvider, MarketType, Interval, ChartType
+    >>> from data_source_manager import DataProvider, MarketType, Interval, ChartType
     >>>
     >>> # Check if an interval is supported for a market type
     >>> is_supported = is_interval_supported(MarketType.SPOT, Interval.MINUTE_1)
@@ -279,7 +279,7 @@ class Interval(Enum):
         MONTH_1: 1-month interval (approximate - uses 30 days)
 
     Example:
-        >>> from utils.market_constraints import Interval
+        >>> from data_source_manager.utils.market_constraints import Interval
         >>>
         >>> # Get the interval enum from string
         >>> interval = Interval("1m")
@@ -331,7 +331,7 @@ class Interval(Enum):
             For MONTH_1, this uses an approximation of 30 days (2,592,000 seconds).
 
         Example:
-            >>> from utils.market_constraints import Interval
+            >>> from data_source_manager.utils.market_constraints import Interval
             >>>
             >>> # Calculate seconds for different intervals
             >>> minute = Interval.MINUTE_1.to_seconds()
@@ -367,7 +367,7 @@ class Interval(Enum):
             Interval: The default interval (SECOND_1)
 
         Example:
-            >>> from utils.market_constraints import Interval
+            >>> from data_source_manager.utils.market_constraints import Interval
             >>>
             >>> # Get default interval
             >>> default = Interval.get_default()
@@ -383,7 +383,7 @@ class Interval(Enum):
             str: String representation (e.g., "1m", "1h")
 
         Example:
-            >>> from utils.market_constraints import Interval
+            >>> from data_source_manager.utils.market_constraints import Interval
             >>>
             >>> # Convert interval to string
             >>> interval = Interval.HOUR_4
@@ -647,7 +647,7 @@ def is_interval_supported(market_type: MarketType, interval: Interval) -> bool:
         bool: True if the interval is supported for the market type, False otherwise
 
     Example:
-        >>> from utils.market_constraints import MarketType, Interval, is_interval_supported
+        >>> from data_source_manager.utils.market_constraints import MarketType, Interval, is_interval_supported
         >>>
         >>> # Check if 1-second data is supported for SPOT market
         >>> is_interval_supported(MarketType.SPOT, Interval.SECOND_1)
@@ -675,7 +675,7 @@ def get_minimum_interval(market_type: MarketType) -> Interval:
         Interval: The minimum supported interval for the market type
 
     Example:
-        >>> from utils.market_constraints import MarketType, get_minimum_interval
+        >>> from data_source_manager.utils.market_constraints import MarketType, get_minimum_interval
         >>>
         >>> # Get minimum interval for SPOT market
         >>> min_spot = get_minimum_interval(MarketType.SPOT)
@@ -723,7 +723,7 @@ def get_default_symbol(market_type: MarketType) -> str:
             OPTIONS: "BTC-230630-25000-C"
 
     Example:
-        >>> from utils.market_constraints import MarketType, get_default_symbol
+        >>> from data_source_manager.utils.market_constraints import MarketType, get_default_symbol
         >>>
         >>> # Get default symbols for different market types
         >>> spot_symbol = get_default_symbol(MarketType.SPOT)
@@ -854,7 +854,7 @@ def validate_symbol_for_market_type(
         bool: True if the symbol is valid for the market type, False otherwise
 
     Example:
-        >>> from utils.market_constraints import MarketType, DataProvider, validate_symbol_for_market_type
+        >>> from data_source_manager.utils.market_constraints import MarketType, DataProvider, validate_symbol_for_market_type
         >>>
         >>> # Validate symbols for different market types
         >>> validate_symbol_for_market_type("BTCUSDT", MarketType.SPOT)

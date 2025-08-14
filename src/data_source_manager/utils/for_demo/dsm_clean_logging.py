@@ -14,8 +14,8 @@ Key Features:
 
 Example Usage:
     >>> import contextlib
-    >>> from utils.for_demo.dsm_clean_logging import get_clean_market_data
-    >>> from utils.market_constraints import Interval
+    >>> from data_source_manager.utils.for_demo.dsm_clean_logging import get_clean_market_data
+    >>> from data_source_manager.utils.market_constraints import Interval
     >>> from datetime import datetime
     >>>
     >>> # Clean context manager - no HTTP debug noise
@@ -59,8 +59,8 @@ def get_clean_market_data(
         DataSourceManager: Configured DSM instance with clean logging
         
     Example:
-        >>> from utils.for_demo.dsm_clean_logging import get_clean_market_data
-        >>> from utils.market_constraints import Interval
+        >>> from data_source_manager.utils.for_demo.dsm_clean_logging import get_clean_market_data
+        >>> from data_source_manager.utils.market_constraints import Interval
         >>> from datetime import datetime
         >>>
         >>> # Clean usage - minimal logging output
@@ -114,8 +114,8 @@ def get_quiet_market_data(
         DataSourceManager: Configured DSM instance with quiet logging
         
     Example:
-        >>> from utils.for_demo.dsm_clean_logging import get_quiet_market_data
-        >>> from utils.market_constraints import Interval
+        >>> from data_source_manager.utils.for_demo.dsm_clean_logging import get_quiet_market_data
+        >>> from data_source_manager.utils.market_constraints import Interval
         >>> from datetime import datetime
         >>>
         >>> # Completely quiet - only errors will be shown
@@ -168,8 +168,8 @@ def get_debug_market_data(
         DataSourceManager: Configured DSM instance with debug logging
         
     Example:
-        >>> from utils.for_demo.dsm_clean_logging import get_debug_market_data
-        >>> from utils.market_constraints import Interval
+        >>> from data_source_manager.utils.for_demo.dsm_clean_logging import get_debug_market_data
+        >>> from data_source_manager.utils.market_constraints import Interval
         >>> from datetime import datetime
         >>>
         >>> # Full debug mode - see all HTTP requests and responses
@@ -211,9 +211,9 @@ def suppress_http_logging() -> None:
     This is the exact workaround mentioned in the user's report.
     
     Example:
-        >>> from utils.for_demo.dsm_clean_logging import suppress_http_logging
+        >>> from data_source_manager.utils.for_demo.dsm_clean_logging import suppress_http_logging
         >>> from core.sync.data_source_manager import DataSourceManager
-        >>> from utils.market_constraints import DataProvider, MarketType
+        >>> from data_source_manager import DataProvider, MarketType
         >>>
         >>> # Apply global HTTP logging suppression
         >>> suppress_http_logging()
@@ -239,9 +239,9 @@ def configure_clean_logging(log_level: str = "WARNING") -> None:
         log_level: Logging level to use for DSM operations
         
     Example:
-        >>> from utils.for_demo.dsm_clean_logging import configure_clean_logging
+        >>> from data_source_manager.utils.for_demo.dsm_clean_logging import configure_clean_logging
         >>> from core.sync.data_source_manager import DataSourceManager
-        >>> from utils.market_constraints import DataProvider, MarketType
+        >>> from data_source_manager import DataProvider, MarketType
         >>>
         >>> # Configure clean logging once
         >>> configure_clean_logging('INFO')

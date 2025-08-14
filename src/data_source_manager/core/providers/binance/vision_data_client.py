@@ -104,7 +104,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
     Examples:
         >>> from core.providers.binance.vision_data_client import VisionDataClient
-        >>> from utils.market_constraints import MarketType, ChartType
+        >>> from data_source_manager.utils.market_constraints import MarketType, ChartType
         >>> from datetime import datetime, timedelta
         >>>
         >>> # Create a client for BTC/USDT 1-minute data
@@ -163,7 +163,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         Example:
             >>> from core.providers.binance.vision_data_client import VisionDataClient
-            >>> from utils.market_constraints import MarketType, ChartType
+            >>> from data_source_manager.utils.market_constraints import MarketType, ChartType
             >>>
             >>> # Basic initialization
             >>> client = VisionDataClient("BTCUSDT", "1m")
@@ -1043,7 +1043,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         Example:
             >>> from core.providers.binance.vision_data_client import VisionDataClient
             >>> from datetime import datetime, timezone, timedelta
-            >>> from utils.market_constraints import MarketType
+            >>> from data_source_manager.utils.market_constraints import MarketType
             >>>
             >>> # Set up time range for the last week
             >>> end = datetime.now(timezone.utc)

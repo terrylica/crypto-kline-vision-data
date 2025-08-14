@@ -87,29 +87,46 @@ The installation process (through either method) automatically registers the CLI
 
 ## Usage
 
-### Basic Example
+### Basic Usage
 
 ```python
 from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
 from datetime import datetime, timedelta
 
-# Create a DataSourceManager instance
-dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+# Create a manager for USDT-margined futures
+manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
-# Define time range (last 7 days)
-end_time = datetime.utcnow()
+# Fetch recent BTCUSDT data with automatic failover
+end_time = datetime.now()
 start_time = end_time - timedelta(days=7)
 
-# Fetch BTCUSDT data using the Failover Control Protocol
-data = dsm.get_data(
+df = manager.get_data(
     symbol="BTCUSDT",
     start_time=start_time,
     end_time=end_time,
-    interval=Interval.MINUTE_1,
+    interval=Interval.HOUR_1
 )
 
-print(f"Retrieved {len(data)} records")
-print(data.head())
+print(f"Loaded {len(df)} bars of BTCUSDT data")
+print(df.head())
+```
+
+### Failover Control Protocol (FCP)
+
+The DSM automatically handles data retrieval through multiple sources:
+
+```python
+# The FCP follows this sequence automatically:
+# 1. 🚀 Local cache lookup (fastest)
+# 2. 📡 Vision API for historical data (efficient)  
+# 3. 🔄 REST API fallback (real-time)
+
+# All with automatic retry, data validation, and gap detection
+manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+
+# This single call handles all the complexity:
+data = manager.get_data("ETHUSDT", start_time, end_time, Interval.MINUTE_5)
+# ✅ Cache checked, Vision API queried, REST API fallback - all automatic!
 ```
 
 ### Advanced Configuration
@@ -118,20 +135,17 @@ print(data.head())
 from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
 from data_source_manager.core.sync.data_source_manager import DataSource
 
-# Create with specific configuration
-dsm = DataSourceManager.create(
+# Force specific data source (bypass FCP)
+manager = DataSourceManager.create(
     provider=DataProvider.BINANCE,
-    market_type=MarketType.FUTURES_USDT,  # USDS-Margined Futures
-    enforce_source=DataSource.AUTO,       # Use Failover Control Protocol
+    market_type=MarketType.FUTURES_USDT,
+    enforce_source=DataSource.VISION,  # Force Vision API only
 )
 
-# Fetch futures data
-futures_data = dsm.get_data(
-    symbol="BTCUSDT",
-    start_time=datetime(2024, 1, 1),
-    end_time=datetime(2024, 1, 7),
-    interval=Interval.HOUR_1,
-)
+# Multiple market types supported
+spot_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+futures_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+coin_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_COIN)
 ```
 
 ## Running the Demos

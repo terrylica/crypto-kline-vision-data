@@ -10,7 +10,7 @@ timestamp handling and index naming for market data.
 
 Example:
     >>> import pandas as pd
-    >>> from utils.dataframe_types import TimestampedDataFrame
+    >>> from data_source_manager.utils.dataframe_types import TimestampedDataFrame
     >>> from datetime import datetime, timezone
     >>>
     >>> # Create a TimestampedDataFrame from a dictionary
@@ -62,7 +62,7 @@ class TimestampedDataFrame(pd.DataFrame):
     Example:
         >>> from datetime import datetime, timezone
         >>> import pandas as pd
-        >>> from utils.dataframe_types import TimestampedDataFrame
+        >>> from data_source_manager.utils.dataframe_types import TimestampedDataFrame
         >>>
         >>> # Create sample data
         >>> dates = [
@@ -197,7 +197,7 @@ class TimestampedDataFrame(pd.DataFrame):
         Example:
             >>> from datetime import datetime, timezone
             >>> import pandas as pd
-            >>> from utils.dataframe_types import TimestampedDataFrame
+            >>> from data_source_manager.utils.dataframe_types import TimestampedDataFrame
             >>>
             >>> # Create TimestampedDataFrame
             >>> dates = [datetime(2023, 1, 1, tzinfo=timezone.utc)]
