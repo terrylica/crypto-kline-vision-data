@@ -674,7 +674,7 @@ class DataSourceManager:
             this returns an empty DataFrame and the entire requested time range
             as missing.
         """
-        from utils.for_core.dsm_cache_utils import get_from_cache
+        from data_source_manager.utils.for_core.dsm_cache_utils import get_from_cache
 
         if not self.use_cache or self.cache_dir is None:
             # Return empty DataFrame and the entire date range as missing
@@ -719,7 +719,7 @@ class DataSourceManager:
             - Empty DataFrames are not cached
             - The source parameter is tracked for telemetry but doesn't affect caching behavior
         """
-        from utils.for_core.dsm_cache_utils import save_to_cache
+        from data_source_manager.utils.for_core.dsm_cache_utils import save_to_cache
 
         if not self.use_cache or self.cache_dir is None:
             return
@@ -1030,7 +1030,7 @@ class DataSourceManager:
             # CRITICAL FIX: Filter to user's exact time range when auto_reindex=False
             if not auto_reindex and not result_df.empty:
                 # Filter the result to the user's exact requested time range
-                from utils.time_utils import filter_dataframe_by_time
+                from data_source_manager.utils.time_utils import filter_dataframe_by_time
                 original_length = len(result_df)
                 result_df = filter_dataframe_by_time(result_df, start_time, end_time, "open_time")
                 logger.info(f"[FCP] auto_reindex=False: Filtered to user's exact range: {original_length} -> {len(result_df)} records")
@@ -1041,7 +1041,7 @@ class DataSourceManager:
             # Only reindex if explicitly requested AND if we have some data to work with
             if auto_reindex and not result_df.empty:
                 # Import additional utilities for enhanced functionality
-                from utils.for_core.dsm_utilities import safely_reindex_dataframe
+                from data_source_manager.utils.for_core.dsm_utilities import safely_reindex_dataframe
 
                 # Check if we have significant missing ranges that couldn't be filled
                 if missing_ranges:
@@ -1076,7 +1076,7 @@ class DataSourceManager:
             # CRITICAL FIX: Different completeness checks based on auto_reindex
             if auto_reindex:
                 # Original completeness check for reindexed data
-                from utils.dataframe_utils import verify_data_completeness
+                from data_source_manager.utils.dataframe_utils import verify_data_completeness
 
                 is_complete, gaps = verify_data_completeness(result_df, aligned_start, aligned_end, interval.value)
 

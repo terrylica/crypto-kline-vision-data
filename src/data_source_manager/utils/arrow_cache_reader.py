@@ -541,7 +541,7 @@ if __name__ == "__main__":
 
             # Try to convert string interval to Interval enum for better code example
             try:
-                from utils.market_constraints import Interval
+                from data_source_manager.utils.market_constraints import Interval
 
                 interval_enum = next(i for i in Interval if i.value == interval)
                 print(f"Interval string '{interval}' converted to enum: {interval_enum}")

@@ -18,7 +18,7 @@ for the standard logging module with enhanced capabilities.
 
 Basic Usage Examples:
     # Import the logger
-    from utils.loguru_setup import logger
+    from data_source_manager.utils.loguru_setup import logger
 
     # Basic logging with auto-detected module name
     logger.debug("Debug message")
@@ -134,13 +134,13 @@ def _setup_root_logger(level=None, use_rich=None):
     # Set up handler based on preference and availability
     if use_rich and RICH_AVAILABLE:
         # Use rich handler
-        from utils.for_logger.logger_setup_utils import setup_rich_handler
+        from data_source_manager.utils.for_logger.logger_setup_utils import setup_rich_handler
 
         handler = setup_rich_handler(console)
     else:
         # Use colorlog handler (fallback or default)
         handler = logging.StreamHandler()
-        from utils.for_logger.formatters import create_colored_formatter
+        from data_source_manager.utils.for_logger.formatters import create_colored_formatter
 
         formatter = create_colored_formatter()
         handler.setFormatter(formatter)

@@ -249,7 +249,7 @@ def configure_clean_logging(log_level: str = "WARNING") -> None:
         >>> # All subsequent DSM instances will have clean output
         >>> dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
     """
-    from utils.loguru_setup import logger
+    from data_source_manager.utils.loguru_setup import logger
     
     # Configure DSM logging level
     logger.configure_level(log_level)
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     """Demo script showing clean logging utilities."""
     import pendulum
     from rich.console import Console
-    from utils.market_constraints import Interval
+    from data_source_manager.utils.market_constraints import Interval
     
     console = Console()
     

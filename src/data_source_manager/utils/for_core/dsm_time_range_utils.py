@@ -177,7 +177,7 @@ def identify_missing_segments(
     min_time, max_time = df["open_time"].min(), df["open_time"].max()
     logger.debug(f"Data spans from {min_time} to {max_time}")
 
-    from utils.gap_detector import detect_gaps
+    from data_source_manager.utils.gap_detector import detect_gaps
 
     gaps, stats = detect_gaps(
         df=df,
@@ -227,7 +227,7 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     """
     if not dfs:
         logger.warning("Empty list of DataFrames to merge")
-        from utils.config import create_empty_dataframe
+        from data_source_manager.utils.config import create_empty_dataframe
 
         return create_empty_dataframe()
 

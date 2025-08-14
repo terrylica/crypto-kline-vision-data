@@ -210,7 +210,7 @@ class LoggerProxy:
         Returns:
             LoggerProxy: Self reference for method chaining support.
         """
-        from utils.for_logger.logger_setup_utils import use_rich_logging
+        from data_source_manager.utils.for_logger.logger_setup_utils import use_rich_logging
 
         self._use_rich = use_rich_logging(enable=enable, level=level, setup_root_logger=self._setup_root_logger)
         return self
@@ -236,7 +236,7 @@ class LoggerProxy:
         module_name = module.__name__ if module else "__main__"
 
         # Import locally to avoid circular imports
-        from utils.for_logger.timeout_logger import log_timeout as _log_timeout
+        from data_source_manager.utils.for_logger.timeout_logger import log_timeout as _log_timeout
 
         # Use the log_timeout function with module name
         _log_timeout(operation, timeout_value, module_name, details, self._get_module_logger)
@@ -254,7 +254,7 @@ class LoggerProxy:
         Returns:
             LoggerProxy: Self reference for method chaining support.
         """
-        from utils.for_logger.timeout_logger import (
+        from data_source_manager.utils.for_logger.timeout_logger import (
             set_timeout_log_file as _set_timeout_log_file,
         )
 
@@ -270,7 +270,7 @@ class LoggerProxy:
         Returns:
             LoggerProxy: Self reference for method chaining
         """
-        from utils.for_logger.error_logger import (
+        from data_source_manager.utils.for_logger.error_logger import (
             enable_error_logging as _enable_error_logging,
         )
 
@@ -287,7 +287,7 @@ class LoggerProxy:
         Returns:
             LoggerProxy: Self reference for method chaining support.
         """
-        from utils.for_logger.error_logger import (
+        from data_source_manager.utils.for_logger.error_logger import (
             set_error_log_file as _set_error_log_file,
         )
 
@@ -338,7 +338,7 @@ class LoggerProxy:
 
         # Add a filter to strip Rich markup if requested
         if strip_rich_markup:
-            from utils.for_logger.formatters import RichMarkupStripper
+            from data_source_manager.utils.for_logger.formatters import RichMarkupStripper
 
             handler.addFilter(RichMarkupStripper())
 

@@ -258,8 +258,8 @@ def create_empty_dataframe(chart_type=None) -> pd.DataFrame:
     Returns:
         An empty DataFrame with correct column types and index
     """
-    from utils.loguru_setup import logger
-    from utils.market_constraints import ChartType
+    from data_source_manager.utils.loguru_setup import logger
+    from data_source_manager.utils.market_constraints import ChartType
 
     # Determine chart type
     if isinstance(chart_type, str):
@@ -316,7 +316,7 @@ def create_empty_funding_rate_dataframe() -> pd.DataFrame:
         This function is maintained for backward compatibility.
         New code should use create_empty_dataframe(ChartType.FUNDING_RATE) instead.
     """
-    from utils.market_constraints import ChartType
+    from data_source_manager.utils.market_constraints import ChartType
 
     return create_empty_dataframe(ChartType.FUNDING_RATE)
 

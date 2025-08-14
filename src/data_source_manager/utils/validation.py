@@ -382,7 +382,7 @@ class DataValidation:
             # Parse string interval if needed
             if isinstance(interval, str):
                 try:
-                    from utils.market_constraints import Interval
+                    from data_source_manager.utils.market_constraints import Interval
 
                     logger.debug(f"Converting string interval '{interval}' to Interval enum")
                     interval = Interval(interval)
@@ -394,7 +394,7 @@ class DataValidation:
                 # For real intervals, use interval-specific delays
                 # Import here to avoid circular imports
                 try:
-                    from utils.time_utils import (
+                    from data_source_manager.utils.time_utils import (
                         align_time_boundaries,
                         get_interval_seconds,
                     )

@@ -145,7 +145,7 @@ class TimestampedDataFrame(pd.DataFrame):
             Preserves the semantic meaning of open_time as the BEGINNING of each candle period.
         """
         # Import here to avoid circular imports
-        from utils.dataframe_utils import ensure_open_time_as_index
+        from data_source_manager.utils.dataframe_utils import ensure_open_time_as_index
 
         try:
             # Use the centralized utility to ensure the index is properly set
@@ -211,7 +211,7 @@ class TimestampedDataFrame(pd.DataFrame):
             True
         """
         # Import here to avoid circular imports
-        from utils.dataframe_utils import ensure_open_time_as_column
+        from data_source_manager.utils.dataframe_utils import ensure_open_time_as_column
 
         # Create a copy to avoid modifying the original
         df = pd.DataFrame(self.copy())

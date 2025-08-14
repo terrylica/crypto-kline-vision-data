@@ -329,7 +329,7 @@ def verify_and_install_typer_cli() -> bool:
     import subprocess
     import sys
 
-    from utils.loguru_setup import logger
+    from data_source_manager.utils.loguru_setup import logger
 
     typer_cli_available = shutil.which("typer") is not None
 

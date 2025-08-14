@@ -14,7 +14,7 @@ Key Features:
 
 Basic Usage Examples:
     # Import the logger (drop-in replacement)
-    from utils.loguru_setup import logger
+    from data_source_manager.utils.loguru_setup import logger
 
     # Set log level (much simpler than standard logging)
     logger.configure_level("INFO")  # or DEBUG, WARNING, ERROR, CRITICAL

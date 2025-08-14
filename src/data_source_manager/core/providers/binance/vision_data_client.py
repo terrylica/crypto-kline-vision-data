@@ -277,7 +277,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             Empty TimestampedDataFrame with the correct columns
         """
         # Use the standardized empty dataframe function from config
-        from utils.config import create_empty_dataframe
+        from data_source_manager.utils.config import create_empty_dataframe
 
         # Create empty dataframe and convert to TimestampedDataFrame format
         df = create_empty_dataframe()
@@ -363,7 +363,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         f"Consider using {min_interval.value} (minimum supported interval) or another supported interval from the list."
                     )
 
-                    from utils.for_core.vision_exceptions import (
+                    from data_source_manager.utils.for_core.vision_exceptions import (
                         UnsupportedIntervalError,
                     )
 
@@ -454,7 +454,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     try:
                         import time
 
-                        from utils.for_core.vision_checksum import (
+                        from data_source_manager.utils.for_core.vision_checksum import (
                             calculate_sha256_direct,
                         )
 

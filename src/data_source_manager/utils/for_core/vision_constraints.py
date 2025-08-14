@@ -186,7 +186,7 @@ def get_vision_url(
     # Format date string
     date_str = date.strftime("%Y-%m-%d")
 
-    from utils.loguru_setup import logger
+    from data_source_manager.utils.loguru_setup import logger
 
     logger.debug(f"Creating Vision API URL for {symbol} {interval} on {date_str} (market: {market_type})")
 
