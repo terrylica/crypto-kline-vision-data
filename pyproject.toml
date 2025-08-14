@@ -18,12 +18,12 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "attrs>=25.3.0,<25.4.0", # allow patch version changes
+    "attrs>=23.0.0,<26.0.0", # more flexible version range
     "pyarrow>=19.0.0,<21.0.0", # for local cache files in MMAP Array format
-    "polars>=1.30.0,<1.31.0", # resample and aggregate data faster than pandas
-    "pandas>=2.2.3,<2.3.0", # allow patch version changes; compatibility with existing code
-    "numpy==1.24.4", # most sensitive to version changes so locked on 1.24.4 unless there is a good reason to upgrade
-    "fsspec>=2025.5.1",          # for downloading remote files and local file hyrarchy matching of remote files
+    "polars>=1.30.0,<2.0.0", # resample and aggregate data faster than pandas
+    "pandas>=2.2.3,<3.0.0", # allow patch version changes; compatibility with existing code
+    "numpy>=1.26.0,<3.0.0", # compatible with pandas requirements
+    "fsspec>=2024.6.0",          # for downloading remote files and local file hyrarchy matching of remote files
     "requests>=2.32.3,<2.33.0",        # fsspec compatible HTTP client
     "httpx>=0.28.1,<0.29.0",   # as preferred HTTP client
     "aiohttp>=3.12.6,<3.13.0", # for HTTP requests
