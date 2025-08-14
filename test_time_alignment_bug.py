@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 import pytz
 
-from utils.market_constraints import Interval
-from utils.time_utils import align_time_boundaries
+from data_source_manager.utils.market_constraints import Interval
+from data_source_manager.utils.time_utils import align_time_boundaries
 
 
 def test_time_alignment_bug():

@@ -11,9 +11,9 @@ from rich import print
 from rich.panel import Panel
 from rich.table import Table
 
-from core.sync.data_source_manager import DataSource, DataSourceManager
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.core.sync.data_source_manager import DataSource, DataSourceManager
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 # Set log level to DEBUG to see detailed logging
 logger.setLevel("DEBUG")

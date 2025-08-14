@@ -3,7 +3,7 @@
 
 import pytest
 
-from utils.market_constraints import (
+from data_source_manager.utils.market_constraints import (
     MarketType,
     validate_symbol_for_market_type,
 )

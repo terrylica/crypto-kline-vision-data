@@ -9,8 +9,8 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
-from utils.config import MIN_RECORDS_FOR_COMPARISON
-from utils.loguru_setup import logger
+from data_source_manager.utils.config import MIN_RECORDS_FOR_COMPARISON
+from data_source_manager.utils.loguru_setup import logger
 
 # API constants
 OKX_API_BASE_URL = "https://www.okx.com/api/v5"

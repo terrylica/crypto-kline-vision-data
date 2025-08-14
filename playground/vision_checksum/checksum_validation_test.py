@@ -18,11 +18,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from utils.config import HTTP_OK
-from utils.for_core.vision_checksum import verify_file_checksum
-from utils.for_core.vision_constraints import FileType, get_vision_url
-from utils.loguru_setup import logger
-from utils.validation import DataValidation
+from data_source_manager.utils.config import HTTP_OK
+from data_source_manager.utils.for_core.vision_checksum import verify_file_checksum
+from data_source_manager.utils.for_core.vision_constraints import FileType, get_vision_url
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.validation import DataValidation
 
 # Console for rich output
 console = Console()

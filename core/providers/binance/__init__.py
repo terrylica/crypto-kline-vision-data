@@ -7,12 +7,12 @@ This package contains clients for retrieving data from Binance's various APIs:
 - Funding rate client for futures funding rate data
 """
 
-from core.providers.binance.binance_funding_rate_client import BinanceFundingRateClient
-from core.providers.binance.cache_manager import UnifiedCacheManager
-from core.providers.binance.data_client_interface import DataClientInterface
-from core.providers.binance.rest_data_client import RestDataClient
-from core.providers.binance.vision_data_client import VisionDataClient
-from core.providers.binance.vision_path_mapper import VisionPathMapper
+from data_source_manager.core.providers.binance.binance_funding_rate_client import BinanceFundingRateClient
+from data_source_manager.core.providers.binance.cache_manager import UnifiedCacheManager
+from data_source_manager.core.providers.binance.data_client_interface import DataClientInterface
+from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
+from data_source_manager.core.providers.binance.vision_data_client import VisionDataClient
+from data_source_manager.core.providers.binance.vision_path_mapper import VisionPathMapper
 
 __all__ = [
     "BinanceFundingRateClient",

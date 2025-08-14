@@ -28,8 +28,8 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.sync.data_source_manager import DataSourceManager
-from utils.market_constraints import DataProvider, Interval, MarketType
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.market_constraints import DataProvider, Interval, MarketType
 
 
 def test_auto_reindex_false_fix():

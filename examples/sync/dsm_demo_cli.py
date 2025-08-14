@@ -31,7 +31,7 @@ Example usage:
     dsm-demo-cli -s BTCUSDT -e REST
 """
 
-from utils.for_demo.dsm_help_content import MAIN_DOCSTRING
+from data_source_manager.utils.for_demo.dsm_help_content import MAIN_DOCSTRING
 
 __doc__ = MAIN_DOCSTRING
 
@@ -42,19 +42,19 @@ import pendulum
 from rich.console import Console
 
 # Import library functions
-from core.sync.dsm_lib import (
+from data_source_manager.core.sync.dsm_lib import (
     fetch_market_data,
     process_market_parameters,
     setup_environment,
 )
-from utils.app_paths import get_cache_dir, get_log_dir
-from utils.for_demo.dsm_app_options import (
+from data_source_manager.utils.app_paths import get_cache_dir, get_log_dir
+from data_source_manager.utils.for_demo.dsm_app_options import (
     create_typer_app,
     get_cmd_help_text,
     get_standard_options,
 )
-from utils.for_demo.dsm_cache_utils import print_cache_info
-from utils.for_demo.dsm_cli_utils import (
+from data_source_manager.utils.for_demo.dsm_cache_utils import print_cache_info
+from data_source_manager.utils.for_demo.dsm_cli_utils import (
     ChartTypeChoice,
     DataProviderChoice,
     DataSourceChoice,
@@ -70,14 +70,14 @@ from utils.for_demo.dsm_cli_utils import (
 )
 
 # Import utility modules for DSM Demo
-from utils.for_demo.dsm_display_utils import display_results
-from utils.for_demo.dsm_doc_utils import (
+from data_source_manager.utils.for_demo.dsm_display_utils import display_results
+from data_source_manager.utils.for_demo.dsm_doc_utils import (
     generate_markdown_docs,
     verify_and_install_typer_cli,
 )
 
 # Import the logger or logging and rich formatting
-from utils.loguru_setup import configure_session_logging, logger
+from data_source_manager.utils.loguru_setup import configure_session_logging, logger
 
 # Start the performance timer at module initialization
 start_time_perf = perf_counter()

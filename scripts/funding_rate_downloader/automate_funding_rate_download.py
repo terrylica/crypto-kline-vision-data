@@ -9,8 +9,8 @@ from typing import Any
 import httpx
 import pandas as pd
 
-from utils.config import HTTP_OK
-from utils.loguru_setup import logger
+from data_source_manager.utils.config import HTTP_OK
+from data_source_manager.utils.loguru_setup import logger
 
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
 DEFAULT_INTERVAL_MINUTES = 60  # Default to download every hour

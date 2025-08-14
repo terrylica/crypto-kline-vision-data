@@ -23,7 +23,7 @@ from rope.base.libutils import path_to_resource
 from rope.base.project import Project
 from rope.refactor.move import MoveModule
 
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 # Define constants for verbose levels (using logger's internal constants)
 VERBOSE_DEBUG = 2

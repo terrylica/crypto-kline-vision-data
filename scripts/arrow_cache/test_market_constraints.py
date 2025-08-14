@@ -11,8 +11,8 @@ from pathlib import Path
 
 from rich import print
 
-from utils.arrow_cache_reader import ArrowCacheReader
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.utils.arrow_cache_reader import ArrowCacheReader
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 
 def test_market_constraint_access():

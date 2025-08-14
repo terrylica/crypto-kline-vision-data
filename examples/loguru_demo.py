@@ -27,7 +27,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 # Import the new loguru-based logger
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 console = Console()
 

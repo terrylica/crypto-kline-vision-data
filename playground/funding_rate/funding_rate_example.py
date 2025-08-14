@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from core.sync.data_source_manager import DataSourceManager
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 
 def fetch_funding_rates():

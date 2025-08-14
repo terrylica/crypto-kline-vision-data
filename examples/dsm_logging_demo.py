@@ -36,9 +36,9 @@ if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
 # Import DSM components
-from core.sync.data_source_manager import DataSourceManager
-from utils.loguru_setup import logger
-from utils.market_constraints import DataProvider, Interval, MarketType
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import DataProvider, Interval, MarketType
 
 console = Console()
 

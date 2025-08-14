@@ -13,7 +13,7 @@ import fsspec
 import typer
 from rich import print
 
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 logger.setLevel(logging.DEBUG)
 

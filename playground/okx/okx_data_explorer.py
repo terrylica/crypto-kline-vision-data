@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
 
-from utils.config import HTTP_OK
+from data_source_manager.utils.config import HTTP_OK
 
 # Constants
 BASE_URL = "https://www.okx.com/cdn/okex/traderecords"

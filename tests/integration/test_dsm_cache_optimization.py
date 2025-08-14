@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pendulum
 
-from core.sync.data_source_manager import DataSourceManager
-from utils.config import FEATURE_FLAGS
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.config import FEATURE_FLAGS
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 logger.setup_root(level="DEBUG")
 

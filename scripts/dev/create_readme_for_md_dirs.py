@@ -38,8 +38,8 @@ from pathlib import Path
 
 import typer
 
-from utils.config import MIN_FILES_FOR_README
-from utils.loguru_setup import logger
+from data_source_manager.utils.config import MIN_FILES_FOR_README
+from data_source_manager.utils.loguru_setup import logger
 
 app = typer.Typer()
 

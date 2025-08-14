@@ -31,9 +31,9 @@ from pathlib import Path
 import pandas as pd
 import pyarrow as pa
 
-from utils.config import HTTP_NOT_FOUND, SMALL_FILE_SIZE
-from utils.loguru_setup import logger
-from utils.market_constraints import Interval, MarketType
+from data_source_manager.utils.config import HTTP_NOT_FOUND, SMALL_FILE_SIZE
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import Interval, MarketType
 
 
 # Class to manage shutdown state instead of using a global variable

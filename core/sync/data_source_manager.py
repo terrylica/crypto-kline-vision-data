@@ -43,12 +43,12 @@ from typing import TypeVar
 import attr
 import pandas as pd
 
-from core.providers.binance.cache_manager import UnifiedCacheManager
-from core.providers.binance.rest_data_client import RestDataClient
-from core.providers.binance.vision_data_client import VisionDataClient
-from core.providers.binance.vision_path_mapper import FSSpecVisionHandler
-from utils.app_paths import get_cache_dir
-from utils.config import (
+from data_source_manager.core.providers.binance.cache_manager import UnifiedCacheManager
+from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
+from data_source_manager.core.providers.binance.vision_data_client import VisionDataClient
+from data_source_manager.core.providers.binance.vision_path_mapper import FSSpecVisionHandler
+from data_source_manager.utils.app_paths import get_cache_dir
+from data_source_manager.utils.config import (
     FUNDING_RATE_DTYPES,
     OUTPUT_DTYPES,
     REST_CHUNK_SIZE,
@@ -56,16 +56,16 @@ from utils.config import (
     VISION_DATA_DELAY_HOURS,
     create_empty_dataframe,
 )
-from utils.for_core.dsm_api_utils import (
+from data_source_manager.utils.for_core.dsm_api_utils import (
     create_client_if_needed,
     fetch_from_rest,
     fetch_from_vision,
 )
-from utils.for_core.dsm_date_range_utils import (
+from data_source_manager.utils.for_core.dsm_date_range_utils import (
     calculate_date_range,
     get_date_range_description,
 )
-from utils.for_core.dsm_fcp_utils import (
+from data_source_manager.utils.for_core.dsm_fcp_utils import (
     handle_error,
     process_cache_step,
     process_rest_step,
@@ -73,12 +73,12 @@ from utils.for_core.dsm_fcp_utils import (
     validate_interval,
     verify_final_data,
 )
-from utils.for_core.dsm_time_range_utils import (
+from data_source_manager.utils.for_core.dsm_time_range_utils import (
     standardize_columns,
 )
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
-from utils.time_utils import align_time_boundaries
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.utils.time_utils import align_time_boundaries
 
 
 class DataSource(Enum):

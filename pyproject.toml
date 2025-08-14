@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-source-manager"
-version = "0.1.72"
+version = "0.1.73"
 description = "Binance OHLCV data from Vision API (on AWS S3) and their REST API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,35 +18,34 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "attrs>=23.0.0,<26.0.0", # more flexible version range
+    "attrs>=25.0.0", # data classes and validation - latest versions
     "pyarrow>=19.0.0,<21.0.0", # for local cache files in MMAP Array format
     "polars>=1.30.0,<2.0.0", # resample and aggregate data faster than pandas
-    "pandas>=2.2.3,<3.0.0", # allow patch version changes; compatibility with existing code
-    "numpy>=1.26.0,<3.0.0", # compatible with pandas requirements
-    "fsspec>=2024.6.0",          # for downloading remote files and local file hyrarchy matching of remote files
-    "requests>=2.32.3,<2.33.0",        # fsspec compatible HTTP client
-    "httpx>=0.28.1,<0.29.0",   # as preferred HTTP client
-    "aiohttp>=3.12.6,<3.13.0", # for HTTP requests
-    "tenacity>=9.1.2,<9.3.0", # for retrying operations
-    "colorlog>=6.9.0,<6.10.0", # for colored logging
-    "psutil>=7.0.0,<7.1.0", # for system monitoring
-    "typer>=0.16.0,<0.17.0", # for CLI
-    "rich>=13.9.0,<15.0.0", # for elegant logging and CLI output
-    "pendulum>=3.1.0,<3.2.0", # for date and time operations
-    "platformdirs>=4.3.8,<4.4.0", # for platform-specific directory paths
-    "loguru>=0.7.3,<0.8.0", # for logging
+    "pandas>=2.2.0,<3.0.0", # compatibility with existing code
+    "numpy>=1.26.0,<3.0.0", # compatible with Python 3.12+ and pandas requirements
+    "fsspec>=2024.6.0", # for downloading remote files and local file hierarchy matching
+    "requests>=2.32.0", # fsspec compatible HTTP client
+    "httpx>=0.28.0", # preferred HTTP client
+    "aiohttp>=3.12.0", # for HTTP requests
+    "tenacity>=9.0.0", # for retrying operations
+    "colorlog>=6.8.0", # for colored logging
+    "psutil>=6.0.0", # for system monitoring
+    "typer>=0.16.0", # for CLI
+    "rich>=13.0.0", # for elegant logging and CLI output
+    "pendulum>=3.0.0", # for date and time operations
+    "platformdirs>=4.0.0", # for platform-specific directory paths
+    "loguru>=0.7.0", # for logging
 ]
 
 [project.optional-dependencies]
-dev = [ # allow upgrade within major version; for Binance Vision & REST API data sources
-    "build>=1.2.2,<2.0.0", # Add build tool for creating distributions
-    "custom-logger>=0.1.1,<0.2.0", # allow upgrade within major version; for adding custom logging and log file management
-    "twine>=6.1.0,<7.0.0", # allow upgrade within major version; for uploading the package to PyPI
-    "pytest>=8.3.5,<9.0.0", # allow upgrade within major version; for testing
-    "pytest-xdist>=3.7.0,<4.0.0", # allow upgrade within major version; for testing code coverage
+dev = [ # development dependencies using latest versions
+    "build>=1.2.0", # build tool for creating distributions
+    "twine>=6.0.0", # for uploading the package to PyPI
+    "pytest>=8.0.0", # for testing
+    "pytest-xdist>=3.6.0", # for parallel testing
     "pytest-profiling",
-    "pyupgrade>=3.20.0,<4.0.0", # allow upgrade within major version; for upgrading Python code to match the `requires-python` version
-    "ruff>=0.11.12,<0.12.0", # allow upgrade within major version; for linting and formatting - replaces pylint and autoflake
+    "pyupgrade>=3.20.0", # for upgrading Python code syntax
+    "ruff>=0.11.0", # for linting and formatting
 ]
 # Command-line scripts defined here
 [project.scripts]
@@ -54,24 +53,18 @@ dsm-demo-cli = "examples.sync.dsm_demo_cli:app"
 dsm-demo-module = "examples.lib_module.dsm_demo_module:main"
 recmove = "scripts.dev.refactor_move:app"
 
-# Using find_packages to ensure all subdirectories are properly included
+# Using src-layout with proper package structure
 [tool.setuptools.packages.find]
-where = ["."] # Look for packages in the root directory
-include = [
-    "core*",
-    "utils*",
-    "examples*",
-    "utils_for_debug*",
-    "scripts*",
-] # Include all subdirectories with their subpackages
+where = ["src"]
+include = ["data_source_manager*"]
+
+# Set package directory mapping for src-layout
+[tool.setuptools.package-dir]
+"" = "src"
 
 # Add package data to ensure all Python files are included
 [tool.setuptools.package-data]
-"examples" = ["**/*.py"]
-"utils" = ["**/*.py"]
-"core" = ["**/*.py"]
-"utils_for_debug" = ["**/*.py"]
-"scripts" = ["**/*.py"]
+"data_source_manager" = ["**/*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

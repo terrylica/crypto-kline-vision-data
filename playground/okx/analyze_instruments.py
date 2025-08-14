@@ -7,7 +7,7 @@ import httpx
 import typer
 from rich import print as rprint  # Using rich for formatted output
 
-from utils.loguru_setup import logger  # For logging
+from data_source_manager.utils.loguru_setup import logger  # For logging
 
 # Ensure we're in the correct directory, but rely on the script being run from there
 app = typer.Typer(

@@ -26,14 +26,14 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from core.providers.binance.rest_data_client import RestDataClient
+from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
 
 # For API access
-from core.sync.data_source_manager import DataSourceManager
-from utils.config import SECONDS_IN_MINUTE
-from utils.loguru_setup import logger
-from utils.market_constraints import DataProvider, Interval, MarketType
-from utils.network_utils import create_httpx_client
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.config import SECONDS_IN_MINUTE
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import DataProvider, Interval, MarketType
+from data_source_manager.utils.network_utils import create_httpx_client
 
 
 # Rate limit tracking

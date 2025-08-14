@@ -4,7 +4,7 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
-from utils.market_constraints import (
+from data_source_manager.utils.market_constraints import (
     ChartType,
     DataProvider,
     MarketType,

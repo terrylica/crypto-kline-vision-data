@@ -9,8 +9,8 @@ import pendulum
 import typer
 from rich import print
 
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, MarketType
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, MarketType
 
 
 @dataclass

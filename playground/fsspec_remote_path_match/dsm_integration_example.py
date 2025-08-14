@@ -10,8 +10,8 @@ from rich.console import Console
 from rich.table import Table
 from vision_path_mapper import FSSpecVisionHandler, VisionPathMapper
 
-from utils.loguru_setup import logger
-from utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+from data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 
 class DataSourceManagerExample:

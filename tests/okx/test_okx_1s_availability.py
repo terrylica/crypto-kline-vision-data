@@ -8,7 +8,7 @@ from rich import print
 from rich.console import Console
 from rich.table import Table
 
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 # Set logger level to WARNING to reduce verbosity
 logger.setLevel("WARNING")

@@ -23,14 +23,14 @@ if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
 # Project imports (after path setup)
-from core.sync.data_source_manager import DataSourceManager
-from utils.dataframe_utils import verify_data_completeness
-from utils.for_core.dsm_utilities import (
+from data_source_manager.core.sync.data_source_manager import DataSourceManager
+from data_source_manager.utils.dataframe_utils import verify_data_completeness
+from data_source_manager.utils.for_core.dsm_utilities import (
     check_window_data_completeness,
     safely_reindex_dataframe,
 )
-from utils.loguru_setup import configure_session_logging, logger
-from utils.market_constraints import DataProvider, Interval, MarketType
+from data_source_manager.utils.loguru_setup import configure_session_logging, logger
+from data_source_manager.utils.market_constraints import DataProvider, Interval, MarketType
 
 # Console for rich output
 console = Console()

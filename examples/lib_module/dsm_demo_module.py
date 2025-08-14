@@ -42,16 +42,16 @@ import pandas as pd
 import pendulum
 from rich import print
 
-from core.sync.dsm_lib import (
+from data_source_manager.core.sync.dsm_lib import (
     fetch_market_data,
     process_market_parameters,
     setup_environment,
 )
-from utils.app_paths import get_cache_dir, get_log_dir
-from utils.deprecation_rules import Interval as DeprecationInterval
-from utils.for_demo.dsm_cache_utils import print_cache_info
-from utils.for_demo.dsm_display_utils import display_results
-from utils.loguru_setup import configure_session_logging, logger
+from data_source_manager.utils.app_paths import get_cache_dir, get_log_dir
+from data_source_manager.utils.deprecation_rules import Interval as DeprecationInterval
+from data_source_manager.utils.for_demo.dsm_cache_utils import print_cache_info
+from data_source_manager.utils.for_demo.dsm_display_utils import display_results
+from data_source_manager.utils.loguru_setup import configure_session_logging, logger
 
 
 def showcase_backward_retrieval(

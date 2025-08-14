@@ -10,7 +10,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 
 def trace_dataframe_timestamps(

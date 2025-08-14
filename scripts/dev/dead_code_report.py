@@ -23,7 +23,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 # Initialize console for rich output
 console = Console()

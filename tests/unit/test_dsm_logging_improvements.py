@@ -12,14 +12,14 @@ import logging
 import pytest
 from unittest.mock import patch, MagicMock
 
-from core.sync.data_source_manager import DataSourceManager, DataSourceConfig
-from utils.for_demo.dsm_clean_logging import (
+from data_source_manager.core.sync.data_source_manager import DataSourceManager, DataSourceConfig
+from data_source_manager.utils.for_demo.dsm_clean_logging import (
     get_clean_market_data,
     get_quiet_market_data,
     get_debug_market_data,
     suppress_http_logging,
 )
-from utils.market_constraints import DataProvider, MarketType
+from data_source_manager.utils.market_constraints import DataProvider, MarketType
 
 
 class TestDataSourceConfig:

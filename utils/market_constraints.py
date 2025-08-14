@@ -40,12 +40,12 @@ from enum import Enum, auto
 
 import attrs  # Add this import
 
-from utils.config import (
+from data_source_manager.utils.config import (
     MIN_LONG_SYMBOL_LENGTH,
     MIN_SHORT_SYMBOL_LENGTH,
     OPTIONS_SYMBOL_PARTS,
 )
-from utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 
 class DataProvider(Enum):
