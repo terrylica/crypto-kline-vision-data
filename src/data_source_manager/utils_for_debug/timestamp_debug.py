@@ -47,6 +47,13 @@ def _format_timezone_info(dt: Union[datetime, pd.Timestamp]) -> str:
         return f"{dt.isoformat()} [NAIVE-NO-TIMEZONE] ⚠️"
 
 
+def _get_timestamp_series(df: pd.DataFrame, time_column: str):
+    """Helper to get timestamp series whether it's a column or index."""
+    if time_column in df.columns:
+        return df[time_column]
+    else:
+        return df.index
+
 def trace_dataframe_timestamps(
     df: pd.DataFrame, 
     time_column: str, 
@@ -64,23 +71,31 @@ def trace_dataframe_timestamps(
             {"time_column": time_column, "start_time": start_time, "end_time": end_time}
         )
     
-    # FAIL-FAST: Validate time column exists
-    if time_column not in df.columns:
+    # FAIL-FAST: Validate time column exists (column or index)
+    if time_column not in df.columns and df.index.name != time_column:
         available_columns = list(df.columns)
         raise TimezoneDebugError(
-            f"Time column '{time_column}' not found in DataFrame",
+            f"Time column '{time_column}' not found in DataFrame columns or index",
             {
                 "requested_column": time_column,
                 "available_columns": available_columns,
                 "dataframe_shape": df.shape,
-                "dataframe_index_name": df.index.name
+                "dataframe_index_name": df.index.name,
+                "suggestion": f"Use index.name='{df.index.name}' if timestamps are in index"
             }
         )
     
-    # Get timezone information for all timestamps
-    sample_timestamp = df[time_column].iloc[0] if len(df) > 0 else None
-    min_ts = df[time_column].min()
-    max_ts = df[time_column].max()
+    # Get timezone information for all timestamps (unified access)
+    timestamp_series = _get_timestamp_series(df, time_column)
+    
+    if time_column in df.columns:
+        sample_timestamp = timestamp_series.iloc[0] if len(df) > 0 else None
+    else:
+        # Handle DatetimeIndex - use different access methods
+        sample_timestamp = timestamp_series[0] if len(df) > 0 else None
+    
+    min_ts = timestamp_series.min()
+    max_ts = timestamp_series.max()
     
     # Rich timezone-aware logging
     logger.debug("🕐 [TIMEZONE TRACE] TIMESTAMP FILTERING OPERATION")
@@ -114,9 +129,10 @@ def trace_dataframe_timestamps(
         logger.warning(f"  🕐 Data timestamps have timezone: {data_tz}")
         logger.warning("  ⚡ This may cause filtering inconsistencies!")
     
-    # Log exact boundary analysis
-    exact_start_matches = df[df[time_column] == start_time]
-    exact_end_matches = df[df[time_column] == end_time]
+    # Log exact boundary analysis (unified approach)
+    timestamp_series = _get_timestamp_series(df, time_column)
+    exact_start_matches = df[timestamp_series == start_time]
+    exact_end_matches = df[timestamp_series == end_time]
     
     logger.debug(f"🎯 [TIMEZONE TRACE] Boundary Matches:")
     logger.debug(f"  ✅ Exact START matches: {len(exact_start_matches)}")
@@ -126,7 +142,10 @@ def trace_dataframe_timestamps(
     sample_size = min(3, len(df))
     logger.debug(f"📋 [TIMEZONE TRACE] Sample Timestamps (first {sample_size}):")
     for i in range(sample_size):
-        timestamp = df[time_column].iloc[i]
+        if time_column in df.columns:
+            timestamp = timestamp_series.iloc[i]
+        else:
+            timestamp = timestamp_series[i]
         logger.debug(f"  [{i}] {_format_timezone_info(timestamp)}")
 
 
@@ -142,15 +161,20 @@ def analyze_filter_conditions(
     if df.empty:
         raise TimezoneDebugError("Cannot analyze filter conditions on empty DataFrame")
     
-    if time_column not in df.columns:
+    if time_column not in df.columns and df.index.name != time_column:
         raise TimezoneDebugError(
             f"Time column '{time_column}' missing for filter analysis",
-            {"available_columns": list(df.columns)}
+            {
+                "available_columns": list(df.columns),
+                "dataframe_index_name": df.index.name,
+                "suggestion": f"Use index.name='{df.index.name}' if timestamps are in index"
+            }
         )
     
     # Analyze each condition separately with timezone awareness
-    start_condition = df[time_column] >= start_time
-    end_condition = df[time_column] <= end_time
+    timestamp_series = _get_timestamp_series(df, time_column)
+    start_condition = timestamp_series >= start_time
+    end_condition = timestamp_series <= end_time
     both_conditions = start_condition & end_condition
     
     logger.debug("🔍 [TIMEZONE TRACE] FILTER CONDITION ANALYSIS:")
@@ -160,8 +184,8 @@ def analyze_filter_conditions(
     
     # FAIL-FAST: Check for impossible conditions
     if both_conditions.sum() == 0 and len(df) > 0:
-        data_min = df[time_column].min()
-        data_max = df[time_column].max()
+        data_min = timestamp_series.min()
+        data_max = timestamp_series.max()
         
         raise TimezoneDebugError(
             "NO ROWS MATCH FILTER CONDITIONS - Possible timezone/range error",
@@ -208,9 +232,10 @@ def compare_filtered_results(
         )
     
     # Validate that filtered data is actually within bounds
-    if len(filtered_df) > 0 and time_column in filtered_df.columns:
-        filtered_min = filtered_df[time_column].min()
-        filtered_max = filtered_df[time_column].max()
+    if len(filtered_df) > 0:
+        filtered_timestamp_series = _get_timestamp_series(filtered_df, time_column)
+        filtered_min = filtered_timestamp_series.min()
+        filtered_max = filtered_timestamp_series.max()
         
         # FAIL-FAST: Check boundary violations
         if filtered_min < start_time:
@@ -238,9 +263,15 @@ def compare_filtered_results(
         logger.debug(f"  ✅ All timestamps within bounds")
     
     # Check for data loss at exact boundaries  
-    if len(original_df) > 0 and time_column in original_df.columns:
-        original_at_start = (original_df[time_column] == start_time).sum()
-        filtered_at_start = (filtered_df[time_column] == start_time).sum() if len(filtered_df) > 0 else 0
+    if len(original_df) > 0:
+        original_timestamp_series = _get_timestamp_series(original_df, time_column)
+        original_at_start = (original_timestamp_series == start_time).sum()
+        
+        if len(filtered_df) > 0:
+            filtered_timestamp_series = _get_timestamp_series(filtered_df, time_column)
+            filtered_at_start = (filtered_timestamp_series == start_time).sum()
+        else:
+            filtered_at_start = 0
         
         if original_at_start > 0 and filtered_at_start == 0:
             raise TimezoneDebugError(

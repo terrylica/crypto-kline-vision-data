@@ -561,7 +561,7 @@ def filter_dataframe_by_time(
     logger.debug(f"Before filtering: {len(df)} rows")
 
     # FAIL-FAST: Timezone-aware timestamp debugging with rich exception context
-    from utils_for_debug.timestamp_debug import (
+    from ..utils_for_debug.timestamp_debug import (
         analyze_filter_conditions,
         compare_filtered_results,
         trace_dataframe_timestamps,
