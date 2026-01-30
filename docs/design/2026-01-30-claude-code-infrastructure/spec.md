@@ -19356,3 +19356,518 @@ claude --debug "!statsig,!file" -p "query"
 | Budget exceeded     | Long-running task        | Set `--max-budget-usd` limit           |
 | Session not found   | Invalid ID               | Use `--resume` without ID for picker   |
 | MCP timeout         | Slow server startup      | Set `MCP_TIMEOUT` environment variable |
+<!-- SSoT-OK: Hooks Reference - comprehensive hooks documentation from official docs -->
+
+## Hooks Reference
+
+### Overview
+
+Hooks allow you to run custom shell commands at specific points during Claude Code's execution. They enable automation, custom validations, security enforcement, and integration with external tools.
+
+### Hook Events
+
+| Event              | Trigger                                      | Common Uses                                   |
+| ------------------ | -------------------------------------------- | --------------------------------------------- |
+| `PreToolUse`       | Before tool execution                        | Block dangerous commands, validate parameters |
+| `PostToolUse`      | After tool execution                         | Detect patterns in output, log tool usage     |
+| `SessionStart`     | When session begins                          | Load context, verify environment, show status |
+| `Stop`             | When Claude produces final response          | Final validation, cleanup, notifications      |
+| `Notification`     | When notification would be shown             | Custom alerts, phone notifications            |
+| `UserPromptSubmit` | When user submits prompt (before processing) | Keyword detection, skill suggestions          |
+
+### Configuration Format
+
+Hooks are configured in `settings.json` under the `hooks` key:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/validator.sh \"$TOOL_INPUT\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lint-check.sh \"$TOOL_INPUT\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-complete.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Matcher Patterns
+
+Matchers use regex to filter which tool calls trigger the hook:
+
+| Pattern               | Matches                            |
+| --------------------- | ---------------------------------- |
+| `"Bash"`              | All Bash tool calls                |
+| `"Write\|Edit"`       | Write or Edit tool calls           |
+| `""`                  | All tool calls (empty = match all) |
+| `"Bash\\(git.*\\)"`   | Bash commands starting with git    |
+| `"Read\\(.*\\.md\\)"` | Read calls for markdown files      |
+
+### Exit Codes
+
+| Exit Code | Meaning                                          |
+| --------- | ------------------------------------------------ |
+| 0         | Success - continue execution                     |
+| 1         | Error - show stderr as error                     |
+| 2         | Block - prevent tool execution (PreToolUse only) |
+
+For `PreToolUse` hooks:
+
+- Exit 0: Allow tool to proceed
+- Exit 2: Block tool execution, show reason from stdout/stderr
+- Exit 1: Show error but continue
+
+### JSON Output Format
+
+Hooks can return structured JSON for rich feedback:
+
+```json
+{
+  "continue": true,
+  "message": "Warning: Pattern detected",
+  "severity": "warning"
+}
+```
+
+Fields:
+
+- `continue`: boolean - whether to proceed (true) or block (false)
+- `message`: string - message to display
+- `severity`: "info" | "warning" | "error"
+- `stopReason`: string - reason for blocking (PreToolUse)
+
+### Environment Variables
+
+Available in all hooks:
+
+| Variable          | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `$TOOL_NAME`      | Name of the tool (Bash, Write, Edit, etc.)        |
+| `$TOOL_INPUT`     | JSON string of tool input parameters              |
+| `$TOOL_OUTPUT`    | Tool output (PostToolUse only)                    |
+| `$SESSION_ID`     | Current session identifier                        |
+| `$CLAUDE_PROJECT` | Current project directory                         |
+| `$CLAUDE_MODEL`   | Model being used (claude-sonnet-4-20250514, etc.) |
+
+For Bash hooks specifically:
+
+- `$BASH_COMMAND`: The actual command being executed
+
+### PreToolUse Hook Examples
+
+**Block Dangerous Commands**:
+
+```bash
+#!/bin/bash
+# dsm-bash-guard.sh - Block dangerous bash commands
+
+TOOL_INPUT="$1"
+COMMAND=$(echo "$TOOL_INPUT" | jq -r '.command // empty')
+
+# Block force push to main
+if echo "$COMMAND" | grep -qE 'git push.*--force.*(main|master)'; then
+  echo '{"continue": false, "message": "Force push to main/master blocked", "severity": "error"}'
+  exit 2
+fi
+
+# Block pip install (use uv)
+if echo "$COMMAND" | grep -qE '^pip install'; then
+  echo '{"continue": false, "message": "Use uv instead of pip", "severity": "error"}'
+  exit 2
+fi
+
+exit 0
+```
+
+**Validate File Paths**:
+
+```bash
+#!/bin/bash
+# Block writes to sensitive files
+
+TOOL_INPUT="$1"
+FILE_PATH=$(echo "$TOOL_INPUT" | jq -r '.file_path // empty')
+
+if [[ "$FILE_PATH" == *".env"* ]] || [[ "$FILE_PATH" == *"secrets"* ]]; then
+  echo '{"continue": false, "message": "Cannot write to sensitive files"}'
+  exit 2
+fi
+
+exit 0
+```
+
+### PostToolUse Hook Examples
+
+**Detect Anti-Patterns**:
+
+```bash
+#!/bin/bash
+# dsm-code-guard.sh - Detect silent failure patterns after Write/Edit
+
+TOOL_OUTPUT="$1"
+
+# Check for bare except
+if echo "$TOOL_OUTPUT" | grep -qE 'except:\s*$|except:\s*pass'; then
+  echo '{"continue": true, "message": "Warning: Bare except detected", "severity": "warning"}'
+  exit 0
+fi
+
+# Check for subprocess without check=True
+if echo "$TOOL_OUTPUT" | grep -qE 'subprocess\.(run|call|Popen)' && \
+   ! echo "$TOOL_OUTPUT" | grep -q 'check=True'; then
+  echo '{"continue": true, "message": "Warning: subprocess without check=True", "severity": "warning"}'
+  exit 0
+fi
+
+exit 0
+```
+
+**Log Tool Usage**:
+
+```bash
+#!/bin/bash
+# Log all tool usage for analytics
+
+echo "$(date -Iseconds) | $TOOL_NAME | $SESSION_ID" >> ~/.claude/tool-usage.log
+exit 0
+```
+
+### SessionStart Hook Examples
+
+**Load Context**:
+
+```bash
+#!/bin/bash
+# dsm-session-start.sh - Load FCP context at session start
+
+# Display project status
+echo "DSM Session Started"
+echo "Python: $(python --version)"
+echo "FCP Cache: $(ls -la .cache/fcp/ 2>/dev/null | wc -l) entries"
+
+# Check for uncommitted changes
+if ! git diff --quiet; then
+  echo '{"continue": true, "message": "Warning: Uncommitted changes detected", "severity": "warning"}'
+fi
+
+exit 0
+```
+
+### Stop Hook Examples
+
+**Final Validation**:
+
+```bash
+#!/bin/bash
+# dsm-final-check.sh - Run at session end
+
+# Check for uncommitted test files
+if git status --porcelain | grep -q 'tests/'; then
+  echo '{"continue": true, "message": "Note: Uncommitted test files", "severity": "info"}'
+fi
+
+# Run quick lint check
+if command -v ruff &>/dev/null; then
+  ERRORS=$(ruff check src/ 2>&1 | grep -c 'error' || true)
+  if [ "$ERRORS" -gt 0 ]; then
+    echo '{"continue": true, "message": "Lint errors detected", "severity": "warning"}'
+  fi
+fi
+
+exit 0
+```
+
+**Send Notification**:
+
+```bash
+#!/bin/bash
+# Notify when long task completes
+
+# macOS notification
+osascript -e 'display notification "Claude Code task complete" with title "Claude Code"'
+
+# Or send to phone via ntfy
+# curl -s -d "Task complete" ntfy.sh/my-topic
+
+exit 0
+```
+
+### Notification Hook Examples
+
+**Custom Alert System**:
+
+```bash
+#!/bin/bash
+# Route notifications to custom system
+
+MESSAGE="$1"
+
+# Send to ntfy for phone notifications
+curl -s -d "$MESSAGE" ntfy.sh/claude-alerts
+
+# Also log locally
+echo "$(date -Iseconds) | $MESSAGE" >> ~/.claude/notifications.log
+
+exit 0
+```
+
+### UserPromptSubmit Hook Examples
+
+**Keyword Detection and Skill Suggestion**:
+
+```bash
+#!/bin/bash
+# dsm-skill-suggest.sh - Suggest relevant skills based on keywords
+
+PROMPT="$1"
+
+# FCP-related keywords
+if echo "$PROMPT" | grep -qiE 'fcp|failover|cache|retry'; then
+  echo '{"continue": true, "message": "Tip: Use /debug-fcp for FCP issues", "severity": "info"}'
+  exit 0
+fi
+
+# Testing keywords
+if echo "$PROMPT" | grep -qiE 'test|spec|coverage'; then
+  echo '{"continue": true, "message": "Tip: Use /quick-test for testing", "severity": "info"}'
+  exit 0
+fi
+
+exit 0
+```
+
+### Hook Configuration Scopes
+
+Hooks can be configured at multiple levels:
+
+| Scope          | Location                      | Priority |
+| -------------- | ----------------------------- | -------- |
+| User global    | `~/.claude/settings.json`     | Lowest   |
+| Project shared | `.claude/settings.json`       | Medium   |
+| Project local  | `.claude/settings.local.json` | Highest  |
+
+Hooks from all scopes are merged, with higher priority hooks running first.
+
+### Plugin Hooks
+
+Plugins can register hooks via their `plugin.json` manifest:
+
+```json
+{
+  "name": "my-plugin",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{PLUGIN_DIR}}/hooks/bash-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The `{{PLUGIN_DIR}}` placeholder is replaced with the plugin's installation directory.
+
+### Skill and Agent Hooks
+
+Skills and agents can define hooks in their YAML frontmatter:
+
+```yaml
+---
+name: dsm-testing
+hooks:
+  PostToolUse:
+    - matcher: "Write|Edit"
+      command: "./hooks/lint-check.sh"
+---
+```
+
+### Best Practices
+
+**Performance**:
+
+- Keep hooks fast (< 100ms) to avoid slowing interaction
+- Use exit 0 early for non-matching cases
+- Cache expensive computations
+
+**Reliability**:
+
+- Always handle missing environment variables gracefully
+- Use `set -e` with caution (may cause unexpected exits)
+- Test hooks independently before deployment
+
+**Security**:
+
+- Never echo sensitive data in hook output
+- Validate all inputs before using in shell commands
+- Use absolute paths for executables
+
+**Debugging**:
+
+- Add `--verbose` flag for development debugging
+- Log to file for post-mortem analysis
+- Use JSON output for structured error reporting
+
+### Debugging Hooks
+
+**View Hook Execution**:
+
+```bash
+# Enable hook debugging
+export CLAUDE_HOOK_DEBUG=1
+claude
+```
+
+**Test Hook Independently**:
+
+```bash
+# Test PreToolUse hook
+echo '{"command": "git push --force origin main"}' | ./hooks/bash-guard.sh
+echo "Exit code: $?"
+```
+
+**Check Hook Configuration**:
+
+```bash
+# View merged hook configuration
+claude config hooks --show
+```
+
+### DSM Hook Implementation
+
+The data-source-manager uses 5 hooks covering the complete lifecycle:
+
+| Hook                 | Event            | Purpose                                    |
+| -------------------- | ---------------- | ------------------------------------------ |
+| dsm-session-start.sh | SessionStart     | Load FCP context at session start          |
+| dsm-skill-suggest.sh | UserPromptSubmit | Suggest relevant skills based on keywords  |
+| dsm-bash-guard.sh    | PreToolUse       | Block dangerous commands before execution  |
+| dsm-code-guard.sh    | PostToolUse      | Detect silent failure patterns (11 checks) |
+| dsm-final-check.sh   | Stop             | Final validation at session end            |
+
+**Configuration** (`.claude/hooks/hooks.json`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/dsm-session-start.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/dsm-skill-suggest.sh \"$PROMPT\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/dsm-bash-guard.sh \"$TOOL_INPUT\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/dsm-code-guard.sh \"$TOOL_OUTPUT\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/dsm-final-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Hook Antipatterns to Avoid
+
+| Antipattern                    | Problem                             | Solution                             |
+| ------------------------------ | ----------------------------------- | ------------------------------------ |
+| Slow hooks (>1s)               | Blocks interaction                  | Optimize or run async                |
+| Exit 1 for validation failures | Doesn't block, just shows error     | Use exit 2 for PreToolUse blocking   |
+| Unbounded loops                | Hook never completes                | Add timeout or iteration limit       |
+| External API calls             | Network dependency, slow            | Cache results, use background jobs   |
+| Echo sensitive data            | Exposes secrets in output           | Redact or suppress output            |
+| Missing error handling         | Unexpected failures                 | Wrap in try-catch equivalent         |
+| gh CLI in hooks                | Process storms (recursive spawning) | Use direct API calls or cache tokens |
+
+### Integration with CI/CD
+
+Hooks can be used to integrate Claude Code with CI/CD pipelines:
+
+```bash
+#!/bin/bash
+# ci-integration-hook.sh - Report to CI system
+
+if [ -n "$CI" ]; then
+  # Running in CI environment
+  curl -X POST "$CI_WEBHOOK_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"event\": \"$TOOL_NAME\", \"session\": \"$SESSION_ID\"}"
+fi
+
+exit 0
+```
