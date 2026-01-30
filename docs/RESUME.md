@@ -4,6 +4,26 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### IDE Integration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added integration options table (extension, terminal, external)
+- Added key shortcuts table for Mac and Windows/Linux
+- Added context sharing features table
+- Added checkpoints & rewind table
+- Added conversation continuity example
+- Added IDE best practices table
+- Added workflow patterns (pair programming, autonomous)
+- Added DSM IDE workflow table
+
+**Sources**:
+
+- [Official VS Code Docs](https://code.claude.com/docs/en/vs-code)
+- [IDE Integration Guide](https://apidog.com/blog/claude-code-ide-integrations/)
+
 ### Agentic Loop Best Practices (2026-01-30)
 
 **Status**: Complete

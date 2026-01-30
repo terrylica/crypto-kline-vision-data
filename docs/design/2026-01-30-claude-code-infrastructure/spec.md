@@ -1852,6 +1852,89 @@ Task progression between nodes occurs automatically without manual intervention.
 | Add symbol validation       | TDD: write tests first, then implement |
 | Refactor timestamp handling | Plan mode → approval → execute         |
 
+## IDE Integration
+
+Based on [Official VS Code Docs](https://code.claude.com/docs/en/vs-code) and [IDE Integration Guide](https://apidog.com/blog/claude-code-ide-integrations/).
+
+### Integration Options
+
+| Option            | Installation                      | Best For                      |
+| ----------------- | --------------------------------- | ----------------------------- |
+| VS Code Extension | Extensions panel, search "Claude" | Visual workflow, diffs in IDE |
+| Terminal in IDE   | Open terminal, run `claude`       | CLI power users               |
+| External terminal | Run `claude`, then `/ide`         | Separate terminal preference  |
+
+### Key Shortcuts
+
+| Shortcut (Mac) | Shortcut (Win/Linux) | Action                   |
+| -------------- | -------------------- | ------------------------ |
+| `Cmd+Option+K` | `Alt+Ctrl+K`         | Insert file reference    |
+| `Cmd+\``       | `Ctrl+\``            | Open integrated terminal |
+| `Cmd+Shift+X`  | `Ctrl+Shift+X`       | Open Extensions panel    |
+
+### Context Sharing Features
+
+| Feature                   | Description                             |
+| ------------------------- | --------------------------------------- |
+| Selection context         | Current selection auto-shared           |
+| Diff viewing              | View changes in VS Code diff viewer     |
+| Terminal output reference | `@terminal:name` to reference output    |
+| File reference            | `@File#L1-99` for specific line ranges  |
+| Automatic diagnostics     | Lint/syntax errors shared automatically |
+
+### Checkpoints & Rewind
+
+The extension tracks Claude's file edits for rollback:
+
+| Action                      | Effect                               |
+| --------------------------- | ------------------------------------ |
+| Fork conversation from here | Create branch from this point        |
+| Rewind code to here         | Restore files to previous state      |
+| Fork + Rewind               | Both: new branch with old code state |
+
+### Conversation Continuity
+
+Extension and CLI share conversation history:
+
+```bash
+# Resume extension conversation in CLI
+claude --resume
+# Then select from picker
+```
+
+### IDE Best Practices
+
+| Practice                   | Reason                           |
+| -------------------------- | -------------------------------- |
+| Start at project root      | Full context available           |
+| Review inline diffs        | Maintain control over changes    |
+| Use `@terminal` references | Share errors without copy-paste  |
+| Store API key in env var   | Security, not hardcoded          |
+| Test incrementally         | Start small before complex tasks |
+
+### Workflow Patterns
+
+**Pair Programming Mode**:
+
+- Ongoing sidebar conversation
+- Brainstorm, explain, debug together
+- You remain in control
+
+**Autonomous Mode**:
+
+- Larger refactoring tasks
+- Claude creates plan for approval
+- Watch progress, review diffs as created
+
+### DSM IDE Workflow
+
+| Task                 | IDE Integration Advantage            |
+| -------------------- | ------------------------------------ |
+| FCP debugging        | See cache state in terminal output   |
+| Symbol validation    | Inline diffs show format changes     |
+| Test development     | Run tests in terminal, share results |
+| DataFrame operations | Review Polars/pandas diffs easily    |
+
 ## Verification Checklist
 
 ### Infrastructure
