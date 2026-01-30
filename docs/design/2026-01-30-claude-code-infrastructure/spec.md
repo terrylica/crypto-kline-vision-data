@@ -38489,3 +38489,416 @@ Community tools extending CLI capabilities:
 | ------------ | ---------------------------------------------- |
 | CCheckpoints | Session checkpoint tracking with web dashboard |
 | Claudekit    | Auto-save, hooks, specialized subagents        |
+## Context Window and Cost Management
+
+Comprehensive guide to tracking token usage, managing context efficiently, reducing costs, and optimizing Claude Code performance.
+
+### Cost Overview
+
+Claude Code consumes tokens for each interaction. Costs vary based on:
+
+- Codebase size
+- Query complexity
+- Conversation length
+
+**Typical costs**:
+
+- Average: $6 per developer per day
+- 90% of users: Below $12 daily
+- Monthly average with Sonnet 4.5: ~$100-200 per developer
+
+### Track Your Costs
+
+#### The /cost Command
+
+For API users, `/cost` shows detailed token usage statistics:
+
+```
+Total cost:            $0.55
+Total duration (API):  6m 19.7s
+Total duration (wall): 6h 33m 10.2s
+Total code changes:    0 lines added, 0 lines removed
+```
+
+For Claude Max/Pro subscribers, use `/stats` instead (usage included in subscription).
+
+#### Status Line Configuration
+
+Configure status line to display context usage continuously:
+
+```json
+{
+  "statusline": {
+    "template": "Context: {{context_percent}}%"
+  }
+}
+```
+
+### Auto-Compaction
+
+Claude Code automatically optimizes context through prompt caching and auto-compaction.
+
+#### How It Works
+
+1. **Trigger**: Automatically activates at ~95% context capacity (~25% remaining)
+2. **Analysis**: Identifies key information worth preserving
+3. **Summarization**: Creates concise summary of interactions, decisions, code changes
+4. **Replacement**: Compacts by replacing old messages with summary
+
+Recent versions feature instant compaction - no waiting.
+
+#### Compaction Thresholds
+
+| Trigger Point     | Context Usage | Reserved            |
+| ----------------- | ------------- | ------------------- |
+| Auto-compact      | ~75-95%       | ~20-25% for process |
+| VS Code extension | ~75%          | ~20%                |
+
+#### Custom Compaction Instructions
+
+Tell Claude what to preserve during summarization:
+
+```bash
+# Via command
+/compact Focus on code samples and API usage
+
+# Via CLAUDE.md
+# Compact instructions
+When you are using compact, please focus on test output and code changes
+```
+
+### Reduce Token Usage
+
+Token costs scale with context size. Use these strategies to keep context small.
+
+#### 1. Manage Context Proactively
+
+```bash
+# Check current token usage
+/cost
+
+# Clear between unrelated tasks
+/rename "auth-feature"  # Name first for easy resume
+/clear                   # Start fresh
+/resume                 # Return later if needed
+```
+
+#### 2. Choose the Right Model
+
+| Model  | Use Case                                   | Cost   |
+| ------ | ------------------------------------------ | ------ |
+| Sonnet | Most coding tasks                          | Lower  |
+| Opus   | Complex architecture, multi-step reasoning | Higher |
+| Haiku  | Simple subagent tasks                      | Lowest |
+
+```bash
+# Switch model mid-session
+/model sonnet
+
+# Set default in config
+/config
+
+# In subagent configuration
+model: haiku
+```
+
+#### 3. Reduce MCP Server Overhead
+
+Each MCP server adds tool definitions to context, even when idle.
+
+```bash
+# See what's consuming context
+/context
+
+# View configured servers
+/mcp
+```
+
+**Prefer CLI tools over MCP servers**:
+Tools like `gh`, `aws`, `gcloud`, `sentry-cli` are more context-efficient because they don't add persistent tool definitions.
+
+**Tool search optimization**:
+When tool descriptions exceed 10% of context, Claude Code auto-defers them and loads on-demand via tool search.
+
+```bash
+# Set lower threshold for earlier deferral
+export ENABLE_TOOL_SEARCH=auto:5  # Trigger at 5% instead of 10%
+```
+
+#### 4. Install Code Intelligence Plugins
+
+For typed languages, code intelligence plugins provide:
+
+- Precise symbol navigation vs text-based search
+- Single "go to definition" vs grep + reading multiple files
+- Automatic type error reporting after edits
+
+#### 5. Offload Processing to Hooks
+
+Use hooks to preprocess data before Claude sees it.
+
+**Example: Filter test output to only failures**:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/filter-test-output.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+```bash
+#!/bin/bash
+# filter-test-output.sh
+input=$(cat)
+cmd=$(echo "$input" | jq -r '.tool_input.command')
+
+# If running tests, filter to show only failures
+if [[ "$cmd" =~ ^(npm test|pytest|go test) ]]; then
+  filtered_cmd="$cmd 2>&1 | grep -A 5 -E '(FAIL|ERROR|error:)' | head -100"
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{\"command\":\"$filtered_cmd\"}}}"
+else
+  echo "{}"
+fi
+```
+
+This transforms tens of thousands of tokens into hundreds.
+
+#### 6. Move Instructions to Skills
+
+CLAUDE.md loads at session start. Specialized instructions waste tokens when doing unrelated work.
+
+| In CLAUDE.md                  | In Skills             |
+| ----------------------------- | --------------------- |
+| Core patterns, critical rules | PR review workflow    |
+| Essential navigation          | Database migrations   |
+| Team standards                | Deployment procedures |
+
+**Target**: Keep CLAUDE.md under ~500 lines.
+
+Skills load on-demand only when invoked.
+
+#### 7. Adjust Extended Thinking
+
+Extended thinking is enabled by default with 31,999 token budget. Thinking tokens are billed as output tokens.
+
+For simpler tasks where deep reasoning isn't needed:
+
+```bash
+# Disable in config
+/config
+
+# Or set lower budget via environment
+export MAX_THINKING_TOKENS=8000
+```
+
+#### 8. Delegate to Subagents
+
+Verbose operations consume significant context:
+
+- Running tests
+- Fetching documentation
+- Processing log files
+
+Delegate to subagents so verbose output stays in their context while only a summary returns.
+
+#### 9. Write Specific Prompts
+
+| Vague (triggers broad scanning) | Specific (efficient)                                |
+| ------------------------------- | --------------------------------------------------- |
+| "improve this codebase"         | "add input validation to login function in auth.ts" |
+| "check for bugs"                | "verify null checks in user service"                |
+| "make it faster"                | "optimize the database query in fetchUsers()"       |
+
+### Work Efficiently on Complex Tasks
+
+#### Use Plan Mode
+
+Press Shift+Tab before implementation. Claude explores and proposes an approach for approval, preventing expensive re-work.
+
+#### Course-Correct Early
+
+```bash
+# Stop immediately if wrong direction
+<Escape>
+
+# Restore to checkpoint
+/rewind
+
+# Or double-tap Escape
+<Esc><Esc>
+```
+
+#### Give Verification Targets
+
+Include in your prompt:
+
+- Test cases
+- Screenshots
+- Expected output
+
+When Claude can verify its own work, it catches issues before you request fixes.
+
+#### Test Incrementally
+
+Write one file, test it, then continue. Catch issues early when they're cheap to fix.
+
+### Managing Costs for Teams
+
+#### Workspace Limits
+
+Set workspace spend limits in Claude Console:
+
+- View cost and usage reporting
+- Auto-created "Claude Code" workspace for centralized tracking
+
+#### Rate Limit Recommendations
+
+| Team Size     | TPM per User | RPM per User |
+| ------------- | ------------ | ------------ |
+| 1-5 users     | 200k-300k    | 5-7          |
+| 5-20 users    | 100k-150k    | 2.5-3.5      |
+| 20-50 users   | 50k-75k      | 1.25-1.75    |
+| 50-100 users  | 25k-35k      | 0.62-0.87    |
+| 100-500 users | 15k-20k      | 0.37-0.47    |
+| 500+ users    | 10k-15k      | 0.25-0.35    |
+
+TPM per user decreases with team size due to lower concurrent usage expectations. Limits apply at organization level, not per individual.
+
+#### Cloud Provider Cost Tracking
+
+For Bedrock, Vertex, Foundry: Consider LiteLLM for spend tracking by key (unaffiliated with Anthropic).
+
+### Background Token Usage
+
+Claude Code uses tokens for background functionality:
+
+| Operation                  | Typical Cost    |
+| -------------------------- | --------------- |
+| Conversation summarization | < $0.04/session |
+| Command processing         | Minimal         |
+| Status checks              | Minimal         |
+
+### Context Engineering Best Practices
+
+Advanced strategies for optimal context utilization.
+
+#### The 80% Rule
+
+Compact at ~80% context usage rather than hitting limits. Claude's performance degrades when working memory is constrained.
+
+#### JIT Context Loading
+
+Load context just-in-time:
+
+1. Keep base context minimal
+2. Load domain rules via frontmatter paths
+3. Invoke skills when needed
+4. Use tool search for MCP tools
+
+#### Strategic Compaction Timing
+
+Better to manually compact at logical breakpoints than hit limits mid-task:
+
+```bash
+# Before starting new feature
+/compact Focus on completed work, preserve current task context
+
+# After major milestone
+/compact Summarize implementation, keep test results
+```
+
+#### Subagent Context Isolation
+
+Pattern for context-heavy operations:
+
+```markdown
+# In subagent definition
+
+description: Run full test suite and return summary
+prompt: Execute tests, analyze failures, return concise report
+tools: ["Bash", "Read", "Grep"]
+```
+
+Verbose test output stays in subagent context; only summary returns.
+
+### DSM-Specific Cost Patterns
+
+Cost optimization for data-source-manager development.
+
+#### High-Context Operations
+
+| Operation                | Context Impact          | Mitigation                             |
+| ------------------------ | ----------------------- | -------------------------------------- |
+| FCP cache inspection     | High (large DataFrames) | Sample first, full load only if needed |
+| Test suite runs          | High (verbose output)   | Filter to failures via hook            |
+| API response debugging   | Medium                  | Pretty-print key fields only           |
+| Symbol format validation | Low                     | Direct regex check                     |
+
+#### Optimized Workflow
+
+```bash
+# 1. Start with minimal context
+claude "Check FCP status for BTCUSDT"
+
+# 2. Load domain rules on demand
+# (happens automatically via paths: frontmatter)
+
+# 3. Compact before intensive work
+/compact Focus on FCP decision history
+
+# 4. Delegate verbose operations
+"Use test-writer agent to run and analyze tests"
+
+# 5. Clear when switching symbols
+/rename "btcusdt-debug"
+/clear
+```
+
+#### CLAUDE.md Organization
+
+Keep root CLAUDE.md lean:
+
+```markdown
+# data-source-manager (77 lines)
+
+## Quick Reference
+
+[Essential patterns only]
+
+## Navigation
+
+[Links to detailed docs]
+
+## Critical Rules
+
+[Must-not-violate items]
+```
+
+Domain-specific content in:
+
+- `.claude/rules/` - Loaded on demand
+- `docs/skills/` - Loaded when invoked
+- `.claude/agents/` - Isolated context
+
+#### Cost Tracking Command
+
+DSM-specific cost monitoring:
+
+```bash
+# Check session cost
+/cost
+
+# Target: Under $2 per feature implementation
+# Warning: Over $5 suggests context pollution
+```
