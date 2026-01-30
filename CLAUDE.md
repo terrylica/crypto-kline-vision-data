@@ -180,6 +180,7 @@ For detailed usage guidance, see @docs/skills/:
 - @docs/skills/dsm-usage/SKILL.md - DataSourceManager API usage with FCP
 - @docs/skills/dsm-testing/SKILL.md - Testing patterns and pytest markers
 - @docs/skills/dsm-research/SKILL.md - Codebase research (runs in subagent)
+- @docs/skills/dsm-fcp-monitor/SKILL.md - FCP monitoring and diagnostics
 
 ---
 
