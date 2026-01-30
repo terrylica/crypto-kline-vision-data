@@ -275,9 +275,11 @@ Slash commands in `.claude/commands/`:
 
 ## Recent Lessons Learned
 
+**2026-01-30**: Permission patterns in `.claude/settings.json` - allow/deny rules with gitignore syntax. [Official Docs](https://code.claude.com/docs/en/settings)
+
 **2026-01-30**: Path-specific rules load via `paths:` frontmatter when working with matching files. [Design Spec](/docs/design/2026-01-30-claude-code-infrastructure/spec.md)
 
-**2026-01-30**: 4 hooks (UserPromptSubmit, PreToolUse, PostToolUse, Stop). [README](/.claude/hooks/README.md)
+**2026-01-30**: 5 hooks (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop). [README](/.claude/hooks/README.md)
 
 **2026-01-30**: Lazy-loaded CLAUDE.md in subdirs (src/, docs/, examples/, tests/).
 

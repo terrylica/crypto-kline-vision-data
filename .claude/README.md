@@ -6,11 +6,32 @@ This directory contains Claude Code extensions for AI-assisted development of da
 
 ```
 .claude/
+├── settings.json    # Permission rules (team-shared)
+├── settings.md      # Human-readable config documentation
 ├── agents/          # Specialized subagents
 ├── commands/        # Slash commands
 ├── hooks/           # Project-specific hooks
 └── rules/           # Context rules
 ```
+
+## Settings
+
+**`.claude/settings.json`** - Permission rules for tool access control.
+
+| Rule Type | Effect                          | Example            |
+| --------- | ------------------------------- | ------------------ |
+| allow     | Permit matching tool calls      | `Bash(uv run *)`   |
+| deny      | Block regardless of other rules | `Read(.env*)`      |
+| ask       | Prompt for approval             | `Bash(git push *)` |
+
+**Key denials**:
+
+- `.env*`, `.mise.local.toml` - Secret files
+- `Bash(pip install *)` - Use uv instead
+- `Bash(git push --force *)` - Dangerous git operations
+- `Bash(python3.14 *)` - Wrong Python version
+
+**Personal overrides**: Use `.claude/settings.local.json` (gitignored).
 
 ## Agents
 

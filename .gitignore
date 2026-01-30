@@ -137,10 +137,14 @@ bun.lockb
 .claude/*
 !.claude/README.md
 !.claude/settings.md
+!.claude/settings.json
 !.claude/agents/
 !.claude/commands/
 !.claude/hooks/
 !.claude/rules/
+
+# Claude Code local settings (personal overrides, not committed)
+.claude/settings.local.json
 
 # Claude Code personal preferences (per-directory overrides)
 CLAUDE.local.md

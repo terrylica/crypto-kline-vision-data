@@ -394,6 +394,43 @@ Based on [Anthropic best practices](https://www.anthropic.com/engineering/claude
 - **Test**: "Would removing this cause Claude to make mistakes?"
 - **Structure**: Project context → Code style → Commands → Gotchas
 
+## Project Settings Configuration
+
+### Permission Rules (settings.json)
+
+Based on [Official Settings Docs](https://code.claude.com/docs/en/settings):
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(uv run *)", "Bash(mise run *)", "Bash(git *)"],
+    "deny": [
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Bash(pip install *)",
+      "Bash(git push --force *)"
+    ]
+  }
+}
+```
+
+### Permission Rule Evaluation
+
+| Priority | Rule Type | Effect                          |
+| -------- | --------- | ------------------------------- |
+| 1        | deny      | Block regardless of other rules |
+| 2        | ask       | Prompt for approval             |
+| 3        | allow     | Permit if matched               |
+
+### Settings File Hierarchy
+
+| Scope   | File                          | Purpose                 |
+| ------- | ----------------------------- | ----------------------- |
+| Managed | System directories (admin)    | IT-controlled settings  |
+| Local   | `.claude/settings.local.json` | Personal (gitignored)   |
+| Project | `.claude/settings.json`       | Team-shared (committed) |
+| User    | `~/.claude/settings.json`     | Personal global         |
+
 ## Verification Checklist
 
 - [ ] CLAUDE.md is under 300 lines

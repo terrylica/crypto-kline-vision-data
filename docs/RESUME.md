@@ -4,6 +4,29 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Project Settings.json Configuration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Created `.claude/settings.json` with permission rules (allow/deny patterns)
+- Added deny rules for sensitive files (.env\*, .mise.local.toml, credentials)
+- Added deny rules for dangerous operations (pip install, force push, python3.14)
+- Added allow rules for standard development commands (uv, mise, git, pytest)
+- Updated gitignore with settings.json exception and settings.local.json exclusion
+- Updated design spec with Settings Configuration section
+
+**Permission Configuration**:
+
+- **Allow**: uv run, mise run, ruff, git operations, pytest, gh CLI
+- **Deny**: .env files, credentials, pip install, force push, rm -rf
+
+**Sources**:
+
+- [Official Settings Docs](https://code.claude.com/docs/en/settings)
+- [MCP Integration Docs](https://code.claude.com/docs/en/mcp)
+
 ### Agent Hooks Pattern (2026-01-30)
 
 **Status**: Complete
