@@ -5025,6 +5025,144 @@ For cost control: MAX_THINKING_TOKENS=8000
 
 Hooks are critical for steering Claude in complex repos.
 
+## Session Logging & Debug Tools
+
+Tools and techniques for debugging Claude Code sessions.
+
+### Session Storage Location
+
+```
+~/.claude/projects/{project-hash}/
+├── {session-id}.jsonl     # Full conversation transcript
+├── ...
+```
+
+Sessions stored as JSONL with full message history.
+
+### CLI Debug Flag
+
+```bash
+# Enable debug mode with category filtering
+claude --debug "api,hooks"
+claude --debug "api,mcp"
+
+# Exclude categories
+claude --debug "!statsig,!file"
+```
+
+### MCP Debug Mode
+
+```bash
+# Debug MCP configuration issues
+claude --mcp-debug
+```
+
+### Verbose Mode
+
+```bash
+# Turn-by-turn logging
+claude --verbose
+
+# Toggle in session
+Ctrl+O
+```
+
+### Session Log Viewers
+
+| Tool               | Purpose                         |
+| ------------------ | ------------------------------- |
+| claude-code-log    | JSONL → HTML conversion         |
+| claude-code-logger | Traffic analysis with chat mode |
+| LangSmith          | Cloud-based tracing             |
+
+### LangSmith Integration
+
+Add to settings.json:
+
+```json
+{
+  "CC_LANGSMITH_DEBUG": "true"
+}
+```
+
+Traces include:
+
+- User messages
+- Tool calls
+- Assistant responses
+
+### Debugging Workflow
+
+1. **Isolate issue**: Add logging statements
+2. **Show Claude**: Provide console output, errors
+3. **Understand cause**: Why behavior differs from expected
+4. **Fix root cause**: Address underlying issue
+5. **Prevent recurrence**: Add validation/error handling
+
+### "Show, Don't Tell" Principle
+
+Claude can't see what you see. Provide:
+
+- Browser dev tools output
+- Console logs
+- Network request details
+- Actual behavior screenshots
+
+### Debug Command Template
+
+Create in `.claude/commands/`:
+
+```yaml
+---
+name: debug-issue
+description: Systematic debugging workflow
+user-invocable: true
+---
+
+Debug the reported issue:
+1. Identify error type (runtime, logic, config)
+2. Read relevant error logs
+3. Trace code path to failure point
+4. Identify root cause
+5. Propose fix with explanation
+6. Add tests to prevent regression
+```
+
+### Known Issues
+
+| Issue                 | Mitigation                   |
+| --------------------- | ---------------------------- |
+| Debug dir grows large | Monitor ~/.claude/debug size |
+| Memory leak in parser | Restart long sessions        |
+| Log infinite loop     | Fixed in recent versions     |
+
+### DSM Debugging Tips
+
+| Problem           | Debug Approach              |
+| ----------------- | --------------------------- |
+| FCP cache miss    | Use fcp-debugger agent      |
+| Rate limit errors | Check API response headers  |
+| DataFrame issues  | Print schema with df.schema |
+| Symbol validation | Log normalized vs raw       |
+| Network failures  | Enable httpx debug logging  |
+
+### Log Analysis Command
+
+```bash
+# Pipe logs to Claude for analysis
+cat error.log | claude -p "Analyze these errors and suggest fixes"
+```
+
+### Session Metrics
+
+Check session health with:
+
+```
+> /cost       # Token usage and costs
+> /context    # Loaded files and context size
+> /memory     # Loaded CLAUDE.md files
+```
+
 ## Verification Checklist
 
 ### Infrastructure
