@@ -6601,6 +6601,221 @@ Implementing Coinbase adapter
 3. Write tests
 ```
 
+## Keyboard Shortcuts Reference
+
+Essential shortcuts for productive Claude Code usage.
+
+### General Controls
+
+| Shortcut    | Description                     |
+| ----------- | ------------------------------- |
+| `Ctrl+C`    | Cancel current input/generation |
+| `Ctrl+D`    | Exit Claude Code session        |
+| `Ctrl+L`    | Clear terminal screen           |
+| `Ctrl+O`    | Toggle verbose output           |
+| `Ctrl+R`    | Reverse search command history  |
+| `Ctrl+B`    | Background running tasks        |
+| `Esc+Esc`   | Rewind code/conversation        |
+| `Shift+Tab` | Toggle permission modes         |
+| `Alt+P`     | Switch model                    |
+| `Alt+T`     | Toggle extended thinking        |
+
+### Text Editing
+
+| Shortcut | Description                  |
+| -------- | ---------------------------- |
+| `Ctrl+K` | Delete to end of line        |
+| `Ctrl+U` | Delete entire line           |
+| `Ctrl+Y` | Paste deleted text           |
+| `Alt+B`  | Move cursor back one word    |
+| `Alt+F`  | Move cursor forward one word |
+| `Ctrl+A` | Move to start of line        |
+| `Ctrl+E` | Move to end of line          |
+| `Ctrl+W` | Delete previous word         |
+
+### Multiline Input
+
+| Method        | Shortcut       | Terminal Support         |
+| ------------- | -------------- | ------------------------ |
+| Quick escape  | `\` + Enter    | All terminals            |
+| macOS default | `Option+Enter` | macOS                    |
+| Shift+Enter   | `Shift+Enter`  | iTerm2, WezTerm, Ghostty |
+| Control seq   | `Ctrl+J`       | All terminals            |
+
+### Quick Prefixes
+
+| Prefix | Description                |
+| ------ | -------------------------- |
+| `/`    | Slash commands and skills  |
+| `!`    | Bash mode (direct execute) |
+| `@`    | File path mention          |
+
+### Essential Commands
+
+| Command    | Purpose                      |
+| ---------- | ---------------------------- |
+| `/init`    | Create CLAUDE.md for project |
+| `/plan`    | Enter plan mode              |
+| `/model`   | Switch Claude model          |
+| `/cost`    | Show token usage             |
+| `/context` | Visualize context usage      |
+| `/rewind`  | Restore previous state       |
+| `/compact` | Compact conversation         |
+| `/clear`   | Clear conversation history   |
+| `/resume`  | Resume previous session      |
+| `/tasks`   | List background tasks        |
+
+### Vim Mode
+
+Enable with `/vim` or configure in `/config`:
+
+| Command | Action               |
+| ------- | -------------------- |
+| `i`     | Insert mode          |
+| `Esc`   | Normal mode          |
+| `dd`    | Delete line          |
+| `yy`    | Yank line            |
+| `p`     | Paste                |
+| `w/b`   | Word forward/back    |
+| `ciw`   | Change inner word    |
+| `di"`   | Delete inside quotes |
+
+### Command History
+
+| Shortcut | Description               |
+| -------- | ------------------------- |
+| `Up`     | Previous command          |
+| `Down`   | Next command              |
+| `Ctrl+R` | Reverse search            |
+| `Ctrl+S` | Forward search (after ^R) |
+| `Ctrl+G` | Cancel search             |
+| `Tab`    | Accept match for editing  |
+| `Enter`  | Accept and execute        |
+
+### Backgrounding Commands
+
+```bash
+# Press Ctrl+B during command execution to background
+# (tmux users: press twice due to prefix key)
+
+# Common backgrounded commands:
+- Build tools (webpack, vite)
+- Test runners (pytest, jest)
+- Dev servers (uvicorn, npm run dev)
+```
+
+## File Exclusion Patterns
+
+Controlling what files Claude Code can access.
+
+### Official Method: Settings Permissions
+
+Configure in `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env*)",
+      "Read(.envrc)",
+      "Read(~/.aws/**)",
+      "Read(~/.ssh/**)",
+      "Read(*.pem)",
+      "Read(*.key)",
+      "Read(**/secrets/**)",
+      "Read(**/credentials/**)"
+    ]
+  }
+}
+```
+
+### Default Exclusions
+
+Claude Code respects `.gitignore` by default during codebase analysis:
+
+- `node_modules/`
+- `__pycache__/`
+- `.git/`
+- Build outputs
+- Cache directories
+
+### Project-Level Permissions
+
+In project `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "deny": ["Read(.mise.local.toml)", "Read(cache/raw/**)", "Read(*.parquet)"]
+  }
+}
+```
+
+### Third-Party `.claudeignore` Hook
+
+For `.gitignore`-style exclusions, use the `claude-ignore` hook:
+
+```bash
+# Install hook
+npm install -g claude-ignore
+
+# Create .claudeignore
+cat > .claudeignore << 'EOF'
+# Secrets
+.env*
+*.pem
+*.key
+
+# Large files
+*.parquet
+cache/raw/
+
+# Generated
+dist/
+build/
+EOF
+```
+
+### DSM File Exclusions
+
+For data-source-manager:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Read(cache/raw/**)",
+      "Read(*.parquet)",
+      "Read(~/.doppler/**)"
+    ]
+  }
+}
+```
+
+### Pattern Syntax
+
+| Pattern        | Matches                    |
+| -------------- | -------------------------- |
+| `*.ext`        | Files with extension       |
+| `**/dir/**`    | Any nested directory       |
+| `~/.dir/**`    | Home directory paths       |
+| `path/to/file` | Specific file              |
+| `prefix*`      | Files starting with prefix |
+
+### Verification
+
+Check what's excluded:
+
+```
+> /permissions
+# Shows current deny rules
+
+> "What files can you not read?"
+# Claude will list denied patterns
+```
+
 ## Verification Checklist
 
 ### Infrastructure
