@@ -41,7 +41,7 @@ If you want to run the provided demos directly from the cloned repository or use
 
 ```bash
 # Clone the repository
-git clone https://github.com/Eon-Labs/data-source-manager.git
+git clone https://github.com/terrylica/data-source-manager.git
 cd data-source-manager
 
 # Install the core package in editable mode
@@ -61,10 +61,6 @@ This method keeps all the source files in your workspace and includes necessary 
 
 If you want to use Data Source Manager as a library in your own Python project (managed with `pyproject.toml`) without including its entire source code in your project's directory, you can add it as a Git dependency.
 
-**Prerequisites:**
-
-- Ensure you have SSH access configured for `github.com`, as this is a private repository. Your SSH key must be authorized to access `Eon-Labs/data-source-manager`.
-
 Add the following to your project's `pyproject.toml` file under the `[project.dependencies]` array (as per PEP 621):
 
 ```toml
@@ -72,11 +68,10 @@ Add the following to your project's `pyproject.toml` file under the `[project.de
 # ... other project configurations like name, version ...
 dependencies = [
     # ... other dependencies ...
-    "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git"
+    "data-source-manager @ git+https://github.com/terrylica/data-source-manager.git"
     # You can also specify a particular branch, tag, or commit hash:
-    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git@main"
-    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git@v1.0.0"
-    # "data-source-manager @ git+ssh://git@github.com/Eon-Labs/data-source-manager.git#egg=data-source-manager" # egg part is good practice
+    # "data-source-manager @ git+https://github.com/terrylica/data-source-manager.git@main"
+    # "data-source-manager @ git+https://github.com/terrylica/data-source-manager.git@<version>"
 ]
 ```
 
