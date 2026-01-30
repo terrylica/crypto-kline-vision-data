@@ -16,13 +16,13 @@ This directory contains Claude Code extensions for AI-assisted development of da
 
 Agents run in separate context windows for specialized tasks.
 
-| Agent                 | Color  | Purpose                                | Tools                  |
-| --------------------- | ------ | -------------------------------------- | ---------------------- |
-| api-reviewer          | red    | Reviews code for API consistency       | Read, Grep, Glob       |
-| data-fetcher          | green  | Fetches data with proper FCP handling  | Read, Grep, Glob, Bash |
-| test-writer           | blue   | Writes tests following DSM patterns    | Read, Bash, Grep, Glob |
-| silent-failure-hunter | red    | Finds silent failures and bare excepts | Read, Grep, Glob       |
-| fcp-debugger          | yellow | Diagnoses FCP issues                   | Read, Grep, Glob, Bash |
+| Agent                 | Color  | Purpose                                | Tools                        |
+| --------------------- | ------ | -------------------------------------- | ---------------------------- |
+| api-reviewer          | red    | Reviews code for API consistency       | Read, Grep, Glob             |
+| data-fetcher          | green  | Fetches data with proper FCP handling  | Read, Grep, Glob, Bash       |
+| test-writer           | blue   | Writes tests following DSM patterns    | Read, Write, Edit, Bash, ... |
+| silent-failure-hunter | red    | Finds silent failures and bare excepts | Read, Grep, Glob             |
+| fcp-debugger          | yellow | Diagnoses FCP issues                   | Read, Grep, Glob, Bash       |
 
 **Usage:**
 
@@ -60,10 +60,11 @@ Context rules that Claude loads on demand when relevant.
 
 ## Hooks
 
-Project-specific hooks for code quality and safety.
+Project-specific hooks for code quality and safety (5 total).
 
 | Hook                 | Event            | Purpose                                    |
 | -------------------- | ---------------- | ------------------------------------------ |
+| dsm-session-start.sh | SessionStart     | Load FCP context at session start          |
 | dsm-skill-suggest.sh | UserPromptSubmit | Suggest relevant skills based on keywords  |
 | dsm-bash-guard.sh    | PreToolUse       | Block dangerous commands before execution  |
 | dsm-code-guard.sh    | PostToolUse      | Detect silent failure patterns (11 checks) |
