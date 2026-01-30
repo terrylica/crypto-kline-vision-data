@@ -4,6 +4,22 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Common Installation Issues Enhancement (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added common installation issues table to Error Recovery section
+- Added diagnostic quick checklist
+- Added reporting issues table (/bug, /doctor, GitHub Issues)
+- Enhanced troubleshooting with WSL-specific guidance
+
+**Sources**:
+
+- [Official Troubleshooting](https://code.claude.com/docs/en/troubleshooting)
+- [ClaudeLog Guide](https://claudelog.com/troubleshooting/)
+
 ### Enterprise & Team Deployment (2026-01-30)
 
 **Status**: Complete

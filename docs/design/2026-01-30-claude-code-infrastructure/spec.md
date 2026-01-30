@@ -1521,6 +1521,38 @@ When stuck in debugging loops:
 - Configure deny rules for sensitive operations in settings.json
 - Keep context under 80% to maintain Claude's reasoning quality
 
+### Common Installation Issues
+
+Based on [Official Troubleshooting](https://code.claude.com/docs/en/troubleshooting) and [ClaudeLog Guide](https://claudelog.com/troubleshooting/).
+
+| Issue                       | Cause                  | Solution                           |
+| --------------------------- | ---------------------- | ---------------------------------- |
+| "command not found: claude" | Not in PATH            | Use native installer (recommended) |
+| Node.js version error       | Requires Node.js 18+   | `node --version`, upgrade if < 18  |
+| Permission denied           | File/directory access  | Check permissions, use sudo        |
+| API key invalid             | Missing or expired key | `claude config`, check console     |
+| WSL detection fails         | Using Windows npm      | Install Node via Linux package mgr |
+
+### Diagnostic Quick Checklist
+
+- [ ] Internet connection OK?
+- [ ] API key valid (check console.anthropic.com)?
+- [ ] Node.js version ≥ 18?
+- [ ] Claude Code up to date?
+- [ ] File permissions OK?
+- [ ] Context not saturated (< 80%)?
+- [ ] Hooks configured correctly?
+
+### Reporting Issues
+
+| Method        | Use Case                                     |
+| ------------- | -------------------------------------------- |
+| `/bug`        | Report issues with full context              |
+| `/doctor`     | Run diagnostics on installation              |
+| GitHub Issues | anthropics/claude-code for persistent issues |
+| `--verbose`   | Detailed logging during operations           |
+| `--mcp-debug` | Debug MCP configuration issues               |
+
 ## MCP Server Configuration
 
 Based on [Official MCP Docs](https://code.claude.com/docs/en/mcp) and [Scott Spence MCP Guide](https://scottspence.com/posts/configuring-mcp-tools-in-claude-code).
