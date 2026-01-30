@@ -37621,3 +37621,432 @@ Claude has access to latest documentation and can explain complex features.
 - [Best Practices](https://code.claude.com/docs/en/best-practices)
 - [Plan Mode](https://code.claude.com/docs/en/common-workflows#use-plan-mode-for-safe-code-analysis)
 - [Extended Thinking](https://docs.claude.com/en/docs/build-with-claude/extended-thinking)
+## Interactive Mode Reference
+
+Comprehensive reference for Claude Code interactive terminal mode, including keyboard shortcuts, vim mode, built-in commands, and background task management.
+
+### Keyboard Shortcuts
+
+#### General Shortcuts
+
+| Shortcut  | Action                                                           |
+| --------- | ---------------------------------------------------------------- |
+| `Escape`  | Cancel current input/generation, switch to vim mode (if enabled) |
+| `Ctrl+C`  | Cancel current operation                                         |
+| `Ctrl+D`  | Exit Claude Code (when input empty)                              |
+| `Ctrl+L`  | Clear terminal screen                                            |
+| `Up/Down` | Navigate prompt history                                          |
+| `Tab`     | Autocomplete file paths, commands, @-mentions                    |
+
+#### Text Editing Shortcuts
+
+| Shortcut | Action                                  |
+| -------- | --------------------------------------- |
+| `Ctrl+A` | Move cursor to beginning of line        |
+| `Ctrl+E` | Move cursor to end of line              |
+| `Ctrl+W` | Delete word before cursor               |
+| `Ctrl+U` | Delete from cursor to beginning of line |
+| `Ctrl+K` | Delete from cursor to end of line       |
+| `Alt+B`  | Move cursor back one word               |
+| `Alt+F`  | Move cursor forward one word            |
+
+#### Theme and Display
+
+| Shortcut | Action                     |
+| -------- | -------------------------- |
+| `Ctrl+T` | Cycle through color themes |
+| `Ctrl+R` | Refresh display            |
+
+### Vim Editor Mode
+
+Enable vim mode for powerful modal editing in the input area.
+
+#### Enabling Vim Mode
+
+```bash
+# Enable via command
+/vim on
+
+# Or via settings.json
+{
+  "editor": {
+    "vimMode": true
+  }
+}
+```
+
+#### Mode Switching
+
+| Key      | From Mode | To Mode                    |
+| -------- | --------- | -------------------------- |
+| `Escape` | Insert    | Normal                     |
+| `i`      | Normal    | Insert (before cursor)     |
+| `a`      | Normal    | Insert (after cursor)      |
+| `I`      | Normal    | Insert (beginning of line) |
+| `A`      | Normal    | Insert (end of line)       |
+| `o`      | Normal    | Insert (new line below)    |
+| `O`      | Normal    | Insert (new line above)    |
+| `v`      | Normal    | Visual                     |
+| `V`      | Normal    | Visual Line                |
+| `:`      | Normal    | Command                    |
+
+#### Normal Mode Navigation
+
+| Key       | Action                         |
+| --------- | ------------------------------ |
+| `h/j/k/l` | Left/Down/Up/Right             |
+| `w`       | Next word beginning            |
+| `e`       | Next word end                  |
+| `b`       | Previous word beginning        |
+| `0`       | Beginning of line              |
+| `$`       | End of line                    |
+| `^`       | First non-whitespace character |
+| `gg`      | Beginning of input             |
+| `G`       | End of input                   |
+| `{`       | Previous paragraph             |
+| `}`       | Next paragraph                 |
+
+#### Normal Mode Editing
+
+| Key         | Action                         |
+| ----------- | ------------------------------ |
+| `x`         | Delete character under cursor  |
+| `X`         | Delete character before cursor |
+| `dd`        | Delete entire line             |
+| `dw`        | Delete word                    |
+| `d$` or `D` | Delete to end of line          |
+| `d0`        | Delete to beginning of line    |
+| `cc`        | Change entire line             |
+| `cw`        | Change word                    |
+| `c$` or `C` | Change to end of line          |
+| `yy`        | Yank (copy) line               |
+| `yw`        | Yank word                      |
+| `p`         | Paste after cursor             |
+| `P`         | Paste before cursor            |
+| `u`         | Undo                           |
+| `Ctrl+R`    | Redo                           |
+| `.`         | Repeat last change             |
+
+#### Text Objects
+
+| Pattern      | Meaning                  |
+| ------------ | ------------------------ |
+| `iw`         | Inner word               |
+| `aw`         | A word (including space) |
+| `i"`         | Inside double quotes     |
+| `a"`         | Around double quotes     |
+| `i'`         | Inside single quotes     |
+| `i(` or `ib` | Inside parentheses       |
+| `a(` or `ab` | Around parentheses       |
+| `i{` or `iB` | Inside braces            |
+| `i[`         | Inside brackets          |
+| `it`         | Inside HTML/XML tag      |
+| `at`         | Around HTML/XML tag      |
+
+**Example usage**:
+
+- `ciw` - Change inner word
+- `di"` - Delete inside double quotes
+- `ya(` - Yank around parentheses
+
+#### Visual Mode
+
+| Key      | Action                         |
+| -------- | ------------------------------ |
+| `v`      | Start character-wise selection |
+| `V`      | Start line-wise selection      |
+| `Ctrl+V` | Start block selection          |
+| `d`      | Delete selection               |
+| `c`      | Change selection               |
+| `y`      | Yank selection                 |
+| `>`      | Indent selection               |
+| `<`      | Outdent selection              |
+
+### Multiline Input Methods
+
+Multiple ways to enter multiline prompts:
+
+#### Method 1: Shift+Enter
+
+Hold Shift and press Enter to add a newline without submitting.
+
+#### Method 2: Backslash Continuation
+
+End a line with `\` to continue on the next line:
+
+```
+Write a function that \
+takes two arguments and \
+returns their sum
+```
+
+#### Method 3: Paste
+
+Paste multiline text directly - Claude Code handles it automatically.
+
+#### Method 4: Vim Mode
+
+In vim mode, use `o` or `O` to create new lines, edit freely, then `Escape` and submit.
+
+### Built-in Commands Reference
+
+Commands available directly in the interactive prompt:
+
+| Command            | Description                                |
+| ------------------ | ------------------------------------------ |
+| `/help`            | Show help and available commands           |
+| `/clear`           | Clear conversation history                 |
+| `/compact`         | Summarize and compact conversation context |
+| `/exit` or `/quit` | Exit Claude Code                           |
+| `/model`           | Show or switch current model               |
+| `/vim [on\|off]`   | Toggle vim editor mode                     |
+| `/theme`           | Cycle through themes                       |
+| `/config`          | Show current configuration                 |
+| `/cost`            | Show token usage and estimated cost        |
+| `/tasks`           | List background tasks                      |
+| `/memory`          | Show memory/context usage                  |
+| `/debug`           | Toggle debug mode                          |
+| `/history`         | Show command history                       |
+| `/hooks`           | Show active hooks configuration            |
+| `/permissions`     | Show current permissions                   |
+
+### Background Bash Commands
+
+Run long-running commands in the background while continuing to work.
+
+#### Launching Background Tasks
+
+When Claude runs a bash command, it can specify `run_in_background: true`:
+
+```json
+{
+  "tool": "Bash",
+  "command": "uv run pytest tests/ -v",
+  "run_in_background": true
+}
+```
+
+#### Monitoring Background Tasks
+
+```bash
+# List all background tasks
+/tasks
+
+# Check specific task output
+# Claude uses TaskOutput tool with task_id
+```
+
+#### Task States
+
+| State       | Meaning                    |
+| ----------- | -------------------------- |
+| `running`   | Task is still executing    |
+| `completed` | Task finished successfully |
+| `failed`    | Task exited with error     |
+| `stopped`   | Task was manually stopped  |
+
+#### Best Practices for Background Tasks
+
+1. **Long-running tests**: Run test suites in background
+2. **Builds**: Launch compilation in background
+3. **Servers**: Start dev servers that persist
+4. **Watchers**: File watchers and live reload
+
+```bash
+# Example: Run full test suite in background
+uv run pytest tests/ --run-in-background
+
+# Continue working while tests run
+# Check results later with /tasks
+```
+
+### Task List Management
+
+Track work items during a session.
+
+#### Creating Tasks
+
+Claude uses `TaskCreate` to track complex work:
+
+```json
+{
+  "subject": "Implement caching layer",
+  "description": "Add Redis caching for API responses",
+  "activeForm": "Implementing caching layer"
+}
+```
+
+#### Viewing Tasks
+
+```bash
+# List all tasks
+/tasks
+
+# Or Claude uses TaskList tool
+```
+
+#### Task Status Workflow
+
+```
+pending → in_progress → completed
+                     → deleted
+```
+
+### PR Review Status Display
+
+When reviewing pull requests, Claude displays structured status:
+
+```
+PR #123: Add new feature
+├── Files changed: 5
+├── Additions: +150
+├── Deletions: -30
+├── Status: Open
+└── Checks: ✓ All passing
+```
+
+### Terminal Configuration
+
+#### Recommended Terminal Settings
+
+For best Claude Code experience:
+
+```bash
+# Ensure true color support
+export COLORTERM=truecolor
+
+# UTF-8 encoding
+export LANG=en_US.UTF-8
+
+# Increase scrollback buffer (iTerm2)
+# Preferences → Profiles → Terminal → Scrollback lines: 10000+
+```
+
+#### Terminal Compatibility
+
+| Terminal         | Support Level | Notes                 |
+| ---------------- | ------------- | --------------------- |
+| iTerm2           | Excellent     | Full feature support  |
+| macOS Terminal   | Good          | Basic features work   |
+| VS Code Terminal | Excellent     | Integrated experience |
+| Windows Terminal | Good          | WSL recommended       |
+| Alacritty        | Excellent     | Fast, full support    |
+| Kitty            | Excellent     | Full support          |
+
+### Bash Mode
+
+Run Claude Code in bash mode for shell-centric workflows:
+
+```bash
+# Enable bash mode
+claude --bash
+
+# Or within session
+/bash
+```
+
+In bash mode:
+
+- Direct shell command execution
+- Reduced AI overhead for simple commands
+- Quick file operations
+- Git workflow acceleration
+
+### Session Persistence
+
+#### Resuming Sessions
+
+```bash
+# Resume last session
+claude --resume
+
+# Resume specific session
+claude --resume=SESSION_ID
+
+# List available sessions
+claude sessions list
+```
+
+#### Session Files
+
+Sessions stored in `~/.claude/sessions/`:
+
+- `*.jsonl` - Full conversation transcript
+- `*.meta.json` - Session metadata
+
+### DSM-Specific Interactive Patterns
+
+Keyboard and command patterns optimized for data-source-manager development.
+
+#### Quick FCP Debugging
+
+```bash
+# Use /debug-fcp command for FCP issues
+/debug-fcp BTCUSDT binance
+
+# Or invoke fcp-debugger agent
+"Launch fcp-debugger to investigate BTCUSDT cache miss"
+```
+
+#### Test Iteration Shortcuts
+
+```bash
+# Quick test run
+/quick-test
+
+# Vim mode for rapid test file editing
+/vim on
+# Edit test file
+# Escape, then :w to save conceptually
+```
+
+#### Data Validation Workflow
+
+```bash
+# Validate fetched data structure
+/validate-data
+
+# Interactive review of OHLCV schema
+"Check if the DataFrame matches OHLCV schema"
+```
+
+#### Background Test Runs
+
+```bash
+# Run full test suite in background during development
+# Claude launches:
+uv run pytest tests/unit/ -v --run-in-background
+
+# Continue coding
+# Check results when needed
+/tasks
+```
+
+### Keyboard Shortcuts Quick Reference Card
+
+**Navigation**:
+
+- `Ctrl+A/E` - Start/end of line
+- `Alt+B/F` - Word backward/forward
+- `Up/Down` - History navigation
+
+**Editing**:
+
+- `Ctrl+W` - Delete word
+- `Ctrl+U/K` - Delete to start/end
+- `Tab` - Autocomplete
+
+**Session**:
+
+- `Ctrl+C` - Cancel
+- `Ctrl+D` - Exit
+- `Ctrl+L` - Clear screen
+- `Ctrl+T` - Change theme
+
+**Vim Normal Mode**:
+
+- `h/j/k/l` - Movement
+- `w/b/e` - Word navigation
+- `dd/yy/p` - Line operations
+- `ciw/diw` - Word text objects
+- `u/Ctrl+R` - Undo/redo
