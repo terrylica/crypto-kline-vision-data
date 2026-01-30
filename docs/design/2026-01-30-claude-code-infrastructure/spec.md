@@ -2680,6 +2680,241 @@ DSM-specific MCP tools could include:
 | Handle errors gracefully | Return error info, don't crash   |
 | Log operations           | Debug via STDIO stderr           |
 
+## Memory Management & Session Persistence
+
+Comprehensive memory hierarchy and session management for Claude Code.
+
+### Memory Hierarchy (Priority Order)
+
+| Memory Type    | Location                                            | Scope           | Shared With    |
+| -------------- | --------------------------------------------------- | --------------- | -------------- |
+| Managed Policy | `/Library/Application Support/ClaudeCode/CLAUDE.md` | Organization    | All users      |
+| Project Memory | `./CLAUDE.md` or `./.claude/CLAUDE.md`              | Team-shared     | Source control |
+| Project Rules  | `./.claude/rules/*.md`                              | Modular rules   | Source control |
+| User Memory    | `~/.claude/CLAUDE.md`                               | Personal global | Just you       |
+| Local Memory   | `./CLAUDE.local.md`                                 | Personal local  | Just you       |
+
+### Memory File Discovery
+
+Claude Code reads memories recursively:
+
+1. Starts in current working directory
+2. Recurses up to (not including) root `/`
+3. Discovers CLAUDE.md files in subtrees when reading files there
+4. Uses `--add-dir` flag for additional directories
+
+### CLAUDE.md Imports
+
+Reference files with `@path/to/import` syntax:
+
+```markdown
+See @README for project overview and @package.json for npm commands.
+
+# Additional Instructions
+
+- Git workflow @docs/git-instructions.md
+- Personal prefs @~/.claude/my-project-instructions.md
+```
+
+Import limits:
+
+- Relative and absolute paths allowed
+- Max depth: 5 hops recursive imports
+- Not evaluated inside code spans/blocks
+- View loaded memories with `/memory`
+
+### Context Rules with Path Scoping
+
+Rules can target specific files with YAML frontmatter:
+
+```yaml
+---
+paths:
+  - "src/api/**/*.ts"
+  - "lib/**/*.ts"
+---
+# API Development Rules
+- All endpoints must include input validation
+```
+
+Glob patterns supported:
+
+| Pattern             | Matches                       |
+| ------------------- | ----------------------------- |
+| `**/*.ts`           | All TypeScript files anywhere |
+| `src/**/*`          | All files under src/          |
+| `*.md`              | Markdown files in root        |
+| `src/**/*.{ts,tsx}` | Both .ts and .tsx in src/     |
+
+### Session Management
+
+| Command              | Purpose                           |
+| -------------------- | --------------------------------- |
+| `claude --continue`  | Continue most recent conversation |
+| `claude --resume ID` | Resume specific session by ID     |
+| `/resume`            | Open session picker               |
+| `/rename name`       | Name current session              |
+
+Session storage location: `~/.claude/projects/`
+
+### Session Picker Shortcuts
+
+| Shortcut | Action                    |
+| -------- | ------------------------- |
+| `↑`/`↓`  | Navigate sessions         |
+| `→`/`←`  | Expand/collapse grouped   |
+| `Enter`  | Select and resume         |
+| `P`      | Preview session content   |
+| `R`      | Rename session            |
+| `/`      | Search filter             |
+| `A`      | Toggle all projects       |
+| `B`      | Filter current git branch |
+
+### Context Compaction
+
+Claude Code auto-compacts at 95% capacity:
+
+| Command    | Purpose                       |
+| ---------- | ----------------------------- |
+| `/compact` | Manually compact conversation |
+| `/clear`   | Clear all context             |
+| `/cost`    | Check token usage             |
+
+Best practice: Every 30-45 min check `/cost`, compact if >50k tokens.
+
+### Git Worktrees for Parallel Sessions
+
+Run multiple Claude sessions with code isolation:
+
+```bash
+# Create worktree with new branch
+git worktree add ../project-feature-a -b feature-a
+
+# Run Claude in worktree
+cd ../project-feature-a && claude
+
+# List all worktrees
+git worktree list
+
+# Remove when done
+git worktree remove ../project-feature-a
+```
+
+Benefits:
+
+- Independent file state per worktree
+- Shared Git history and remotes
+- No interference between Claude instances
+
+## Multi-File Refactoring Patterns
+
+Coordinated editing across multiple files in a single operation.
+
+### Plan Mode for Complex Changes
+
+Plan Mode uses read-only operations before proposing changes.
+
+**Activate Plan Mode:**
+
+| Method         | Command                                    |
+| -------------- | ------------------------------------------ |
+| During session | `Shift+Tab` (cycles modes)                 |
+| Start in plan  | `claude --permission-mode plan`            |
+| Headless query | `claude --permission-mode plan -p "query"` |
+
+Plan Mode indicator: `⏸ plan mode on`
+
+### Refactoring Workflow
+
+```
+> I need to refactor our authentication system to use OAuth2.
+> Create a detailed migration plan.
+```
+
+Claude analyzes then creates comprehensive plan. Refine with:
+
+```
+> What about backward compatibility?
+> How should we handle database migration?
+```
+
+Edit plan directly: Press `Ctrl+G` to open in text editor.
+
+### Large-Scale Refactoring
+
+For 100+ file refactors:
+
+1. Claude generates detailed refactoring plan
+2. Shows proposed module structure
+3. Identifies duplication points
+4. Proposes implementation sequence
+5. Asks for approval before changing
+
+Example: 193-file refactor consolidating status fields.
+
+### Incremental Refactoring
+
+Claude breaks large tasks into stages:
+
+1. Extract common functionality to shared utilities
+2. Improve error handling
+3. Update deprecated API usage
+4. Run tests after each stage
+
+### Best Practices
+
+| Practice                  | Rationale                    |
+| ------------------------- | ---------------------------- |
+| Commit before refactoring | Easy rollback via git        |
+| Use Plan Mode first       | Review before execution      |
+| Request small increments  | Testable changes             |
+| Ask about compatibility   | Catch breaking changes early |
+| Keep focus narrow         | Avoid scope creep            |
+
+### CLAUDE.md Rules for Refactoring
+
+Add to project CLAUDE.md:
+
+```markdown
+# Refactoring Rules
+
+- Never refactor code unless explicitly asked
+- Always use Plan Mode for multi-file changes
+- Run tests after each refactoring stage
+- Preserve backward compatibility unless told otherwise
+```
+
+### Custom Refactoring Commands
+
+Create in `.claude/commands/`:
+
+```yaml
+---
+name: refactor-plan
+description: Create refactoring plan with risk assessment
+user-invocable: true
+---
+
+Analyze the specified code and create a refactoring plan that:
+1. Identifies code smells and improvement opportunities
+2. Proposes specific changes with rationale
+3. Assesses risks for each change
+4. Suggests implementation order
+5. Lists affected tests
+```
+
+### DSM Refactoring Considerations
+
+For data-source-manager specific refactoring:
+
+| Area                 | Consideration                    |
+| -------------------- | -------------------------------- |
+| FCP protocol         | Maintain cache key compatibility |
+| Symbol formats       | Keep market-specific handling    |
+| Error hierarchy      | Preserve exception inheritance   |
+| DataFrame operations | Maintain Polars compatibility    |
+| Rate limiting        | Don't break backoff logic        |
+
 ## Verification Checklist
 
 ### Infrastructure
