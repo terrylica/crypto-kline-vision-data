@@ -21150,3 +21150,434 @@ See @references/fcp-protocol.md for detailed FCP documentation.
 - Increase `SLASH_COMMAND_TOOL_CHAR_BUDGET`
 
 ```
+<!-- SSoT-OK: Settings & Permissions Reference - comprehensive settings documentation from official docs -->
+
+## Settings & Permissions Reference
+
+### Settings File Hierarchy
+
+Claude Code uses a hierarchical scope system:
+
+| Scope     | Location                                   | Precedence  | Shared            |
+| --------- | ------------------------------------------ | ----------- | ----------------- |
+| Managed   | `/Library/Application Support/ClaudeCode/` | 1 (highest) | Yes (IT deployed) |
+| CLI flags | Command-line arguments                     | 2           | No                |
+| Local     | `.claude/settings.local.json`              | 3           | No (gitignored)   |
+| Project   | `.claude/settings.json`                    | 4           | Yes (committed)   |
+| User      | `~/.claude/settings.json`                  | 5 (lowest)  | No                |
+
+Settings are merged hierarchically - more specific scopes override broader ones.
+
+### Core settings.json Structure
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Read(~/.zshrc)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Bash(curl *)", "Read(./.env)"]
+  },
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1"
+  },
+  "model": "claude-sonnet-4-5-20250929",
+  "outputStyle": "Explanatory",
+  "sandbox": {},
+  "hooks": {},
+  "fileSuggestion": {}
+}
+```
+
+### Permission Rules System
+
+#### Rule Syntax Format
+
+Rules follow: `Tool` or `Tool(specifier)`
+
+```
+Bash                           # Matches all bash commands
+Bash(npm run *)               # Pattern with wildcards
+Bash(npm run build)           # Exact command
+Read(./.env)                  # File path
+Read(./secrets/**)            # Directory glob (recursive)
+WebFetch(domain:example.com)  # Domain restriction
+Edit(./src/**)                # Write access to directory
+Task(subagent-name)           # Subagent restriction
+```
+
+#### Evaluation Order
+
+Rules evaluated in order (first match wins):
+
+1. **Deny** rules (highest priority - always checked first)
+2. **Ask** rules (require confirmation)
+3. **Allow** rules (auto-approve)
+
+**Important**: Deny rules always take precedence over allow rules, even if both match.
+
+### Tool-Specific Patterns
+
+| Tool     | Pattern Examples                                            |
+| -------- | ----------------------------------------------------------- |
+| Bash     | `Bash(npm run *)`, `Bash(git push *)`, `Bash(curl *)`       |
+| Read     | `Read(./.env)`, `Read(./secrets/**)`, `Read(~/.ssh/id_rsa)` |
+| Edit     | `Edit(./src/**)`, `Edit(.env)`                              |
+| Write    | `Write(./src/**)`, `Write(./output/*)`                      |
+| WebFetch | `WebFetch`, `WebFetch(domain:example.com)`                  |
+| Task     | `Task`, `Task(subagent-name)`                               |
+| MCP      | `MCP`, `MCP(memory)`, `MCP(github)`                         |
+| Skill    | `Skill(commit)`, `Skill(deploy *)`                          |
+
+### Wildcard Pattern Syntax
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)", // Matches: npm run build, npm run test
+      "Bash(git commit *)",
+      "Bash(git * main)", // Matches: git push main, git pull main
+      "Bash(* --version)", // Matches: node --version
+      "Bash(* --help *)",
+      "Read(./src/**)" // Recursive directory matching
+    ],
+    "deny": [
+      "Bash(curl *)", // Block all curl commands
+      "Read(./.env*)", // Block .env files
+      "Read(./secrets/**)", // Block entire secrets directory
+      "WebFetch" // Block all web requests
+    ]
+  }
+}
+```
+
+**Glob Pattern Reference**:
+
+| Pattern    | Matches                          |
+| ---------- | -------------------------------- |
+| `*`        | Single-level wildcard            |
+| `**`       | Recursive wildcard (any depth)   |
+| `./.env`   | Specific file                    |
+| `./.env*`  | Files starting with .env         |
+| `./src/**` | All files under src/ recursively |
+| `~/.ssh/*` | Files directly in .ssh directory |
+
+**Note**: Spaces in patterns matter. `Bash(ls *)` ≠ `Bash(ls*)`
+
+### Permission Modes
+
+```json
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "disableBypassPermissionsMode": "disable"
+  }
+}
+```
+
+| Mode                           | Description                                    |
+| ------------------------------ | ---------------------------------------------- |
+| `acceptEdits`                  | Auto-accept file edits                         |
+| `askEverytime`                 | Prompt for every operation                     |
+| `disableBypassPermissionsMode` | Prevents `--dangerously-skip-permissions` flag |
+
+### Secure Project Configuration Example
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run test *)",
+      "Bash(git diff)",
+      "Bash(git status)",
+      "Read(./src/**)",
+      "Read(./package.json)",
+      "Edit(./src/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf)",
+      "Bash(sudo *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(~/.aws/**)",
+      "Read(**/.env)",
+      "Read(**/*.key)",
+      "WebFetch(domain:internal-api.local)"
+    ],
+    "ask": ["Bash(git push *)", "Bash(npm publish *)"]
+  }
+}
+```
+
+### Additional Working Directories
+
+```json
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../docs/",
+      "../shared-libs/",
+      "/opt/company-tools/"
+    ]
+  }
+}
+```
+
+### Sandbox Configuration
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["git", "docker"],
+    "allowUnsandboxedCommands": true,
+    "network": {
+      "allowUnixSockets": ["~/.ssh/agent-socket", "/var/run/docker.sock"],
+      "allowLocalBinding": true,
+      "httpProxyPort": 8080,
+      "socksProxyPort": 8081
+    },
+    "enableWeakerNestedSandbox": false
+  }
+}
+```
+
+### Managed Settings (Enterprise)
+
+Enterprise administrators deploy `managed-settings.json` to enforce organization-wide policies:
+
+**Locations**:
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-settings.json`
+- Linux/WSL: `/etc/claude-code/managed-settings.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-settings.json`
+
+**Example managed-settings.json**:
+
+```json
+{
+  "model": "claude-opus-4-1-20250805",
+  "permissions": {
+    "deny": ["WebFetch", "Bash(curl *)", "Bash(sudo *)"]
+  },
+  "disableBypassPermissionsMode": "disable",
+  "allowManagedHooksOnly": true,
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }],
+  "strictKnownMarketplaces": [
+    { "source": "github", "repo": "acme-corp/approved-plugins" }
+  ]
+}
+```
+
+### Marketplace Allowlist
+
+```json
+{
+  "strictKnownMarketplaces": [
+    { "source": "github", "repo": "acme-corp/plugins" },
+    { "source": "github", "repo": "acme-corp/security-tools", "ref": "v2.0" },
+    { "source": "git", "url": "https://gitlab.example.com/tools/plugins.git" },
+    { "source": "npm", "package": "@acme-corp/claude-plugins" },
+    { "source": "url", "url": "https://plugins.example.com/marketplace.json" },
+    { "source": "file", "path": "/usr/local/share/claude/marketplace.json" },
+    { "source": "hostPattern", "hostPattern": "^github\\.example\\.com$" }
+  ]
+}
+```
+
+### Plugin Configuration
+
+```json
+{
+  "enabledPlugins": {
+    "formatter@acme-tools": true,
+    "deployer@acme-tools": true,
+    "analyzer@security-plugins": false
+  },
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": {
+        "source": "github",
+        "repo": "acme-corp/claude-plugins"
+      }
+    }
+  }
+}
+```
+
+### File Suggestion Configuration
+
+```json
+{
+  "fileSuggestion": {
+    "type": "command",
+    "command": "~/.claude/file-suggestion.sh"
+  }
+}
+```
+
+Script receives JSON input: `{"query": "src/comp"}`
+Script outputs: Newline-separated file paths (max 15)
+
+### Key Settings Reference
+
+| Key                          | Type    | Description                            |
+| ---------------------------- | ------- | -------------------------------------- |
+| `model`                      | string  | Override default model                 |
+| `outputStyle`                | string  | Response style (Explanatory, Concise)  |
+| `language`                   | string  | Claude's response language             |
+| `cleanupPeriodDays`          | number  | Inactive session cleanup (default: 30) |
+| `respectGitignore`           | boolean | Exclude gitignore patterns from picker |
+| `alwaysThinkingEnabled`      | boolean | Enable extended thinking by default    |
+| `plansDirectory`             | string  | Custom plan storage location           |
+| `showTurnDuration`           | boolean | Show "Cooked for X" messages           |
+| `spinnerTipsEnabled`         | boolean | Show tips during processing            |
+| `terminalProgressBarEnabled` | boolean | Terminal progress bar display          |
+| `autoUpdatesChannel`         | string  | `stable` or `latest`                   |
+| `apiKeyHelper`               | string  | Script for dynamic API key generation  |
+| `statusLine`                 | object  | Custom status display configuration    |
+
+### Environment Variables
+
+**Authentication**:
+
+| Variable               | Description                |
+| ---------------------- | -------------------------- |
+| `ANTHROPIC_API_KEY`    | API key for authentication |
+| `ANTHROPIC_AUTH_TOKEN` | Custom auth token          |
+
+**Model Configuration**:
+
+| Variable                     | Description              |
+| ---------------------------- | ------------------------ |
+| `ANTHROPIC_MODEL`            | Override model selection |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Model for subagents      |
+
+**Cloud Providers**:
+
+| Variable                  | Description             |
+| ------------------------- | ----------------------- |
+| `CLAUDE_CODE_USE_BEDROCK` | Enable AWS Bedrock      |
+| `CLAUDE_CODE_USE_VERTEX`  | Enable Google Vertex    |
+| `CLAUDE_CODE_USE_FOUNDRY` | Enable Palantir Foundry |
+
+**Feature Flags**:
+
+| Variable                               | Description              |
+| -------------------------------------- | ------------------------ |
+| `CLAUDE_CODE_ENABLE_TELEMETRY`         | Enable telemetry         |
+| `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` | Disable background tasks |
+| `DISABLE_AUTOUPDATER`                  | Disable auto-updates     |
+| `DISABLE_TELEMETRY`                    | Disable all telemetry    |
+| `DISABLE_ERROR_REPORTING`              | Disable error reporting  |
+
+**Performance**:
+
+| Variable                        | Description              | Default |
+| ------------------------------- | ------------------------ | ------- |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Max output tokens        | 32000   |
+| `MAX_THINKING_TOKENS`           | Extended thinking tokens | 31999   |
+| `BASH_MAX_TIMEOUT_MS`           | Bash command timeout     | 120000  |
+| `BASH_MAX_OUTPUT_LENGTH`        | Max bash output length   | 100000  |
+
+**Proxy & Network**:
+
+| Variable                           | Description       |
+| ---------------------------------- | ----------------- |
+| `HTTP_PROXY`                       | HTTP proxy URL    |
+| `HTTPS_PROXY`                      | HTTPS proxy URL   |
+| `NO_PROXY`                         | Proxy bypass list |
+| `CLAUDE_CODE_PROXY_RESOLVES_HOSTS` | Proxy handles DNS |
+
+**Miscellaneous**:
+
+| Variable                          | Description                |
+| --------------------------------- | -------------------------- |
+| `CLAUDE_CODE_SHELL`               | Override shell (bash, zsh) |
+| `CLAUDE_CODE_TMPDIR`              | Custom temp directory      |
+| `CLAUDE_CODE_HIDE_ACCOUNT_INFO`   | Hide account info in UI    |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | Compaction trigger %       |
+| `SLASH_COMMAND_TOOL_CHAR_BUDGET`  | Skill description budget   |
+
+### DSM Settings Configuration
+
+The data-source-manager uses comprehensive settings:
+
+**`.claude/settings.json`**:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(mise run *)",
+      "Bash(pytest *)",
+      "Bash(git diff)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Read(./src/**)",
+      "Read(./tests/**)",
+      "Edit(./src/**)",
+      "Edit(./tests/**)"
+    ],
+    "deny": [
+      "Bash(pip install *)",
+      "Bash(python3.14 *)",
+      "Bash(python3.12 *)",
+      "Bash(git push --force *)",
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Read(**/*.key)",
+      "Read(**/credentials*)"
+    ],
+    "ask": ["Bash(git push *)", "Bash(git commit *)"]
+  },
+  "extraKnownMarketplaces": {
+    "cc-skills": {
+      "source": {
+        "source": "github",
+        "repo": "terrylica/cc-skills"
+      }
+    }
+  }
+}
+```
+
+**Personal Overrides** (`.claude/settings.local.json`):
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(git commit *)"]
+  },
+  "model": "claude-opus-4-5-20251101"
+}
+```
+
+### Best Practices
+
+**Security**:
+
+1. Always deny access to secrets files (`.env`, credentials)
+2. Block dangerous bash commands (`sudo`, `rm -rf`, `curl`)
+3. Use ask rules for destructive operations (force push, publish)
+4. Enable sandbox for untrusted operations
+
+**Team Collaboration**:
+
+1. Commit `.claude/settings.json` for team-shared rules
+2. Use `.claude/settings.local.json` for personal preferences (gitignored)
+3. Document deny rules with comments in team docs
+4. Use managed settings for organization-wide policies
+
+**Performance**:
+
+1. Set appropriate timeouts for long-running commands
+2. Configure output limits for verbose commands
+3. Use sandbox to auto-approve safe commands
