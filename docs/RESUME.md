@@ -4,6 +4,27 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### MCP Server Configuration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added configuration locations table (user, project, local scopes)
+- Added MCP server structure JSON example
+- Added transport types table (stdio vs http)
+- Added tool naming convention documentation
+- Added permission configuration example
+- Added context window optimization strategies
+- Added MCP security best practices table
+- Added debugging commands reference
+- Added DSM MCP considerations table
+
+**Sources**:
+
+- [Official MCP Docs](https://code.claude.com/docs/en/mcp)
+- [Scott Spence MCP Guide](https://scottspence.com/posts/configuring-mcp-tools-in-claude-code)
+
 ### Error Recovery & Troubleshooting (2026-01-30)
 
 **Status**: Complete

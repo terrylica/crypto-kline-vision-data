@@ -1521,6 +1521,96 @@ When stuck in debugging loops:
 - Configure deny rules for sensitive operations in settings.json
 - Keep context under 80% to maintain Claude's reasoning quality
 
+## MCP Server Configuration
+
+Based on [Official MCP Docs](https://code.claude.com/docs/en/mcp) and [Scott Spence MCP Guide](https://scottspence.com/posts/configuring-mcp-tools-in-claude-code).
+
+### Configuration Locations
+
+| Location              | Scope   | Purpose                              |
+| --------------------- | ------- | ------------------------------------ |
+| `~/.claude.json`      | user    | Personal MCP servers, all projects   |
+| `.mcp.json`           | project | Shared with team via version control |
+| `settings.local.json` | local   | Personal overrides (gitignored)      |
+
+### MCP Server Structure
+
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mcp/server-package"],
+      "env": {
+        "API_KEY": "value"
+      }
+    }
+  }
+}
+```
+
+### Transport Types
+
+| Type  | Use Case                        | Example               |
+| ----- | ------------------------------- | --------------------- |
+| stdio | Local processes, custom scripts | Node.js tools, Python |
+| http  | Remote/cloud services           | External APIs         |
+
+### Tool Naming Convention
+
+MCP tools follow: `mcp__<server-name>__<tool-name>`
+
+Example: `mcp__github__list_issues`
+
+### Permission Configuration
+
+```json
+{
+  "permissions": {
+    "allow": ["mcp__github__*", "mcp__filesystem__read_file"],
+    "deny": ["mcp__filesystem__delete_file"]
+  }
+}
+```
+
+### Context Window Optimization
+
+| Strategy               | Effect                                  |
+| ---------------------- | --------------------------------------- |
+| Disable unused servers | Reduces tool definitions in context     |
+| Use MCP tool search    | Dynamic loading when >10% context used  |
+| Consolidate servers    | Fewer tool definitions, same capability |
+
+**Tool search auto-activates** when MCP tool descriptions exceed 10% of context window.
+
+### Security Best Practices
+
+| Practice           | Implementation                            |
+| ------------------ | ----------------------------------------- |
+| TLS/HTTPS          | Encrypt all MCP server communications     |
+| Least privilege    | Grant only required tool access           |
+| Trust verification | Only use MCP servers from trusted sources |
+| Env var secrets    | Never hardcode API keys in config         |
+
+### Debugging MCP
+
+| Command/Flag   | Purpose                           |
+| -------------- | --------------------------------- |
+| `/mcp`         | Verify server connectivity status |
+| `--mcp-debug`  | Launch with debug logging enabled |
+| `/permissions` | Add/remove tools from allowlist   |
+
+### DSM MCP Considerations
+
+For data-source-manager, consider these MCP integrations:
+
+| Server           | Purpose                              |
+| ---------------- | ------------------------------------ |
+| filesystem       | Safe file operations with sandboxing |
+| sequential-think | Complex FCP debugging workflows      |
+| context7         | Up-to-date library documentation     |
+
 ## Verification Checklist
 
 ### Infrastructure
