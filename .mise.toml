@@ -1,8 +1,49 @@
 # mise configuration for data-source-manager
 # See: https://mise.jdx.dev/
-
-[tools]
-node = "25"  # Required for semantic-release
-
+#
+# IMPORTANT: Python 3.13 ONLY - never change this version
 # Environment variables are loaded from .mise.local.toml (git-ignored)
 # Create .mise.local.toml from .mise.local.toml.example for local development
+
+[tools]
+python = "3.13"  # CRITICAL: Do not change - project requires Python 3.13 exactly
+node = "25"      # Required for semantic-release
+
+[tasks.test]
+description = "Run unit tests"
+run = "uv run -p 3.13 pytest tests/unit/ -v"
+
+[tasks."test:all"]
+description = "Run all tests"
+run = "uv run -p 3.13 pytest tests/ -v"
+
+[tasks."test:integration"]
+description = "Run integration tests (requires network)"
+run = "uv run -p 3.13 pytest tests/integration/ -v"
+
+[tasks."test:okx"]
+description = "Run OKX API tests"
+run = "uv run -p 3.13 pytest tests/okx/ -m okx -v"
+
+[tasks.lint]
+description = "Run ruff linter with auto-fix"
+run = "uv run -p 3.13 ruff check --fix ."
+
+[tasks.format]
+description = "Format code with ruff"
+run = "uv run -p 3.13 ruff format ."
+
+[tasks.typecheck]
+description = "Run type checking with pyright"
+run = "uv run -p 3.13 pyright src/"
+
+[tasks.build]
+description = "Build package distribution"
+run = "uv build"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "rm -rf dist/ build/ *.egg-info src/*.egg-info"
+
+# Release tasks are in .mise/tasks/release/ directory
+# Run: mise run release:preflight, release:dry, release:full

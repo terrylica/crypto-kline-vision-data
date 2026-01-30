@@ -1,0 +1,46 @@
+# Lychee link checker configuration
+# See: https://lychee.cli.rs/
+
+# Cache results for faster re-runs
+cache = true
+
+# Max concurrent requests
+max_concurrency = 16
+
+# Request timeout in seconds
+timeout = 30
+
+# Accept these status codes as valid
+accept = [200, 204, 206, 301, 302, 307, 308]
+
+# Skip these URLs (patterns)
+exclude = [
+    # Local-only paths that won't resolve in CI
+    "^file://",
+    # Internal network URLs
+    "^http://localhost",
+    "^http://127\\.0\\.0\\.1",
+    # GitHub rate limiting issues
+    "^https://github\\.com/.*/blob/",
+    # Binance Vision API (requires auth)
+    "^https://data\\.binance\\.vision",
+]
+
+# Skip these file patterns
+exclude_path = [
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    ".git",
+    "dist",
+    "build",
+]
+
+# Markdown files only
+include = ["**/*.md"]
+
+# Output format
+output = "compact"
+
+# Don't check mail addresses
+exclude_mail = true

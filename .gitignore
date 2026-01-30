@@ -135,3 +135,11 @@ bun.lockb
 
 # Claude Code local state (Ralph loop, etc.)
 .claude/
+
+# Lychee link checker cache
+.lycheecache
+.lychee-results.json
+.lychee-results.txt
+
+# Vale linting cache
+.vale-cache/

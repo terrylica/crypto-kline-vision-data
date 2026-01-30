@@ -11,7 +11,7 @@
     ".ruff_cache", // Exclude the ruff cache directory
     ".ropeproject" // Exclude the ropeproject directory
   ],
-  "pythonVersion": "3.11", // Specifies the target Python version for analysis.
+  "pythonVersion": "3.13", // Specifies the target Python version for analysis.
   "typeCheckingMode": "basic", // Sets the type checking mode to basic. "basic" is a good starting point, less strict than "strict".
   "useLibraryCodeForTypes": true, // Uses type information from installed libraries even if they don't have separate stub files (.pyi).
   "reportMissingImports": true, // Missing import statements (modules that cannot be found).

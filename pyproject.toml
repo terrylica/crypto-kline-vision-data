@@ -7,14 +7,14 @@ name = "data-source-manager"
 version = "0.2.0"
 description = "Professional market data integration with clean package architecture"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 license = "MIT"
 authors = [
     {name = "EonLabs", email = "terry@eonlabs.com"},
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "attrs>=25.0.0", # data classes and validation - latest versions
@@ -71,9 +71,9 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 
-# Align with project.requires-python (>=3.10)
+# Align with project.requires-python (>=3.13)
 # Ruff comment - this cannot be inherited automatically
-target-version = "py310"
+target-version = "py313"
 # Allow autofix for all enabled rules
 lint.fixable = ["ALL"]
 # Allow unused variables when underscored
@@ -89,5 +89,5 @@ ignore = ["**/tests/**/*.py", "tests/**/*.py", "ml_feature_set/tests/**/*.py"]
 defineConstant = { DEBUG = true }
 reportMissingImports = "error"
 reportMissingTypeStubs = false
-pythonVersion = "3.10"
+pythonVersion = "3.13"
 typeCheckingMode = "basic"
