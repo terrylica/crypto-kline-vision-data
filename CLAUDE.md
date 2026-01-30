@@ -8,14 +8,15 @@ Professional market data integration package with Failover Control Protocol (FCP
 
 ## Quick Reference
 
-| Command                                   | Purpose                   |
-| ----------------------------------------- | ------------------------- |
-| `uv run -p 3.13 pytest tests/unit/`       | Run unit tests            |
-| `uv run -p 3.13 pytest tests/okx/ -m okx` | Run OKX integration tests |
-| `uv run -p 3.13 ruff check --fix .`       | Lint and auto-fix         |
-| `uv run -p 3.13 ruff format .`            | Format code               |
-| `mise run release:dry`                    | Preview semantic-release  |
-| `mise run release:full`                   | Run full release          |
+Run `mise run help` for full task list. Key commands:
+
+| Command                 | Purpose                   |
+| ----------------------- | ------------------------- |
+| `mise run test`         | Run unit tests            |
+| `mise run check:all`    | Lint + format + typecheck |
+| `mise run verify`       | Verify package imports    |
+| `mise run release:dry`  | Preview semantic-release  |
+| `mise run release:full` | Run full release          |
 
 ---
 

@@ -9,6 +9,17 @@
 python = "3.13"  # CRITICAL: Do not change - project requires Python 3.13 exactly
 node = "25"      # Required for semantic-release
 
+# Automatic virtualenv activation
+[settings]
+experimental = true
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+#
+# === TEST TASKS ===
+#
+
 [tasks.test]
 description = "Run unit tests"
 run = "uv run -p 3.13 pytest tests/unit/ -v"
@@ -25,42 +36,114 @@ run = "uv run -p 3.13 pytest tests/integration/ -v"
 description = "Run OKX API tests"
 run = "uv run -p 3.13 pytest tests/okx/ -m okx -v"
 
+[tasks."test:coverage"]
+description = "Run tests with coverage report"
+run = "uv run -p 3.13 pytest --cov=src/data_source_manager --cov-report=html --cov-report=term-missing tests/unit/"
+outputs = ["htmlcov/"]
+
+#
+# === CODE QUALITY TASKS ===
+#
+
 [tasks.lint]
 description = "Run ruff linter with auto-fix"
 run = "uv run -p 3.13 ruff check --fix ."
+sources = ["src/**/*.py", "tests/**/*.py"]
 
 [tasks.format]
 description = "Format code with ruff"
 run = "uv run -p 3.13 ruff format ."
+sources = ["src/**/*.py", "tests/**/*.py"]
 
 [tasks.typecheck]
 description = "Run type checking with pyright"
 run = "uv run -p 3.13 pyright src/"
-
-[tasks."test:coverage"]
-description = "Run tests with coverage report"
-run = "uv run -p 3.13 pytest --cov=src/data_source_manager --cov-report=html --cov-report=term-missing tests/unit/"
+sources = ["src/**/*.py"]
 
 [tasks."check:all"]
-description = "Run all checks (lint, format, typecheck)"
+description = "Run all checks (lint, format, typecheck) in parallel"
 depends = ["lint", "format", "typecheck"]
 
-[tasks.build]
-description = "Build package distribution"
-run = "uv build"
+#
+# === DOCUMENTATION TASKS ===
+#
 
-[tasks.clean]
-description = "Clean build artifacts"
-run = "rm -rf dist/ build/ *.egg-info src/*.egg-info"
-
-# Documentation tasks
 [tasks."docs:links"]
 description = "Check documentation links (offline mode)"
 run = "lychee --offline --root-dir . ."
+sources = ["**/*.md"]
 
 [tasks."docs:check"]
 description = "Run all documentation checks"
 depends = ["docs:links"]
+
+#
+# === BUILD TASKS ===
+#
+
+[tasks.build]
+description = "Build package distribution"
+run = "uv build"
+sources = ["src/**/*.py", "pyproject.toml"]
+outputs = ["dist/"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "rm -rf dist/ build/ *.egg-info src/*.egg-info htmlcov/ .coverage"
+
+#
+# === DEVELOPMENT TASKS ===
+#
+
+[tasks.install]
+description = "Install package in development mode with all dependencies"
+run = "uv pip install -e '.[dev]'"
+
+[tasks.sync]
+description = "Sync dependencies using uv"
+run = "uv sync --dev"
+
+[tasks.verify]
+description = "Verify package imports correctly"
+run = "uv run -p 3.13 python -c 'from data_source_manager import DataSourceManager; print(\"✓ Import OK\")'"
+
+#
+# === HELP TASK ===
+#
+
+[tasks.help]
+description = "Show available tasks"
+run = """
+echo "=== Data Source Manager Tasks ==="
+echo ""
+echo "Testing:"
+echo "  mise run test           # Unit tests"
+echo "  mise run test:all       # All tests"
+echo "  mise run test:coverage  # Unit tests with coverage"
+echo "  mise run test:okx       # OKX integration tests"
+echo ""
+echo "Code Quality:"
+echo "  mise run lint           # Ruff linter with auto-fix"
+echo "  mise run format         # Ruff formatter"
+echo "  mise run typecheck      # Pyright type checking"
+echo "  mise run check:all      # All checks (parallel)"
+echo ""
+echo "Documentation:"
+echo "  mise run docs:links     # Check markdown links"
+echo "  mise run docs:check     # All doc checks"
+echo ""
+echo "Build & Install:"
+echo "  mise run build          # Build distribution"
+echo "  mise run install        # Install in dev mode"
+echo "  mise run sync           # Sync dependencies"
+echo "  mise run clean          # Clean artifacts"
+echo "  mise run verify         # Verify imports"
+echo ""
+echo "Release (see .mise/tasks/release/):"
+echo "  mise run release:preflight  # Validate prerequisites"
+echo "  mise run release:dry        # Dry run"
+echo "  mise run release:full       # Full release"
+"""
 
 # Release tasks are in .mise/tasks/release/ directory
 # Run: mise run release:preflight, release:dry, release:full
