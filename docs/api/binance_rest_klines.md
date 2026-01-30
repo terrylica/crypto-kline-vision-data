@@ -9,7 +9,7 @@ For general information on Binance API fundamentals, including rate limits, erro
 - [Binance API Rate Limits](binance_rate_limits.md): Detailed explanation of rate limit types, limits, headers, and errors.
 - [Binance API Testing Results](binance_api_testing_results.md): Empirical findings on rate limits, historical data, intervals, response times, and common errors.
 - [Binance API Best Practices](binance_best_practices.md): Strategies for efficient API consumption, including rate limit management and error handling.
-- [`src/data_source_manager/utils/market_constraints.py`](../../utils/market_constraints.py): Single source of truth for supported intervals and market constraints.
+- [`src/data_source_manager/utils/market_constraints.py`](../../src/data_source_manager/utils/market_constraints.py): Single source of truth for supported intervals and market constraints.
 
 This section focuses on the specific API endpoint structure and available market data endpoints relevant to REST API usage.
 

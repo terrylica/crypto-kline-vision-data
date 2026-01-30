@@ -56,7 +56,7 @@ run = "rm -rf dist/ build/ *.egg-info src/*.egg-info"
 # Documentation tasks
 [tasks."docs:links"]
 description = "Check documentation links (offline mode)"
-run = "lychee --offline --root . ."
+run = "lychee --offline --root-dir . ."
 
 [tasks."docs:check"]
 description = "Run all documentation checks"

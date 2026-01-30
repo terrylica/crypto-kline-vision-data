@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the implementation of the fix for the Vision API timestamp interpretation issue as outlined in [VisionAPI_Timestamp_Interpretation.md](./VisionAPI_Timestamp_Interpretation.md). The fix ensures that timestamps from the Binance Vision API are correctly interpreted, preserving the semantic meaning of `open_time` as the BEGINNING of each candle period.
+This document summarizes the implementation of the fix for the Vision API timestamp interpretation issue. The fix ensures that timestamps from the Binance Vision API are correctly interpreted, preserving the semantic meaning of `open_time` as the BEGINNING of each candle period.
 
 ## Implementation Details
 
