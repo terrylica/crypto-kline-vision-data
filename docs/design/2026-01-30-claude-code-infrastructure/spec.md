@@ -31331,3 +31331,282 @@ For CLI configuration, also see environment variables:
 4. **Fork sessions** when experimenting from a checkpoint
 5. **Name sessions** with `/rename` for easy resumption
 6. **Use `--verbose`** for debugging
+## Context Window and Cost Management
+
+### Overview
+
+Claude Code token costs scale with context size. This section covers token tracking, auto-compaction, cost optimization strategies, and best practices for efficient context management.
+
+### Average Costs
+
+| Metric                | Value                            |
+| --------------------- | -------------------------------- |
+| Average daily cost    | $6 per developer                 |
+| 90th percentile daily | < $12                            |
+| Monthly average       | ~$100-200/developer (Sonnet 4.5) |
+
+Variance depends on instances running and automation usage.
+
+### Token Tracking
+
+#### /cost Command
+
+```
+Total cost:            $0.55
+Total duration (API):  6m 19.7s
+Total duration (wall): 6h 33m 10.2s
+Total code changes:    0 lines added, 0 lines removed
+```
+
+**Note:** `/cost` shows API token usage for API users. Subscribers use `/stats` for usage patterns.
+
+#### Status Line Tracking
+
+Configure status line to display context usage continuously via `/statusline`.
+
+### Auto-Compaction
+
+When conversation approaches context window limit (~95% capacity), Claude Code automatically:
+
+1. Analyzes conversation to identify key information
+2. Creates concise summary of interactions, decisions, code changes
+3. Compacts by replacing old messages with summary
+4. Continues seamlessly with preserved context
+
+Auto-compaction is instant in recent Claude Code versions. <!-- SSoT-OK: Claude Code release notes -->
+
+### Manual Compaction
+
+Use `/compact` for intentional summarization:
+
+```
+/compact                              # Basic compaction
+/compact Focus on code samples        # Custom focus
+/compact Focus on test output         # Preserve specific content
+```
+
+**Best practice:** Compact at logical breakpoints rather than hitting context limits mid-task.
+
+### Compaction Instructions in CLAUDE.md
+
+```markdown
+# Compact instructions
+
+When you are using compact, please focus on test output and code changes
+```
+
+### Context Management Strategies
+
+#### Clear Between Tasks
+
+```
+/rename current-task    # Name session first
+/clear                  # Start fresh
+/resume current-task    # Return later
+```
+
+Stale context wastes tokens on every subsequent message.
+
+#### 80% Rule
+
+Watch token percentage in status bar. When you hit 80%, consider:
+
+- Manual compaction
+- Starting fresh session for complex work
+
+Performance degrades significantly when working memory is constrained.
+
+### Model Selection for Cost
+
+| Model  | Use Case                                   | Cost    |
+| ------ | ------------------------------------------ | ------- |
+| Haiku  | Simple subagent tasks                      | Lowest  |
+| Sonnet | Most coding tasks                          | Medium  |
+| Opus   | Complex architecture, multi-step reasoning | Highest |
+
+Use `/model` to switch mid-session or set default in `/config`.
+
+For subagents, specify `model: haiku` in configuration.
+
+### MCP Server Optimization
+
+Each MCP server adds tool definitions to context, even when idle.
+
+#### Check Context Usage
+
+```
+/context    # See what's consuming space
+/mcp        # See configured servers
+```
+
+#### Prefer CLI Tools
+
+CLI tools are more context-efficient than MCP servers:
+
+| Type       | Context Impact              | Example               |
+| ---------- | --------------------------- | --------------------- |
+| MCP server | Persistent tool definitions | GitHub MCP            |
+| CLI tool   | Only when executed          | `gh`, `aws`, `gcloud` |
+
+#### Tool Search Optimization
+
+When MCP tool descriptions exceed 10% of context, Claude Code automatically:
+
+1. Defers tool definitions
+2. Loads tools on-demand via search
+3. Reduces idle tool overhead by ~46.9%
+
+Configure threshold:
+
+```bash
+ENABLE_TOOL_SEARCH=auto:5 claude    # Trigger at 5%
+```
+
+### Extended Thinking Budget
+
+Default: 31,999 tokens (enabled by default)
+
+**Cost consideration:** Thinking tokens billed as output tokens.
+
+Options:
+
+- Disable in `/config` for simpler tasks
+- Reduce budget: `MAX_THINKING_TOKENS=8000`
+
+### CLAUDE.md Size Recommendations
+
+Keep CLAUDE.md under ~500 lines:
+
+| Include             | Exclude                   |
+| ------------------- | ------------------------- |
+| Essential commands  | Workflow-specific details |
+| Critical patterns   | PR review instructions    |
+| Project conventions | Database migration guides |
+
+Move specialized instructions to skills (load on-demand).
+
+### Code Intelligence Plugins
+
+Install for typed languages to reduce file reads:
+
+- Single "go to definition" replaces grep + reading candidates
+- Type errors reported automatically after edits
+- Catches mistakes without running compiler
+
+### Hooks for Preprocessing
+
+Preprocess data before Claude sees it:
+
+```bash
+#!/bin/bash
+# Filter test output to show only failures
+input=$(cat)
+cmd=$(echo "$input" | jq -r '.tool_input.command')
+
+if [[ "$cmd" =~ ^(npm test|pytest|go test) ]]; then
+  filtered_cmd="$cmd 2>&1 | grep -A 5 -E '(FAIL|ERROR|error:)' | head -100"
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{\"command\":\"$filtered_cmd\"}}}"
+else
+  echo "{}"
+fi
+```
+
+Reduces context from tens of thousands of tokens to hundreds.
+
+### Subagent Delegation
+
+Delegate verbose operations to subagents:
+
+- Running tests
+- Fetching documentation
+- Processing log files
+
+Verbose output stays in subagent context; only summary returns.
+
+### Writing Specific Prompts
+
+| Prompt Type                                         | Token Impact          |
+| --------------------------------------------------- | --------------------- |
+| "improve this codebase"                             | High (broad scanning) |
+| "add input validation to login function in auth.ts" | Low (targeted)        |
+
+### Work Efficiently on Complex Tasks
+
+1. **Use Plan Mode**: Press `Shift+Tab` before implementation
+2. **Course-correct early**: Press `Esc` to stop, `/rewind` to restore
+3. **Give verification targets**: Test cases, screenshots, expected output
+4. **Test incrementally**: Write one file, test, continue
+
+### Rate Limit Recommendations (Teams)
+
+| Team Size     | TPM per User | RPM per User |
+| ------------- | ------------ | ------------ |
+| 1-5 users     | 200k-300k    | 5-7          |
+| 5-20 users    | 100k-150k    | 2.5-3.5      |
+| 20-50 users   | 50k-75k      | 1.25-1.75    |
+| 50-100 users  | 25k-35k      | 0.62-0.87    |
+| 100-500 users | 15k-20k      | 0.37-0.47    |
+| 500+ users    | 10k-15k      | 0.25-0.35    |
+
+TPM per user decreases as team size grows due to lower concurrent usage.
+
+### Background Token Usage
+
+Small token consumption for background functionality:
+
+- Conversation summarization for `--resume`
+- Command processing (`/cost` status checks)
+
+Typically under $0.04 per session.
+
+### DSM-Specific Context Patterns
+
+#### FCP Debugging Context
+
+```markdown
+# Compact instructions
+
+When compacting, preserve:
+
+- FCP state and decision history
+- Cache hit/miss patterns
+- Source failover sequence
+- Symbol format conversions
+```
+
+#### Test Session Context
+
+```markdown
+# Compact instructions
+
+Focus on:
+
+- Test failures and error messages
+- DataFrame structure issues
+- Timestamp handling problems
+```
+
+#### Data Fetching Context
+
+```markdown
+# Compact instructions
+
+Preserve:
+
+- API rate limit status
+- Symbol mappings used
+- Source priority decisions
+```
+
+### Best Practices Summary
+
+1. **Track usage** with `/cost` or status line
+2. **Clear between tasks** to avoid stale context
+3. **Compact at breakpoints** not at limits
+4. **Use appropriate model** for task complexity
+5. **Prefer CLI over MCP** for context efficiency
+6. **Enable Tool Search** for many MCP tools
+7. **Keep CLAUDE.md lean** (~500 lines max)
+8. **Use skills** for specialized instructions
+9. **Write specific prompts** to avoid scanning
+10. **Use Plan Mode** before complex implementations
