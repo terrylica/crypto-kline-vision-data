@@ -9175,6 +9175,369 @@ When implementing features, follow these domain patterns strictly.
 </dsm_development_context>
 ```
 
+## Computer Use and Vision
+
+### Overview
+
+Computer use enables Claude to interact with desktop environments through screenshot capture, mouse control, keyboard input, and desktop automation. Vision capabilities allow Claude to process and understand images.
+
+### Computer Use Tool
+
+The computer use tool provides:
+
+- **Screenshot capture**: See what's on screen
+- **Mouse control**: Click, drag, move cursor
+- **Keyboard input**: Type text and shortcuts
+- **Desktop automation**: Interact with any application
+
+### Quick Start
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.beta.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=[
+        {
+          "type": "computer_20250124",
+          "name": "computer",
+          "display_width_px": 1024,
+          "display_height_px": 768,
+          "display_number": 1,
+        },
+        {
+          "type": "text_editor_20250728",
+          "name": "str_replace_based_edit_tool"
+        },
+        {
+          "type": "bash_20250124",
+          "name": "bash"
+        }
+    ],
+    messages=[{"role": "user", "content": "Save a picture of a cat to my desktop."}],
+    betas=["computer-use-2025-01-24"]
+)
+```
+
+### Available Actions
+
+**Basic actions:**
+
+- `screenshot`: Capture current display
+- `left_click`: Click at coordinates
+- `type`: Type text string
+- `key`: Press key combination
+- `mouse_move`: Move cursor
+
+**Enhanced actions (Claude 4+):**
+
+- `scroll`: Scroll with direction control
+- `left_click_drag`: Click and drag
+- `right_click`, `middle_click`: Additional buttons
+- `double_click`, `triple_click`: Multiple clicks
+- `hold_key`: Hold key for duration
+- `wait`: Pause between actions
+
+**Opus 4.5 additions:**
+
+- `zoom`: View screen region at full resolution
+
+### Action Examples
+
+```json
+// Take screenshot
+{"action": "screenshot"}
+
+// Click at position
+{"action": "left_click", "coordinate": [500, 300]}
+
+// Type text
+{"action": "type", "text": "Hello, world!"}
+
+// Scroll down
+{
+  "action": "scroll",
+  "coordinate": [500, 400],
+  "scroll_direction": "down",
+  "scroll_amount": 3
+}
+
+// Shift+click for selection
+{
+  "action": "left_click",
+  "coordinate": [500, 300],
+  "text": "shift"
+}
+```
+
+### Agent Loop
+
+```python
+async def computer_use_loop(client, prompt, max_iterations=10):
+    messages = [{"role": "user", "content": prompt}]
+    tools = [
+        {"type": "computer_20250124", "name": "computer",
+         "display_width_px": 1024, "display_height_px": 768}
+    ]
+
+    for _ in range(max_iterations):
+        response = client.beta.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=4096,
+            messages=messages,
+            tools=tools,
+            betas=["computer-use-2025-01-24"]
+        )
+
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                result = execute_computer_action(block.input)
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result
+                })
+
+        if not tool_results:
+            return messages
+
+        messages.append({"role": "user", "content": tool_results})
+
+    return messages
+```
+
+### Security Considerations
+
+1. **Use dedicated VM or container** with minimal privileges
+2. **Avoid sensitive data access** (credentials, personal info)
+3. **Limit internet access** to allowlist of domains
+4. **Require human confirmation** for consequential actions
+5. **Isolate from sensitive accounts** and data
+
+### Vision Capabilities
+
+Claude can process images for:
+
+- **OCR**: Extract text from screenshots
+- **Chart interpretation**: Understand data visualizations
+- **UI understanding**: Navigate interfaces
+- **Diagram analysis**: Process technical diagrams
+
+### Screenshot Automation (macOS)
+
+Using Hammerspoon for seamless workflow:
+
+```lua
+-- ~/.hammerspoon/init.lua
+hs.hotkey.bind({"cmd", "shift"}, "6", function()
+    local task = hs.task.new("/usr/sbin/screencapture", function(exitCode, stdOut, stdErr)
+        if exitCode == 0 then
+            local pasteboard = hs.pasteboard.setContents(stdOut)
+        end
+    end, {"-i", "-c"})
+    task:start()
+end)
+```
+
+Press Cmd+Shift+6 to capture region and paste directly into terminal.
+
+### Limitations
+
+1. **Latency**: Slower than human interaction
+2. **Vision accuracy**: May hallucinate coordinates
+3. **Tool selection**: May use wrong tools for tasks
+4. **Scrolling**: Better with explicit scroll actions
+5. **Multi-app interaction**: Lower reliability
+
+### Best Practices
+
+1. **Specify simple, well-defined tasks**
+2. **Request explicit verification**: "After each step, take a screenshot"
+3. **Use keyboard shortcuts** for tricky UI elements
+4. **Provide example screenshots** for repeatable tasks
+5. **Set appropriate display resolution** (1024x768 to 1280x800)
+
+### Coordinate Scaling
+
+Handle high resolutions by scaling:
+
+```python
+import math
+
+def get_scale_factor(width, height):
+    """Calculate scale for API constraints (1568px max, 1.15MP total)."""
+    long_edge = max(width, height)
+    total_pixels = width * height
+
+    long_edge_scale = 1568 / long_edge
+    total_pixels_scale = math.sqrt(1_150_000 / total_pixels)
+
+    return min(1.0, long_edge_scale, total_pixels_scale)
+
+# Scale coordinates back up when executing
+def execute_click(x, y, scale):
+    screen_x = x / scale
+    screen_y = y / scale
+    perform_click(screen_x, screen_y)
+```
+
+### DSM Vision Use Cases
+
+```python
+# Validate trading chart screenshots
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Analyze this BTCUSDT chart. What pattern do you see?"},
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": chart_base64}}
+        ]
+    }]
+)
+```
+
+## Enterprise Deployment
+
+### Overview
+
+Organizations can deploy Claude Code through Anthropic directly or cloud providers. Most organizations benefit from Claude for Teams or Enterprise.
+
+### Deployment Options
+
+| Feature    | Teams/Enterprise | Console     | Bedrock | Vertex | Foundry |
+| ---------- | ---------------- | ----------- | ------- | ------ | ------- |
+| Best for   | Most orgs        | Individuals | AWS     | GCP    | Azure   |
+| Billing    | Per-seat         | PAYG        | AWS     | GCP    | Azure   |
+| SSO        | Enterprise       | No          | IAM     | IAM    | RBAC    |
+| Web access | Yes              | No          | No      | No     | No      |
+
+### Claude for Teams
+
+Self-service with:
+
+- Collaboration features
+- Admin tools
+- Billing management
+- Usage dashboard
+
+### Claude for Enterprise
+
+Adds:
+
+- SSO and domain capture
+- Role-based permissions
+- Compliance API access
+- Managed policy settings
+
+### Cloud Provider Setup
+
+#### Amazon Bedrock
+
+```bash
+# Enable Bedrock
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION=us-east-1
+
+# Optional: Corporate proxy
+export HTTPS_PROXY='https://proxy.example.com:8080'
+
+# Optional: LLM Gateway
+export ANTHROPIC_BEDROCK_BASE_URL='https://gateway.example.com/bedrock'
+export CLAUDE_CODE_SKIP_BEDROCK_AUTH=1
+```
+
+#### Google Vertex AI
+
+```bash
+# Enable Vertex
+export CLAUDE_CODE_USE_VERTEX=1
+export CLOUD_ML_REGION=us-east5
+export ANTHROPIC_VERTEX_PROJECT_ID=your-project-id
+
+# Optional: Corporate proxy
+export HTTPS_PROXY='https://proxy.example.com:8080'
+
+# Optional: LLM Gateway
+export ANTHROPIC_VERTEX_BASE_URL='https://gateway.example.com/vertex'
+export CLAUDE_CODE_SKIP_VERTEX_AUTH=1
+```
+
+#### Microsoft Foundry
+
+```bash
+# Enable Foundry
+export CLAUDE_CODE_USE_FOUNDRY=1
+export ANTHROPIC_FOUNDRY_RESOURCE=your-resource
+export ANTHROPIC_FOUNDRY_API_KEY=your-api-key
+
+# Optional: Corporate proxy
+export HTTPS_PROXY='https://proxy.example.com:8080'
+```
+
+### Managed Permissions
+
+Security teams configure permissions that cannot be overwritten locally:
+
+```json
+{
+  "managed_permissions": {
+    "deny": ["Read(.env*)", "Read(~/.aws/**)", "Bash(git push --force *)"],
+    "allow": ["Bash(uv run *)", "Bash(npm *)"]
+  }
+}
+```
+
+### Organization Best Practices
+
+1. **Invest in documentation**: Deploy CLAUDE.md files at org and repo levels
+2. **Simplify deployment**: Create "one click" installation
+3. **Start with guided usage**: Begin with Q&A and small fixes
+4. **Configure security policies**: Managed permissions for sensitive actions
+5. **Leverage MCP**: Connect ticket systems, error logs via MCP servers
+
+### CLAUDE.md Deployment Levels
+
+| Level        | Location                                            | Purpose              |
+| ------------ | --------------------------------------------------- | -------------------- |
+| Organization | `/Library/Application Support/ClaudeCode/CLAUDE.md` | Company standards    |
+| Repository   | `CLAUDE.md` in repo root                            | Project architecture |
+| Directory    | `src/CLAUDE.md`, `tests/CLAUDE.md`                  | Context-specific     |
+
+### Admin Controls
+
+- **Seat management**: Purchase and allocate seats
+- **Spend controls**: Org and user-level limits
+- **Usage analytics**: Lines accepted, suggestion rate
+- **Policy settings**: Tool permissions, file access
+
+### Security Features
+
+- **SSO**: SAML/OIDC integration
+- **Role-based access**: Admin/Member roles
+- **Audit logs**: Activity tracking
+- **Data retention**: Custom controls
+- **Compliance API**: Programmatic usage access
+
+### DSM Enterprise Configuration
+
+```bash
+# .envrc or team configuration
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION=us-west-2
+export ANTHROPIC_BEDROCK_BASE_URL='https://internal-gateway.company.com/bedrock'
+
+# Managed settings deployed via MDM
+# /Library/Application Support/ClaudeCode/managed-settings.json
+```
+
 ## Verification Checklist
 
 ### Infrastructure
