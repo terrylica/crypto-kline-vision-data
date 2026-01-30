@@ -33950,3 +33950,291 @@ Match existing test conventions before creating new patterns.
 | Format control        | Specific output requirements |
 | Investigation prompts | Code-related questions       |
 | Thinking guidance     | Complex multi-step reasoning |
+## Memory Management Reference
+
+### Overview
+
+Claude Code stores persistent context in CLAUDE.md files organized in a hierarchical structure. Memory persists across sessions and can be shared with teams or kept private.
+
+### Memory Hierarchy
+
+| Memory Type    | Location                                                    | Purpose                               | Shared With                |
+| -------------- | ----------------------------------------------------------- | ------------------------------------- | -------------------------- |
+| Managed policy | `/Library/Application Support/ClaudeCode/CLAUDE.md` (macOS) | Organization-wide instructions        | All users in org           |
+| Project memory | `./CLAUDE.md` or `./.claude/CLAUDE.md`                      | Team-shared project instructions      | Team via source control    |
+| Project rules  | `./.claude/rules/*.md`                                      | Modular, topic-specific instructions  | Team via source control    |
+| User memory    | `~/.claude/CLAUDE.md`                                       | Personal preferences for all projects | Just you (all projects)    |
+| Project local  | `./CLAUDE.local.md`                                         | Personal project-specific preferences | Just you (current project) |
+
+**Precedence:** Files higher in hierarchy are loaded first and take precedence.
+
+### Memory Lookup Behavior
+
+Claude Code reads memories recursively:
+
+1. Starts in current working directory
+2. Recurses up to (but not including) root `/`
+3. Reads CLAUDE.md and CLAUDE.local.md at each level
+
+**Nested memories:** CLAUDE.md files in subdirectories are discovered but only loaded when Claude reads files in those subtrees.
+
+### CLAUDE.md Imports
+
+Import additional files using `@path/to/import` syntax:
+
+```markdown
+See @README for project overview and @package.json for npm commands.
+
+# Additional Instructions
+
+- git workflow @docs/git-instructions.md
+```
+
+**Import features:**
+
+- Relative and absolute paths supported
+- Import from home dir: `@~/.claude/my-project-instructions.md`
+- Recursive imports (max depth: 5 hops)
+- Not evaluated inside code spans or code blocks
+
+**View loaded files:**
+
+```
+/memory
+```
+
+### Modular Rules with .claude/rules/
+
+Organize instructions into multiple files:
+
+```
+your-project/
+├── .claude/
+│   ├── CLAUDE.md           # Main project instructions
+│   └── rules/
+│       ├── code-style.md   # Code style guidelines
+│       ├── testing.md      # Testing conventions
+│       └── security.md     # Security requirements
+```
+
+All `.md` files in `.claude/rules/` are automatically loaded as project memory.
+
+### Path-Specific Rules
+
+Scope rules to specific files using YAML frontmatter:
+
+```markdown
+---
+paths:
+  - "src/api/**/*.ts"
+---
+
+# API Development Rules
+
+- All API endpoints must include input validation
+- Use the standard error response format
+- Include OpenAPI documentation comments
+```
+
+Rules without `paths` field apply to all files.
+
+### Glob Patterns
+
+| Pattern                | Matches                          |
+| ---------------------- | -------------------------------- |
+| `**/*.ts`              | All TypeScript files             |
+| `src/**/*`             | All files under src/             |
+| `*.md`                 | Markdown files in project root   |
+| `src/components/*.tsx` | React components in specific dir |
+
+**Multiple patterns:**
+
+```yaml
+---
+paths:
+  - "src/**/*.ts"
+  - "lib/**/*.ts"
+  - "tests/**/*.test.ts"
+---
+```
+
+**Brace expansion:**
+
+```yaml
+---
+paths:
+  - "src/**/*.{ts,tsx}"
+  - "{src,lib}/**/*.ts"
+---
+```
+
+### Rules Organization
+
+**Subdirectories:**
+
+```
+.claude/rules/
+├── frontend/
+│   ├── react.md
+│   └── styles.md
+├── backend/
+│   ├── api.md
+│   └── database.md
+└── general.md
+```
+
+**Symlinks:** Supported for sharing rules across projects:
+
+```bash
+# Symlink shared rules directory
+ln -s ~/shared-claude-rules .claude/rules/shared
+
+# Symlink individual file
+ln -s ~/company-standards/security.md .claude/rules/security.md
+```
+
+### User-Level Rules
+
+Personal rules for all projects in `~/.claude/rules/`:
+
+```
+~/.claude/rules/
+├── preferences.md    # Personal coding preferences
+└── workflows.md      # Preferred workflows
+```
+
+User-level rules are loaded before project rules (lower priority).
+
+### Additional Directories
+
+Load memory from additional directories:
+
+```bash
+CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 claude --add-dir ../shared-config
+```
+
+### Bootstrap Project Memory
+
+```
+/init
+```
+
+Generates initial CLAUDE.md for your codebase.
+
+### Edit Memories
+
+```
+/memory
+```
+
+Opens memory file in system editor.
+
+### Best Practices
+
+1. **Be specific** - "Use 2-space indentation" beats "Format code properly"
+
+2. **Use structure** - Format as bullet points, group under markdown headings
+
+3. **Review periodically** - Update as project evolves
+
+4. **Keep focused** - Each rules file should cover one topic
+
+5. **Use descriptive filenames** - Filename indicates content
+
+6. **Use conditional rules sparingly** - Only when rules truly apply to specific files
+
+7. **Keep size manageable** - Under 500 lines per file to avoid "fading memory"
+
+8. **Organize with subdirectories** - Group related rules (frontend/, backend/)
+
+### DSM Memory Structure
+
+```
+data-source-manager/
+├── CLAUDE.md                 # Main project instructions
+├── .claude/
+│   ├── CLAUDE.md             # Alternative location
+│   └── rules/
+│       ├── binance-api.md    # Binance-specific patterns
+│       ├── caching-patterns.md
+│       ├── dataframe-operations.md
+│       ├── error-handling.md
+│       ├── fcp-protocol.md   # Failover Control Protocol
+│       ├── symbol-formats.md
+│       └── timestamp-handling.md
+├── src/
+│   └── CLAUDE.md             # Source-specific instructions
+├── tests/
+│   └── CLAUDE.md             # Test-specific instructions
+└── docs/
+    └── CLAUDE.md             # Documentation guidance
+```
+
+**Path-specific rules example:**
+
+```markdown
+---
+paths:
+  - "src/data_sources/**/*.py"
+---
+
+# Data Source Implementation Rules
+
+- All data sources must implement BaseDataSource interface
+- Symbol formats must follow exchange-specific patterns
+- Timestamps must be UTC datetime objects
+- Error handling follows DSM exception hierarchy
+```
+
+### Session Persistence Patterns
+
+Since Claude Code starts each session with zero context:
+
+1. **Use structured state files:**
+
+   ```json
+   // progress.json
+   {
+     "current_task": "FCP refactor",
+     "completed": ["cache module", "timeout handling"],
+     "next": ["error recovery", "tests"]
+   }
+   ```
+
+2. **Git for state tracking:**
+   - Commit progress incrementally
+   - Use descriptive commit messages
+   - Claude can review git log for context
+
+3. **Progress notes:**
+
+   ```
+   # Session Notes (progress.txt)
+   - Completed FCP cache invalidation
+   - Next: Add retry logic for timeouts
+   - Note: Don't change cache key format
+   ```
+
+4. **Worktrees for parallel work:**
+
+   ```bash
+   git worktree add ../dsm-feature feature-branch
+   cd ../dsm-feature
+   claude  # Fresh context, isolated work
+   ```
+
+### Context Compaction
+
+Claude Code automatically compacts context as it approaches limits:
+
+- Previous conversation summarized
+- Key information preserved
+- Work continues from where left off
+
+**Prompt for context management:**
+
+```
+Your context window will be automatically compacted. Do not stop tasks
+early due to token budget concerns. Save progress before context refresh.
+Be persistent and complete tasks fully.
+```
