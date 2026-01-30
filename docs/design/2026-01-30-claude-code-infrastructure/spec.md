@@ -29445,3 +29445,314 @@ Settings can trigger hooks:
   }
 }
 ```
+## Agentic Coding Best Practices Reference
+
+### Overview
+
+Claude Code is an agentic coding environment. Unlike a chatbot that answers questions and waits, Claude Code can read files, run commands, make changes, and autonomously work through problems. This changes how you work: instead of writing code yourself and asking Claude to review it, you describe what you want and Claude figures out how to build it.
+
+### The Core Constraint
+
+Most best practices stem from one constraint: **Claude's context window fills up fast, and performance degrades as it fills**.
+
+Claude's context window holds your entire conversation, including every message, every file Claude reads, and every command output. A single debugging session or codebase exploration might generate tens of thousands of tokens.
+
+When context fills:
+
+- Claude may "forget" earlier instructions
+- Error rates increase
+- Performance degrades
+
+**Context is the most important resource to manage**.
+
+### The Explore-Plan-Code-Commit Workflow
+
+Letting Claude jump straight to coding can produce code that solves the wrong problem. Use Plan Mode to separate exploration from execution.
+
+#### Phase 1: Explore (Plan Mode)
+
+```
+# Enter Plan Mode - Claude reads files without making changes
+read /src/auth and understand how we handle sessions and login.
+also look at how we manage environment variables for secrets.
+```
+
+#### Phase 2: Plan (Plan Mode)
+
+```
+# Create a detailed implementation plan
+I want to add Google OAuth. What files need to change?
+What's the session flow? Create a plan.
+```
+
+Press `Ctrl+G` to open the plan in your editor for direct editing.
+
+#### Phase 3: Implement (Normal Mode)
+
+```
+# Switch to Normal Mode and execute the plan
+implement the OAuth flow from your plan. write tests for the
+callback handler, run the test suite and fix any failures.
+```
+
+#### Phase 4: Commit (Normal Mode)
+
+```
+# Commit with descriptive message and create PR
+commit with a descriptive message and open a PR
+```
+
+**When to skip planning**: For small, clear tasks (typos, log lines, renames), ask Claude to do it directly. Planning is most useful when uncertain about approach, modifying multiple files, or unfamiliar with the code.
+
+### Give Claude Verification Criteria
+
+This is the **single highest-leverage thing you can do**. Claude performs dramatically better when it can verify its own work.
+
+| Strategy             | Before                                                | After                                                                                                                                              |
+| -------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provide verification | "implement a function that validates email addresses" | "write a validateEmail function. test cases: <user@example.com> is true, invalid is false, <user@.com> is false. run the tests after implementing" |
+| Verify UI visually   | "make the dashboard look better"                      | "[paste screenshot] implement this design. take a screenshot and compare to original. list differences and fix them"                               |
+| Address root causes  | "the build is failing"                                | "the build fails with this error: [paste error]. fix it and verify the build succeeds. address the root cause, don't suppress the error"           |
+
+### Provide Specific Context
+
+The more precise your instructions, the fewer corrections you'll need.
+
+| Strategy           | Before                                             | After                                                                                                                                            |
+| ------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scope the task     | "add tests for foo.py"                             | "write a test for foo.py covering the edge case where the user is logged out. avoid mocks."                                                      |
+| Point to sources   | "why does ExecutionFactory have such a weird api?" | "look through ExecutionFactory's git history and summarize how its api came to be"                                                               |
+| Reference patterns | "add a calendar widget"                            | "look at how existing widgets are implemented. HotDogWidget.php is a good example. follow the pattern to implement a new calendar widget."       |
+| Describe symptoms  | "fix the login bug"                                | "users report that login fails after session timeout. check auth flow in src/auth/. write a failing test that reproduces the issue, then fix it" |
+
+### Rich Content Input
+
+- **Reference files with `@`** instead of describing locations
+- **Paste images directly** via copy/paste or drag and drop
+- **Give URLs** for documentation and API references
+- **Pipe in data** with `cat error.log | claude`
+- **Let Claude fetch** context using Bash, MCP tools, or file reads
+
+### CLAUDE.md Best Practices
+
+CLAUDE.md is read at the start of every conversation. Include only information Claude can't infer from code alone.
+
+**Include:**
+
+- Bash commands Claude can't guess
+- Code style rules that differ from defaults
+- Testing instructions and preferred runners
+- Repository etiquette (branch naming, PR conventions)
+- Architectural decisions specific to your project
+- Developer environment quirks
+
+**Exclude:**
+
+- Anything Claude can figure out by reading code
+- Standard language conventions
+- Detailed API documentation (link instead)
+- Information that changes frequently
+- File-by-file codebase descriptions
+- Self-evident practices like "write clean code"
+
+Keep CLAUDE.md concise. For each line ask: "Would removing this cause Claude to make mistakes?" If not, cut it.
+
+### Extended Thinking Triggers
+
+Use specific words to allocate thinking budget:
+
+| Trigger        | Budget Level |
+| -------------- | ------------ |
+| "think"        | Low          |
+| "think hard"   | Medium       |
+| "think harder" | High         |
+| "ultrathink"   | Maximum      |
+
+Higher levels get more compute time for comprehensive solution evaluation.
+
+### Managing Context Effectively
+
+#### Course-Correct Early
+
+- **`Esc`**: Stop Claude mid-action, context preserved
+- **`Esc + Esc` or `/rewind`**: Open rewind menu to restore state
+- **`"Undo that"`**: Have Claude revert changes
+- **`/clear`**: Reset context between unrelated tasks
+
+If you've corrected Claude more than twice on the same issue, context is cluttered. Run `/clear` and start fresh with a better prompt.
+
+#### Aggressive Context Management
+
+- Use `/clear` frequently between tasks
+- When auto-compaction triggers, Claude summarizes key decisions
+- Run `/compact <instructions>` for control: `/compact Focus on the API changes`
+- Add compaction instructions to CLAUDE.md: "When compacting, always preserve the full list of modified files"
+
+### Use Subagents for Investigation
+
+Since context is the fundamental constraint, subagents are powerful tools:
+
+```
+Use subagents to investigate how our authentication system handles token
+refresh, and whether we have any existing OAuth utilities I should reuse.
+```
+
+Subagents:
+
+- Run in separate context windows
+- Report back summaries
+- Keep your main conversation clean
+- Don't clutter your context with exploration
+
+Use subagents for verification too:
+
+```
+use a subagent to review this code for edge cases
+```
+
+### Let Claude Interview You
+
+For larger features, have Claude interview you first:
+
+```
+I want to build [brief description]. Interview me in detail using the AskUserQuestion tool.
+
+Ask about technical implementation, UI/UX, edge cases, concerns, and tradeoffs. Don't ask obvious questions, dig into the hard parts I might not have considered.
+
+Keep interviewing until we've covered everything, then write a complete spec to SPEC.md.
+```
+
+Then start a fresh session to execute the spec with clean context.
+
+### Session Management
+
+#### Checkpoints and Rewind
+
+Every action creates a checkpoint. Double-tap `Escape` or run `/rewind` to:
+
+- Restore conversation only (keep code)
+- Restore code only (keep conversation)
+- Restore both
+
+Checkpoints persist across sessions.
+
+#### Resume Conversations
+
+```bash
+claude --continue    # Resume most recent conversation
+claude --resume      # Select from recent conversations
+```
+
+Use `/rename` to give sessions descriptive names for later finding.
+
+### Parallel Sessions
+
+Run multiple Claude sessions in parallel:
+
+- **Claude Desktop**: Manage multiple local sessions visually
+- **Claude Code on web**: Run on cloud infrastructure in isolated VMs
+
+**Writer/Reviewer Pattern:**
+
+| Session A (Writer)                                                      | Session B (Reviewer)                                                                                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| "Implement a rate limiter for our API endpoints"                        |                                                                                                                     |
+|                                                                         | "Review the rate limiter in @src/middleware/rateLimiter.ts. Look for edge cases, race conditions, and consistency." |
+| "Here's the review feedback: [Session B output]. Address these issues." |                                                                                                                     |
+
+### Headless Mode for Automation
+
+```bash
+# One-off queries
+claude -p "Explain what this project does"
+
+# Structured output for scripts
+claude -p "List all API endpoints" --output-format json
+
+# Streaming for real-time processing
+claude -p "Analyze this log file" --output-format stream-json
+```
+
+### Fan-Out Pattern for Large Migrations
+
+1. **Generate task list**: Have Claude list all files needing migration
+2. **Loop through with script**:
+
+   ```bash
+   for file in $(cat files.txt); do
+     claude -p "Migrate $file from React to Vue. Return OK or FAIL." \
+       --allowedTools "Edit,Bash(git commit *)"
+   done
+   ```
+
+3. **Test on few files, then run at scale**
+
+### Common Failure Patterns
+
+| Pattern                  | Problem                                            | Fix                                                       |
+| ------------------------ | -------------------------------------------------- | --------------------------------------------------------- |
+| Kitchen sink session     | Unrelated tasks pollute context                    | `/clear` between unrelated tasks                          |
+| Correcting over and over | Failed approaches pollute context                  | After 2 failures, `/clear` and write better prompt        |
+| Over-specified CLAUDE.md | Important rules get lost                           | Ruthlessly prune, use hooks for critical rules            |
+| Trust-then-verify gap    | Plausible implementation doesn't handle edge cases | Always provide verification (tests, scripts, screenshots) |
+| Infinite exploration     | Claude reads hundreds of files                     | Scope investigations narrowly or use subagents            |
+
+### DSM-Specific Agentic Patterns
+
+#### FCP Debugging Workflow
+
+```
+1. Enter Plan Mode
+2. Read src/data_source_manager/fcp/ to understand FCP architecture
+3. Look at fcp-protocol.md rule for decision logic
+4. Exit Plan Mode
+5. Write failing test reproducing the FCP issue
+6. Fix the underlying source logic
+7. Verify test passes and cache behavior is correct
+```
+
+#### Data Fetching Verification
+
+```
+Use the data-fetcher agent to:
+1. Fetch BTC/USDT:perp OHLCV data from okx
+2. Validate DataFrame structure (open_time, open, high, low, close, volume)
+3. Check timestamp handling (UTC, milliseconds)
+4. Verify FCP behavior with cache hit/miss scenarios
+```
+
+#### Test-Driven Development with DSM
+
+```
+1. Write test for expected DataFrame structure
+2. Write test for FCP cache hit behavior
+3. Write test for source failover logic
+4. Run tests - confirm they fail
+5. Implement the feature
+6. Run tests - confirm they pass
+7. Use silent-failure-hunter agent to review
+```
+
+### Best Practices Summary
+
+1. **Verify everything** - Tests, screenshots, expected outputs
+2. **Explore before coding** - Use Plan Mode for complex tasks
+3. **Be specific** - Reference files, mention constraints, show patterns
+4. **Manage context** - Clear often, use subagents for research
+5. **Course-correct early** - Stop and redirect immediately when off track
+6. **Use checkpoints** - Rewind when approaches fail
+7. **Parallelize work** - Multiple sessions for complex projects
+8. **Automate repetitive tasks** - Headless mode, fan-out pattern
+
+### Developing Intuition
+
+Pay attention to what works:
+
+- When Claude produces great output, notice what you did
+- When Claude struggles, ask why: noisy context? vague prompt? task too big?
+
+Over time you'll know:
+
+- When to be specific vs open-ended
+- When to plan vs explore
+- When to clear context vs let it accumulate
