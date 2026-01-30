@@ -41704,3 +41704,561 @@ Set workspace-specific limits to prevent overuse:
 | Model selection        | Variable  | Task-appropriate intelligence |
 | Combined (batch+cache) | Up to 95% | Bulk historical analysis      |
 | Token reduction        | Variable  | All operations                |
+## MCP Server Development and Configuration
+
+### Overview
+
+Model Context Protocol (MCP) extends Claude Code with custom tools, resources, and prompts. This section covers transport methods, configuration patterns, authentication, tool search optimization, and DSM-specific server development.
+
+### Transport Methods
+
+| Transport | Use Case                  | Recommendation               |
+| --------- | ------------------------- | ---------------------------- |
+| HTTP      | Remote cloud services     | Recommended for production   |
+| STDIO     | Local processes, scripts  | Best for development         |
+| SSE       | Legacy server-sent events | Deprecated, use HTTP instead |
+
+### Adding MCP Servers
+
+#### HTTP Transport (Remote)
+
+```bash
+# Basic HTTP server
+claude mcp add --transport http <name> <url>
+
+# With authentication header
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer your-token"
+
+# Example: Connect to Notion
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+```
+
+#### STDIO Transport (Local)
+
+```bash
+# Basic STDIO server
+claude mcp add --transport stdio <name> -- <command> [args...]
+
+# With environment variables
+claude mcp add --transport stdio --env API_KEY=YOUR_KEY airtable \
+  -- npx -y airtable-mcp-server
+
+# FastMCP Python server
+claude mcp add --transport stdio db-tools \
+  -- uv run --with fastmcp fastmcp run server.py
+```
+
+**Option ordering is critical**:
+
+- All options (`--transport`, `--env`, `--scope`) before server name
+- `--` separates server name from command
+- Example: `claude mcp add --transport stdio --env KEY=val myserver -- python server.py --port 8080`
+
+### Configuration Scopes
+
+| Scope   | Storage Location          | Visibility                      |
+| ------- | ------------------------- | ------------------------------- |
+| local   | `~/.claude.json`          | Current project only (default)  |
+| project | `.mcp.json` (git-tracked) | Team-shared via version control |
+| user    | `~/.claude.json`          | All projects for current user   |
+
+```bash
+# Add project-scoped server (team-shared)
+claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+
+# Add user-scoped server (personal, all projects)
+claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/anthropic
+```
+
+### Project Configuration (.mcp.json)
+
+Create `.mcp.json` at project root for team-shared servers:
+
+```json
+{
+  "mcpServers": {
+    "company-api": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.company.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    },
+    "local-db": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub", "--dsn", "${DATABASE_URL}"],
+      "env": {
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+**Environment variable expansion**:
+
+- `${VAR}` - Required variable
+- `${VAR:-default}` - Variable with default value
+- Supported in: `command`, `args`, `env`, `url`, `headers`
+
+### Authentication
+
+#### OAuth 2.0 (Recommended for Remote)
+
+```bash
+# Add server that requires OAuth
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# In Claude Code, authenticate
+> /mcp
+# Select "Authenticate" for the server
+```
+
+OAuth tokens are stored securely and refreshed automatically.
+
+#### Environment-Based (Local Servers)
+
+```bash
+# Pass credentials via environment
+claude mcp add --transport stdio github-api \
+  --env GITHUB_TOKEN=${GITHUB_TOKEN} \
+  -- python github_server.py
+```
+
+### Tool Search Optimization
+
+When many MCP tools are configured, tool definitions consume context window. Tool Search dynamically loads tools on-demand.
+
+#### Automatic Activation
+
+Tool Search activates when MCP tools exceed 10% of context window:
+
+```bash
+# Default: auto mode (activates at 10% threshold)
+claude
+
+# Custom threshold (5%)
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Always enabled
+ENABLE_TOOL_SEARCH=true claude
+
+# Disabled (all tools preloaded)
+ENABLE_TOOL_SEARCH=false claude
+```
+
+#### Token Savings
+
+| Configuration   | Before Tool Search | With Tool Search | Reduction |
+| --------------- | ------------------ | ---------------- | --------- |
+| 10+ MCP servers | ~51K tokens        | ~8.5K tokens     | 83%       |
+| 5 MCP servers   | ~25K tokens        | ~5K tokens       | 80%       |
+
+#### Server Instructions for Discovery
+
+MCP servers should include clear instructions for tool search:
+
+```python
+from fastmcp import FastMCP
+
+mcp = FastMCP(
+    "dsm-tools",
+    instructions="""
+    DSM data fetching and FCP management tools.
+    Search for these tools when:
+    - Fetching market data (OHLCV, trades)
+    - Debugging FCP cache behavior
+    - Validating DataFrame structures
+    Key capabilities: fetch_ohlcv, validate_data, debug_fcp
+    """
+)
+```
+
+### FastMCP Development
+
+#### Installation Methods
+
+```bash
+# Automated installation
+fastmcp install claude-code server.py
+
+# Manual with uv
+claude mcp add --transport stdio dsm-tools \
+  -- uv run --with fastmcp fastmcp run server.py
+
+# With additional dependencies
+claude mcp add --transport stdio dsm-tools \
+  -- uv run --with fastmcp --with polars --with httpx \
+  fastmcp run server.py
+
+# From requirements file
+claude mcp add --transport stdio dsm-tools \
+  -- uv run --with-requirements requirements.txt \
+  fastmcp run server.py
+```
+
+#### Basic Server Structure
+
+```python
+from fastmcp import FastMCP
+
+mcp = FastMCP("dsm-tools", instructions="DSM data tools")
+
+@mcp.tool()
+def fetch_ohlcv(
+    symbol: str,
+    timeframe: str = "1h",
+    limit: int = 100
+) -> dict:
+    """Fetch OHLCV data for a symbol.
+
+    Args:
+        symbol: Trading pair (e.g., BTCUSDT)
+        timeframe: Candle interval (1m, 5m, 1h, 1d)
+        limit: Number of candles to fetch
+
+    Returns:
+        DataFrame info and data quality metrics
+    """
+    # Implementation
+    pass
+
+@mcp.resource("fcp://status/{symbol}")
+def fcp_status(symbol: str) -> str:
+    """Get FCP status for a symbol."""
+    pass
+
+@mcp.prompt("debug-fcp")
+def debug_fcp_prompt(symbol: str) -> str:
+    """Generate FCP debugging prompt."""
+    return f"Debug FCP behavior for {symbol}..."
+```
+
+### MCP Resources
+
+Reference resources using @ mentions:
+
+```
+# Reference MCP resource
+> Can you analyze @github:issue://123?
+
+# Multiple resources
+> Compare @postgres:schema://users with @docs:file://database/user-model
+
+# DSM-specific resources
+> Check @dsm:fcp://BTCUSDT/status
+```
+
+### MCP Prompts as Commands
+
+MCP prompts become slash commands:
+
+```
+# Execute MCP prompt
+> /mcp__github__list_prs
+
+# With arguments
+> /mcp__github__pr_review 456
+
+# DSM prompts
+> /mcp__dsm__debug_fcp BTCUSDT
+```
+
+### Output Limits
+
+| Setting                 | Default      | Purpose              |
+| ----------------------- | ------------ | -------------------- |
+| Warning threshold       | 10K tokens   | Display warning      |
+| Maximum output          | 25K tokens   | Hard limit           |
+| `MAX_MCP_OUTPUT_TOKENS` | Configurable | Environment override |
+
+```bash
+# Increase limit for large outputs
+MAX_MCP_OUTPUT_TOKENS=50000 claude
+```
+
+### Plugin-Provided MCP Servers
+
+Plugins can bundle MCP servers in `.mcp.json`:
+
+```json
+{
+  "dsm-analysis": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/servers/analysis-server",
+    "args": ["--config", "${CLAUDE_PLUGIN_ROOT}/config.json"],
+    "env": {
+      "CACHE_DIR": "${HOME}/.cache/dsm"
+    }
+  }
+}
+```
+
+Or inline in `plugin.json`:
+
+```json
+{
+  "name": "dsm-plugin",
+  "mcpServers": {
+    "dsm-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"]
+    }
+  }
+}
+```
+
+### Security Best Practices
+
+#### Authentication Requirements
+
+| Transport | Recommended Auth         |
+| --------- | ------------------------ |
+| HTTP      | OAuth 2.1, Bearer tokens |
+| STDIO     | Environment credentials  |
+
+#### OAuth 2.1 Standards
+
+```
+- Use short-lived access tokens
+- Implement Resource Indicators (RFC 8707)
+- Apply least-privilege scopes per tool
+- Rotate keys regularly
+- Use mutual TLS for sensitive endpoints
+```
+
+#### Access Control
+
+```json
+{
+  "permissions": {
+    "tools": {
+      "fetch_ohlcv": ["read"],
+      "clear_cache": ["admin"]
+    }
+  }
+}
+```
+
+### Managed MCP Configuration
+
+For enterprise deployments, use managed configuration:
+
+**Location** (system-wide):
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-mcp.json`
+- Linux: `/etc/claude-code/managed-mcp.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "company-internal": {
+      "type": "stdio",
+      "command": "/usr/local/bin/company-mcp-server",
+      "args": ["--config", "/etc/company/mcp-config.json"]
+    }
+  }
+}
+```
+
+### Allowlist/Denylist Configuration
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    { "serverCommand": ["npx", "-y", "approved-package"] },
+    { "serverUrl": "https://mcp.company.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverName": "dangerous-server" },
+    { "serverUrl": "https://*.untrusted.com/*" }
+  ]
+}
+```
+
+### Server Management Commands
+
+```bash
+# List all configured servers
+claude mcp list
+
+# Get server details
+claude mcp get github
+
+# Remove a server
+claude mcp remove github
+
+# Add from JSON configuration
+claude mcp add-json weather '{"type":"http","url":"https://api.weather.com/mcp"}'
+
+# Import from Claude Desktop
+claude mcp add-from-claude-desktop
+
+# Check status (in Claude Code)
+> /mcp
+```
+
+### DSM-Specific MCP Patterns
+
+#### DSM Data Tools Server
+
+```python
+from fastmcp import FastMCP
+from datetime import datetime, timezone
+
+mcp = FastMCP(
+    "dsm-data-tools",
+    instructions="""
+    Data Source Manager tools for market data operations.
+    Use when: fetching OHLCV, validating DataFrames, checking FCP status.
+    """
+)
+
+@mcp.tool()
+def fetch_ohlcv(
+    symbol: str,
+    exchange: str = "binance",
+    timeframe: str = "1h",
+    start_time: str = None,
+    end_time: str = None
+) -> dict:
+    """Fetch OHLCV data with FCP-aware caching.
+
+    Returns DataFrame info and FCP status.
+    """
+    # Implementation using DSM
+    pass
+
+@mcp.tool()
+def validate_dataframe(
+    symbol: str,
+    check_gaps: bool = True,
+    check_timestamps: bool = True
+) -> dict:
+    """Validate cached DataFrame structure and quality.
+
+    Checks:
+    - Column schema (open_time, OHLCV)
+    - Timestamp continuity
+    - UTC timezone awareness
+    - Numeric ranges
+    """
+    pass
+
+@mcp.tool()
+def debug_fcp(symbol: str, timeframe: str = "1h") -> dict:
+    """Debug FCP status for a symbol.
+
+    Returns:
+    - Cache hit/miss status
+    - Data freshness
+    - Control status reason
+    """
+    pass
+
+@mcp.resource("fcp://{symbol}/status")
+def fcp_resource(symbol: str) -> str:
+    """Get formatted FCP status as resource."""
+    pass
+```
+
+#### DSM FCP Monitor Server
+
+```python
+from fastmcp import FastMCP
+from typing import List
+
+mcp = FastMCP(
+    "dsm-fcp-monitor",
+    instructions="""
+    FCP monitoring and debugging tools.
+    Use for: cache analysis, fallback tracing, performance debugging.
+    """
+)
+
+@mcp.tool()
+def get_fcp_summary(symbols: List[str] = None) -> dict:
+    """Get FCP summary across all or specified symbols."""
+    pass
+
+@mcp.tool()
+def trace_fcp_decision(
+    symbol: str,
+    timeframe: str,
+    target_time: str
+) -> dict:
+    """Trace FCP decision logic for specific data request."""
+    pass
+
+@mcp.prompt("fcp-debug-guide")
+def fcp_debug_prompt(symbol: str) -> str:
+    """Generate comprehensive FCP debugging guide."""
+    return f"""
+    Debug FCP for {symbol}:
+    1. Check fcp_control_status() return value
+    2. Verify timestamp comparisons use UTC
+    3. Confirm symbol format matches exchange
+    4. Review cache file timestamps
+    5. Check FcpDataFrame.is_complete() logic
+    """
+```
+
+### Claude Code as MCP Server
+
+Use Claude Code itself as an MCP server:
+
+```bash
+# Start Claude as MCP server
+claude mcp serve
+```
+
+Configure in Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "type": "stdio",
+      "command": "claude",
+      "args": ["mcp", "serve"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Dynamic Tool Updates
+
+MCP servers can notify about tool changes:
+
+```python
+# Server sends list_changed notification
+await mcp.notify_list_changed()
+```
+
+Claude Code automatically refreshes available tools without reconnection.
+
+### Troubleshooting
+
+| Issue               | Solution                           |
+| ------------------- | ---------------------------------- |
+| Connection closed   | Windows: wrap with `cmd /c npx...` |
+| Server not starting | Check `MCP_TIMEOUT` (default 5s)   |
+| Output too large    | Increase `MAX_MCP_OUTPUT_TOKENS`   |
+| Auth token expired  | Use `/mcp` to re-authenticate      |
+| Tool not found      | Check tool search threshold        |
+
+### Summary
+
+| Component   | Pattern                                |
+| ----------- | -------------------------------------- |
+| Transport   | HTTP for remote, STDIO for local       |
+| Scope       | project for team, user for personal    |
+| Auth        | OAuth 2.1 for HTTP, env vars for local |
+| Tool Search | Auto at 10% context threshold          |
+| FastMCP     | Python MCP server framework            |
+| Security    | Least privilege, short-lived tokens    |
+| DSM servers | Data tools, FCP monitor patterns       |
