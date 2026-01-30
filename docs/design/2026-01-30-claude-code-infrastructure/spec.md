@@ -28973,3 +28973,475 @@ skills:
   - dsm-usage
 ---
 ```
+## Settings and Permissions Reference
+
+### Overview
+
+Claude Code uses a hierarchical settings system that enables organizations, teams, and individuals to configure permissions, MCP servers, and behavior. Understanding this hierarchy is essential for security and collaboration.
+
+### Settings File Hierarchy
+
+Four-tier scope system with precedence (highest to lowest):
+
+| Scope   | Location                             | Who it affects       | Shared?   |
+| ------- | ------------------------------------ | -------------------- | --------- |
+| Managed | System-level `managed-settings.json` | All users on machine | Yes (IT)  |
+| Project | `.claude/settings.json`              | All collaborators    | Yes (git) |
+| Local   | `.claude/settings.local.json`        | You, in repo only    | No        |
+| User    | `~/.claude/settings.json`            | You, all projects    | No        |
+
+### Enterprise Managed Settings Locations
+
+| Platform  | Path                                                            |
+| --------- | --------------------------------------------------------------- |
+| macOS     | `/Library/Application Support/ClaudeCode/managed-settings.json` |
+| Linux/WSL | `/etc/claude-code/managed-settings.json`                        |
+| Windows   | `C:\Program Files\ClaudeCode\managed-settings.json`             |
+
+Managed settings **cannot be overridden** and require administrator privileges.
+
+### Permission Rules Structure
+
+```json
+{
+  "permissions": {
+    "allow": ["Rule1", "Rule2"],
+    "ask": ["Rule3"],
+    "deny": ["Rule4", "Rule5"]
+  }
+}
+```
+
+### Rule Evaluation Order
+
+First match wins, in this order:
+
+1. **Deny** rules (highest priority - always blocks)
+2. **Ask** rules (requires user confirmation)
+3. **Allow** rules (lowest priority - permits silently)
+
+Deny rules always take precedence, even if allow rules match the same command.
+
+### Pattern Syntax by Tool
+
+#### Bash Rules
+
+**Match all uses:**
+
+```json
+"Bash"           // matches all bash commands
+"Bash(*)"        // equivalent to above
+```
+
+**Exact command:**
+
+```json
+"Bash(npm run build)"
+"Bash(git commit -m 'message')"
+```
+
+**Wildcard patterns** (spaces matter):
+
+```json
+"Bash(npm run *)"      // matches npm run lint, npm run test
+"Bash(git * main)"     // matches git push main, git pull main
+"Bash(* --version)"    // matches any command with --version
+"Bash(ls *)"           // matches ls -la but NOT lsof
+"Bash(ls*)"            // matches both ls -la AND lsof
+```
+
+#### Read Rules
+
+**Match all reads:**
+
+```json
+"Read"
+```
+
+**Specific file:**
+
+```json
+"Read(./.env)"
+"Read(~/.zshrc)"
+```
+
+**Directory patterns:**
+
+```json
+"Read(./.env.*)"       // matches .env.local, .env.production
+"Read(./secrets/**)"   // matches all files in secrets recursively
+"Read(~/.aws/**)"      // blocks AWS config access
+```
+
+#### Edit Rules
+
+**Allow writing to directories:**
+
+```json
+"Edit(./src/)"
+"Edit(../docs/)"
+```
+
+**Deny specific files:**
+
+```json
+"Edit(./.env)"
+"Edit(./package-lock.json)"
+```
+
+#### WebFetch Rules
+
+**Match all web requests:**
+
+```json
+"WebFetch"
+```
+
+**Domain-specific:**
+
+```json
+"WebFetch(domain:example.com)"
+"WebFetch(domain:github.com)"
+```
+
+### Complete Settings Example
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run test *)",
+      "Bash(git commit *)",
+      "Read(./src/**)",
+      "Read(./package.json)",
+      "Edit(./src/)"
+    ],
+    "ask": ["Bash(git push *)", "Edit(./package.json)"],
+    "deny": [
+      "Bash(curl *)",
+      "Bash(rm -rf *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "WebFetch(domain:internal-api.company.com)",
+      "Edit(./config/)"
+    ]
+  },
+  "additionalDirectories": ["../docs/"],
+  "defaultMode": "acceptEdits",
+  "disableBypassPermissionsMode": "disable"
+}
+```
+
+### Bash Permission Security Warning
+
+Bash patterns that constrain arguments are fragile and unreliable:
+
+```json
+// ❌ UNRELIABLE - Don't use for security:
+"Bash(curl http://github.com/ *)"
+
+// Won't match:
+// - curl -X GET http://github.com/...  (flags before URL)
+// - curl https://github.com/...        (different protocol)
+// - Commands with shell variables
+```
+
+**Better approach** - use deny-list:
+
+```json
+{
+  "deny": ["Bash(curl *)", "Bash(wget *)", "Bash(rm -rf *)"]
+}
+```
+
+### Settings Precedence Order
+
+Complete evaluation order:
+
+1. **Managed settings** (highest - cannot be overridden)
+2. **Command-line arguments**
+3. **Local project settings** (`.claude/settings.local.json`)
+4. **Shared project settings** (`.claude/settings.json`)
+5. **User settings** (lowest - `~/.claude/settings.json`)
+
+Example: If user settings allow `Bash(npm run *)` but project settings deny it, the **project setting wins**.
+
+### Enterprise Managed Settings Features
+
+#### MCP Server Control
+
+```json
+{
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }]
+}
+```
+
+#### Plugin Marketplace Restrictions
+
+```json
+{
+  "strictKnownMarketplaces": [
+    { "source": "github", "repo": "acme-corp/approved-plugins" },
+    { "source": "npm", "package": "@acme-corp/plugins" },
+    { "source": "url", "url": "https://plugins.example.com/marketplace.json" }
+  ]
+}
+```
+
+#### Hook Lockdown
+
+```json
+{
+  "allowManagedHooksOnly": true
+}
+```
+
+Only managed and SDK hooks allowed when enabled.
+
+### Common Configuration Patterns
+
+#### Frontend Development
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Read(./)",
+      "Edit(./src/)",
+      "Edit(./public/)"
+    ],
+    "deny": ["Read(./.env)", "Read(./node_modules/**)"]
+  }
+}
+```
+
+#### CI/CD Safety
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run build)", "Bash(npm run test)", "Read(./)"],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(rm -rf *)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ]
+  }
+}
+```
+
+#### Team Standardization
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Bash(docker *)", "Bash(git commit *)"],
+    "ask": ["Bash(git push *)"]
+  },
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "companyAnnouncements": [
+    "Code reviews required for all PRs",
+    "New security policy in effect"
+  ]
+}
+```
+
+### DSM Settings Configuration
+
+#### Project Settings (.claude/settings.json)
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(mise run *)",
+      "Bash(git commit *)",
+      "Bash(git log *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Read(./src/**)",
+      "Read(./tests/**)",
+      "Edit(./src/)",
+      "Edit(./tests/)"
+    ],
+    "ask": ["Bash(git push *)", "Bash(git rebase *)"],
+    "deny": [
+      "Bash(pip install *)",
+      "Bash(python3.14 *)",
+      "Bash(python3.12 *)",
+      "Bash(git push --force *)",
+      "Bash(rm -rf *)",
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Edit(.env*)",
+      "Edit(.mise.local.toml)"
+    ]
+  },
+  "additionalDirectories": ["../cc-skills/"],
+  "extraKnownMarketplaces": [
+    { "source": "github", "repo": "terrylica/cc-skills" }
+  ]
+}
+```
+
+#### Local Overrides (.claude/settings.local.json)
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(python -c *)"]
+  },
+  "env": {
+    "DEBUG": "1",
+    "LOG_LEVEL": "DEBUG"
+  }
+}
+```
+
+### Environment Variables in Settings
+
+```json
+{
+  "env": {
+    "NODE_ENV": "development",
+    "PYTHONPATH": "./src",
+    "LOG_LEVEL": "INFO"
+  }
+}
+```
+
+Environment variables are applied to all Bash commands executed by Claude Code.
+
+### Company Announcements
+
+Display messages to all team members:
+
+```json
+{
+  "companyAnnouncements": [
+    "Sprint planning Monday 10am",
+    "New FCP debugging guide: /fcp-debugger",
+    "Remember: Use /dsm-testing before PRs"
+  ]
+}
+```
+
+### Additional Directories
+
+Grant access to directories outside the project:
+
+```json
+{
+  "additionalDirectories": ["../shared-lib/", "../docs/", "~/reference/"]
+}
+```
+
+### Default Mode Configuration
+
+```json
+{
+  "defaultMode": "acceptEdits"
+}
+```
+
+Options:
+
+- `"normal"` - Standard interactive mode
+- `"acceptEdits"` - Auto-accept file edits
+- `"planMode"` - Start in plan mode
+
+### Bypass Permissions Mode
+
+Control whether users can bypass permissions:
+
+```json
+{
+  "disableBypassPermissionsMode": "disable"
+}
+```
+
+Options:
+
+- `"disable"` - Block bypass entirely
+- `"warn"` - Allow with warning
+- (absent) - Allow freely
+
+### Settings Validation
+
+Claude Code validates settings on load. Common errors:
+
+| Error           | Cause             | Fix                 |
+| --------------- | ----------------- | ------------------- |
+| Invalid JSON    | Syntax error      | Check JSON validity |
+| Unknown key     | Typo in key name  | Check documentation |
+| Invalid pattern | Bad glob syntax   | Fix pattern syntax  |
+| Path not found  | Missing directory | Create or fix path  |
+
+### Debugging Settings
+
+View effective settings:
+
+```bash
+# Show resolved settings
+claude settings show
+
+# Show specific scope
+claude settings show --scope project
+
+# Validate settings file
+claude settings validate .claude/settings.json
+```
+
+### Best Practices
+
+1. **Use project settings for team standards** - Commit `.claude/settings.json`
+2. **Use local settings for experiments** - `.claude/settings.local.json` is gitignored
+3. **Prefer deny-lists for security** - Allow-lists with wildcards are fragile
+4. **Test permission patterns** - Verify behavior before committing
+5. **Document custom patterns** - Add comments in settings.md
+6. **Review managed settings** - Understand enterprise restrictions
+
+### Common Mistakes
+
+| Mistake                                | Problem                  | Solution               |
+| -------------------------------------- | ------------------------ | ---------------------- |
+| Relying on allow patterns for security | Patterns can be bypassed | Use deny rules         |
+| Overly broad wildcards                 | Unexpected permissions   | Be specific            |
+| Not testing patterns                   | Unexpected blocks        | Test before commit     |
+| Conflicting project/user settings      | Confusion                | Document precedence    |
+| Missing deny for secrets               | Accidental exposure      | Always deny .env files |
+
+### Migration from Legacy Settings
+
+If upgrading from older Claude Code versions:
+
+1. Back up existing settings
+2. Update to new JSON format
+3. Convert string patterns to object format if needed
+4. Validate with `claude settings validate`
+5. Test key workflows
+
+### Integration with Hooks
+
+Settings can trigger hooks:
+
+```json
+{
+  "hooks": {
+    "onSettingsChange": [
+      {
+        "command": "echo 'Settings updated' >> ~/.claude/audit.log"
+      }
+    ]
+  }
+}
+```
