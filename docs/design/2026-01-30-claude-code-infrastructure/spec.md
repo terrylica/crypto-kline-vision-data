@@ -4202,6 +4202,201 @@ Focus on:
 - API versioning approaches
 ```
 
+## Database Schema & Migrations
+
+Safe database schema changes with Claude Code as reviewer and generator.
+
+### Role Definition
+
+| Claude Does             | Claude Does NOT            |
+| ----------------------- | -------------------------- |
+| Generate migrations     | Apply migrations           |
+| Review schema changes   | Access production data     |
+| Create backfill scripts | Execute in production      |
+| Analyze query plans     | Receive PII/sensitive data |
+
+### Migration Script Generation
+
+```
+> Generate a migration to add user_preferences table
+> [Claude creates migration with header, ALTER, INDEX, ROLLBACK]
+> Make it idempotent and production-ready
+```
+
+### Migration Script Components
+
+| Component        | Purpose                     |
+| ---------------- | --------------------------- |
+| Header comments  | Explain what migration does |
+| ALTER TABLE      | Schema modifications        |
+| CREATE INDEX     | Performance indexes         |
+| ROLLBACK section | Undo instructions           |
+| IF NOT EXISTS    | Idempotency checks          |
+
+### Backfill Script Rules
+
+Add to CLAUDE.md:
+
+```markdown
+# Database Backfill Rules
+
+When generating backfill scripts:
+
+- Must be idempotent (safe to run multiple times)
+- Must avoid long table locks
+- Use batch processing for large tables
+- Include progress logging
+- Never DELETE without WHERE clause
+```
+
+### MCP Database Integration
+
+Connect databases via MCP:
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "command": "npx",
+      "args": ["@anthropics/mcp-database", "--connection", "postgres://..."]
+    }
+  }
+}
+```
+
+Enables:
+
+- Query execution
+- Schema analysis
+- Index recommendations
+- Query plan analysis
+
+### ORM Integration
+
+Claude Code works with ORM migrations:
+
+| ORM     | Migration Command                    |
+| ------- | ------------------------------------ |
+| Alembic | `alembic revision --autogenerate`    |
+| EF Core | `dotnet ef migrations add`           |
+| Django  | `python manage.py makemigrations`    |
+| TypeORM | `npm run typeorm migration:generate` |
+
+### DSM Database Patterns
+
+| Pattern       | Application                |
+| ------------- | -------------------------- |
+| Cache tables  | FCP cache metadata storage |
+| Time-series   | OHLCV data storage         |
+| Config tables | Provider configuration     |
+| Audit logs    | Data fetch history         |
+
+## DevOps & Infrastructure Automation
+
+CI/CD, IaC, and deployment automation with Claude Code.
+
+### DevOps Capabilities
+
+| Capability           | Description                |
+| -------------------- | -------------------------- |
+| CI/CD pipelines      | GitHub Actions, GitLab CI  |
+| Container management | Docker, Kubernetes configs |
+| IaC generation       | Terraform, CloudFormation  |
+| Server management    | SSH, configuration files   |
+| Monitoring setup     | Prometheus, Grafana        |
+
+### CI/CD Pipeline Generation
+
+```
+> Create a GitHub Actions workflow for Python with:
+> - Testing with pytest
+> - Linting with ruff
+> - Publishing to PyPI on release
+```
+
+Claude generates complete pipeline configurations.
+
+### Deployment Strategies
+
+| Strategy       | Use Case                        |
+| -------------- | ------------------------------- |
+| Blue-green     | Zero-downtime production        |
+| Canary release | Gradual rollout with monitoring |
+| Rolling update | Kubernetes default              |
+| Feature flags  | Controlled feature exposure     |
+
+### Terraform Skill
+
+Create in `.claude/commands/`:
+
+```yaml
+---
+name: terraform-plan
+description: Generate Terraform for infrastructure
+user-invocable: true
+---
+Generate Terraform configuration following:
+  - Module-based organization
+  - Remote state with locking
+  - Environment-specific tfvars
+  - Output documentation
+  - Resource tagging standards
+```
+
+### DevOps Engineer Agent
+
+```yaml
+---
+name: devops-engineer
+description: CI/CD, Docker, Kubernetes, cloud infrastructure
+tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+---
+
+You are a DevOps specialist.
+Focus on:
+- CI/CD pipeline design
+- Container orchestration
+- Infrastructure as Code
+- Monitoring and alerting
+- Security best practices
+```
+
+### Troubleshooting Deployments
+
+Claude Code can:
+
+- Analyze deployment logs
+- Identify error patterns
+- Suggest solutions
+- Generate rollback scripts
+
+### DSM DevOps Patterns
+
+| Area               | Pattern                      |
+| ------------------ | ---------------------------- |
+| Testing            | Local-first (no GH Actions)  |
+| Package management | uv for Python dependencies   |
+| Task runner        | mise tasks for orchestration |
+| Environment        | mise [env] for config        |
+| Secrets            | Doppler for credentials      |
+
+### Skills Ecosystem
+
+500+ DevOps skills available:
+
+| Category       | Examples                     |
+| -------------- | ---------------------------- |
+| Infrastructure | Terraform, Pulumi, Ansible   |
+| Containers     | Docker, Kubernetes, Helm     |
+| CI/CD          | GitHub Actions, GitLab CI    |
+| Monitoring     | Prometheus, Datadog, Grafana |
+| Security       | Vault, SOPS, AWS Secrets     |
+
 ## Verification Checklist
 
 ### Infrastructure
