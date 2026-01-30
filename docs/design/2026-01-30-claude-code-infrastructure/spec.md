@@ -64,21 +64,40 @@ data-source-manager/
 ```yaml
 ---
 name: agent-name
-description: When to use this agent
+description: Use proactively when [trigger]. Performs [task].
 tools: Read, Grep, Glob, Bash
 model: sonnet
+permissionMode: plan # Optional: plan, default, acceptEdits, dontAsk
+skills: # Optional: preload skills into agent context
+  - dsm-usage
+  - dsm-testing
 ---
 ```
 
-### Tool Permissions
+### Agent Features
 
-| Agent                 | Read | Grep | Glob | Bash | Edit |
-| --------------------- | ---- | ---- | ---- | ---- | ---- |
-| api-reviewer          | ✓    | ✓    | ✓    | -    | -    |
-| data-fetcher          | ✓    | ✓    | ✓    | ✓    | -    |
-| fcp-debugger          | ✓    | ✓    | ✓    | ✓    | -    |
-| silent-failure-hunter | ✓    | ✓    | ✓    | -    | -    |
-| test-writer           | ✓    | ✓    | ✓    | ✓    | -    |
+| Agent                 | Read | Grep | Glob | Bash | Mode | Skills       |
+| --------------------- | ---- | ---- | ---- | ---- | ---- | ------------ |
+| api-reviewer          | ✓    | ✓    | ✓    | -    | plan | dsm-usage    |
+| data-fetcher          | ✓    | ✓    | ✓    | ✓    | -    | dsm-usage    |
+| fcp-debugger          | ✓    | ✓    | ✓    | ✓    | -    | dsm-fcp, dsm |
+| silent-failure-hunter | ✓    | ✓    | ✓    | -    | plan | dsm-usage    |
+| test-writer           | ✓    | ✓    | ✓    | ✓    | -    | dsm-testing  |
+
+### Description Best Practices
+
+Include "Use proactively" in descriptions to encourage automatic delegation:
+
+```yaml
+# GOOD: Proactive trigger
+description: Use proactively after writing code. Reviews for anti-patterns.
+
+# GOOD: Specific trigger
+description: Use when debugging FCP issues - empty DataFrames, cache misses.
+
+# LESS EFFECTIVE: No trigger guidance
+description: Reviews code for quality.
+```
 
 ## Command Configuration
 
@@ -168,11 +187,38 @@ Run operation for: $ARGUMENTS
 
 ## Context Rules
 
+### Path-Specific Frontmatter
+
+Rules use YAML frontmatter with `paths:` field for conditional loading:
+
+```yaml
+---
+paths:
+  - "src/data_source_manager/core/providers/binance/**/*.py"
+  - "tests/integration/**/*.py"
+---
+# Rule Content
+
+Guidelines for...
+```
+
+### Rule Path Mappings
+
+| Rule                    | Path Patterns                                |
+| ----------------------- | -------------------------------------------- |
+| binance-api.md          | `providers/binance/**`, `tests/integration`  |
+| timestamp-handling.md   | `src/**`, `examples/**`, `tests/**`          |
+| dataframe-operations.md | `src/**`, `examples/**`, `tests/**`          |
+| caching-patterns.md     | `core/sync/**`, `core/cache/**`              |
+| symbol-formats.md       | `providers/binance/**`, `market_constraints` |
+| error-handling.md       | `src/**`, `tests/**`                         |
+| fcp-protocol.md         | `core/sync/**`, `core/providers/**`          |
+
 ### When Rules Load
 
-Claude loads rules on demand based on file/topic relevance:
+Rules load automatically when Claude works with matching files:
 
-| Rule                    | Triggered By           |
+| Rule                    | Also Triggered By      |
 | ----------------------- | ---------------------- |
 | binance-api.md          | API calls, rate limits |
 | timestamp-handling.md   | datetime, timezone     |

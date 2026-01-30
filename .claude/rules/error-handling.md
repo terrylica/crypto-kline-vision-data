@@ -1,3 +1,9 @@
+---
+paths:
+  - "src/data_source_manager/**/*.py"
+  - "tests/**/*.py"
+---
+
 # Error Handling Rules
 
 Error handling patterns specific to Data Source Manager.

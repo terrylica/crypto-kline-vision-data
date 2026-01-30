@@ -1,8 +1,11 @@
 ---
 name: api-reviewer
-description: Reviews code changes for API consistency and data handling patterns
+description: Use proactively after writing or modifying code. Reviews code changes for API consistency, data handling patterns, HTTP timeouts, and DSM anti-patterns.
 tools: Read, Grep, Glob
 model: sonnet
+permissionMode: plan
+skills:
+  - dsm-usage
 ---
 
 You are a code reviewer specializing in the Data Source Manager package.

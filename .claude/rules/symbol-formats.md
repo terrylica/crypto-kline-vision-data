@@ -1,3 +1,11 @@
+---
+paths:
+  - "src/data_source_manager/core/providers/binance/**/*.py"
+  - "src/data_source_manager/utils/market_constraints.py"
+  - "examples/**/*.py"
+  - "tests/integration/**/*.py"
+---
+
 # Symbol Format Rules
 
 Symbol format varies by market type. Using the wrong format causes empty DataFrames.

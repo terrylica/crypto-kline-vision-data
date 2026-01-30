@@ -1,3 +1,10 @@
+---
+paths:
+  - "src/data_source_manager/**/*.py"
+  - "examples/**/*.py"
+  - "tests/**/*.py"
+---
+
 # Timestamp Handling Rules
 
 Critical rules for timestamp handling in Data Source Manager.

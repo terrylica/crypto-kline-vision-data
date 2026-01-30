@@ -1,3 +1,10 @@
+---
+paths:
+  - "src/data_source_manager/**/*.py"
+  - "examples/**/*.py"
+  - "tests/**/*.py"
+---
+
 # DataFrame Operations Rules
 
 Guidelines for working with market data DataFrames in DSM.

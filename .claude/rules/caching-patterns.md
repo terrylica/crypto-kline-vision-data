@@ -1,3 +1,10 @@
+---
+paths:
+  - "src/data_source_manager/core/sync/**/*.py"
+  - "src/data_source_manager/core/cache/**/*.py"
+  - "tests/**/test_cache*.py"
+---
+
 # Caching Patterns Rules
 
 Guidelines for DSM cache operations.

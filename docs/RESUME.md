@@ -4,6 +4,20 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Path-Specific Rules & Agent Enhancements (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added YAML frontmatter with `paths:` field to all 7 rules for conditional loading
+- Enhanced all 5 agents with `skills:` field for context injection
+- Added `permissionMode: plan` to read-only agents (api-reviewer, silent-failure-hunter)
+- Improved agent descriptions with "Use proactively" triggers for automatic delegation
+- Updated design spec with path-specific rules and agent best practices
+
+**Pattern applied**: Official Claude Code memory optimization patterns from [code.claude.com/docs](https://code.claude.com/docs/en/sub-agents)
+
 ### Claude Code Infrastructure (2026-01-30)
 
 **Status**: Complete
@@ -29,7 +43,7 @@ Last updated: 2026-01-30
 
 - 23/23 infrastructure checks passing (`mise run claude:validate`)
 - All hooks functional
-- CLAUDE.md at 266 lines (under 300 limit)
+- CLAUDE.md at 267 lines (under 300 limit)
 
 ### Domain-Specific CLAUDE.md Files (2026-01-30)
 

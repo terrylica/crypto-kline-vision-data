@@ -1,8 +1,10 @@
 ---
 name: data-fetcher
-description: Fetches and validates market data using DataSourceManager
+description: Use proactively for data validation tasks. Fetches and validates market data using DataSourceManager, checks for gaps, duplicates, and timestamp consistency.
 tools: Read, Bash, Grep, Glob
 model: sonnet
+skills:
+  - dsm-usage
 ---
 
 You are a data engineering specialist for the Data Source Manager package.

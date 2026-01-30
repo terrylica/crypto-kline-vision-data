@@ -1,3 +1,11 @@
+---
+paths:
+  - "src/data_source_manager/core/sync/**/*.py"
+  - "src/data_source_manager/core/providers/**/*.py"
+  - "docs/skills/dsm-fcp-monitor/**/*"
+  - "tests/**/test_fcp*.py"
+---
+
 # FCP Protocol Rules
 
 Failover Control Protocol (FCP) implementation guidelines.

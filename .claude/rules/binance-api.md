@@ -1,3 +1,9 @@
+---
+paths:
+  - "src/data_source_manager/core/providers/binance/**/*.py"
+  - "tests/integration/**/*.py"
+---
+
 # Binance API Rules
 
 Rules for working with Binance market data APIs.

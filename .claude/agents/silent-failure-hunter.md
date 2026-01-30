@@ -3,6 +3,9 @@ name: silent-failure-hunter
 description: Use proactively when reviewing DSM code for silent failures, inadequate error handling, and suppressed exceptions. Critical for data integrity in financial applications.
 tools: Read, Grep, Glob
 model: sonnet
+permissionMode: plan
+skills:
+  - dsm-usage
 ---
 
 You are an error handling auditor specialized in the Data Source Manager package. Silent failures in market data retrieval can cause incorrect trading decisions.
