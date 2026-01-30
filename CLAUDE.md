@@ -147,6 +147,15 @@ uv run -p 3.13 python -c "from data_source_manager import DataSourceManager; pri
 
 ---
 
+## Claude Code Skills
+
+For detailed usage guidance, see [docs/skills/](docs/skills/):
+
+- **dsm-usage** - DataSourceManager API usage with FCP
+- **dsm-testing** - Testing patterns and pytest markers
+
+---
+
 ## Related Documentation
 
 - @README.md - Installation and basic usage

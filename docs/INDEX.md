@@ -73,3 +73,14 @@ ADRs should be placed in `docs/adr/` following MADR 4.0 format.
 Naming convention: `YYYY-MM-DD-slug.md`
 
 See [itp:adr-graph-easy-architect](https://github.com/terrylica/cc-skills) for diagram creation.
+
+---
+
+## Claude Code Skills
+
+Skills provide progressive disclosure for Claude Code agents. Each skill has a SKILL.md with YAML frontmatter.
+
+| Skill                              | Purpose                       |
+| ---------------------------------- | ----------------------------- |
+| [dsm-usage](skills/dsm-usage/)     | DataSourceManager usage guide |
+| [dsm-testing](skills/dsm-testing/) | Testing patterns and pytest   |
