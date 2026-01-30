@@ -4,6 +4,23 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Context Window Management (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added token monitoring thresholds table (60%, 80% rules)
+- Added task complexity by context cost comparison
+- Added context preservation strategies (checkpoint notes, memory budget)
+- Added compaction best practices
+- Added DSM-specific context management table
+
+**Sources**:
+
+- [Claude Fast Context Management](https://claudefa.st/blog/guide/mechanics/context-management)
+- [Persistent Memory Architecture](https://dev.to/suede/the-architecture-of-persistent-memory-for-claude-code-17d)
+
 ### Documentation Standards (2026-01-30)
 
 **Status**: Complete

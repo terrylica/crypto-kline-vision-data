@@ -1320,6 +1320,73 @@ Based on [Anthropic Best Practices](https://www.anthropic.com/engineering/claude
 | `docs/GLOSSARY.md`        | Domain terminology             |
 | `docs/TROUBLESHOOTING.md` | Common issues and solutions    |
 
+## Context Window Management
+
+Based on [Claude Fast Context Management](https://claudefa.st/blog/guide/mechanics/context-management) and [Persistent Memory Architecture](https://dev.to/suede/the-architecture-of-persistent-memory-for-claude-code-17d).
+
+### Token Monitoring Thresholds
+
+| Utilization | Action                      | Rationale                        |
+| ----------- | --------------------------- | -------------------------------- |
+| < 60%       | Continue working            | Ample context capacity           |
+| 60-80%      | Complete current task       | Prepare for transition           |
+| 80%         | Exit and restart session    | Prevents performance degradation |
+| > 80%       | Avoid multi-file operations | Preserve project-wide awareness  |
+
+**Key principle**: Sessions that stop at 75% utilization produce higher-quality, more maintainable code.
+
+### Task Complexity by Context Cost
+
+| Task Type (High Context Cost)          | Task Type (Low Context Cost)           |
+| -------------------------------------- | -------------------------------------- |
+| Large-scale multi-file refactoring     | Single-file edits with clear scope     |
+| Feature spanning multiple components   | Independent utility functions          |
+| Debugging complex interaction patterns | Documentation updates                  |
+| Code reviews requiring architecture    | Simple bug fixes with localized impact |
+
+### Context Preservation Strategies
+
+**CLAUDE.md as Free Context**: Automatically loaded at session start, survives restarts without consuming token budget per message.
+
+**Checkpoint Notes Pattern**:
+
+```markdown
+## Session Checkpoint
+
+- **Auth decision**: Using JWT with 15-minute expiry
+- **Pattern used**: Repository pattern for data access
+- **Integration point**: FCP protocol at CacheManager level
+```
+
+**Memory Budget Allocation** (from two-tier architecture):
+
+| Memory Type  | Line Budget | Decay            |
+| ------------ | ----------- | ---------------- |
+| Architecture | 25 lines    | Never            |
+| Decisions    | 25 lines    | Never            |
+| Patterns     | 25 lines    | Never            |
+| Gotchas      | 20 lines    | Never            |
+| Progress     | 30 lines    | 7-day half-life  |
+| Context      | 15 lines    | 30-day half-life |
+
+### Compaction Best Practices
+
+- Use `/compact` proactively before hitting 80% threshold
+- Compaction is instant - Claude maintains background session memory
+- Session memory stored at `~/.claude/projects/[project]/[session]/session_memory`
+- Fresh sessions via `/clear` reduce prompt-drift and context contamination
+
+### DSM-Specific Context Management
+
+Given DSM's domain complexity (FCP, symbols, timestamps), apply these patterns:
+
+| Domain          | CLAUDE.md? | Rule?    | Rationale                  |
+| --------------- | ---------- | -------- | -------------------------- |
+| FCP protocol    | Summary    | Full     | Complex, load on-demand    |
+| Symbol formats  | Table      | Examples | Quick reference needed     |
+| Timestamp rules | Critical   | Extended | UTC is non-negotiable      |
+| Error handling  | Patterns   | Full     | Domain exceptions are deep |
+
 ## Verification Checklist
 
 ### Infrastructure
