@@ -36470,3 +36470,380 @@ This creates `codebase-map.html` and opens it in your browser.
 - [Agent Skills Standard](https://agentskills.io)
 - [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
 ```
+## Settings and Permissions Reference
+
+Comprehensive reference for Claude Code settings, permissions, and enterprise managed configuration.
+
+### Settings File Locations
+
+| Scope   | Location                             | Affects              | Shared          |
+| ------- | ------------------------------------ | -------------------- | --------------- |
+| Managed | System-level `managed-settings.json` | All users on machine | IT-deployed     |
+| User    | `~/.claude/`                         | You, all projects    | No              |
+| Project | `.claude/` in repository             | All collaborators    | Yes (git)       |
+| Local   | `.claude/*.local.*`                  | You, this repo only  | No (gitignored) |
+
+#### System Paths for Managed Settings
+
+| Platform  | Path                                       |
+| --------- | ------------------------------------------ |
+| macOS     | `/Library/Application Support/ClaudeCode/` |
+| Linux/WSL | `/etc/claude-code/`                        |
+| Windows   | `C:\Program Files\ClaudeCode\`             |
+
+### Settings Precedence Hierarchy
+
+From highest to lowest priority:
+
+1. **Managed settings** (`managed-settings.json`) - Cannot be overridden
+2. **Command line arguments** - Temporary session overrides
+3. **Local project settings** (`.claude/settings.local.json`)
+4. **Shared project settings** (`.claude/settings.json`)
+5. **User settings** (`~/.claude/settings.json`)
+
+### Configuration Files
+
+| File                    | Purpose                                        |
+| ----------------------- | ---------------------------------------------- |
+| `settings.json`         | Main configuration for permissions, env, hooks |
+| `~/.claude.json`        | User preferences, themes, MCP servers, OAuth   |
+| `.mcp.json`             | Project-scoped MCP server configurations       |
+| `managed-settings.json` | Enterprise IT deployments (highest precedence) |
+| `managed-mcp.json`      | Managed MCP server configurations              |
+
+### Permissions Structure
+
+#### Permission Rules Format
+
+```
+Tool
+Tool(specifier)
+Tool(*)
+```
+
+#### Permission Rule Evaluation Order
+
+1. **Deny rules** checked first (highest precedence)
+2. **Ask rules** checked second
+3. **Allow rules** checked last
+
+#### Example Configuration
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run lint)", "Bash(npm run test *)", "Read(~/.zshrc)"],
+    "deny": [
+      "Bash(curl *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ],
+    "ask": ["Bash(git push *)"]
+  }
+}
+```
+
+#### Wildcard Patterns
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)", // npm run build, npm run test
+      "Bash(git commit *)", // git commit -m "msg"
+      "Bash(git * main)", // git push main, git merge main
+      "Bash(* --version)", // node --version, python --version
+      "Bash(* --help *)" // npm --help install
+    ]
+  }
+}
+```
+
+**Note**: Space before `*` matters: `Bash(ls *)` matches `ls -la` but not `lsof`
+
+### Available Settings Fields
+
+| Key                          | Description                            | Example                         |
+| ---------------------------- | -------------------------------------- | ------------------------------- |
+| `apiKeyHelper`               | Custom auth value generation script    | `/bin/generate_temp_api_key.sh` |
+| `cleanupPeriodDays`          | Days before inactive sessions deleted  | `20`                            |
+| `companyAnnouncements`       | Startup announcements array            | `["Welcome to Acme!"]`          |
+| `env`                        | Environment variables for all sessions | `{"FOO": "bar"}`                |
+| `attribution`                | Git commit/PR attribution              | See below                       |
+| `permissions`                | Allow/deny/ask tool rules              | See above                       |
+| `hooks`                      | Pre/post tool execution commands       | See hooks section               |
+| `disableAllHooks`            | Disable all hooks                      | `true`                          |
+| `allowManagedHooksOnly`      | Only allow managed hooks               | `true`                          |
+| `model`                      | Override default model                 | `"claude-sonnet-4-5-20250929"`  |
+| `statusLine`                 | Custom status line display             | See below                       |
+| `respectGitignore`           | Respect `.gitignore` in file picker    | `true` (default)                |
+| `outputStyle`                | Output style adjustment                | `"Explanatory"`                 |
+| `forceLoginMethod`           | Restrict login method                  | `"claudeai"` or `"console"`     |
+| `forceLoginOrgUUID`          | Auto-select organization               | `"xxxxxxxx-xxxx-..."`           |
+| `enableAllProjectMcpServers` | Auto-approve all project MCP           | `true`                          |
+| `alwaysThinkingEnabled`      | Extended thinking by default           | `true`                          |
+| `plansDirectory`             | Custom plan storage                    | `"./plans"`                     |
+| `showTurnDuration`           | Show turn duration                     | `true`                          |
+| `language`                   | Preferred response language            | `"japanese"`                    |
+| `autoUpdatesChannel`         | Release channel                        | `"stable"` or `"latest"`        |
+
+### Permission Settings Keys
+
+| Key                            | Description                  | Example                        |
+| ------------------------------ | ---------------------------- | ------------------------------ |
+| `allow`                        | Rules to allow tool use      | `["Bash(git diff *)"]`         |
+| `ask`                          | Rules requiring confirmation | `["Bash(git push *)"]`         |
+| `deny`                         | Rules to block tool use      | `["WebFetch", "Read(./.env)"]` |
+| `additionalDirectories`        | Extra working directories    | `["../docs/"]`                 |
+| `defaultMode`                  | Default permission mode      | `"acceptEdits"`                |
+| `disableBypassPermissionsMode` | Prevent bypassing            | `"disable"`                    |
+
+### Sandbox Settings
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["docker"],
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowUnixSockets": ["~/.ssh/agent-socket"],
+      "allowLocalBinding": true,
+      "httpProxyPort": 8080,
+      "socksProxyPort": 8081
+    },
+    "enableWeakerNestedSandbox": false
+  }
+}
+```
+
+### Attribution Settings
+
+```json
+{
+  "attribution": {
+    "commit": "Generated with AI\n\nCo-Authored-By: AI <ai@example.com>",
+    "pr": ""
+  }
+}
+```
+
+**Default commit attribution**:
+
+```
+🤖 Generated with Claude Code
+
+   Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+```
+
+### Status Line Configuration
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  }
+}
+```
+
+### Managed Settings (Enterprise)
+
+#### MCP Server Restrictions
+
+```json
+{
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }]
+}
+```
+
+#### Plugin Marketplace Allowlist
+
+`strictKnownMarketplaces` behavior:
+
+- `undefined` = No restrictions
+- `[]` = Complete lockdown
+- Array of sources = Only these allowed
+
+**Source Types**:
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "acme-corp/approved-plugins",
+      "ref": "main",
+      "path": "marketplace"
+    },
+    {
+      "source": "git",
+      "url": "https://gitlab.example.com/tools/plugins.git"
+    },
+    {
+      "source": "url",
+      "url": "https://plugins.example.com/marketplace.json",
+      "headers": { "Authorization": "Bearer ${TOKEN}" }
+    },
+    {
+      "source": "npm",
+      "package": "@acme-corp/claude-plugins"
+    },
+    {
+      "source": "file",
+      "path": "/usr/local/share/claude/marketplace.json"
+    },
+    {
+      "source": "directory",
+      "path": "/usr/local/share/claude/plugins"
+    },
+    {
+      "source": "hostPattern",
+      "hostPattern": "^github\\.example\\.com$"
+    }
+  ]
+}
+```
+
+#### Complete Managed Settings Example
+
+```json
+{
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }],
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "acme-corp/approved-plugins"
+    }
+  ],
+  "allowManagedHooksOnly": true,
+  "permissions": {
+    "deny": ["Bash(curl *)", "Read(.env)"]
+  }
+}
+```
+
+### Plugin Configuration
+
+```json
+{
+  "enabledPlugins": {
+    "code-formatter@team-tools": true,
+    "deployment-tools@team-tools": true,
+    "experimental-features@personal": false
+  },
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": {
+        "source": "github",
+        "repo": "acme-corp/claude-plugins"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+| Variable                        | Purpose                     | Example                      |
+| ------------------------------- | --------------------------- | ---------------------------- |
+| `ANTHROPIC_API_KEY`             | API key for Claude SDK      | `sk-...`                     |
+| `ANTHROPIC_AUTH_TOKEN`          | Custom Authorization header | `token-...`                  |
+| `ANTHROPIC_MODEL`               | Override default model      | `claude-sonnet-4-5-20250929` |
+| `CLAUDE_CODE_ENABLE_TELEMETRY`  | Enable OpenTelemetry        | `1`                          |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Max output tokens           | `32000`                      |
+| `CLAUDE_CODE_SHELL`             | Override shell detection    | `bash`                       |
+| `CLAUDE_CODE_TMPDIR`            | Override temp directory     | `/tmp`                       |
+| `DISABLE_TELEMETRY`             | Opt out of Statsig          | `1`                          |
+| `DISABLE_AUTOUPDATER`           | Disable auto-updates        | `1`                          |
+| `MAX_THINKING_TOKENS`           | Extended thinking budget    | `10000`                      |
+| `CLAUDE_CONFIG_DIR`             | Custom config location      | `~/.claude`                  |
+
+### DSM-Specific Settings
+
+#### Project Settings (`.claude/settings.json`)
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(mise run *)",
+      "Bash(pytest *)",
+      "Read(~/.cache/dsm/*)"
+    ],
+    "deny": [
+      "Bash(pip install *)",
+      "Bash(python3.14 *)",
+      "Bash(python3.12 *)",
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Bash(git push --force *)"
+    ],
+    "ask": ["Bash(git push *)"]
+  },
+  "env": {
+    "DSM_LOG_LEVEL": "INFO",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  }
+}
+```
+
+#### Local Overrides (`.claude/settings.local.json`)
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(uv run python -m dsm.debug *)"]
+  },
+  "env": {
+    "DSM_DEBUG": "1"
+  }
+}
+```
+
+#### Managed Enterprise Settings
+
+```json
+{
+  "permissions": {
+    "deny": ["WebFetch(domain:*.binance.com)", "Bash(rm -rf *)", "Read(/etc/*)"]
+  },
+  "allowedMcpServers": [
+    { "serverName": "dsm-data" },
+    { "serverName": "fcp-monitor" }
+  ],
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "company/approved-dsm-plugins"
+    }
+  ]
+}
+```
+
+### Key Behaviors
+
+1. **Deny always wins**: Deny rules override allow rules at all levels
+2. **Managed cannot be overridden**: Enterprise settings are enforced
+3. **Local is gitignored**: `.claude/settings.local.json` not committed
+4. **Backups retained**: 5 most recent timestamped backups kept
+5. **Pattern matching**: Space before `*` creates word boundary
+
+### Best Practices
+
+1. **Use project settings for team rules** - Commit to version control
+2. **Use local settings for personal overrides** - Automatically gitignored
+3. **Deny sensitive files** - `.env`, secrets, credentials
+4. **Allow common commands** - Avoid excessive permission prompts
+5. **Use ask for destructive operations** - `git push`, deployments
+
+### References
+
+- [Settings Documentation](https://code.claude.com/docs/en/settings)
+- [Permissions Guide](https://platform.claude.com/docs/en/agent-sdk/permissions)
+- [Managed Settings](https://code.claude.com/docs/en/iam#managed-settings)
