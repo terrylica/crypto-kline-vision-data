@@ -24978,3 +24978,299 @@ Add to `.claude/settings.json`:
 | Development Workflow | Common tasks        | `commit-commands`          |
 | Output Style         | Response format     | `explanatory-output-style` |
 | Custom               | Your organization   | Team-specific plugins      |
+<!-- SSoT-OK: This section is authoritative for Chrome browser integration -->
+
+## Chrome Browser Integration Reference
+
+Connect Claude Code to Chrome for browser automation, testing, and debugging.
+
+### What Chrome Integration Enables
+
+| Capability          | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| Live debugging      | Read console errors, DOM state, fix code       |
+| Design verification | Build UI, verify matches mockup in browser     |
+| Web app testing     | Form validation, visual regression, user flows |
+| Authenticated apps  | Access Google Docs, Gmail, Notion (logged in)  |
+| Data extraction     | Pull structured info from web pages            |
+| Task automation     | Data entry, form filling, multi-site workflows |
+| Session recording   | Record interactions as GIFs                    |
+
+### Prerequisites
+
+| Requirement                | Details                                    |
+| -------------------------- | ------------------------------------------ |
+| Google Chrome              | Not Brave, Arc, or other Chromium browsers |
+| Claude in Chrome extension | Latest version from Chrome Web Store       |
+| Claude Code CLI            | Recent version with Chrome support         |
+| Paid Claude plan           | Pro, Team, or Enterprise                   |
+
+**Note**: WSL (Windows Subsystem for Linux) not supported.
+
+### How It Works
+
+1. Claude Code communicates via Chrome Native Messaging API
+2. Commands sent to Claude in Chrome extension
+3. Extension executes actions in browser
+4. Results returned to Claude Code
+
+**Key Behaviors**:
+
+- Opens new tabs (doesn't take over existing)
+- Shares browser login state
+- Visible browser window required (no headless mode)
+- Pauses for login, CAPTCHA (you handle, then continue)
+
+### Setup
+
+**Step 1: Update Claude Code**:
+
+```bash
+claude update
+```
+
+**Step 2: Start with Chrome enabled**:
+
+```bash
+claude --chrome
+```
+
+**Step 3: Verify connection**:
+
+```
+/chrome
+```
+
+Check status, manage settings. Install extension if not detected.
+
+### Enable During Session
+
+Run `/chrome` command within existing session.
+
+### Enable by Default
+
+Run `/chrome` → Select "Enabled by default"
+
+**Note**: Increases context usage (browser tools always loaded). Use `--chrome` flag when needed instead if context is concern.
+
+### Chrome Command
+
+| Action    | Description             |
+| --------- | ----------------------- |
+| `/chrome` | Check connection status |
+| `/chrome` | Manage settings         |
+| `/chrome` | Reconnect extension     |
+| `/chrome` | View permissions        |
+
+### Available Tools
+
+Run `/mcp` → Click `claude-in-chrome` to see full tool list.
+
+**Capabilities**:
+
+- Navigate pages
+- Click and type
+- Fill forms
+- Scroll
+- Read console logs
+- Read network requests
+- Manage tabs
+- Resize windows
+- Record GIFs
+
+### Example: Test Local Web App
+
+```
+I just updated the login form validation. Can you open localhost:3000,
+try submitting the form with invalid data, and check if the error
+messages appear correctly?
+```
+
+Claude navigates, interacts with form, reports observations.
+
+### Example: Debug with Console
+
+```
+Open the dashboard page and check the console for any errors when
+the page loads.
+```
+
+Claude reads console, filters for specific patterns or error types.
+
+### Example: Form Automation
+
+```
+I have a spreadsheet of customer contacts in contacts.csv. For each row,
+go to our CRM at crm.example.com, click "Add Contact", and fill in the
+name, email, and phone fields.
+```
+
+Claude reads local file, navigates web interface, enters data.
+
+### Example: Google Docs
+
+```
+Draft a project update based on our recent commits and add it to my
+Google Doc at docs.google.com/document/d/abc123
+```
+
+Claude opens document, clicks editor, types content. Works with any logged-in app.
+
+### Example: Data Extraction
+
+```
+Go to the product listings page and extract the name, price, and
+availability for each item. Save the results as a CSV file.
+```
+
+Claude navigates, reads content, compiles structured data.
+
+### Example: Multi-Site Workflow
+
+```
+Check my calendar for meetings tomorrow, then for each meeting with
+an external attendee, look up their company on LinkedIn and add a
+note about what they do.
+```
+
+Claude works across tabs to gather info and complete workflow.
+
+### Example: Record GIF Demo
+
+```
+Record a GIF showing how to complete the checkout flow, from adding
+an item to the cart through to the confirmation page.
+```
+
+Claude records interaction sequence, saves as GIF file.
+
+### Best Practices
+
+| Practice                | Description                                            |
+| ----------------------- | ------------------------------------------------------ |
+| Handle modal dialogs    | JS alerts block commands; dismiss manually             |
+| Use fresh tabs          | If tab unresponsive, ask for new tab                   |
+| Filter console output   | Specify patterns rather than all output                |
+| Explicit tool reference | Say "playwright mcp" first time to avoid bash fallback |
+
+### Troubleshooting
+
+**Extension not detected**:
+
+1. Verify Chrome extension installed (latest version)
+2. Verify Claude Code version: `claude --version`
+3. Check Chrome is running
+4. `/chrome` → "Reconnect extension"
+5. Restart both Claude Code and Chrome
+
+**Browser not responding**:
+
+1. Check for modal dialog blocking page
+2. Ask Claude to create new tab
+3. Restart Chrome extension (disable/re-enable)
+
+**First-time setup**:
+
+Native messaging host installed automatically. Restart Chrome if permission errors.
+
+### Permissions
+
+Site-level permissions inherited from Chrome extension.
+
+**Manage**: Chrome extension settings → Control which sites Claude can browse, click, type.
+
+**View current**: `/chrome` shows permission settings.
+
+### Playwright MCP Alternative
+
+For comprehensive test automation, Playwright MCP provides:
+
+| Feature              | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| Cross-browser        | Chrome, Firefox, Safari                            |
+| Device emulation     | 143 devices (iPhone, iPad, Pixel, Galaxy, Desktop) |
+| Headless mode        | Background execution                               |
+| Test code generation | Automated test creation                            |
+
+**Configuration**:
+
+Add to MCP servers config:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic-ai/mcp-server-playwright"]
+    }
+  }
+}
+```
+
+**Usage**:
+
+```
+Use playwright mcp to open a browser to example.com
+```
+
+### Chrome vs Playwright MCP
+
+| Feature          | Chrome Integration              | Playwright MCP           |
+| ---------------- | ------------------------------- | ------------------------ |
+| Login state      | Uses your sessions              | Separate sessions        |
+| Visibility       | Visible browser                 | Headless option          |
+| Browser support  | Chrome only                     | Chrome, Firefox, Safari  |
+| Device emulation | None                            | 143 devices              |
+| Best for         | Authenticated apps, quick debug | Automated testing, CI/CD |
+
+### DSM Chrome Patterns
+
+**Test Data Fetching UI**:
+
+```
+Open the DSM dashboard at localhost:8080, select BTCUSDT from the
+symbol dropdown, click "Fetch Data", and verify the OHLCV table loads.
+```
+
+**Debug API Responses**:
+
+```
+Open the network tab, trigger a data fetch for ETHUSDT, and show me
+the API response body and any console errors.
+```
+
+**Record Demo GIF**:
+
+```
+Record a GIF showing the complete flow of fetching historical data
+for a symbol, including cache hit vs miss behavior.
+```
+
+**Extract Documentation**:
+
+```
+Go to the Binance API documentation page and extract the rate limits
+for the klines endpoint. Save as rate-limits.md.
+```
+
+### Integration Summary
+
+| Flag          | Description                |
+| ------------- | -------------------------- |
+| `--chrome`    | Enable Chrome integration  |
+| `--no-chrome` | Disable Chrome integration |
+| `/chrome`     | Manage in-session          |
+
+**When to Use Chrome**:
+
+- Testing authenticated web apps
+- Quick browser debugging
+- Working with sites you're logged into
+- Recording demos
+
+**When to Use Playwright MCP**:
+
+- Automated test suites
+- CI/CD pipelines
+- Cross-browser testing
+- Headless execution
