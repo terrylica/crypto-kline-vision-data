@@ -92,6 +92,13 @@ def test_with_mocks(self, mock_cache, mock_handler):
     # Test logic...
 ```
 
+## Examples
+
+Practical test examples:
+
+- @examples/unit-test-patterns.md - Basic tests, fixtures, mocking
+- @examples/integration-test-patterns.md - API tests, markers, FCP testing
+
 ## Detailed References
 
 For deeper information, see:

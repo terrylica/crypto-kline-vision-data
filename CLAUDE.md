@@ -182,10 +182,11 @@ For detailed usage guidance, see [docs/skills/](docs/skills/):
 
 Domain-specific rules for Claude Code are in `.claude/rules/`:
 
-- `binance-api.md` - Rate limits, symbol formats, error codes
+- `binance-api.md` - Rate limits, error codes, API endpoints
 - `timestamp-handling.md` - UTC requirements, open_time semantics
 - `dataframe-operations.md` - Polars preference, OHLCV validation
 - `caching-patterns.md` - Cache structure, invalidation rules
+- `symbol-formats.md` - Market-specific symbol format requirements
 
 ---
 
