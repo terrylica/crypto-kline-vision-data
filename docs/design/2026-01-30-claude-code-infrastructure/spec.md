@@ -14132,6 +14132,7 @@ Only report anomalies, not full cache contents.
 
 <!-- Detailed docs in skills, not here -->
 ```
+
 ---
 
 ## Troubleshooting Reference
@@ -14380,4 +14381,620 @@ uv run pytest tests/ -v --tb=long
 
 # Run specific test
 uv run pytest tests/unit/test_manager.py -v
+```
+
+---
+
+## Structured Outputs Reference
+
+Guarantee schema-compliant JSON responses from Claude.
+
+### Overview
+
+Structured outputs constrain Claude's responses to follow a specific schema, ensuring valid, parseable output. Two complementary features:
+
+| Feature                               | Purpose                  | When to Use                       |
+| ------------------------------------- | ------------------------ | --------------------------------- |
+| JSON outputs (`output_config.format`) | Control response format  | Data extraction, API responses    |
+| Strict tool use (`strict: true`)      | Validate tool parameters | Agentic workflows, function calls |
+
+**Benefits**:
+
+- **Always valid**: No more `JSON.parse()` errors
+- **Type safe**: Guaranteed field types and required fields
+- **Reliable**: No retries needed for schema violations
+
+### JSON Outputs Quick Start
+
+**Python with Pydantic**:
+
+```python
+from pydantic import BaseModel
+from anthropic import Anthropic, transform_schema
+
+class ContactInfo(BaseModel):
+    name: str
+    email: str
+    plan_interest: str
+    demo_requested: bool
+
+client = Anthropic()
+
+# Method 1: Using .parse() (recommended)
+response = client.messages.parse(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Extract from email: John (john@example.com) wants Enterprise demo"}],
+    output_format=ContactInfo,
+)
+contact = response.parsed_output
+print(contact.name, contact.email)
+
+# Method 2: Using .create() with transform_schema()
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Extract from email..."}],
+    output_config={
+        "format": {
+            "type": "json_schema",
+            "schema": transform_schema(ContactInfo),
+        }
+    }
+)
+```
+
+**TypeScript with Zod**:
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+
+const ContactInfoSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  plan_interest: z.string(),
+  demo_requested: z.boolean(),
+});
+
+const client = new Anthropic();
+
+const response = await client.messages.create({
+  model: "claude-sonnet-4-5",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Extract from email..." }],
+  output_config: { format: zodOutputFormat(ContactInfoSchema) },
+});
+```
+
+### Strict Tool Use
+
+Guarantee tool parameters match schema exactly:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Search flights to Tokyo"}],
+    tools=[{
+        "name": "search_flights",
+        "description": "Search for available flights",
+        "strict": True,  # Enable strict mode
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "destination": {"type": "string"},
+                "departure_date": {"type": "string", "format": "date"},
+                "passengers": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6]}
+            },
+            "required": ["destination", "departure_date"],
+            "additionalProperties": False
+        }
+    }]
+)
+```
+
+**Without strict mode**: Claude might return `passengers: "two"` or `passengers: "2"`.
+**With strict mode**: Always returns `passengers: 2` (correct integer type).
+
+### Combined Usage
+
+Use both JSON outputs and strict tool use together:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Plan a trip to Paris"}],
+    # JSON outputs: structured response format
+    output_config={
+        "format": {
+            "type": "json_schema",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string"},
+                    "next_steps": {"type": "array", "items": {"type": "string"}}
+                },
+                "required": ["summary", "next_steps"],
+                "additionalProperties": False
+            }
+        }
+    },
+    # Strict tool use: guaranteed tool parameters
+    tools=[{
+        "name": "search_flights",
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "destination": {"type": "string"},
+                "date": {"type": "string", "format": "date"}
+            },
+            "required": ["destination", "date"],
+            "additionalProperties": False
+        }
+    }]
+)
+```
+
+### JSON Schema Support
+
+**Supported features**:
+
+| Feature        | Examples                                              |
+| -------------- | ----------------------------------------------------- |
+| Basic types    | object, array, string, integer, number, boolean, null |
+| Enums          | `{"type": "string", "enum": ["a", "b"]}`              |
+| References     | `$ref`, `$def`, `definitions` (local only)            |
+| Combinators    | `anyOf`, `allOf` (with limitations)                   |
+| String formats | date-time, date, time, email, uri, uuid, ipv4, ipv6   |
+| Array minItems | 0 or 1 only                                           |
+
+**Not supported**:
+
+- Recursive schemas
+- Numerical constraints (`minimum`, `maximum`, `multipleOf`)
+- String constraints (`minLength`, `maxLength`)
+- `additionalProperties` set to anything other than `false`
+- External `$ref` URLs
+- Complex regex patterns (backreferences, lookahead)
+
+### SDK Schema Transformation
+
+SDKs automatically transform unsupported features:
+
+1. Remove unsupported constraints (`minimum`, `maxLength`)
+2. Add constraint info to descriptions ("Must be at least 100")
+3. Add `additionalProperties: false` to all objects
+4. Validate responses against original schema
+
+**Example**:
+
+```python
+from pydantic import BaseModel, Field
+
+class Product(BaseModel):
+    name: str
+    price: float = Field(ge=0, le=10000)  # Constraints in Pydantic
+    quantity: int = Field(ge=1)
+
+# SDK transforms to simplified schema for Claude
+# But validates response against full Pydantic constraints
+```
+
+### Performance Considerations
+
+**Grammar compilation**:
+
+- First request with new schema has compilation latency
+- Compiled grammars cached 24 hours
+- Cache invalidated by schema structure changes (not name/description)
+
+**Token costs**:
+
+- Additional system prompt injected for format explanation
+- Changing `output_config.format` invalidates prompt cache
+
+### Error Handling
+
+**Refusals** (`stop_reason: "refusal"`):
+
+- Claude maintains safety properties even with structured outputs
+- Refusal message takes precedence over schema constraints
+- Still returns 200 status, still billed
+
+**Token limit** (`stop_reason: "max_tokens"`):
+
+- Output may be incomplete and not match schema
+- Retry with higher `max_tokens`
+
+**Schema errors** (400 status):
+
+- "Too many recursive definitions in schema"
+- "Schema is too complex"
+- Solution: Simplify schema, reduce nesting
+
+### Feature Compatibility
+
+| Feature            | Compatible | Notes                          |
+| ------------------ | ---------- | ------------------------------ |
+| Batch processing   | Yes        | 50% discount applies           |
+| Token counting     | Yes        | Count without compilation      |
+| Streaming          | Yes        | Stream like normal responses   |
+| Extended Thinking  | Yes        | Grammar applies to output only |
+| Citations          | No         | 400 error if combined          |
+| Message prefilling | No         | Incompatible with JSON outputs |
+
+### DSM Structured Output Patterns
+
+**OHLCV response schema**:
+
+```python
+from pydantic import BaseModel
+from typing import List
+from datetime import datetime
+
+class OHLCVBar(BaseModel):
+    open_time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+class OHLCVResponse(BaseModel):
+    symbol: str
+    timeframe: str
+    bars: List[OHLCVBar]
+    source: str
+    is_complete: bool
+
+# Use for FCP validation results
+response = client.messages.parse(
+    model="claude-sonnet-4-5",
+    output_format=OHLCVResponse,
+    messages=[{"role": "user", "content": f"Validate this OHLCV data: {data}"}]
+)
+```
+
+**FCP status schema**:
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+from enum import Enum
+
+class FCPDecision(str, Enum):
+    USE_CACHE = "use_cache"
+    FETCH_LIVE = "fetch_live"
+    FAILOVER = "failover"
+
+class FCPStatus(BaseModel):
+    symbol: str
+    decision: FCPDecision
+    cache_hit: bool
+    source_used: str
+    staleness_seconds: Optional[int]
+    error_message: Optional[str]
+```
+
+---
+
+## MCP Server Ecosystem Reference
+
+Extend Claude Code capabilities with Model Context Protocol servers.
+
+### Essential MCP Servers
+
+| Server              | Purpose                 | Install Command                                                        |
+| ------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| Context7            | Real-time documentation | `claude mcp add --transport sse context7 https://mcp.context7.com/sse` |
+| Sequential Thinking | Structured reasoning    | `npx @modelcontextprotocol/server-sequential-thinking`                 |
+| Playwright          | Web automation          | `npx @anthropic-ai/mcp-server-playwright`                              |
+| GitHub              | Repository management   | `npx @modelcontextprotocol/server-github`                              |
+| Memory              | Persistent knowledge    | `npx @modelcontextprotocol/server-memory`                              |
+| Filesystem          | File operations         | `npx @modelcontextprotocol/server-filesystem`                          |
+
+### Context7 MCP
+
+Fetch real-time documentation from source repositories:
+
+```bash
+# Installation
+claude mcp add --transport sse context7 https://mcp.context7.com/sse
+
+# Usage in prompts
+"Create a React Server Component using Next.js 14 patterns - use context7"
+"Show me the latest Polars DataFrame API - use context7"
+```
+
+**Benefits**:
+
+- Always current documentation (not training data)
+- Version-specific code examples
+- 20+ client support (Cursor, VS Code, Claude Desktop, JetBrains)
+
+### Sequential Thinking MCP
+
+Structured multi-step problem solving:
+
+```json
+// .mcp.json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+}
+```
+
+**Use cases**:
+
+- Complex architecture decisions
+- Multi-step debugging
+- Research planning
+- Iterative refinement
+
+**Stacking pattern**:
+
+```
+1. Sequential Thinking → Plan research path
+2. Context7 → Fetch relevant documentation
+3. Playwright → Validate in browser
+4. Memory → Store findings
+```
+
+### Playwright MCP
+
+Web automation using accessibility trees (not screenshots):
+
+```json
+// .mcp.json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic-ai/mcp-server-playwright"]
+    }
+  }
+}
+```
+
+**Capabilities**:
+
+- Navigate websites
+- Fill forms, click buttons
+- Extract data
+- Run E2E tests
+- Debug visual issues
+
+**Example prompts**:
+
+```
+"Go to localhost:3000, log in as 'testuser', verify dashboard loads"
+"Fill the registration form with test data and submit"
+"Extract all product prices from the catalog page"
+```
+
+### MCP Configuration
+
+**Project-level** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+}
+```
+
+**User-level** (`~/.claude.json`):
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-memory"],
+      "scope": "user"
+    }
+  }
+}
+```
+
+### Context Usage Management
+
+MCP servers consume significant context:
+
+| Server     | Typical Tokens | Tools |
+| ---------- | -------------- | ----- |
+| Playwright | ~13,600        | 21    |
+| Omnisearch | ~14,200        | 20    |
+| GitHub     | ~8,000         | 15    |
+| Context7   | ~3,000         | 5     |
+
+**Optimization strategies**:
+
+1. **Limit active servers**: 5 servers work well; more degrades performance
+2. **Clear between tasks**: Use `/clear` between unrelated work
+3. **Monitor context**: Compact at 70% capacity
+4. **Selective loading**: Only enable servers needed for current task
+
+### Cloud Provider MCP Servers
+
+**AWS**:
+
+```json
+{
+  "mcpServers": {
+    "aws-s3": {
+      "command": "npx",
+      "args": ["@anthropic-ai/mcp-server-aws-s3"],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "${AWS_ACCESS_KEY_ID}",
+        "AWS_SECRET_ACCESS_KEY": "${AWS_SECRET_ACCESS_KEY}"
+      }
+    }
+  }
+}
+```
+
+**Cloudflare** (16 specialized servers):
+
+```json
+{
+  "mcpServers": {
+    "cloudflare-workers": {
+      "command": "npx",
+      "args": ["@cloudflare/mcp-server-workers"],
+      "env": {
+        "CLOUDFLARE_API_TOKEN": "${CLOUDFLARE_API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+### Database MCP Servers
+
+**PostgreSQL**:
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    }
+  }
+}
+```
+
+**SQLite**:
+
+```json
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-sqlite", "--db", "./data.db"]
+    }
+  }
+}
+```
+
+### Observability MCP Servers
+
+**Sentry**:
+
+```json
+{
+  "mcpServers": {
+    "sentry": {
+      "command": "npx",
+      "args": ["@sentry/mcp-server"],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "${SENTRY_AUTH_TOKEN}",
+        "SENTRY_ORG": "my-org"
+      }
+    }
+  }
+}
+```
+
+**PostHog**:
+
+```json
+{
+  "mcpServers": {
+    "posthog": {
+      "command": "npx",
+      "args": ["@posthog/mcp-server"],
+      "env": {
+        "POSTHOG_API_KEY": "${POSTHOG_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### MCP Server Best Practices
+
+**Start with pain points**:
+
+```
+1. Documentation outdated? → Context7
+2. Need structured reasoning? → Sequential Thinking
+3. Browser testing? → Playwright
+4. Repository management? → GitHub
+```
+
+**Modular expansion**:
+
+```
+Week 1: Context7 (documentation)
+Week 2: + Sequential Thinking (planning)
+Week 3: + GitHub (PR workflow)
+Week 4: + Playwright (E2E tests)
+```
+
+**Role-based selection**:
+
+| Role       | Recommended Servers             |
+| ---------- | ------------------------------- |
+| Frontend   | Playwright, Figma, Context7     |
+| Backend    | GitHub, PostgreSQL, Sentry      |
+| DevOps     | AWS/Cloudflare, PostHog, GitHub |
+| Full-stack | Context7, GitHub, Playwright    |
+
+### DSM MCP Configuration
+
+```json
+// .mcp.json for data-source-manager
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+}
+```
+
+**Usage patterns**:
+
+```
+# FCP debugging with sequential thinking
+"Debug this FCP cache miss using sequential thinking"
+
+# Polars documentation lookup
+"Show me Polars group_by with rolling windows - use context7"
+
+# Combined workflow
+"Plan the FCP refactoring approach, then fetch current Polars best practices"
 ```
