@@ -9538,6 +9538,137 @@ export ANTHROPIC_BEDROCK_BASE_URL='https://internal-gateway.company.com/bedrock'
 # /Library/Application Support/ClaudeCode/managed-settings.json
 ```
 
+## Cost Management
+
+### Overview
+
+Token costs scale with context size. Average cost is ~$6/developer/day, with team usage ~$100-200/developer/month with Sonnet 4.5.
+
+### Tracking Costs
+
+```
+/cost
+Total cost:            $0.55
+Total duration (API):  6m 19.7s
+Total duration (wall): 6h 33m 10.2s
+```
+
+### 2026 Pricing
+
+| Model             | Input | Output |
+| ----------------- | ----- | ------ |
+| Claude Haiku 4.5  | $1/M  | $5/M   |
+| Claude Sonnet 4.5 | $3/M  | $15/M  |
+| Claude Opus 4.5   | $5/M  | $25/M  |
+
+### Optimization Strategies
+
+1. **Clear between tasks**: `/clear` to remove stale context
+2. **Use /compact**: `Focus on code samples and API usage`
+3. **Choose right model**: Sonnet for most, Opus for complex
+4. **Reduce MCP overhead**: `/context` to check, prefer CLI tools
+5. **Move to skills**: Keep CLAUDE.md under ~500 lines
+6. **Adjust thinking**: `MAX_THINKING_TOKENS=8000` for simple tasks
+7. **Delegate to subagents**: Verbose ops return only summaries
+
+### Rate Limits by Team Size
+
+| Team Size | TPM/User  |
+| --------- | --------- |
+| 1-5       | 200k-300k |
+| 20-50     | 50k-75k   |
+| 100-500   | 15k-20k   |
+
+### Prompt Caching
+
+- 5-min cache: Write 1.25x, read 0.1x base
+- 1-hour cache: Write 2x, read 0.1x base
+- Up to 90% savings on repeated content
+
+## Custom Tool Implementation
+
+### Tool Definition
+
+```json
+{
+  "name": "get_stock_price",
+  "description": "Retrieves the current stock price for a ticker symbol. Must be valid symbol on NYSE or NASDAQ. Returns latest trade price in USD.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "ticker": {
+        "type": "string",
+        "description": "Stock ticker symbol, e.g. AAPL"
+      }
+    },
+    "required": ["ticker"]
+  }
+}
+```
+
+### Best Practices
+
+1. **Detailed descriptions** (3-4+ sentences)
+2. **Use input_examples** for complex tools
+3. **Strict mode** for guaranteed schema compliance
+
+### Tool Runner (Python)
+
+```python
+from anthropic import beta_tool
+
+@beta_tool
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Get current weather in a location.
+
+    Args:
+        location: City and state, e.g. San Francisco, CA
+        unit: Temperature unit (celsius/fahrenheit)
+    """
+    return json.dumps({"temperature": "20°C"})
+
+runner = client.beta.messages.tool_runner(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=[get_weather],
+    messages=[{"role": "user", "content": "Weather in Paris?"}]
+)
+```
+
+### Tool Choice
+
+| Type   | Behavior                 |
+| ------ | ------------------------ |
+| `auto` | Claude decides (default) |
+| `any`  | Must use one tool        |
+| `tool` | Must use specific tool   |
+| `none` | Cannot use tools         |
+
+### Parallel Tool Use
+
+All results in single user message:
+
+```json
+{
+  "role": "user",
+  "content": [
+    { "type": "tool_result", "tool_use_id": "toolu_01", "content": "Result 1" },
+    { "type": "tool_result", "tool_use_id": "toolu_02", "content": "Result 2" }
+  ]
+}
+```
+
+### Error Handling
+
+```json
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_01",
+  "content": "ConnectionError: service unavailable",
+  "is_error": true
+}
+```
+
 ## Verification Checklist
 
 ### Infrastructure
