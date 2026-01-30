@@ -2,6 +2,18 @@
   "$schema": "https://code.claude.com/hooks/schema.json",
   "description": "DSM-specific hooks for data-source-manager",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_ROOT}/.claude/hooks/dsm-skill-suggest.sh",
+            "timeout": 2000
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

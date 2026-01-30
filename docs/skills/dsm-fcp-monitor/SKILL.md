@@ -3,6 +3,7 @@ name: dsm-fcp-monitor
 description: Monitor and diagnose FCP (Failover Control Protocol) behavior, cache health, and data source performance. TRIGGERS - FCP issues, cache problems, slow data, Vision API errors, REST fallback, data source debugging.
 argument-hint: "[symbol] [market-type]"
 user-invocable: true
+context: fork
 allowed-tools: Read, Bash, Grep, Glob
 ---
 

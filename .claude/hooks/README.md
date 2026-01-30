@@ -4,6 +4,21 @@ Project-specific Claude Code hooks for data-source-manager.
 
 ## Available Hooks
 
+### dsm-skill-suggest.sh (UserPromptSubmit)
+
+Analyzes user prompts and suggests relevant DSM skills based on keywords.
+
+**Trigger Keywords:**
+
+| Skill           | Keywords                                          |
+| --------------- | ------------------------------------------------- |
+| dsm-usage       | fetch, data, klines, OHLCV, market data, Binance  |
+| dsm-testing     | test, pytest, mock, fixture, coverage             |
+| dsm-fcp-monitor | FCP, failover, cache miss/hit, slow, diagnos      |
+| dsm-research    | how does, understand, find, explore, architecture |
+
+**Behavior**: Provides suggestions via feedback (non-blocking).
+
 ### dsm-bash-guard.sh (PreToolUse)
 
 Validates bash commands BEFORE execution for DSM-specific safety.
@@ -50,17 +65,14 @@ The hooks are configured in `hooks.json`:
 ```json
 {
   "hooks": {
+    "UserPromptSubmit": [
+      { "matcher": ".*", "hooks": [{ "command": "dsm-skill-suggest.sh" }] }
+    ],
     "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "dsm-bash-guard.sh" }]
-      }
+      { "matcher": "Bash", "hooks": [{ "command": "dsm-bash-guard.sh" }] }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "dsm-code-guard.sh" }]
-      }
+      { "matcher": "Write|Edit", "hooks": [{ "command": "dsm-code-guard.sh" }] }
     ]
   }
 }

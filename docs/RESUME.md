@@ -4,6 +4,19 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### UserPromptSubmit Hook & Skill Context Isolation (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added UserPromptSubmit hook (dsm-skill-suggest.sh) for proactive skill suggestions
+- Added `context: fork` to dsm-fcp-monitor skill for diagnostic isolation
+- Updated design spec with hook events summary table and skill context isolation table
+- Total hooks: 3 (UserPromptSubmit + PreToolUse + PostToolUse)
+
+**Sources**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [HumanLayer CLAUDE.md guide](https://www.humanlayer.dev/blog/writing-a-good-claude-md)
+
 ### Additional Hook & Documentation Enhancements (2026-01-30)
 
 **Status**: Complete

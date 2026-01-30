@@ -152,6 +152,15 @@ agent: Explore # Optional: uses specific agent
 | dsm-research    | (inherits from agent)  | Uses Explore agent's tools |
 | dsm-fcp-monitor | Read, Bash, Grep, Glob | Diagnostic and monitoring  |
 
+### Skill Context Isolation
+
+| Skill           | context | Reason                              |
+| --------------- | ------- | ----------------------------------- |
+| dsm-research    | fork    | Exploration keeps main context lean |
+| dsm-fcp-monitor | fork    | Diagnostic scripts run in isolation |
+| dsm-usage       | -       | Inline execution for quick fetches  |
+| dsm-testing     | -       | Test results need main context      |
+
 ### $ARGUMENTS Usage
 
 Skills support `$ARGUMENTS` placeholder for user input:
@@ -174,21 +183,26 @@ Run operation for: $ARGUMENTS
 {
   "description": "DSM-specific hooks",
   "hooks": {
+    "UserPromptSubmit": [
+      { "matcher": ".*", "hooks": [{ "command": "dsm-skill-suggest.sh" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "command": "dsm-bash-guard.sh" }] }
+    ],
     "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_ROOT}/.claude/hooks/dsm-code-guard.sh",
-            "timeout": 5000
-          }
-        ]
-      }
+      { "matcher": "Write|Edit", "hooks": [{ "command": "dsm-code-guard.sh" }] }
     ]
   }
 }
 ```
+
+### Hook Events Summary
+
+| Event            | Purpose                    | Blocking | DSM Hook             |
+| ---------------- | -------------------------- | -------- | -------------------- |
+| UserPromptSubmit | Suggest skills on prompt   | No       | dsm-skill-suggest.sh |
+| PreToolUse       | Validate before execution  | Yes (2)  | dsm-bash-guard.sh    |
+| PostToolUse      | Validate after file writes | No       | dsm-code-guard.sh    |
 
 ### DSM Code Guard Checks
 

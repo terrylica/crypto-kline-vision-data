@@ -62,10 +62,11 @@ Context rules that Claude loads on demand when relevant.
 
 Project-specific hooks for code quality and safety.
 
-| Hook              | Event       | Purpose                                    |
-| ----------------- | ----------- | ------------------------------------------ |
-| dsm-bash-guard.sh | PreToolUse  | Block dangerous commands before execution  |
-| dsm-code-guard.sh | PostToolUse | Detect silent failure patterns (11 checks) |
+| Hook                 | Event            | Purpose                                    |
+| -------------------- | ---------------- | ------------------------------------------ |
+| dsm-skill-suggest.sh | UserPromptSubmit | Suggest relevant skills based on keywords  |
+| dsm-bash-guard.sh    | PreToolUse       | Block dangerous commands before execution  |
+| dsm-code-guard.sh    | PostToolUse      | Detect silent failure patterns (11 checks) |
 
 **Blocked by PreToolUse:**
 
