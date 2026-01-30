@@ -18579,3 +18579,481 @@ claude mcp add --transport stdio my-server -- cmd /c npx -y @some/package
 - All actions require explicit approval
 - Use enterprise managed settings for organizational control
 - Store secrets in environment variables, not config files
+---
+
+<!-- SSoT-OK: Section added by autonomous Claude Code infrastructure improvement loop -->
+
+## Batch Processing Reference
+
+Comprehensive guide to the Message Batches API for large-scale asynchronous processing.
+
+### Overview
+
+The Message Batches API enables cost-effective asynchronous processing of large volumes of requests with 50% cost savings.
+
+**Ideal use cases**:
+
+- Large-scale evaluations (thousands of test cases)
+- Content moderation (bulk user content analysis)
+- Data analysis (insights for large datasets)
+- Bulk content generation
+
+### Batch Limitations
+
+| Limit                | Value                       |
+| -------------------- | --------------------------- |
+| Maximum requests     | 100,000 per batch           |
+| Maximum size         | 256 MB per batch            |
+| Processing time      | Most complete within 1 hour |
+| Expiration           | 24 hours maximum            |
+| Results availability | 29 days after creation      |
+
+### Pricing (50% Discount)
+
+| Model               | Batch Input | Batch Output |
+| ------------------- | ----------- | ------------ |
+| Claude Opus 4.5     | $2.50/MTok  | $12.50/MTok  |
+| Claude Opus 4.1/4   | $7.50/MTok  | $37.50/MTok  |
+| Claude Sonnet 4.5/4 | $1.50/MTok  | $7.50/MTok   |
+| Claude Haiku 4.5    | $0.50/MTok  | $2.50/MTok   |
+
+### Creating a Batch
+
+**Python**:
+
+```python
+import anthropic
+from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
+from anthropic.types.messages.batch_create_params import Request
+
+client = anthropic.Anthropic()
+
+message_batch = client.messages.batches.create(
+    requests=[
+        Request(
+            custom_id="request-1",
+            params=MessageCreateParamsNonStreaming(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": "Analyze this code..."}]
+            )
+        ),
+        Request(
+            custom_id="request-2",
+            params=MessageCreateParamsNonStreaming(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": "Review this function..."}]
+            )
+        )
+    ]
+)
+```
+
+### Tracking Batch Status
+
+**Polling for completion**:
+
+```python
+import time
+
+while True:
+    batch = client.messages.batches.retrieve(batch_id)
+    if batch.processing_status == "ended":
+        break
+    print(f"Batch {batch_id} still processing...")
+    time.sleep(60)
+```
+
+**Processing status values**:
+
+- `in_progress`: Currently processing
+- `canceling`: Cancellation in progress
+- `ended`: All requests completed
+
+### Retrieving Results
+
+**Stream results**:
+
+```python
+for result in client.messages.batches.results(batch_id):
+    match result.result.type:
+        case "succeeded":
+            print(f"Success: {result.custom_id}")
+        case "errored":
+            if result.result.error.type == "invalid_request":
+                print(f"Validation error: {result.custom_id}")
+            else:
+                print(f"Server error: {result.custom_id}")
+        case "expired":
+            print(f"Expired: {result.custom_id}")
+```
+
+**Result types**:
+
+| Type        | Description                     | Billed? |
+| ----------- | ------------------------------- | ------- |
+| `succeeded` | Request completed successfully  | Yes     |
+| `errored`   | Request encountered an error    | No      |
+| `canceled`  | User canceled before processing | No      |
+| `expired`   | Reached 24-hour limit           | No      |
+
+### Prompt Caching with Batches
+
+Combine prompt caching with batches for maximum savings (discounts stack):
+
+```python
+requests=[
+    Request(
+        custom_id="request-1",
+        params=MessageCreateParamsNonStreaming(
+            model="claude-sonnet-4-5",
+            max_tokens=1024,
+            system=[
+                {"type": "text", "text": "You are a code reviewer."},
+                {
+                    "type": "text",
+                    "text": "<large shared context>",
+                    "cache_control": {"type": "ephemeral"}
+                }
+            ],
+            messages=[{"role": "user", "content": "Review code A"}]
+        )
+    ),
+    # More requests with same cached system prompt
+]
+```
+
+**Cache hit rates**: 30-98% depending on traffic patterns
+
+**Tips for better cache hits**:
+
+1. Include identical `cache_control` blocks in every request
+2. Maintain steady request stream (cache expires after 5 minutes)
+3. Use 1-hour cache duration for batch workloads
+
+### What Can Be Batched
+
+All Messages API features work in batches:
+
+- Vision (images)
+- Tool use
+- System messages
+- Multi-turn conversations
+- Extended thinking
+- Beta features
+
+### DSM Batch Patterns
+
+#### Pattern: Bulk Symbol Analysis
+
+```python
+symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", ...]
+
+requests = [
+    Request(
+        custom_id=f"analyze-{symbol}",
+        params=MessageCreateParamsNonStreaming(
+            model="claude-sonnet-4-5",
+            max_tokens=2048,
+            messages=[{
+                "role": "user",
+                "content": f"Analyze trading patterns for {symbol}"
+            }]
+        )
+    )
+    for symbol in symbols
+]
+
+batch = client.messages.batches.create(requests=requests)
+```
+
+#### Pattern: Batch Code Review
+
+````python
+files = glob.glob("src/**/*.py", recursive=True)
+
+requests = [
+    Request(
+        custom_id=f"review-{path}",
+        params=MessageCreateParamsNonStreaming(
+            model="claude-sonnet-4-5",
+            max_tokens=4096,
+            system="You are a Python code reviewer focusing on FCP patterns.",
+            messages=[{
+                "role": "user",
+                "content": f"Review this file:\n```python\n{open(path).read()}\n```"
+            }]
+        )
+    )
+    for path in files[:100]  # Batch limit
+]
+````
+
+### Managing Batches
+
+**List all batches**:
+
+```python
+for batch in client.messages.batches.list(limit=20):
+    print(f"{batch.id}: {batch.processing_status}")
+```
+
+**Cancel a batch**:
+
+```python
+batch = client.messages.batches.cancel(batch_id)
+# Status becomes "canceling", then "ended"
+```
+
+### Best Practices
+
+1. **Use meaningful custom_ids**: Results may return in any order
+2. **Test with Messages API first**: Validate request shape before batching
+3. **Break large datasets**: Use multiple batches for manageability
+4. **Implement retry logic**: Handle `errored` results appropriately
+5. **Monitor processing status**: Poll regularly for completion
+
+### Troubleshooting
+
+| Issue                | Cause                    | Solution                     |
+| -------------------- | ------------------------ | ---------------------------- |
+| 413 error            | Batch exceeds 256 MB     | Split into smaller batches   |
+| Results not in order | Normal behavior          | Use `custom_id` to match     |
+| Results unavailable  | Over 29 days old         | Retrieve sooner              |
+| High expired count   | Processing took too long | Use smaller batches          |
+| Validation errors    | Invalid request params   | Test with Messages API first |
+---
+
+<!-- SSoT-OK: Section added by autonomous Claude Code infrastructure improvement loop -->
+
+## Vision & Multimodal Reference
+
+Comprehensive guide to Claude's vision capabilities for image analysis.
+
+### Overview
+
+Claude's vision capabilities enable understanding and analyzing images for multimodal workflows.
+
+**Key use cases**:
+
+- Screenshot analysis and debugging
+- OCR (text extraction from images)
+- Chart and diagram interpretation
+- UI design analysis
+- Architecture diagram understanding
+- Document and form processing
+
+### Image Limits
+
+| Limit                        | Value                |
+| ---------------------------- | -------------------- |
+| Maximum per request (API)    | 100 images           |
+| Maximum per turn (claude.ai) | 20 images            |
+| Maximum dimensions           | 8000x8000 px         |
+| With 20+ images              | 2000x2000 px max     |
+| File size (API)              | 5 MB per image       |
+| File size (claude.ai)        | 10 MB per image      |
+| Supported formats            | JPEG, PNG, GIF, WebP |
+
+### Optimal Image Sizes
+
+For best performance (no resizing), keep within these dimensions:
+
+| Aspect Ratio | Image Size   |
+| ------------ | ------------ |
+| 1:1          | 1092x1092 px |
+| 3:4          | 951x1268 px  |
+| 2:3          | 896x1344 px  |
+| 9:16         | 819x1456 px  |
+| 1:2          | 784x1568 px  |
+
+**Token calculation**: `tokens = (width × height) / 750`
+
+### Image Input Methods
+
+**1. Base64 encoding**:
+
+```python
+import anthropic
+import base64
+import httpx
+
+client = anthropic.Anthropic()
+
+image_data = base64.standard_b64encode(
+    httpx.get("https://example.com/image.jpg").content
+).decode("utf-8")
+
+message = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": image_data
+                }
+            },
+            {"type": "text", "text": "Describe this image."}
+        ]
+    }]
+)
+```
+
+**2. URL reference**:
+
+```python
+message = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "url",
+                    "url": "https://example.com/image.jpg"
+                }
+            },
+            {"type": "text", "text": "Describe this image."}
+        ]
+    }]
+)
+```
+
+**3. Files API** (upload once, use multiple times):
+
+```python
+# Upload file
+with open("image.jpg", "rb") as f:
+    file_upload = client.beta.files.upload(
+        file=("image.jpg", f, "image/jpeg")
+    )
+
+# Use in message
+message = client.beta.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    betas=["files-api-2025-04-14"],
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {"type": "file", "file_id": file_upload.id}
+            },
+            {"type": "text", "text": "Describe this image."}
+        ]
+    }]
+)
+```
+
+### Multiple Images
+
+Label images when comparing:
+
+```python
+message = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Image 1:"},
+            {"type": "image", "source": {"type": "url", "url": url1}},
+            {"type": "text", "text": "Image 2:"},
+            {"type": "image", "source": {"type": "url", "url": url2}},
+            {"type": "text", "text": "How are these images different?"}
+        ]
+    }]
+)
+```
+
+### Claude Code Vision Integration
+
+**Reading screenshots in Claude Code**:
+
+```
+User: [Paste screenshot or drag image]
+User: "What error is shown in this screenshot?"
+```
+
+**Screenshot debugging workflow**:
+
+1. Take screenshot of error/UI issue
+2. Paste into Claude Code
+3. Ask Claude to analyze and suggest fixes
+4. Claude proposes code changes
+
+**Architecture diagram analysis**:
+
+```
+User: [Architecture diagram image]
+User: "Generate deployment manifests for this architecture"
+```
+
+### DSM Vision Patterns
+
+#### Pattern: Error Screenshot Analysis
+
+```
+User: [Screenshot of stack trace]
+User: "Analyze this FCP error and suggest a fix"
+```
+
+#### Pattern: Chart Data Extraction
+
+```
+User: [Trading chart image]
+User: "Extract the OHLCV data from this chart"
+```
+
+#### Pattern: UI-to-Code
+
+```
+User: [Dashboard mockup image]
+User: "Generate a Streamlit dashboard matching this design"
+```
+
+### Best Practices
+
+1. **Place images before text**: Better results with image-then-question structure
+2. **Ensure clarity**: Use clear, high-quality, correctly-oriented images
+3. **Resize large images**: Pre-resize to reduce latency
+4. **Label multiple images**: Use "Image 1:", "Image 2:" prefixes
+5. **Avoid tiny images**: Under 200px may degrade performance
+
+### Limitations
+
+| Limitation             | Description                                 |
+| ---------------------- | ------------------------------------------- |
+| People identification  | Cannot identify/name people in images       |
+| Spatial reasoning      | Limited precision for layouts, positions    |
+| Counting               | Approximate counts only, not precise        |
+| AI-generated detection | Cannot reliably detect AI images            |
+| Low-quality images     | May hallucinate on blurry/rotated images    |
+| Medical diagnosis      | Not designed for complex diagnostic imaging |
+
+### Image Cost Calculation
+
+| Image Size   | Tokens | Cost (Sonnet 4.5) |
+| ------------ | ------ | ----------------- |
+| 200x200 px   | ~54    | ~$0.00016         |
+| 1000x1000 px | ~1,334 | ~$0.004           |
+| 1092x1092 px | ~1,590 | ~$0.0048          |
+
+### Troubleshooting
+
+| Issue                     | Cause                         | Solution                  |
+| ------------------------- | ----------------------------- | ------------------------- |
+| Image rejected            | Exceeds 8000x8000 px          | Resize before upload      |
+| Slow time-to-first-token  | Image too large               | Pre-resize to ≤1.15 MP    |
+| Inaccurate interpretation | Low quality/rotated           | Use clear, upright images |
+| Metadata not read         | Claude doesn't parse metadata | Include info in prompt    |
+| Request too large         | Over 32 MB with images        | Reduce image count/size   |
