@@ -133,10 +133,11 @@ bun.lockb
 # Stash patch exports (local reference only)
 .stash-patches/
 
-# Claude Code local state (Ralph loop, etc.) - except agents/commands/skills
+# Claude Code local state (Ralph loop, etc.) - except shared components
 .claude/*
 !.claude/agents/
 !.claude/commands/
+!.claude/hooks/
 
 # Lychee link checker cache
 .lycheecache
