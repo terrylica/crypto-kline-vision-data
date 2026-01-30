@@ -6316,6 +6316,291 @@ For data-source-manager development:
 | Code review             | OpusPlan | Thorough then efficient    |
 | Test writing            | Sonnet   | Balanced                   |
 
+## Enterprise Deployment
+
+Deploying Claude Code for teams and organizations.
+
+### Deployment Options
+
+| Option                | Best For                 | Billing            |
+| --------------------- | ------------------------ | ------------------ |
+| Claude for Teams      | Small teams, quick start | $150/seat Premium  |
+| Claude for Enterprise | Large orgs, compliance   | Contact Sales      |
+| Anthropic Console     | Individual developers    | PAYG               |
+| Amazon Bedrock        | AWS-native deployments   | PAYG through AWS   |
+| Google Vertex AI      | GCP-native deployments   | PAYG through GCP   |
+| Microsoft Foundry     | Azure-native deployments | PAYG through Azure |
+
+### Enterprise Features
+
+| Feature                 | Teams | Enterprise |
+| ----------------------- | ----- | ---------- |
+| Centralized billing     | Yes   | Yes        |
+| Usage dashboard         | Yes   | Yes        |
+| SSO integration         | No    | Yes        |
+| Domain capture          | No    | Yes        |
+| Role-based permissions  | No    | Yes        |
+| Managed policy settings | No    | Yes        |
+| Compliance API access   | No    | Yes        |
+
+### Team Onboarding Process
+
+```
+1. Choose deployment option
+   └── Teams, Enterprise, or Cloud Provider
+
+2. Configure authentication
+   └── SSO, API keys, or cloud credentials
+
+3. Deploy shared configuration
+   └── Organization CLAUDE.md
+   └── Repository CLAUDE.md files
+   └── .mcp.json for integrations
+
+4. Roll out to team
+   └── Installation instructions
+   └── Authentication guide
+   └── Training materials
+
+5. Monitor and iterate
+   └── Usage analytics
+   └── Cost tracking
+   └── Feedback collection
+```
+
+### CLAUDE.md Deployment Hierarchy
+
+```
+Organization Level:
+/Library/Application Support/ClaudeCode/CLAUDE.md  # macOS
+~/.config/claude/CLAUDE.md                          # Linux/User
+
+Repository Level:
+/repo/CLAUDE.md                                     # Project standards
+/repo/packages/*/CLAUDE.md                          # Package-specific
+```
+
+### Cloud Provider Configuration
+
+**Amazon Bedrock:**
+
+```bash
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION=us-east-1
+# Optional: LLM Gateway
+export ANTHROPIC_BEDROCK_BASE_URL='https://gateway.company.com/bedrock'
+```
+
+**Google Vertex AI:**
+
+```bash
+export CLAUDE_CODE_USE_VERTEX=1
+export CLOUD_ML_REGION=us-east5
+export ANTHROPIC_VERTEX_PROJECT_ID=your-project-id
+```
+
+**Microsoft Foundry:**
+
+```bash
+export CLAUDE_CODE_USE_FOUNDRY=1
+export ANTHROPIC_FOUNDRY_RESOURCE=your-resource
+export ANTHROPIC_FOUNDRY_API_KEY=your-api-key
+```
+
+### Corporate Proxy Setup
+
+```bash
+# Route through corporate proxy
+export HTTPS_PROXY='https://proxy.company.com:8080'
+
+# Verify configuration
+claude
+> /status
+```
+
+### Managed Permissions
+
+Enterprise admins can set organization-wide permissions that users cannot override:
+
+```json
+// Managed settings (admin-deployed)
+{
+  "managedPermissions": {
+    "deny": ["Bash(rm -rf /)", "Write(.env*)", "Read(~/.ssh/*)"],
+    "allow": ["Bash(uv run *)", "Bash(npm test *)"]
+  }
+}
+```
+
+### Security Best Practices
+
+1. **Configure SSO**: Enforce single sign-on for all users
+2. **Set spending limits**: Organization and individual caps
+3. **Enable audit logs**: Track usage and actions
+4. **Define allowed tools**: Restrict dangerous operations
+5. **Review MCP servers**: Centrally configure integrations
+
+### DSM Enterprise Considerations
+
+For DSM teams:
+
+- Deploy shared CLAUDE.md with FCP documentation
+- Configure Binance API rate limits in managed settings
+- Set up Doppler integration via MCP
+- Track usage by developer for SRED claims
+
+## AI Pair Programming Patterns
+
+Effective collaboration patterns with Claude Code.
+
+### Collaboration Modes
+
+| Mode                 | Description                      | Best For            |
+| -------------------- | -------------------------------- | ------------------- |
+| Driver-Navigator     | Human drives, Claude navigates   | Learning new code   |
+| Architect-Builder    | Human architects, Claude builds  | Feature development |
+| Reviewer-Implementer | Human reviews, Claude implements | Rapid prototyping   |
+| Ping-Pong TDD        | Alternating test/implementation  | Test-driven dev     |
+
+### Driver-Navigator Pattern
+
+```
+Human (Driver):
+  - Types code
+  - Makes micro-decisions
+  - Controls flow
+
+Claude (Navigator):
+  - Watches for bugs
+  - Suggests improvements
+  - Keeps big picture
+
+Usage:
+> "Watch as I implement this. Point out any issues."
+```
+
+### Architect-Builder Pattern
+
+```
+Human (Architect):
+  - Defines structure
+  - Sets constraints
+  - Reviews results
+
+Claude (Builder):
+  - Implements details
+  - Handles boilerplate
+  - Executes plan
+
+Usage:
+> "Here's the architecture. Implement each component."
+```
+
+### Ping-Pong TDD
+
+```
+Round 1: Claude writes test
+Round 2: Human reviews test
+Round 3: Claude writes implementation
+Round 4: Human reviews implementation
+Repeat...
+
+Usage:
+> "Write a failing test for FCP cache expiration"
+[Claude writes test]
+> "Now implement to make it pass"
+[Claude implements]
+```
+
+### Real-Time Collaboration
+
+Claude Code supports live pair programming:
+
+```
+1. Human describes task
+2. Claude proposes approach
+3. Human approves/modifies
+4. Claude implements
+5. Human reviews changes in editor
+6. Iterate on feedback
+```
+
+### Communication Patterns
+
+**Thinking Aloud:**
+
+```
+> "I'm thinking about using a decorator here because..."
+Claude: "That approach makes sense. You might also consider..."
+```
+
+**Rubber Duck Debugging:**
+
+```
+> "Walk through this code with me. I'll explain what each part does."
+Claude: [Asks clarifying questions, spots issues]
+```
+
+**Code Review Mode:**
+
+```
+> "Review this PR for DSM patterns and silent failures"
+Claude: [Detailed review with line-specific feedback]
+```
+
+### Skill Level Adaptation
+
+| Developer Level | Claude Role            | Guidance Level |
+| --------------- | ---------------------- | -------------- |
+| Junior          | Mentor, explains why   | High           |
+| Mid-level       | Collaborator, suggests | Medium         |
+| Senior          | Tool, executes quickly | Low            |
+
+### DSM Pair Programming
+
+For data-source-manager development:
+
+```markdown
+## Effective DSM Pairing Prompts
+
+"Implement the OKX adapter. Follow the Binance adapter pattern."
+
+"Help me debug why FCP is returning stale data for ETHUSDT."
+
+"Review this DataFrame transformation for correctness."
+
+"Walk me through the timestamp handling in this provider."
+```
+
+### Session Continuity
+
+Maintain context across pairing sessions:
+
+```markdown
+# SESSION.md (temporary file)
+
+## Current Task
+
+Implementing Coinbase adapter
+
+## Decisions Made
+
+- Using REST API (not WebSocket)
+- Mapping to OHLCV format
+- Following Binance adapter pattern
+
+## Open Questions
+
+- Rate limit strategy?
+- Symbol format mapping?
+
+## Next Steps
+
+1. Implement get_historical_klines
+2. Add rate limiting
+3. Write tests
+```
+
 ## Verification Checklist
 
 ### Infrastructure
