@@ -29,9 +29,11 @@ This directory contains Claude Code extensions for AI-assisted development of da
 - `.env*`, `.mise.local.toml` - Secret files
 - `Bash(pip install *)` - Use uv instead
 - `Bash(git push --force *)` - Dangerous git operations
-- `Bash(python3.14 *)` - Wrong Python version
+- `Bash(python3.14 *)`, `Bash(python3.12 *)` - Wrong Python version
 
 **Personal overrides**: Use `.claude/settings.local.json` (gitignored).
+
+**Plugin marketplace**: `cc-skills` is configured via `extraKnownMarketplaces`.
 
 ## Agents
 

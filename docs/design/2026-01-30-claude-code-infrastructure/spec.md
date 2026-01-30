@@ -431,6 +431,25 @@ Based on [Official Settings Docs](https://code.claude.com/docs/en/settings):
 | Project | `.claude/settings.json`       | Team-shared (committed) |
 | User    | `~/.claude/settings.json`     | Personal global         |
 
+### Plugin Marketplace Configuration
+
+From [Official Plugin Marketplace Docs](https://code.claude.com/docs/en/plugin-marketplaces):
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "cc-skills": {
+      "source": {
+        "source": "github",
+        "repo": "terrylica/cc-skills"
+      }
+    }
+  }
+}
+```
+
+Team members are automatically prompted to install the marketplace when they trust the project folder.
+
 ## Verification Checklist
 
 - [ ] CLAUDE.md is under 300 lines

@@ -19,13 +19,18 @@ Last updated: 2026-01-30
 
 **Permission Configuration**:
 
-- **Allow**: uv run, mise run, ruff, git operations, pytest, gh CLI
-- **Deny**: .env files, credentials, pip install, force push, rm -rf
+- **Allow**: uv run/sync/add, mise run/tasks, ruff, git operations, pytest, gh CLI
+- **Deny**: .env files, credentials, pip install/uninstall, force push, rm -rf, wrong Python versions
+
+**Plugin Marketplace**:
+
+- Added `extraKnownMarketplaces` for cc-skills automatic prompt on trust
 
 **Sources**:
 
 - [Official Settings Docs](https://code.claude.com/docs/en/settings)
 - [MCP Integration Docs](https://code.claude.com/docs/en/mcp)
+- [Plugin Marketplace Docs](https://code.claude.com/docs/en/plugin-marketplaces)
 
 ### Agent Hooks Pattern (2026-01-30)
 
