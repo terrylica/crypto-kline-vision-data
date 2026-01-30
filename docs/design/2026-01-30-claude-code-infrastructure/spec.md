@@ -26646,3 +26646,392 @@ response = client.messages.create(
 # Set to 63,999 for 2x default budget
 export MAX_THINKING_TOKENS=63999
 ```
+## Prompt Engineering Reference for Claude 4.x
+
+Reference for prompt engineering best practices with Claude 4.x models (Opus 4.5, Sonnet 4.5, Haiku 4.5).
+
+### Key Changes in Claude 4.x
+
+Claude 4.x models have been trained for **precise instruction following**:
+
+- Takes instructions literally (does exactly what you ask)
+- Less inferring of intent from vague requests
+- More explicit direction needed for "above and beyond" behavior
+- More concise and direct communication style
+
+### General Principles
+
+#### Be Explicit with Instructions
+
+```
+# Less effective
+Create an analytics dashboard
+
+# More effective
+Create an analytics dashboard. Include as many relevant features
+and interactions as possible. Go beyond the basics to create a
+fully-featured implementation.
+```
+
+#### Add Context for Motivation
+
+```
+# Less effective
+NEVER use ellipses
+
+# More effective
+Your response will be read aloud by a text-to-speech engine,
+so never use ellipses since the text-to-speech engine will not
+know how to pronounce them.
+```
+
+Claude generalizes from the explanation.
+
+#### Match Prompt Style to Desired Output
+
+The formatting style in your prompt influences Claude's response style:
+
+- Remove markdown from prompt → reduces markdown in output
+- Use prose → get prose back
+- Use lists → get lists back
+
+### Tool Usage Patterns
+
+Claude 4.x follows precise instructions about tools. Be explicit:
+
+```
+# Claude will only suggest:
+Can you suggest some changes to improve this function?
+
+# Claude will make changes:
+Change this function to improve its performance.
+
+# Claude will implement:
+Make these edits to the authentication flow.
+```
+
+**Proactive action prompt**:
+
+```xml
+<default_to_action>
+By default, implement changes rather than only suggesting them.
+If the user's intent is unclear, infer the most useful likely action
+and proceed, using tools to discover any missing details instead of guessing.
+</default_to_action>
+```
+
+**Conservative action prompt**:
+
+```xml
+<do_not_act_before_instructions>
+Do not jump into implementation or change files unless clearly instructed.
+When the user's intent is ambiguous, default to providing information,
+doing research, and providing recommendations rather than taking action.
+</do_not_act_before_instructions>
+```
+
+### Parallel Tool Calling
+
+Claude 4.x excels at parallel tool execution:
+
+```xml
+<use_parallel_tool_calls>
+If you intend to call multiple tools and there are no dependencies
+between the tool calls, make all of the independent tool calls in parallel.
+Prioritize calling tools simultaneously whenever the actions can be done
+in parallel rather than sequentially. Maximize use of parallel tool calls
+where possible to increase speed and efficiency. However, if some tool calls
+depend on previous calls to inform dependent values, do NOT call these tools
+in parallel and instead call them sequentially. Never use placeholders or
+guess missing parameters in tool calls.
+</use_parallel_tool_calls>
+```
+
+### Context Awareness
+
+Claude 4.5 tracks its remaining context window. For agent harnesses with compaction:
+
+```
+Your context window will be automatically compacted as it approaches its limit,
+allowing you to continue working indefinitely from where you left off. Therefore,
+do not stop tasks early due to token budget concerns. As you approach your token
+budget limit, save your current progress and state to memory before the context
+window refreshes. Always be as persistent and autonomous as possible and complete
+tasks fully, even if the end of your budget is approaching.
+```
+
+### Long-Horizon Reasoning
+
+#### Multi-Context Window Workflows
+
+1. **First window**: Set up framework (write tests, create setup scripts)
+2. **Future windows**: Iterate on todo-list
+
+**State management patterns**:
+
+```json
+// Structured state (tests.json)
+{
+  "tests": [
+    { "id": 1, "name": "authentication_flow", "status": "passing" },
+    { "id": 2, "name": "user_management", "status": "failing" },
+    { "id": 3, "name": "api_endpoints", "status": "not_started" }
+  ]
+}
+```
+
+```
+// Progress notes (progress.txt)
+Session 3 progress:
+- Fixed authentication token validation
+- Updated user model to handle edge cases
+- Next: investigate user_management test failures
+```
+
+**Starting fresh prompt**:
+
+```
+Call pwd; you can only read and write files in this directory.
+Review progress.txt, tests.json, and the git logs.
+Manually run through a fundamental integration test before moving
+on to implementing new features.
+```
+
+**Encourage complete context usage**:
+
+```
+This is a very long task, so it may be beneficial to plan out your work clearly.
+It's encouraged to spend your entire output context working on the task -
+just make sure you don't run out of context with significant uncommitted work.
+Continue working systematically until you have completed this task.
+```
+
+### Output Formatting Control
+
+#### Minimize Markdown
+
+```xml
+<avoid_excessive_markdown_and_bullet_points>
+When writing reports, documents, technical explanations, analyses, or any
+long-form content, write in clear, flowing prose using complete paragraphs
+and sentences. Use standard paragraph breaks for organization and reserve
+markdown primarily for `inline code`, code blocks, and simple headings.
+
+DO NOT use ordered lists (1. ...) or unordered lists (*) unless:
+a) you're presenting truly discrete items where a list format is best, or
+b) the user explicitly requests a list or ranking
+
+Instead of listing items with bullets or numbers, incorporate them naturally
+into sentences. NEVER output a series of overly short bullet points.
+</avoid_excessive_markdown_and_bullet_points>
+```
+
+#### Use XML Format Indicators
+
+```
+Write the prose sections of your response in <smoothly_flowing_prose_paragraphs> tags.
+```
+
+### Avoiding Over-Engineering (Opus 4.5)
+
+Claude Opus 4.5 tends to overengineer. Use explicit prompting:
+
+```xml
+<avoid_overengineering>
+Avoid over-engineering. Only make changes that are directly requested
+or clearly necessary. Keep solutions simple and focused.
+
+Don't add features, refactor code, or make "improvements" beyond what was asked.
+A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't
+need extra configurability.
+
+Don't add error handling, fallbacks, or validation for scenarios that can't happen.
+Trust internal code and framework guarantees. Only validate at system boundaries
+(user input, external APIs). Don't use backwards-compatibility shims when you can
+just change the code.
+
+Don't create helpers, utilities, or abstractions for one-time operations.
+Don't design for hypothetical future requirements. The right amount of complexity
+is the minimum needed for the current task. Reuse existing abstractions where
+possible and follow the DRY principle.
+</avoid_overengineering>
+```
+
+### Code Exploration
+
+Encourage thorough code reading:
+
+```xml
+<investigate_before_answering>
+ALWAYS read and understand relevant files before proposing code edits.
+Do not speculate about code you have not inspected. If the user references
+a specific file/path, you MUST open and inspect it before explaining or
+proposing fixes. Be rigorous and persistent in searching code for key facts.
+Thoroughly review the style, conventions, and abstractions of the codebase
+before implementing new features or abstractions.
+</investigate_before_answering>
+```
+
+### Minimizing Hallucinations
+
+```xml
+<grounded_responses>
+Never speculate about code you have not opened. If the user references a
+specific file, you MUST read the file before answering. Make sure to
+investigate and read relevant files BEFORE answering questions about the
+codebase. Never make any claims about code before investigating unless you
+are certain of the correct answer - give grounded and hallucination-free answers.
+</grounded_responses>
+```
+
+### Avoid Hard-Coding
+
+```
+Please write a high-quality, general-purpose solution using the standard tools
+available. Do not create helper scripts or workarounds to accomplish the task
+more efficiently. Implement a solution that works correctly for all valid inputs,
+not just the test cases. Do not hard-code values or create solutions that only
+work for specific test inputs. Instead, implement the actual logic that solves
+the problem generally.
+
+Focus on understanding the problem requirements and implementing the correct
+algorithm. Tests are there to verify correctness, not to define the solution.
+
+If the task is unreasonable or infeasible, or if any of the tests are incorrect,
+please inform me rather than working around them.
+```
+
+### Thinking Sensitivity
+
+When extended thinking is **disabled**, Claude Opus 4.5 is sensitive to "think" and variants.
+
+Replace with alternatives:
+
+- "think" → "consider", "evaluate", "assess"
+- "thinking" → "reasoning", "analyzing"
+
+### Leveraging Extended Thinking
+
+Guide Claude's thinking for better results:
+
+```
+After receiving tool results, carefully reflect on their quality and determine
+optimal next steps before proceeding. Use your thinking to plan and iterate
+based on this new information, and then take the best next action.
+```
+
+### Research Tasks
+
+For complex research:
+
+```
+Search for this information in a structured way. As you gather data, develop
+several competing hypotheses. Track your confidence levels in your progress
+notes to improve calibration. Regularly self-critique your approach and plan.
+Update a hypothesis tree or research notes file to persist information and
+provide transparency. Break down this complex research task systematically.
+```
+
+### Subagent Orchestration
+
+Claude 4.5 recognizes when to delegate to subagents proactively.
+
+**Conservative subagent usage**:
+
+```
+Only delegate to subagents when the task clearly benefits from a
+separate agent with a new context window.
+```
+
+### Model Identity
+
+```
+The assistant is Claude, created by Anthropic. The current model is Claude Sonnet 4.5.
+```
+
+For model strings:
+
+```
+When an LLM is needed, please default to Claude Sonnet 4.5 unless the user
+requests otherwise. The exact model string for Claude Sonnet 4.5 is
+claude-sonnet-4-5-20250929.
+```
+
+### DSM-Specific Prompt Patterns
+
+**FCP analysis prompt**:
+
+```xml
+<dsm_fcp_analysis>
+When analyzing FCP (Failover Control Protocol) behavior:
+1. ALWAYS check rate limit status before assuming failover triggered
+2. Review the decision log in .cache/fcp/ for actual failover events
+3. Verify symbol format matches exchange requirements (BTCUSDT vs BTC-USDT)
+4. Check timestamp handling (DSM uses UTC milliseconds exclusively)
+5. Report confidence levels in diagnostic conclusions
+</dsm_fcp_analysis>
+```
+
+**DataFrame validation prompt**:
+
+```xml
+<dsm_dataframe_validation>
+When validating DataFrames from DSM:
+1. Check for required columns: open_time, open, high, low, close, volume
+2. Verify open_time is UTC timezone-aware (not naive)
+3. Ensure no gaps in time series data
+4. Validate OHLCV relationships (high >= max(open, close), low <= min(open, close))
+5. Use Polars for DataFrame operations (not pandas)
+</dsm_dataframe_validation>
+```
+
+**Symbol format prompt**:
+
+```xml
+<dsm_symbol_formats>
+DSM uses exchange-specific symbol formats:
+- Binance: {base}{quote} (e.g., BTCUSDT)
+- OKX: {base}-{quote} (e.g., BTC-USDT)
+- Bybit: {base}{quote} (e.g., BTCUSDT)
+
+ALWAYS verify the target exchange before using a symbol format.
+Never assume cross-exchange compatibility without validation.
+</dsm_symbol_formats>
+```
+
+**Error handling prompt**:
+
+```xml
+<dsm_error_handling>
+DSM error handling requirements:
+- NEVER use bare except: clauses
+- NEVER use except Exception: without logging
+- NEVER suppress errors with pass
+- ALWAYS use check=True for subprocess calls
+- ALWAYS set timeout for HTTP requests
+- ALWAYS handle rate limit errors with exponential backoff
+</dsm_error_handling>
+```
+
+### XML Tag Best Practices
+
+Claude 4.x responds well to XML-formatted instructions:
+
+```xml
+<!-- Group related instructions -->
+<instructions>
+  <context>Background information here</context>
+  <task>What to accomplish</task>
+  <constraints>Limitations and requirements</constraints>
+  <output_format>Expected response structure</output_format>
+</instructions>
+```
+
+Use descriptive tag names that convey purpose.
+
+### Migration from Earlier Models
+
+1. **Be specific** - Describe exactly what you want in output
+2. **Use modifiers** - "Include as many relevant features as possible"
+3. **Request features explicitly** - Animations, interactivity won't be inferred
+4. **Dial back aggressive language** - "CRITICAL: You MUST" → "Use this when..."

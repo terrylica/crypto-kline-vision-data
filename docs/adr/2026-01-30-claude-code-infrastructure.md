@@ -125,12 +125,12 @@ user-invocable: true
 
 **Completed**: 2026-01-30
 
-**Summary**: Comprehensive Claude Code infrastructure implemented with 215 commits.
+**Summary**: Comprehensive Claude Code infrastructure implemented with 216 commits.
 
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Design spec lines   | 26648                                                                            |
-| Sections            | 202                                                                              |
+| Design spec lines   | 27037                                                                            |
+| Sections            | 203                                                                              |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
 | Commands            | 6 (debug-fcp, fetch-data, quick-test, review-dsm, validate-data, feature-dev)    |
 | Skills              | 4 (dsm-usage, dsm-testing, dsm-research, dsm-fcp-monitor)                        |
@@ -234,6 +234,7 @@ user-invocable: true
 - Headless and programmatic usage (CLI flags, SDK, streaming, CI/CD, DSM patterns)
 - Troubleshooting reference (diagnostics, installation, WSL, authentication, performance, DSM-specific)
 - Extended thinking reference (budget tokens, streaming, tool use, interleaved, caching, DSM patterns)
+- Prompt engineering reference (Claude 4.x, explicit instructions, tool usage, XML tags, DSM patterns)
 
 ## More Information
 
