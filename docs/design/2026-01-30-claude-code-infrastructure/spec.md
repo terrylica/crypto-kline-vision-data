@@ -19871,3 +19871,847 @@ fi
 
 exit 0
 ```
+<!-- SSoT-OK: Subagent Orchestration Reference - comprehensive subagent patterns from official docs -->
+
+## Subagent Orchestration Reference
+
+### Overview
+
+Subagents are specialized AI assistants that handle specific types of tasks. Each subagent runs in its own context window with a custom system prompt, specific tool access, and independent permissions. When Claude encounters a task that matches a subagent's description, it delegates to that subagent, which works independently and returns results.
+
+### Benefits of Subagents
+
+| Benefit                 | Description                                           |
+| ----------------------- | ----------------------------------------------------- |
+| Context preservation    | Keep exploration out of main conversation             |
+| Constraint enforcement  | Limit which tools a subagent can use                  |
+| Configuration reuse     | Share subagents across projects with user-level scope |
+| Behavior specialization | Focused system prompts for specific domains           |
+| Cost control            | Route tasks to faster, cheaper models like Haiku      |
+
+### Built-in Subagents
+
+Claude Code includes several built-in subagents:
+
+| Subagent          | Model   | Tools     | Purpose                                  |
+| ----------------- | ------- | --------- | ---------------------------------------- |
+| Explore           | Haiku   | Read-only | File discovery, code search, exploration |
+| Plan              | Inherit | Read-only | Codebase research for planning           |
+| general-purpose   | Inherit | All tools | Complex research, multi-step operations  |
+| Bash              | Inherit | Bash      | Running terminal commands separately     |
+| Claude Code Guide | Haiku   | Read-only | Questions about Claude Code features     |
+
+**Explore Agent Thoroughness Levels**:
+
+- `quick` - Targeted lookups, specific file searches
+- `medium` - Balanced exploration, moderate depth
+- `very thorough` - Comprehensive analysis, multiple locations
+
+### Subagent vs Task Tool
+
+| Aspect           | Task Tool             | Custom Subagents             |
+| ---------------- | --------------------- | ---------------------------- |
+| Persistence      | Ephemeral workers     | Persistent specialists       |
+| Context overhead | ~20k tokens startup   | ~20k tokens startup          |
+| Configuration    | Ad-hoc per invocation | Saved in markdown files      |
+| Parallelism      | Up to 10 concurrent   | Up to 10 concurrent          |
+| Best for         | One-off parallel work | Repeatable specialized tasks |
+
+### Subagent Scopes
+
+Subagents are loaded from different locations with priority:
+
+| Location                     | Scope                   | Priority    |
+| ---------------------------- | ----------------------- | ----------- |
+| `--agents` CLI flag          | Current session         | 1 (highest) |
+| `.claude/agents/`            | Current project         | 2           |
+| `~/.claude/agents/`          | All your projects       | 3           |
+| Plugin's `agents/` directory | Where plugin is enabled | 4 (lowest)  |
+
+### Subagent File Format
+
+Subagent files use YAML frontmatter followed by the system prompt:
+
+```markdown
+---
+name: code-reviewer
+description: Reviews code for quality and best practices
+tools: Read, Glob, Grep
+model: sonnet
+---
+
+You are a code reviewer. When invoked, analyze the code and provide
+specific, actionable feedback on quality, security, and best practices.
+```
+
+### Frontmatter Fields
+
+| Field             | Required | Description                                                      |
+| ----------------- | -------- | ---------------------------------------------------------------- |
+| `name`            | Yes      | Unique identifier using lowercase letters and hyphens            |
+| `description`     | Yes      | When Claude should delegate to this subagent                     |
+| `tools`           | No       | Tools the subagent can use (inherits all if omitted)             |
+| `disallowedTools` | No       | Tools to deny, removed from inherited list                       |
+| `model`           | No       | Model: `sonnet`, `opus`, `haiku`, or `inherit`                   |
+| `permissionMode`  | No       | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` |
+| `skills`          | No       | Skills to load into subagent's context at startup                |
+| `hooks`           | No       | Lifecycle hooks scoped to this subagent                          |
+
+### Tool Categories
+
+Configure subagent tools based on their role:
+
+| Role Type     | Recommended Tools                       | Example Use Case      |
+| ------------- | --------------------------------------- | --------------------- |
+| Read-only     | Read, Grep, Glob                        | Reviewers, auditors   |
+| Research      | Read, Grep, Glob, WebFetch, WebSearch   | Analysts, researchers |
+| Code writers  | Read, Write, Edit, Bash, Glob, Grep     | Developers, engineers |
+| Documentation | Read, Write, Edit, Glob, Grep, WebFetch | Writers, documenters  |
+
+### Permission Modes
+
+| Mode                | Behavior                                      |
+| ------------------- | --------------------------------------------- |
+| `default`           | Standard permission checking with prompts     |
+| `acceptEdits`       | Auto-accept file edits                        |
+| `dontAsk`           | Auto-deny permission prompts                  |
+| `bypassPermissions` | Skip all permission checks (use with caution) |
+| `plan`              | Plan mode (read-only exploration)             |
+
+### Preloading Skills
+
+Inject skill content at startup for domain knowledge:
+
+```yaml
+---
+name: api-developer
+description: Implement API endpoints following team conventions
+skills:
+  - api-conventions
+  - error-handling-patterns
+---
+Implement API endpoints. Follow the conventions from the preloaded skills.
+```
+
+### Subagent Hooks
+
+Hooks can run during subagent lifecycle:
+
+**In Subagent Frontmatter**:
+
+| Event         | Matcher Input | When It Fires                   |
+| ------------- | ------------- | ------------------------------- |
+| `PreToolUse`  | Tool name     | Before the subagent uses a tool |
+| `PostToolUse` | Tool name     | After the subagent uses a tool  |
+| `Stop`        | (none)        | When the subagent finishes      |
+
+**In Project settings.json**:
+
+| Event           | Matcher Input   | When It Fires                    |
+| --------------- | --------------- | -------------------------------- |
+| `SubagentStart` | Agent type name | When a subagent begins execution |
+| `SubagentStop`  | Agent type name | When a subagent completes        |
+
+### Orchestration Patterns
+
+**Sequential Refinement Pattern**:
+
+```
+Agent 1: "Find authentication code" → Returns 50 files
+Agent 2: "Focus on JWT implementation in these 10 files" → JWT analysis
+Agent 3: "Check these 3 security concerns in JWT code" → Security audit
+```
+
+**Parallel Background Pattern**:
+
+```
+User: "Prepare for deployment"
+
+Background Task 1: Run test suite
+Background Task 2: Build production assets
+Background Task 3: Run security audit
+Background Task 4: Update dependencies
+
+All complete → Review results → Deploy
+```
+
+**Chain Subagents Pattern**:
+
+```
+Use the code-reviewer subagent to find performance issues,
+then use the optimizer subagent to fix them
+```
+
+**Isolate High-Volume Operations**:
+
+```
+Use a subagent to run the test suite and report only
+the failing tests with their error messages
+```
+
+### Foreground vs Background
+
+| Mode       | Behavior                                       |
+| ---------- | ---------------------------------------------- |
+| Foreground | Blocks main conversation, prompts pass through |
+| Background | Runs concurrently, permissions pre-approved    |
+
+**Background Mode Notes**:
+
+- Claude prompts for permissions upfront before launching
+- MCP tools are not available in background subagents
+- If clarifying questions fail, subagent continues
+- Use Ctrl+B to background a running task
+- Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to disable
+
+### Resuming Subagents
+
+Subagents can be resumed to continue previous work:
+
+```
+Use the code-reviewer subagent to review the authentication module
+[Agent completes]
+
+Continue that code review and now analyze the authorization logic
+[Claude resumes the subagent with full context]
+```
+
+Transcripts persist in `~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl`.
+
+### When to Use Subagents vs Main Conversation
+
+**Use Main Conversation When**:
+
+- Task needs frequent back-and-forth or iterative refinement
+- Multiple phases share significant context
+- Making a quick, targeted change
+- Latency matters (subagents start fresh)
+
+**Use Subagents When**:
+
+- Task produces verbose output you don't need
+- You want to enforce specific tool restrictions
+- Work is self-contained and can return a summary
+
+### Example Subagents
+
+**Code Reviewer** (Read-only):
+
+```markdown
+---
+name: code-reviewer
+description: Expert code review specialist. Use proactively after writing or modifying code.
+tools: Read, Grep, Glob, Bash
+model: inherit
+---
+
+You are a senior code reviewer ensuring high standards.
+
+When invoked:
+
+1. Run git diff to see recent changes
+2. Focus on modified files
+3. Begin review immediately
+
+Review checklist:
+
+- Code is clear and readable
+- Functions are well-named
+- No duplicated code
+- Proper error handling
+- No exposed secrets
+- Input validation implemented
+
+Provide feedback organized by priority:
+
+- Critical issues (must fix)
+- Warnings (should fix)
+- Suggestions (consider improving)
+```
+
+**Debugger** (With Edit access):
+
+```markdown
+---
+name: debugger
+description: Debugging specialist for errors, test failures, and unexpected behavior.
+tools: Read, Edit, Bash, Grep, Glob
+---
+
+You are an expert debugger specializing in root cause analysis.
+
+When invoked:
+
+1. Capture error message and stack trace
+2. Identify reproduction steps
+3. Isolate the failure location
+4. Implement minimal fix
+5. Verify solution works
+
+For each issue, provide:
+
+- Root cause explanation
+- Evidence supporting diagnosis
+- Specific code fix
+- Testing approach
+- Prevention recommendations
+```
+
+**Database Query Validator** (With Hook validation):
+
+```markdown
+---
+name: db-reader
+description: Execute read-only database queries.
+tools: Bash
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "./scripts/validate-readonly-query.sh"
+---
+
+You are a database analyst with read-only access. Execute SELECT queries only.
+
+You cannot modify data. If asked to INSERT, UPDATE, DELETE, explain you only have read access.
+```
+
+### CLI-Defined Subagents
+
+Pass subagents as JSON when launching Claude Code:
+
+```bash
+claude --agents '{
+  "code-reviewer": {
+    "description": "Expert code reviewer. Use proactively after code changes.",
+    "prompt": "You are a senior code reviewer. Focus on code quality, security, and best practices.",
+    "tools": ["Read", "Grep", "Glob", "Bash"],
+    "model": "sonnet"
+  }
+}'
+```
+
+### Disabling Subagents
+
+Add to `deny` array in settings:
+
+```json
+{
+  "permissions": {
+    "deny": ["Task(Explore)", "Task(my-custom-agent)"]
+  }
+}
+```
+
+Or use CLI flag:
+
+```bash
+claude --disallowedTools "Task(Explore)"
+```
+
+### Context Management
+
+**Auto-Compaction**:
+
+- Triggers at ~95% capacity by default
+- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` for earlier compaction
+- Compaction events logged in transcript files
+
+**Transcript Persistence**:
+
+- Stored in separate files from main conversation
+- Persist within session for resumption
+- Cleaned up based on `cleanupPeriodDays` setting (default: 30 days)
+
+### DSM Subagent Implementation
+
+The data-source-manager uses 5 specialized subagents:
+
+| Agent                 | Model   | Tools                        | Purpose                    |
+| --------------------- | ------- | ---------------------------- | -------------------------- |
+| api-reviewer          | Inherit | Read, Grep, Glob             | API consistency review     |
+| data-fetcher          | Inherit | Read, Grep, Glob, Bash       | FCP-aware data fetching    |
+| test-writer           | Inherit | Read, Write, Edit, Bash, ... | DSM test pattern following |
+| silent-failure-hunter | Inherit | Read, Grep, Glob             | Silent failure detection   |
+| fcp-debugger          | Inherit | Read, Grep, Glob, Bash       | FCP issue diagnosis        |
+
+**Example DSM Agent** (`.claude/agents/fcp-debugger.md`):
+
+```markdown
+---
+name: fcp-debugger
+description: Diagnoses FCP issues including cache misses, retry storms, and provider failures.
+tools: Read, Grep, Glob, Bash
+model: inherit
+---
+
+You are an FCP (Failover Control Protocol) debugging specialist for data-source-manager.
+
+When invoked:
+
+1. Check FCP cache state in .cache/fcp/
+2. Analyze retry logs for patterns
+3. Verify provider status and fallback chain
+4. Identify root cause of cache misses
+
+FCP Decision Matrix:
+
+- Cache hit → Return cached data
+- Cache miss + primary up → Fetch and cache
+- Cache miss + primary down → Fallback to secondary
+- All providers down → Return stale cache with warning
+
+Debug checklist:
+
+- [ ] Cache directory exists and is writable
+- [ ] Cache entries not expired
+- [ ] Provider health check passing
+- [ ] Retry count within limits
+- [ ] Fallback chain configured correctly
+
+Output format:
+
+- Issue summary
+- Root cause analysis
+- Recommended fix
+- Prevention steps
+```
+
+### Best Practices
+
+**Design Principles**:
+
+1. **Design focused subagents** - Each should excel at one specific task
+2. **Write detailed descriptions** - Claude uses description for delegation
+3. **Limit tool access** - Grant only necessary permissions
+4. **Check into version control** - Share project subagents with team
+
+**Performance Tips**:
+
+- Use Haiku for fast, read-only operations
+- Use Sonnet for balanced capability and speed
+- Use Opus for complex reasoning tasks
+- Keep subagent context focused to minimize overhead
+
+**Orchestration Tips**:
+
+- Spawn multiple subagents for independent investigations
+- Chain subagents for multi-step workflows
+- Use background mode for long-running tasks
+- Resume subagents to continue previous work
+<!-- SSoT-OK: Prompt Engineering Reference - Claude 4.x best practices from official docs -->
+
+## Prompt Engineering Reference
+
+### Overview
+
+This section covers prompt engineering techniques for Claude 4.x models (Sonnet 4.5, Haiku 4.5, Opus 4.5), which have been trained for more precise instruction following than previous generations.
+
+### General Principles
+
+#### Be Explicit with Instructions
+
+Claude 4.x models respond well to clear, explicit instructions:
+
+| Less Effective                | More Effective                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| Create an analytics dashboard | Create an analytics dashboard. Include as many relevant features as possible |
+| Fix the bug                   | Fix the bug by implementing proper input validation                          |
+| Can you suggest some changes? | Change this function to improve its performance                              |
+
+#### Add Context for Motivation
+
+Provide context explaining why behavior is important:
+
+| Less Effective      | More Effective                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| NEVER use ellipses  | Your response will be read aloud by TTS, so never use ellipses since TTS won't pronounce them   |
+| Use short responses | Keep responses under 100 words because this is for a mobile interface with limited screen space |
+
+### XML Tags for Structure
+
+XML tags help Claude parse prompts more accurately:
+
+```xml
+<instructions>
+Analyze the code and provide feedback.
+</instructions>
+
+<example>
+Input: function add(a, b) { return a + b; }
+Output: Well-structured function with clear naming.
+</example>
+
+<formatting>
+Use bullet points for issues.
+Provide code examples for fixes.
+</formatting>
+```
+
+**When to Use XML Tags**:
+
+- Incorporating large amounts of data
+- Separating different prompt components
+- When clarity between sections matters
+- Complex multi-part instructions
+
+**Modern Note**: While XML tags are helpful, modern models understand structure without them. Start with explicit, clear instructions.
+
+### System Prompt Structure
+
+A good system prompt reads like a short contract:
+
+```text
+You are: [role - one line]
+Goal: [what success looks like]
+Constraints: [list]
+If unsure: Say so explicitly and ask 1 clarifying question
+Output format: [JSON schema OR heading structure OR bullet format]
+```
+
+**Example System Prompt**:
+
+```text
+You are: A senior code reviewer for a Python trading system
+Goal: Identify potential bugs, security issues, and performance problems
+Constraints:
+- Focus on code correctness over style
+- Flag any hardcoded values as potential issues
+- Check for proper error handling
+If unsure: Ask for clarification about business requirements
+Output format:
+### Critical Issues
+- [issue]: [explanation]
+### Warnings
+- [warning]: [explanation]
+### Suggestions
+- [suggestion]: [explanation]
+```
+
+### Tool Usage Guidance
+
+Claude 4.x models follow precise instructions about tool usage:
+
+**Proactive Action**:
+
+```xml
+<default_to_action>
+By default, implement changes rather than only suggesting them.
+If the user's intent is unclear, infer the most useful likely action and proceed.
+Try to infer the user's intent about whether a tool call is intended or not.
+</default_to_action>
+```
+
+**Conservative Action**:
+
+```xml
+<do_not_act_before_instructions>
+Do not jump into implementation unless clearly instructed to make changes.
+When the user's intent is ambiguous, default to providing information and recommendations.
+Only proceed with edits when the user explicitly requests them.
+</do_not_act_before_instructions>
+```
+
+### Parallel Tool Calling
+
+Claude 4.x models excel at parallel tool execution:
+
+```xml
+<use_parallel_tool_calls>
+If you intend to call multiple tools and there are no dependencies between them,
+make all independent calls in parallel. Prioritize calling tools simultaneously
+whenever actions can be done in parallel. For example, when reading 3 files,
+run 3 tool calls in parallel to read all files into context at the same time.
+
+However, if some tool calls depend on previous calls to inform dependent values,
+do NOT call these tools in parallel. Never use placeholders or guess missing parameters.
+</use_parallel_tool_calls>
+```
+
+**To Reduce Parallel Execution**:
+
+```text
+Execute operations sequentially with brief pauses between each step to ensure stability.
+```
+
+### Long-Horizon Reasoning
+
+Claude 4.5 models excel at long-horizon reasoning with exceptional state tracking:
+
+**Multi-Context Window Workflows**:
+
+1. **First context window**: Set up framework (write tests, create setup scripts)
+2. **Future context windows**: Iterate on todo-list
+3. **Write tests in structured format**: Track in `tests.json`
+4. **Create setup scripts**: `init.sh` for graceful server starts, test suites
+5. **Starting fresh vs compacting**: Consider fresh context over compaction
+
+**State Management**:
+
+```json
+// Structured state file (tests.json)
+{
+  "tests": [
+    { "id": 1, "name": "authentication_flow", "status": "passing" },
+    { "id": 2, "name": "user_management", "status": "failing" }
+  ],
+  "total": 200,
+  "passing": 150,
+  "failing": 25
+}
+```
+
+```text
+// Progress notes (progress.txt)
+Session 3 progress:
+- Fixed authentication token validation
+- Updated user model to handle edge cases
+- Next: investigate user_management test failures
+```
+
+**Context Awareness Prompt**:
+
+```text
+Your context window will be automatically compacted as it approaches its limit,
+allowing you to continue working indefinitely from where you left off.
+Therefore, do not stop tasks early due to token budget concerns.
+
+As you approach your token budget limit, save your current progress and state
+to memory before the context window refreshes. Always be as persistent and
+autonomous as possible and complete tasks fully.
+```
+
+### Extended Thinking
+
+Claude 4.x models benefit from thinking capabilities:
+
+```text
+After receiving tool results, carefully reflect on their quality and determine
+optimal next steps before proceeding. Use your thinking to plan and iterate
+based on this new information, and then take the best next action.
+```
+
+**Note**: When extended thinking is disabled, Claude Opus 4.5 is sensitive to the word "think". Replace with "consider", "believe", or "evaluate".
+
+### Format Control
+
+**Tell Claude What to Do (Not What Not to Do)**:
+
+| Less Effective                       | More Effective                                             |
+| ------------------------------------ | ---------------------------------------------------------- |
+| Do not use markdown in your response | Your response should be composed of smoothly flowing prose |
+| Don't use bullet points              | Write in clear, flowing paragraphs                         |
+
+**Use XML Format Indicators**:
+
+```text
+Write the prose sections of your response in <smoothly_flowing_prose_paragraphs> tags.
+```
+
+**Minimize Markdown and Bullets**:
+
+````xml
+<avoid_excessive_markdown_and_bullet_points>
+When writing reports, documents, or long-form content, write in clear, flowing
+prose using complete paragraphs. Use standard paragraph breaks for organization.
+
+Reserve markdown primarily for:
+- `inline code`
+- code blocks (```...```)
+- simple headings (##, ###)
+
+Avoid using **bold** and *italics*.
+
+DO NOT use ordered lists (1. ...) or unordered lists (*) unless:
+a) you're presenting truly discrete items where a list format is the best option
+b) the user explicitly requests a list or ranking
+
+Instead of listing items with bullets, incorporate them naturally into sentences.
+NEVER output a series of overly short bullet points.
+</avoid_excessive_markdown_and_bullet_points>
+````
+
+### Subagent Orchestration
+
+Claude 4.5 models recognize when tasks benefit from delegating to subagents:
+
+**Let Claude Orchestrate Naturally**:
+
+- Have well-defined subagent tools available
+- Claude will delegate appropriately without explicit instruction
+
+**Conservative Subagent Usage**:
+
+```text
+Only delegate to subagents when the task clearly benefits from a separate agent
+with a new context window.
+```
+
+### Avoiding Overengineering
+
+Claude 4.x models can overengineer. Add explicit prompting:
+
+```xml
+Avoid over-engineering. Only make changes that are directly requested or clearly
+necessary. Keep solutions simple and focused.
+
+Don't add features, refactor code, or make "improvements" beyond what was asked.
+A bug fix doesn't need surrounding code cleaned up. A simple feature doesn't
+need extra configurability.
+
+Don't add error handling, fallbacks, or validation for scenarios that can't happen.
+Trust internal code and framework guarantees. Only validate at system boundaries.
+
+Don't create helpers, utilities, or abstractions for one-time operations.
+Don't design for hypothetical future requirements. The right amount of complexity
+is the minimum needed for the current task. Reuse existing abstractions where
+possible and follow the DRY principle.
+```
+
+### Code Exploration
+
+Encourage thorough code exploration:
+
+```xml
+<investigate_before_answering>
+ALWAYS read and understand relevant files before proposing code edits.
+Do not speculate about code you have not inspected.
+
+If the user references a specific file/path, you MUST open and inspect it
+before explaining or proposing fixes.
+
+Be rigorous and persistent in searching code for key facts.
+Thoroughly review the style, conventions, and abstractions of the codebase
+before implementing new features or abstractions.
+</investigate_before_answering>
+```
+
+### Minimizing Hallucinations
+
+```xml
+<investigate_before_answering>
+Never speculate about code you have not opened. If the user references a specific
+file, you MUST read the file before answering.
+
+Make sure to investigate and read relevant files BEFORE answering questions about
+the codebase. Never make any claims about code before investigating unless you are
+certain of the correct answer - give grounded and hallucination-free answers.
+</investigate_before_answering>
+```
+
+### Frontend Design
+
+Avoid generic "AI slop" aesthetics:
+
+```xml
+<frontend_aesthetics>
+You tend to converge toward generic outputs. In frontend design, this creates
+what users call the "AI slop" aesthetic. Avoid this: make creative, distinctive
+frontends that surprise and delight.
+
+Focus on:
+- Typography: Choose beautiful, unique fonts. Avoid Arial, Inter; opt for distinctive choices.
+- Color & Theme: Commit to a cohesive aesthetic. Dominant colors with sharp accents.
+- Motion: Use animations for effects. Focus on high-impact moments like page load.
+- Backgrounds: Create atmosphere and depth rather than solid colors.
+
+Avoid generic AI-generated aesthetics:
+- Overused font families (Inter, Roboto, Arial)
+- Clichéd color schemes (purple gradients on white)
+- Predictable layouts and component patterns
+
+Vary between light and dark themes, different fonts, different aesthetics.
+Think outside the box!
+</frontend_aesthetics>
+```
+
+### Test-Driven Development
+
+Avoid hard-coding solutions to pass tests:
+
+```text
+Write a high-quality, general-purpose solution using standard tools available.
+Do not create helper scripts or workarounds.
+
+Implement a solution that works correctly for all valid inputs, not just the test cases.
+Do not hard-code values or create solutions that only work for specific test inputs.
+Instead, implement the actual logic that solves the problem generally.
+
+Focus on understanding the problem requirements and implementing the correct algorithm.
+Tests are there to verify correctness, not to define the solution.
+
+If the task is unreasonable or if any tests are incorrect, inform me rather than
+working around them.
+```
+
+### Model Self-Knowledge
+
+Help Claude identify itself correctly:
+
+```text
+The assistant is Claude, created by Anthropic. The current model is Claude Sonnet 4.5.
+```
+
+For LLM-powered apps:
+
+```text
+When an LLM is needed, default to Claude Sonnet 4.5 unless the user requests otherwise.
+The exact model string is claude-sonnet-4-5-20250929.
+```
+
+### DSM-Specific Prompting Patterns
+
+**FCP Context**:
+
+```text
+This codebase uses the Failover Control Protocol (FCP) for data fetching.
+When analyzing data fetching code:
+1. Check for proper FCP cache handling
+2. Verify fallback chain configuration
+3. Ensure retry limits are respected
+4. Look for silent failure patterns
+```
+
+**DataFrame Operations**:
+
+```text
+Use Polars for DataFrame operations (not pandas).
+Standard column schema: open_time, open, high, low, close, volume
+All timestamps must be UTC with timezone awareness.
+```
+
+**Symbol Formats**:
+
+```text
+Exchange symbol formats:
+- Binance: BTCUSDT (uppercase, no separator)
+- OKX: BTC-USDT (uppercase, hyphen separator)
+- Standardized: BTC/USDT (uppercase, slash separator)
+
+Always use the appropriate format for the target exchange.
+```
+
+### Communication Style Notes
+
+Claude 4.5 models have a more concise, natural style:
+
+- **More direct**: Fact-based progress reports, not self-celebratory
+- **More conversational**: Fluent, less machine-like
+- **Less verbose**: May skip detailed summaries unless prompted
+
+**Request Visibility**:
+
+```text
+After completing a task that involves tool use, provide a quick summary
+of the work you've done.
+```
+
+### Migration Considerations
+
+When migrating to Claude 4.5:
+
+1. **Be specific about desired behavior** - Describe exactly what you'd like in output
+2. **Frame instructions with modifiers** - "Include as many relevant features as possible"
+3. **Request features explicitly** - Animations, interactive elements need explicit requests
+4. **Dial back aggressive language** - "CRITICAL: You MUST" → "Use this tool when"
