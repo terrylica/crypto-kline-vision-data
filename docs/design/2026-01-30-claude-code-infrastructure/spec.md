@@ -41341,3 +41341,366 @@ If tests appear incorrect, inform the user rather than working around them.
 | Format control      | Use XML tags for structure           |
 | Subagent delegation | Let model orchestrate naturally      |
 | Hallucination       | Enforce investigation before claims  |
+## Rate Limits, Pricing, and Cost Optimization
+
+### Overview
+
+Understanding rate limits and pricing is essential for building cost-effective Claude Code workflows. This section covers usage tiers, token bucket algorithm, prompt caching, batch processing, and DSM-specific optimization patterns.
+
+### Usage Tiers
+
+| Tier | Credit Purchase | Max Credit Purchase | Monthly Spend Limit |
+| ---- | --------------- | ------------------- | ------------------- |
+| 1    | $5              | $100                | Entry level         |
+| 2    | $40             | $500                | Growing apps        |
+| 3    | $200            | $1,000              | Established apps    |
+| 4    | $400            | $5,000              | Maximum standard    |
+
+Tier advancement is automatic upon reaching credit thresholds. Tier 4 unlocks 1M token context window (beta).
+
+### Rate Limit Categories
+
+Rate limits apply per organization across three dimensions:
+
+| Metric | Description              |
+| ------ | ------------------------ |
+| RPM    | Requests per minute      |
+| ITPM   | Input tokens per minute  |
+| OTPM   | Output tokens per minute |
+
+### Tier 4 Rate Limits (Maximum Standard)
+
+| Model             | RPM   | ITPM      | OTPM    |
+| ----------------- | ----- | --------- | ------- |
+| Claude Sonnet 4.x | 4,000 | 2,000,000 | 400,000 |
+| Claude Haiku 4.5  | 4,000 | 4,000,000 | 800,000 |
+| Claude Opus 4.x   | 4,000 | 2,000,000 | 400,000 |
+
+### Token Bucket Algorithm
+
+Anthropic uses token bucket for rate limiting:
+
+```
+Capacity: Continuously replenished to maximum
+Refill: Not reset at fixed intervals
+Recovery: Empty bucket refills completely within 1 minute
+```
+
+**Key implication**: If you exhaust tokens, replenishment begins immediately rather than waiting for minute boundary.
+
+### Cache-Aware ITPM
+
+Most Claude models only count uncached tokens toward ITPM limits:
+
+| Token Type                    | Counts Toward ITPM?  |
+| ----------------------------- | -------------------- |
+| `input_tokens`                | Yes                  |
+| `cache_creation_input_tokens` | Yes                  |
+| `cache_read_input_tokens`     | **No** (most models) |
+
+**Example throughput boost**: With 2,000,000 ITPM limit and 80% cache hit rate:
+
+- Effective processing: 10,000,000 tokens/minute
+- Breakdown: 2M uncached + 8M cached (free)
+
+### Model Pricing (2026)
+
+| Model             | Input   | Output   | Batch Input | Batch Output |
+| ----------------- | ------- | -------- | ----------- | ------------ |
+| Claude Opus 4.5   | $5/MTok | $25/MTok | $2.50/MTok  | $12.50/MTok  |
+| Claude Sonnet 4.5 | $3/MTok | $15/MTok | $1.50/MTok  | $7.50/MTok   |
+| Claude Haiku 4.5  | $1/MTok | $5/MTok  | $0.50/MTok  | $2.50/MTok   |
+
+MTok = Million tokens
+
+### Prompt Caching Pricing
+
+| Cache Type   | Multiplier vs Base Input |
+| ------------ | ------------------------ |
+| 5-min write  | 1.25x                    |
+| 1-hour write | 2.0x                     |
+| Cache read   | 0.1x (90% discount)      |
+
+**Effective costs with caching** (Sonnet 4.5):
+
+| Operation          | Cost/MTok |
+| ------------------ | --------- |
+| Base input         | $3.00     |
+| 5-min cache write  | $3.75     |
+| 1-hour cache write | $6.00     |
+| Cache read         | $0.30     |
+
+### Batch API Benefits
+
+Batch processing provides 50% discount on all tokens:
+
+| Feature           | Standard    | Batch         |
+| ----------------- | ----------- | ------------- |
+| Sonnet 4.5 input  | $3/MTok     | $1.50/MTok    |
+| Sonnet 4.5 output | $15/MTok    | $7.50/MTok    |
+| Processing        | Real-time   | Async         |
+| Use cases         | Interactive | Bulk analysis |
+
+### Discount Stacking
+
+Batch and caching discounts combine:
+
+```python
+# Example: Sonnet 4.5 with batch + cache read
+base_input = 3.00  # $/MTok
+batch_discount = 0.50
+cache_discount = 0.10
+effective_rate = base_input * batch_discount * cache_discount
+# = $0.15/MTok (95% savings!)
+```
+
+### Long Context Pricing (>200K tokens)
+
+For Claude Sonnet 4.x with 1M context window:
+
+| Input Tokens | Input Price | Output Price |
+| ------------ | ----------- | ------------ |
+| ≤200K        | $3/MTok     | $15/MTok     |
+| >200K        | $6/MTok     | $22.50/MTok  |
+
+### Tool Use Token Overhead
+
+| Tool            | Additional Tokens |
+| --------------- | ----------------- |
+| Tool use system | 346 tokens        |
+| Bash tool       | 245 tokens        |
+| Text editor     | 700 tokens        |
+| Computer use    | 735 tokens        |
+
+### Server Tool Pricing
+
+| Tool       | Cost                                |
+| ---------- | ----------------------------------- |
+| Web search | $10 per 1,000 searches              |
+| Web fetch  | No additional cost                  |
+| Code exec  | $0.05/hour (after 1,550 free hours) |
+
+### Response Headers for Monitoring
+
+Key headers for rate limit tracking:
+
+```http
+anthropic-ratelimit-requests-limit: 4000
+anthropic-ratelimit-requests-remaining: 3998
+anthropic-ratelimit-requests-reset: 2026-01-30T13:00:00Z
+anthropic-ratelimit-input-tokens-limit: 2000000
+anthropic-ratelimit-input-tokens-remaining: 1950000
+anthropic-ratelimit-output-tokens-limit: 400000
+anthropic-ratelimit-output-tokens-remaining: 399000
+retry-after: 5  # Only on 429 errors
+```
+
+### Batch API Rate Limits
+
+| Tier | RPM   | Queue Size | Max per Batch |
+| ---- | ----- | ---------- | ------------- |
+| 1    | 50    | 100,000    | 100,000       |
+| 2    | 1,000 | 200,000    | 100,000       |
+| 3    | 2,000 | 300,000    | 100,000       |
+| 4    | 4,000 | 500,000    | 100,000       |
+
+### Cost Optimization Strategies
+
+#### 1. Model Selection
+
+| Task Type                   | Recommended Model | Rationale              |
+| --------------------------- | ----------------- | ---------------------- |
+| Simple queries, validation  | Haiku 4.5         | 5x cheaper than Sonnet |
+| Code generation, analysis   | Sonnet 4.5        | Best price/performance |
+| Complex reasoning, research | Opus 4.5          | When accuracy critical |
+
+#### 2. Prompt Caching Strategy
+
+Cache these elements for maximum savings:
+
+```markdown
+# Always cache (static, reused often)
+
+- System prompts
+- Tool definitions
+- Large context documents
+- Common examples
+
+# Use 5-minute TTL (default)
+
+- Session-specific context
+- Conversation history
+
+# Use 1-hour TTL
+
+- Reference documentation
+- Code templates
+- Shared team resources
+```
+
+#### 3. Batch Processing Patterns
+
+Use batch API for:
+
+| Use Case                 | Pattern                            |
+| ------------------------ | ---------------------------------- |
+| Bulk code review         | Submit all files as batch          |
+| Data validation          | Batch validate multiple DataFrames |
+| Documentation generation | Batch all docstring requests       |
+| Test generation          | Batch test writing for modules     |
+
+#### 4. Token Reduction Techniques
+
+```markdown
+# Reduce input tokens
+
+- Truncate irrelevant code context
+- Summarize long error messages
+- Use structured data over prose
+- Reference files by path, not content
+
+# Reduce output tokens
+
+- Set explicit max_tokens based on task
+- Request concise responses
+- Use structured output formats
+- Avoid asking for explanations when not needed
+```
+
+### DSM-Specific Optimization Patterns
+
+#### FCP Data Analysis
+
+```python
+# Batch API for historical analysis
+batch_requests = []
+for symbol in symbols:
+    batch_requests.append({
+        "custom_id": f"fcp-{symbol}",
+        "method": "POST",
+        "body": {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 1024,
+            "messages": [{
+                "role": "user",
+                "content": f"Analyze FCP cache patterns for {symbol}"
+            }]
+        }
+    })
+# Submit batch - 50% discount
+```
+
+#### DataFrame Validation
+
+```python
+# Cache common validation schema
+cached_schema = """
+<validation_rules>
+Required columns: open_time, open, high, low, close, volume
+Timestamp: UTC timezone-aware
+Numeric: open, high, low, close > 0, volume >= 0
+Ordering: open_time strictly increasing
+</validation_rules>
+"""
+
+# Reuse cached schema across validations
+# 90% cost reduction on repeated validations
+```
+
+#### Exchange API Research
+
+```python
+# Use Haiku for simple lookups
+simple_query = "What is Binance rate limit for OHLCV endpoint?"
+# Cost: ~$0.001 per query with Haiku
+
+# Use Sonnet for complex analysis
+complex_query = "Analyze optimal backfill strategy for 5 years of data"
+# Cost: ~$0.05 per analysis with Sonnet
+
+# Use Opus for architectural decisions
+architecture_query = "Design FCP v2 with multi-exchange support"
+# Cost: ~$0.25 per session with Opus
+```
+
+### Cost Tracking
+
+Track costs via API usage response:
+
+```json
+{
+  "usage": {
+    "input_tokens": 105000,
+    "output_tokens": 6039,
+    "cache_read_input_tokens": 95000,
+    "cache_creation_input_tokens": 7345,
+    "server_tool_use": {
+      "web_search_requests": 2
+    }
+  }
+}
+```
+
+Calculate cost:
+
+```python
+def calculate_cost(usage, model="sonnet-4.5"):
+    rates = {
+        "sonnet-4.5": {"input": 3.0, "output": 15.0, "cache_read": 0.3, "cache_write": 3.75}
+    }
+    r = rates[model]
+
+    input_cost = usage["input_tokens"] * r["input"] / 1_000_000
+    output_cost = usage["output_tokens"] * r["output"] / 1_000_000
+    cache_read_cost = usage.get("cache_read_input_tokens", 0) * r["cache_read"] / 1_000_000
+    cache_write_cost = usage.get("cache_creation_input_tokens", 0) * r["cache_write"] / 1_000_000
+    web_search_cost = usage.get("server_tool_use", {}).get("web_search_requests", 0) * 0.01
+
+    return input_cost + output_cost + cache_read_cost + cache_write_cost + web_search_cost
+```
+
+### Error Handling for Rate Limits
+
+```python
+import time
+from anthropic import RateLimitError
+
+def call_with_backoff(client, **kwargs):
+    max_retries = 5
+    base_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            return client.messages.create(**kwargs)
+        except RateLimitError as e:
+            retry_after = int(e.response.headers.get("retry-after", base_delay * (2 ** attempt)))
+            print(f"Rate limited. Waiting {retry_after}s...")
+            time.sleep(retry_after)
+
+    raise Exception("Max retries exceeded")
+```
+
+### Workspace Rate Limits
+
+Set workspace-specific limits to prevent overuse:
+
+```json
+{
+  "workspace": "dsm-development",
+  "limits": {
+    "tokens_per_minute": 30000,
+    "requests_per_minute": 100
+  },
+  "rationale": "Protect production workspace quota"
+}
+```
+
+### Summary
+
+| Optimization           | Savings   | Best For                      |
+| ---------------------- | --------- | ----------------------------- |
+| Prompt caching         | Up to 90% | Repeated context              |
+| Batch API              | 50%       | Non-real-time operations      |
+| Model selection        | Variable  | Task-appropriate intelligence |
+| Combined (batch+cache) | Up to 95% | Bulk historical analysis      |
+| Token reduction        | Variable  | All operations                |
