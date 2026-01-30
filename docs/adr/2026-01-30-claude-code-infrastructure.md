@@ -129,8 +129,8 @@ user-invocable: true
 
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Design spec lines   | 6111                                                                             |
-| Sections            | 75                                                                               |
+| Design spec lines   | 6342                                                                             |
+| Sections            | 77                                                                               |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
 | Commands            | 6 (debug-fcp, fetch-data, quick-test, review-dsm, validate-data, feature-dev)    |
 | Skills              | 4 (dsm-usage, dsm-testing, dsm-research, dsm-fcp-monitor)                        |
@@ -192,6 +192,8 @@ user-invocable: true
 - Advanced debugging techniques (Plan Mode, visibility, Pointbreak integration)
 - Autonomous loop patterns (YOLO mode, safety, self-management emergence)
 - Plugin development guide (structure, manifest, skills, hooks, distribution)
+- Notification systems (hooks, cross-platform, MCP server, phone alerts)
+- Model selection & routing (Opus/Sonnet/Haiku, opusplan, cost optimization)
 
 ## More Information
 

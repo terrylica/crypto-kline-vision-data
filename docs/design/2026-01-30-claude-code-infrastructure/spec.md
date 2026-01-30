@@ -6085,6 +6085,237 @@ FCP implementation rules:
 - Respect rate limits
 ```
 
+## Notification Systems
+
+Alert systems for Claude Code task completion and input requests.
+
+### Hook-Based Notifications
+
+Configure in `~/.config/claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify.sh 'Awaiting input' && afplay /System/Library/Sounds/Glass.aiff"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify.sh 'Task completed' && afplay /System/Library/Sounds/Hero.aiff"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Notification Script (macOS)
+
+```bash
+#!/bin/bash
+# ~/.config/claude/notify.sh
+
+MESSAGE="$1"
+REPO=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" || echo "unknown")
+
+terminal-notifier \
+  -title "Claude Code" \
+  -subtitle "$REPO" \
+  -message "$MESSAGE" \
+  -sender com.anthropic.claudefordesktop
+```
+
+### Sound Differentiation
+
+| Event          | Sound      | Meaning          |
+| -------------- | ---------- | ---------------- |
+| Input needed   | Glass.aiff | Come back        |
+| Task completed | Hero.aiff  | Done             |
+| Error          | Basso.aiff | Attention needed |
+
+### Cross-Platform Options
+
+| Platform | Tool              | Setup                            |
+| -------- | ----------------- | -------------------------------- |
+| macOS    | terminal-notifier | `brew install terminal-notifier` |
+| Linux    | notify-send       | Built-in on most distros         |
+| Windows  | PowerShell toast  | Native Windows 10+               |
+| All      | code-notify       | Cross-platform CLI               |
+
+### MCP Server Notifications
+
+For richer notifications:
+
+```json
+{
+  "mcpServers": {
+    "notify": {
+      "command": "npx",
+      "args": ["-y", "@nkyy/claude-code-notify-mcp"]
+    }
+  }
+}
+```
+
+### Phone Notifications
+
+For long-running tasks:
+
+```bash
+# Use Pushover or similar service
+curl -s \
+  --form-string "token=$PUSHOVER_TOKEN" \
+  --form-string "user=$PUSHOVER_USER" \
+  --form-string "message=Claude Code completed: $REPO" \
+  https://api.pushover.net/1/messages.json
+```
+
+### Remote Development
+
+For VSCode Remote SSH, use OSC escape sequences:
+
+```bash
+# notify.sh for remote sessions
+printf '\033]777;notify;Claude Code;%s\007' "$MESSAGE"
+```
+
+## Model Selection & Routing
+
+Choosing the right Claude model for each task.
+
+### Model Aliases
+
+| Alias        | Model               | Use Case                       |
+| ------------ | ------------------- | ------------------------------ |
+| `default`    | Account-dependent   | General usage                  |
+| `sonnet`     | Sonnet 4.5          | Daily coding tasks             |
+| `opus`       | Opus 4.5            | Complex reasoning              |
+| `haiku`      | Haiku 4.5           | Fast, simple tasks             |
+| `sonnet[1m]` | Sonnet + 1M context | Long sessions                  |
+| `opusplan`   | Opus → Sonnet       | Plan with Opus, execute Sonnet |
+
+### When to Use Each Model
+
+**Opus** (Most Capable):
+
+- System architecture design
+- Complex multi-step reasoning
+- Final review before merge
+- Advanced analysis
+- Long-horizon planning
+
+**Sonnet** (Balanced Default):
+
+- Day-to-day development
+- Feature implementation
+- Writing tests
+- Code refactoring
+- Documentation generation
+
+**Haiku** (Fastest):
+
+- Quick syntax questions
+- Single-file edits
+- Typo corrections
+- UI scaffolding
+- Small prompts
+
+### Model Selection Commands
+
+```bash
+# At startup
+claude --model opus
+claude --model sonnet
+claude --model haiku
+claude --model opusplan
+
+# During session
+> /model opus
+> /model sonnet
+
+# Check current model
+> /status
+```
+
+### OpusPlan Mode
+
+Best of both worlds:
+
+```
+Plan Mode → Uses Opus (complex reasoning)
+     ↓
+Execution Mode → Switches to Sonnet (efficient coding)
+```
+
+### Cost Comparison
+
+| Model  | Relative Cost | Best For              |
+| ------ | ------------- | --------------------- |
+| Opus   | 5x Sonnet     | Critical decisions    |
+| Sonnet | 1x (baseline) | Most development      |
+| Haiku  | 0.25x Sonnet  | High-frequency simple |
+
+### Intelligent Routing (claude-router)
+
+Third-party tools can auto-route based on complexity:
+
+```bash
+# Automatic model selection based on query
+# Simple → Haiku
+# Medium → Sonnet
+# Complex → Opus
+
+# Can reduce costs by up to 80%
+```
+
+### Environment Variables
+
+```bash
+# Override model mappings
+export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-5-20251101"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-4-5-20250929"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="claude-haiku-4-5-20251001"
+
+# Subagent model
+export CLAUDE_CODE_SUBAGENT_MODEL="claude-haiku-4-5-20251001"
+```
+
+### Prompt Caching Control
+
+```bash
+# Disable all caching
+export DISABLE_PROMPT_CACHING=1
+
+# Per-model caching control
+export DISABLE_PROMPT_CACHING_HAIKU=1
+export DISABLE_PROMPT_CACHING_SONNET=0
+export DISABLE_PROMPT_CACHING_OPUS=0
+```
+
+### DSM Model Strategy
+
+For data-source-manager development:
+
+| Task                    | Model    | Reason                     |
+| ----------------------- | -------- | -------------------------- |
+| FCP architecture design | Opus     | Complex protocol reasoning |
+| Provider implementation | Sonnet   | Standard coding            |
+| Quick fix               | Haiku    | Speed                      |
+| Code review             | OpusPlan | Thorough then efficient    |
+| Test writing            | Sonnet   | Balanced                   |
+
 ## Verification Checklist
 
 ### Infrastructure
