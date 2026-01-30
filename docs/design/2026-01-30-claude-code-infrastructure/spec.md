@@ -3995,6 +3995,213 @@ Claude Code 2.1+ includes 3x memory improvement:
 - [ ] Use worktrees for parallel work
 - [ ] Match model to task complexity
 
+## Security Scanning & SAST Integration
+
+AI-powered security review combined with traditional static analysis.
+
+### Built-in Security Review
+
+```
+> /security-review
+```
+
+Performs comprehensive security review of all pending changes.
+
+### Security Review Capabilities
+
+| Capability            | Description                          |
+| --------------------- | ------------------------------------ |
+| Contextual analysis   | Understands code semantics/intent    |
+| Lower false positives | AI filters non-vulnerable patterns   |
+| XSS detection         | Finds obvious cross-site scripting   |
+| Injection detection   | Catches short-path command injection |
+| Sensitive data        | Identifies credential exposure       |
+
+### GitHub Actions Security Review
+
+```yaml
+name: Security Review
+on: [pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-security-review@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### AI vs Traditional SAST
+
+| Aspect                   | AI (Claude)   | Traditional SAST |
+| ------------------------ | ------------- | ---------------- |
+| Contextual understanding | Strong        | Pattern-based    |
+| False positives          | Lower         | Higher           |
+| Inter-procedural flow    | Weaker        | Stronger         |
+| Taint analysis           | Basic         | Comprehensive    |
+| Consistency              | Varies by run | Deterministic    |
+
+### Recommended: Combined Approach
+
+Pair Claude with traditional tools:
+
+| Tool Type | Examples                |
+| --------- | ----------------------- |
+| SAST      | Semgrep, Bandit, CodeQL |
+| DAST      | OWASP ZAP, StackHawk    |
+| SCA       | Snyk, Dependabot        |
+
+### Claude Secure Coding Rules
+
+Add security rules to CLAUDE.md:
+
+```markdown
+# Security Rules
+
+- Never generate code with hardcoded credentials
+- Always validate and sanitize user input
+- Use parameterized queries for database access
+- Apply principle of least privilege
+- Encrypt sensitive data at rest and in transit
+```
+
+### Known Limitations
+
+| Limitation                | Mitigation                    |
+| ------------------------- | ----------------------------- |
+| Inconsistent results      | Run multiple scans            |
+| Complex vuln detection    | Pair with traditional SAST    |
+| Inter-procedural analysis | Use specialized tools         |
+| Context compression       | Keep focused scope per review |
+
+### DSM Security Focus Areas
+
+| Area             | Security Concern              |
+| ---------------- | ----------------------------- |
+| API keys         | Credential exposure in logs   |
+| Rate limiting    | DoS vulnerability             |
+| Input validation | Symbol format injection       |
+| Error messages   | Information disclosure        |
+| Cache data       | Sensitive data in cache files |
+
+## API Design & Generation
+
+Claude Code for designing and generating REST APIs and documentation.
+
+### API Generation Workflow
+
+```
+> Design a REST API for user authentication with JWT
+> [Claude generates OpenAPI spec]
+> Generate the Python implementation using FastAPI
+> [Claude creates routes, models, validation]
+> Add comprehensive API tests
+```
+
+### What Claude Generates
+
+| Component     | Output                           |
+| ------------- | -------------------------------- |
+| OpenAPI spec  | Complete YAML/JSON specification |
+| Models        | Pydantic/dataclass definitions   |
+| Routes        | Endpoint handlers                |
+| Validation    | Input/output schemas             |
+| Tests         | API test suite                   |
+| Documentation | Inline docs, README              |
+
+### API Documentation Subagent
+
+Create in `.claude/agents/`:
+
+```yaml
+---
+name: api-documenter
+description: Creates OpenAPI specs and SDK docs
+tools:
+  - Read
+  - Write
+  - Edit
+  - Grep
+---
+
+You are an API documentation specialist.
+Generate:
+- OpenAPI 3.1 specifications
+- Interactive API docs
+- SDK client libraries
+- Code examples for common operations
+- Versioning strategy documentation
+```
+
+### OpenAPI Refactoring
+
+Claude can extract patterns from large specs:
+
+```
+> Analyze this OpenAPI spec and extract common components
+> [Claude identifies pagination, response patterns]
+> Create reusable components for these patterns
+> [Claude refactors to use $ref components]
+```
+
+### REST API Best Practices
+
+| Practice        | Claude Implementation           |
+| --------------- | ------------------------------- |
+| Resource naming | Plural nouns, lowercase         |
+| HTTP methods    | GET/POST/PUT/PATCH/DELETE       |
+| Status codes    | Appropriate codes per operation |
+| Error responses | Consistent error schema         |
+| Pagination      | Cursor-based or offset          |
+| Versioning      | URL or header based             |
+
+### MCP OpenAPI Integration
+
+Connect API specs via MCP:
+
+```json
+{
+  "mcpServers": {
+    "openapi": {
+      "command": "npx",
+      "args": ["@anthropics/mcp-openapi", "--spec", "api.yaml"]
+    }
+  }
+}
+```
+
+### DSM API Design Patterns
+
+| Endpoint Pattern   | DSM Application              |
+| ------------------ | ---------------------------- |
+| GET /data/{symbol} | Fetch historical data        |
+| GET /symbols       | List available symbols       |
+| GET /providers     | List data providers          |
+| POST /validate     | Validate DataFrame structure |
+| GET /cache/status  | FCP cache statistics         |
+
+### API Architect Agent
+
+```yaml
+---
+name: api-architect
+description: Designs API architecture and patterns
+tools:
+  - Read
+  - Grep
+  - Glob
+---
+
+You are an API architecture specialist.
+Focus on:
+- RESTful design principles
+- Domain-driven design boundaries
+- OAuth2/JWT security patterns
+- Rate limiting strategies
+- API versioning approaches
+```
+
 ## Verification Checklist
 
 ### Infrastructure
