@@ -1,6 +1,7 @@
 ---
 name: dsm-testing
-description: Run tests for data-source-manager with proper markers and coverage
+description: Run tests for data-source-manager with proper markers and coverage. Use when writing tests, running tests, or checking test coverage for DSM.
+argument-hint: "[test-pattern]"
 ---
 
 # Testing Data Source Manager

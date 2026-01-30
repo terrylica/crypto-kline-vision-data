@@ -1,6 +1,7 @@
 ---
 name: dsm-usage
-description: Fetch market data using DataSourceManager with Failover Control Protocol (cache → Vision API → REST API)
+description: Fetch market data using DataSourceManager with Failover Control Protocol (cache → Vision API → REST API). Use when the user asks how to fetch market data, use DSM, or access Binance data.
+argument-hint: "[symbol] [market-type]"
 ---
 
 # DataSourceManager Usage

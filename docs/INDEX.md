@@ -84,10 +84,11 @@ Claude Code extensions for AI-assisted development. See [.claude/](/.claude/) di
 
 Progressive disclosure for detailed guidance. Each has a SKILL.md with YAML frontmatter.
 
-| Skill                              | Purpose                       |
-| ---------------------------------- | ----------------------------- |
-| [dsm-usage](skills/dsm-usage/)     | DataSourceManager usage guide |
-| [dsm-testing](skills/dsm-testing/) | Testing patterns and pytest   |
+| Skill                                | Purpose                              |
+| ------------------------------------ | ------------------------------------ |
+| [dsm-usage](skills/dsm-usage/)       | DataSourceManager usage guide        |
+| [dsm-testing](skills/dsm-testing/)   | Testing patterns and pytest          |
+| [dsm-research](skills/dsm-research/) | Codebase research (runs in subagent) |
 
 ### Agents
 
