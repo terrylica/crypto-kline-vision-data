@@ -40553,3 +40553,156 @@ claude -p "
 | Session not found      | Use `--output-format json` to capture session ID |
 | Timeout                | Increase timeout or use `--max-turns`            |
 | Cost exceeded          | Adjust `--max-budget-usd`                        |
+## Troubleshooting Reference
+
+Quick solutions for common Claude Code issues.
+
+### Diagnostic Commands
+
+| Command              | Purpose                         |
+| -------------------- | ------------------------------- |
+| `/doctor`            | Run diagnostics on installation |
+| `claude --verbose`   | Detailed logging                |
+| `claude --mcp-debug` | MCP configuration debugging     |
+| `/bug`               | Report problems to Anthropic    |
+
+`/doctor` checks: installation, updates, settings, MCP config, keybindings, context usage, plugin errors.
+
+### Installation Issues
+
+#### Windows WSL
+
+| Issue              | Solution                                                         |
+| ------------------ | ---------------------------------------------------------------- |
+| OS detection error | `npm config set os linux` before install                         |
+| Force install      | `npm install -g @anthropic-ai/claude-code --force --no-os-check` |
+| Node not found     | Check `which npm`, `which node` point to Linux paths             |
+| nvm conflicts      | Load nvm in shell: `source ~/.nvm/nvm.sh`                        |
+
+#### Linux/Mac Permission Errors
+
+Use native installer:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+#### Windows Native
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+If "Git Bash not found":
+
+```powershell
+$env:CLAUDE_CODE_GIT_BASH_PATH="C:\Program Files\Git\bin\bash.exe"
+```
+
+### Authentication Issues
+
+1. Run `/logout`
+2. Close Claude Code
+3. Restart with `claude`
+4. Complete authentication
+
+If browser doesn't open, press `c` to copy OAuth URL.
+
+**Reset authentication**:
+
+```bash
+rm -rf ~/.config/claude-code/auth.json
+claude
+```
+
+### Configuration Files
+
+| File                          | Purpose                      |
+| ----------------------------- | ---------------------------- |
+| `~/.claude/settings.json`     | User settings                |
+| `.claude/settings.json`       | Project settings (committed) |
+| `.claude/settings.local.json` | Local project settings       |
+| `~/.claude.json`              | Global state                 |
+| `.mcp.json`                   | Project MCP servers          |
+
+**Reset all settings**:
+
+```bash
+rm ~/.claude.json
+rm -rf ~/.claude/
+```
+
+### Performance Issues
+
+| Issue           | Solution                               |
+| --------------- | -------------------------------------- |
+| High CPU/memory | Use `/compact` regularly               |
+| Large codebase  | Add build dirs to `.gitignore`         |
+| Hangs/freezes   | Ctrl+C, restart if needed              |
+| Slow WSL search | Move project to `/home/` not `/mnt/c/` |
+
+### Search Issues
+
+Install system ripgrep:
+
+```bash
+# macOS
+brew install ripgrep
+
+# Ubuntu/Debian
+sudo apt install ripgrep
+
+# Windows
+winget install BurntSushi.ripgrep.MSVC
+```
+
+Set `USE_BUILTIN_RIPGREP=0` in environment.
+
+### IDE Integration
+
+#### JetBrains WSL2
+
+If "No available IDEs detected":
+
+**Option 1: Firewall rule** (recommended):
+
+```powershell
+New-NetFirewallRule -DisplayName "Allow WSL2" -Direction Inbound -Protocol TCP -Action Allow -RemoteAddress 172.21.0.0/16 -LocalAddress 172.21.0.0/16
+```
+
+**Option 2: Mirrored networking** in `.wslconfig`:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+#### ESC Key in JetBrains
+
+Settings → Tools → Terminal → Uncheck "Move focus to editor with Escape"
+
+### WSL2 Sandbox
+
+Install dependencies:
+
+```bash
+sudo apt-get install bubblewrap socat
+```
+
+WSL1 does not support sandboxing.
+
+### DSM-Specific Troubleshooting
+
+| Issue                   | Solution                                |
+| ----------------------- | --------------------------------------- |
+| pyright process storm   | Disable LSP: `export ENABLE_LSP_TOOL=0` |
+| uv command not found    | Ensure mise shims in PATH               |
+| Python version mismatch | Use `--python 3.13` with uv             |
+| FCP cache issues        | Check `.claude/rules/fcp-protocol.md`   |
+
+### Getting More Help
+
+1. `/doctor` - Diagnose common issues
+2. `/bug` - Report to Anthropic
+3. [GitHub Issues](https://github.com/anthropics/claude-code)
+4. Ask Claude about capabilities
