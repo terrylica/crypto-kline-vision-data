@@ -12198,3 +12198,309 @@ CLAUDE.md                 # Root: Overview, commands, patterns
 4. **Full code snippets**: Reference by path instead
 5. **Outdated information**: Review monthly
 6. **Generic advice**: Only project-specific guidance
+
+---
+
+## MCP Server Configuration Reference
+
+Comprehensive configuration patterns for Model Context Protocol (MCP) servers in Claude Code.
+
+### Transport Types
+
+**HTTP (Recommended for Remote)**:
+
+```bash
+# Add HTTP server
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+
+# With authentication header
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer your-token"
+```
+
+**SSE (Deprecated)**:
+
+```bash
+# SSE is deprecated - use HTTP when available
+claude mcp add --transport sse asana https://mcp.asana.com/sse
+```
+
+**Stdio (Local Servers)**:
+
+```bash
+# Add local stdio server
+claude mcp add --transport stdio --env API_KEY=YOUR_KEY airtable \
+  -- npx -y airtable-mcp-server
+
+# Windows requires cmd wrapper
+claude mcp add --transport stdio my-server -- cmd /c npx -y @some/package
+```
+
+### Configuration Scopes
+
+| Scope   | Storage Location               | Use Case                           |
+| ------- | ------------------------------ | ---------------------------------- |
+| local   | ~/.claude.json                 | Personal servers, project-specific |
+| project | .mcp.json (version controlled) | Team-shared servers                |
+| user    | ~/.claude.json                 | Cross-project personal utilities   |
+
+```bash
+# Local scope (default)
+claude mcp add --transport http stripe https://mcp.stripe.com
+
+# Project scope (team-shared)
+claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+
+# User scope (cross-project)
+claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/anthropic
+```
+
+### Project .mcp.json Format
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "type": "stdio",
+      "command": "/path/to/server",
+      "args": ["--config", "config.json"],
+      "env": {
+        "DB_URL": "${DB_URL}"
+      }
+    },
+    "api": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.example.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### Environment Variable Expansion
+
+**Supported syntax**:
+
+- `${VAR}` - Expands to value of VAR
+- `${VAR:-default}` - Uses default if VAR not set
+
+**Expansion locations**:
+
+- `command` - Server executable path
+- `args` - Command-line arguments
+- `env` - Environment variables
+- `url` - HTTP server URLs
+- `headers` - Authentication headers
+
+### Server Management Commands
+
+```bash
+# List all configured servers
+claude mcp list
+
+# Get details for specific server
+claude mcp get github
+
+# Remove a server
+claude mcp remove github
+
+# Check status within Claude Code
+/mcp
+
+# Import from Claude Desktop
+claude mcp add-from-claude-desktop
+
+# Add from JSON configuration
+claude mcp add-json weather '{"type":"http","url":"https://api.weather.com/mcp"}'
+```
+
+### OAuth Authentication
+
+```bash
+# Add server requiring OAuth
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# Authenticate within Claude Code
+> /mcp
+# Follow browser prompts to login
+
+# Clear authentication
+# Use /mcp menu > "Clear authentication"
+```
+
+### Tool Search Configuration
+
+When MCP tools exceed context threshold, tool search activates:
+
+| Value    | Behavior                                     |
+| -------- | -------------------------------------------- |
+| auto     | Activates at 10% context threshold (default) |
+| auto:<N> | Custom threshold (e.g., auto:5 for 5%)       |
+| true     | Always enabled                               |
+| false    | Disabled, all tools loaded upfront           |
+
+```bash
+# Custom threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Disable tool search
+ENABLE_TOOL_SEARCH=false claude
+```
+
+### Output Token Limits
+
+```bash
+# Warning threshold: 10,000 tokens (displays warning)
+# Default limit: 25,000 tokens
+
+# Increase for large outputs
+export MAX_MCP_OUTPUT_TOKENS=50000
+claude
+```
+
+### Debugging MCP Issues
+
+```bash
+# Launch with MCP debug flag
+claude --mcp-debug
+
+# Common fixes:
+# - Increase timeout: MCP_TIMEOUT=10000 claude
+# - Check authentication headers
+# - Windows: Use cmd /c wrapper for npx
+```
+
+### Using Claude Code as MCP Server
+
+```bash
+# Start Claude as MCP server
+claude mcp serve
+```
+
+**Claude Desktop configuration**:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "type": "stdio",
+      "command": "/full/path/to/claude",
+      "args": ["mcp", "serve"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Plugin-Provided MCP Servers
+
+Plugins can bundle MCP servers:
+
+**In .mcp.json at plugin root**:
+
+```json
+{
+  "database-tools": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/servers/db-server",
+    "args": ["--config", "${CLAUDE_PLUGIN_ROOT}/config.json"],
+    "env": {
+      "DB_URL": "${DB_URL}"
+    }
+  }
+}
+```
+
+**Or inline in plugin.json**:
+
+```json
+{
+  "name": "my-plugin",
+  "mcpServers": {
+    "plugin-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"]
+    }
+  }
+}
+```
+
+### Enterprise Managed MCP
+
+**Option 1: Exclusive control with managed-mcp.json**:
+
+Location:
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-mcp.json`
+- Linux: `/etc/claude-code/managed-mcp.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "company-internal": {
+      "type": "stdio",
+      "command": "/usr/local/bin/company-mcp-server",
+      "args": ["--config", "/etc/company/mcp-config.json"]
+    }
+  }
+}
+```
+
+**Option 2: Policy-based allowlists/denylists**:
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    { "serverCommand": ["npx", "-y", "approved-package"] },
+    { "serverUrl": "https://mcp.company.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverName": "dangerous-server" },
+    { "serverUrl": "https://*.untrusted.com/*" }
+  ]
+}
+```
+
+### DSM MCP Configuration
+
+```json
+{
+  "mcpServers": {
+    "dsm-database": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "-p", "3.13", "python", "-m", "dsm_mcp_server"],
+      "env": {
+        "DSM_CACHE_DIR": "${DSM_CACHE_DIR:-~/.cache/dsm}",
+        "DSM_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+### MCP Resources with @ Mentions
+
+```
+# Reference MCP resources
+> Analyze @github:issue://123
+
+# Multiple resources
+> Compare @postgres:schema://users with @docs:file://database/user-model
+```
+
+### MCP Prompts as Commands
+
+```
+# Discover available prompts
+> /
+
+# Execute prompt without arguments
+> /mcp__github__list_prs
+
+# Execute prompt with arguments
+> /mcp__github__pr_review 456
+```
