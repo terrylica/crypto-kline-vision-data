@@ -11,13 +11,14 @@ Fetch cryptocurrency market data with automatic failover between data sources.
 
 ```python
 from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Create manager for USDT-margined futures
 manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
 # Fetch data with automatic failover (cache → Vision → REST)
-end_time = datetime.now()
+# IMPORTANT: Always use UTC timezone-aware datetimes
+end_time = datetime.now(timezone.utc)
 start_time = end_time - timedelta(days=7)
 
 df = manager.get_data(
@@ -49,14 +50,14 @@ For simpler use cases, use `fetch_market_data`:
 
 ```python
 from data_source_manager import fetch_market_data, MarketType, Interval
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 df = fetch_market_data(
     symbol="BTCUSDT",
     market_type=MarketType.FUTURES_USDT,
     interval=Interval.HOUR_1,
-    start_time=datetime.now() - timedelta(days=30),
-    end_time=datetime.now()
+    start_time=datetime.now(timezone.utc) - timedelta(days=30),
+    end_time=datetime.now(timezone.utc)
 )
 ```
 
