@@ -6816,6 +6816,199 @@ Check what's excluded:
 # Claude will list denied patterns
 ```
 
+## Checkpointing & Rewind
+
+Automatically track and restore Claude's edits.
+
+### How Checkpoints Work
+
+- Every user prompt creates a new checkpoint
+- Checkpoints persist across sessions
+- Automatically cleaned up after 30 days (configurable)
+- Only tracks file edits made through Claude's tools
+
+### Accessing Checkpoints
+
+```
+# Press Esc twice
+Esc + Esc → Opens rewind menu
+
+# Or use command
+> /rewind
+```
+
+### Restore Options
+
+| Option            | Description                        | Use Case              |
+| ----------------- | ---------------------------------- | --------------------- |
+| Conversation only | Rewind messages, keep code changes | Re-phrase prompt      |
+| Code only         | Revert files, keep conversation    | Undo bad code changes |
+| Both code + convo | Full restore to prior point        | Complete reset        |
+
+### Common Use Cases
+
+- **Exploring alternatives**: Try different implementations
+- **Recovering from mistakes**: Undo buggy changes
+- **Iterating on features**: Experiment with variations
+
+### Critical Limitations
+
+**NOT TRACKED:**
+
+- Bash command changes (`rm`, `mv`, `cp`)
+- External file modifications
+- Changes from other sessions
+
+```bash
+# These CANNOT be undone via rewind:
+rm file.txt           # Permanent
+mv old.txt new.txt    # Permanent
+cp source.txt dest.txt # Creates new file
+
+# These CAN be undone:
+# Claude editing via Write/Edit tools
+```
+
+### Checkpoints vs Git
+
+| Aspect        | Checkpoints     | Git                 |
+| ------------- | --------------- | ------------------- |
+| Scope         | Session-level   | Project-level       |
+| Tracking      | File edits only | All committed files |
+| Persistence   | 30 days         | Permanent           |
+| Collaboration | Single user     | Team-wide           |
+| Best for      | Quick undo      | Long-term history   |
+
+### DSM Checkpoint Workflow
+
+```
+1. Start working on FCP changes
+2. Claude makes several edits
+3. Something breaks
+
+4. Press Esc+Esc
+   → Choose "Code only" to revert
+   → Keep conversation context
+
+5. Provide better guidance
+6. Continue iteration
+```
+
+## Status Line Configuration
+
+Customize the bottom status display.
+
+### Quick Setup
+
+```
+> /statusline
+# Claude helps set up custom status line
+```
+
+### Manual Configuration
+
+In `.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 0
+  }
+}
+```
+
+### JSON Input Available
+
+Your script receives session data via stdin:
+
+```json
+{
+  "model": {
+    "id": "claude-opus-4-5",
+    "display_name": "Opus"
+  },
+  "workspace": {
+    "current_dir": "/path/to/project",
+    "project_dir": "/path/to/project"
+  },
+  "cost": {
+    "total_cost_usd": 0.01234,
+    "total_duration_ms": 45000,
+    "total_lines_added": 156,
+    "total_lines_removed": 23
+  },
+  "context_window": {
+    "used_percentage": 42.5,
+    "remaining_percentage": 57.5,
+    "context_window_size": 200000
+  }
+}
+```
+
+### Simple Status Line Script
+
+```bash
+#!/bin/bash
+# ~/.claude/statusline.sh
+
+input=$(cat)
+
+MODEL=$(echo "$input" | jq -r '.model.display_name')
+DIR=$(echo "$input" | jq -r '.workspace.current_dir')
+COST=$(echo "$input" | jq -r '.cost.total_cost_usd')
+PERCENT=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+
+# Git branch if available
+BRANCH=""
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    BRANCH=" | $(git branch --show-current)"
+fi
+
+printf "[%s] %s%s | $%.4f | %d%%" "$MODEL" "${DIR##*/}" "$BRANCH" "$COST" "$PERCENT"
+```
+
+### DSM Status Line
+
+Custom status for data-source-manager:
+
+```bash
+#!/bin/bash
+# .claude/statusline.sh
+
+input=$(cat)
+
+MODEL=$(echo "$input" | jq -r '.model.display_name')
+COST=$(echo "$input" | jq -r '.cost.total_cost_usd')
+PERCENT=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+
+# Show context warning
+if [ "$PERCENT" -gt 80 ]; then
+    CTX="⚠️ ${PERCENT}%"
+else
+    CTX="${PERCENT}%"
+fi
+
+printf "[%s] DSM | $%.4f | %s" "$MODEL" "$COST" "$CTX"
+```
+
+### Third-Party Status Lines
+
+| Tool             | Features                            |
+| ---------------- | ----------------------------------- |
+| ccstatusline     | Powerline, themes, React/Ink UI     |
+| cc-statusline    | Git, model, costs, session time     |
+| claude-dashboard | Widgets, rate limits, progress bars |
+
+### Status Line Best Practices
+
+1. **Keep concise**: Single line, essential info only
+2. **Use colors**: ANSI codes for scannable display
+3. **Show context %**: Alert when approaching limits
+4. **Include model**: Know which model is active
+5. **Track costs**: Real-time spending awareness
+
 ## Verification Checklist
 
 ### Infrastructure

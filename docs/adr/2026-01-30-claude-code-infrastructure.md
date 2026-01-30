@@ -129,8 +129,8 @@ user-invocable: true
 
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Design spec lines   | 6842                                                                             |
-| Sections            | 81                                                                               |
+| Design spec lines   | 7035                                                                             |
+| Sections            | 83                                                                               |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
 | Commands            | 6 (debug-fcp, fetch-data, quick-test, review-dsm, validate-data, feature-dev)    |
 | Skills              | 4 (dsm-usage, dsm-testing, dsm-research, dsm-fcp-monitor)                        |
@@ -198,6 +198,8 @@ user-invocable: true
 - AI pair programming patterns (collaboration modes, TDD, session continuity)
 - Keyboard shortcuts reference (editing, navigation, vim mode, commands)
 - File exclusion patterns (permissions, .claudeignore, DSM patterns)
+- Checkpointing & rewind (restore options, limitations, vs git)
+- Status line configuration (JSON input, scripts, DSM status line)
 
 ## More Information
 
