@@ -221,5 +221,5 @@ user-invocable: true
 
 - `.claude/README.md` - Infrastructure documentation
 - `docs/INDEX.md` - Documentation navigation hub
-- `docs/design/2026-01-30-claude-code-infrastructure/spec.md` - Full design spec (1547 lines)
+- `docs/design/2026-01-30-claude-code-infrastructure/spec.md` - Full design spec (16113 lines)
 - [cc-skills](https://github.com/terrylica/cc-skills) - Pattern source
