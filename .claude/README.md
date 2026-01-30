@@ -60,9 +60,26 @@ Context rules that Claude loads on demand when relevant.
 
 ## Hooks
 
-Project-specific hooks for code quality.
+Project-specific hooks for code quality and safety.
 
-- **dsm-code-guard.sh** - Detects silent failure patterns in Python code
+| Hook              | Event       | Purpose                                    |
+| ----------------- | ----------- | ------------------------------------------ |
+| dsm-bash-guard.sh | PreToolUse  | Block dangerous commands before execution  |
+| dsm-code-guard.sh | PostToolUse | Detect silent failure patterns (11 checks) |
+
+**Blocked by PreToolUse:**
+
+- Cache deletion (use `mise run cache:clear`)
+- Python version changes
+- Force push to main/master
+- Direct pip install (use uv)
+
+**Detected by PostToolUse:**
+
+- Bare except, except Exception, except: pass
+- Subprocess without check=True
+- Naive datetime, HTTP without timeout
+- DSM-specific patterns (symbol format, DataFrame validation)
 
 ## Related Documentation
 
