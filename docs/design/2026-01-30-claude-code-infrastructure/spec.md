@@ -23875,3 +23875,359 @@ Many CLI flags have environment variable equivalents:
 | `--permission-mode` | `CLAUDE_PERMISSION_MODE` |
 
 See Settings documentation for full list.
+<!-- SSoT-OK: This section is authoritative for context window and cost management -->
+
+## Context Window and Cost Management Reference
+
+Comprehensive guide to tracking costs, managing context, and optimizing token usage.
+
+### Cost Overview
+
+**Typical Costs**:
+
+| Metric                        | Value               |
+| ----------------------------- | ------------------- |
+| Average per developer per day | $6                  |
+| 90th percentile daily         | < $12               |
+| Monthly average (Sonnet 4.5)  | ~$100-200/developer |
+
+**Cost Variables**:
+
+- Codebase size
+- Query complexity
+- Conversation length
+- Number of concurrent instances
+- Automation usage
+
+### Tracking Costs
+
+**`/cost` Command** (API users):
+
+```
+Total cost:            $0.55
+Total duration (API):  6m 19.7s
+Total duration (wall): 6h 33m 10.2s
+Total code changes:    0 lines added, 0 lines removed
+```
+
+**Note**: Claude Max/Pro subscribers have usage in subscription. Use `/stats` for usage patterns.
+
+**Status Line Display**:
+
+Configure `/statusline` to show continuous token usage.
+
+### Context Window Basics
+
+**Total Capacity**: 200,000 tokens
+
+**Token Costs Scale**: More context = more tokens used per message
+
+**Automatic Optimizations**:
+
+| Feature         | Description                                         |
+| --------------- | --------------------------------------------------- |
+| Prompt caching  | Reduces costs for repeated content (system prompts) |
+| Auto-compaction | Summarizes history when approaching limits          |
+
+### Auto-Compaction
+
+When conversation approaches context limit:
+
+1. Analyzes conversation for key information
+2. Creates concise summary of interactions, decisions, code changes
+3. Replaces old messages with summary
+4. Continues seamlessly with preserved context
+
+**Compaction vs Clear**:
+
+| `/compact`                         | `/clear`                    |
+| ---------------------------------- | --------------------------- |
+| Summarizes and preserves key info  | Completely wipes history    |
+| Preloads summary as new context    | Fresh start from scratch    |
+| Use when retaining context matters | Use for completely new work |
+
+**Custom Compaction Instructions**:
+
+```
+/compact Focus on code samples and API usage
+```
+
+**CLAUDE.md Compaction Config**:
+
+```markdown
+# Compact instructions
+
+When you are using compact, please focus on test output and code changes
+```
+
+### Auto-Compact Threshold
+
+Claude Code stops earlier to preserve working memory:
+
+- Old behavior: Run until failure
+- New behavior: Stop with ~25% unused capacity
+
+**Why**: Higher reasoning quality per turn enables longer effective sessions.
+
+### Context Management Commands
+
+| Command    | Purpose                            |
+| ---------- | ---------------------------------- |
+| `/cost`    | Check current token usage          |
+| `/context` | Visualize context usage as grid    |
+| `/clear`   | Start fresh (wipe history)         |
+| `/compact` | Summarize while preserving context |
+| `/rename`  | Name session before clearing       |
+| `/resume`  | Return to named session            |
+
+### Reducing Token Usage
+
+**Manage Context Proactively**:
+
+| Strategy            | Description                            |
+| ------------------- | -------------------------------------- |
+| Clear between tasks | `/clear` when switching unrelated work |
+| Custom compaction   | Specify what to preserve               |
+| Use `/context`      | Identify what's consuming space        |
+
+**Choose Right Model**:
+
+| Model  | Use Case                                   | Cost   |
+| ------ | ------------------------------------------ | ------ |
+| Sonnet | Most coding tasks                          | Lower  |
+| Opus   | Complex architecture, multi-step reasoning | Higher |
+| Haiku  | Simple subagent tasks                      | Lowest |
+
+Switch with `/model` or set default in `/config`.
+
+### MCP Server Overhead
+
+Each MCP server adds tool definitions to context, even when idle.
+
+**Reduce Overhead**:
+
+| Strategy               | Benefit                              |
+| ---------------------- | ------------------------------------ |
+| Prefer CLI tools       | `gh`, `aws`, `gcloud` more efficient |
+| Disable unused servers | `/mcp` to see and manage             |
+| Tool search            | Automatic when tools > 10% context   |
+
+**Tool Search Configuration**:
+
+```bash
+# Lower threshold for earlier tool search activation
+ENABLE_TOOL_SEARCH=auto:5  # Triggers at 5% of context
+```
+
+**Tool Search Benefits**:
+
+- 46.9% reduction in total agent tokens
+- 85% reduction in tool definition overhead
+- Accuracy improvement: Opus 4.5 79.5% → 88.1%
+
+### Code Intelligence Plugins
+
+Install language server plugins for:
+
+- Precise symbol navigation vs text search
+- Fewer unnecessary file reads
+- Automatic type error reporting
+
+**Savings**: Single "go to definition" replaces grep + reading multiple files.
+
+### Hooks for Preprocessing
+
+Custom hooks preprocess data before Claude sees it.
+
+**Example**: Filter test output to failures only:
+
+```bash
+#!/bin/bash
+input=$(cat)
+cmd=$(echo "$input" | jq -r '.tool_input.command')
+
+if [[ "$cmd" =~ ^(npm test|pytest|go test) ]]; then
+  filtered_cmd="$cmd 2>&1 | grep -A 5 -E '(FAIL|ERROR|error:)' | head -100"
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"'"$filtered_cmd"'"}}}'
+else
+  echo "{}"
+fi
+```
+
+**Savings**: 10,000-line log → hundreds of tokens
+
+### Skills for Domain Knowledge
+
+Move specialized instructions from CLAUDE.md to skills:
+
+| In CLAUDE.md          | In Skills                 |
+| --------------------- | ------------------------- |
+| Always loaded         | On-demand only            |
+| Every session         | When invoked              |
+| Consumes base context | Zero overhead when unused |
+
+**Guideline**: Keep CLAUDE.md under ~500 lines with essentials only.
+
+### Extended Thinking Settings
+
+**Default**: 31,999 token budget (enabled for complex reasoning)
+
+**Thinking Tokens**: Billed as output tokens (expensive)
+
+**Cost Reduction**:
+
+| Method        | How                        |
+| ------------- | -------------------------- |
+| Disable       | `/config` toggle           |
+| Reduce budget | `MAX_THINKING_TOKENS=8000` |
+
+**When to Reduce**: Simple tasks not needing deep reasoning.
+
+### Subagent Delegation
+
+Delegate verbose operations to subagents:
+
+| Operation       | Benefit                                  |
+| --------------- | ---------------------------------------- |
+| Running tests   | Verbose output stays in subagent context |
+| Fetching docs   | Only summary returns to main             |
+| Processing logs | Isolate high-volume content              |
+
+Configure in subagent definition:
+
+```yaml
+model: haiku # Cheaper for simple tasks
+```
+
+### Writing Efficient Prompts
+
+| Bad (Vague)             | Good (Specific)                            |
+| ----------------------- | ------------------------------------------ |
+| "improve this codebase" | "add input validation to login in auth.ts" |
+| Triggers broad scanning | Minimal file reads                         |
+
+### Complex Task Strategies
+
+| Strategy             | Description                                      |
+| -------------------- | ------------------------------------------------ |
+| Use Plan Mode        | `Shift+Tab` before implementation                |
+| Course-correct early | `Escape` to stop, `/rewind` to restore           |
+| Verification targets | Include test cases, screenshots, expected output |
+| Test incrementally   | Write one file, test, continue                   |
+
+### Background Token Usage
+
+Small usage even when idle:
+
+| Process                    | Purpose                |
+| -------------------------- | ---------------------- |
+| Conversation summarization | For `--resume` feature |
+| Command processing         | `/cost` status checks  |
+
+**Typical**: Under $0.04 per session
+
+### Team Cost Management
+
+**Workspace Spend Limits**:
+
+Set via Console for total Claude Code workspace spend.
+
+**Rate Limit Recommendations (TPM/RPM per user)**:
+
+| Team Size     | TPM       | RPM       |
+| ------------- | --------- | --------- |
+| 1-5 users     | 200k-300k | 5-7       |
+| 5-20 users    | 100k-150k | 2.5-3.5   |
+| 20-50 users   | 50k-75k   | 1.25-1.75 |
+| 50-100 users  | 25k-35k   | 0.62-0.87 |
+| 100-500 users | 15k-20k   | 0.37-0.47 |
+| 500+ users    | 10k-15k   | 0.25-0.35 |
+
+**Example**: 200 users × 20k TPM = 4 million total TPM
+
+**Note**: Rate limits apply at organization level, not per individual.
+
+### Enterprise Cost Tracking
+
+**Bedrock/Vertex/Foundry**: No metrics from cloud.
+
+**Solution**: LiteLLM for tracking spend by key.
+
+### DSM Cost Optimization Patterns
+
+**Session Management**:
+
+```
+# Name session before clearing
+> /rename fcp-debug
+
+# Clear for new task
+> /clear
+
+# Resume later
+> /resume fcp-debug
+```
+
+**Model Selection by Task**:
+
+| Task                   | Model            |
+| ---------------------- | ---------------- |
+| FCP debugging          | sonnet           |
+| Architecture decisions | opus             |
+| Simple data validation | haiku (subagent) |
+
+**Custom Compaction for DSM**:
+
+```
+/compact Focus on FCP decision logic, cache invalidation patterns, and symbol format handling
+```
+
+**CLAUDE.md Optimization**:
+
+Keep DSM-specific guidance in skills:
+
+```
+docs/skills/
+├── dsm-usage/     # API usage (invoke when needed)
+├── dsm-testing/   # Test patterns (invoke when testing)
+└── dsm-research/  # Codebase exploration (invoke when researching)
+```
+
+**Context Check Before Heavy Operations**:
+
+```
+> /context
+# Check if MCP servers consuming space
+> /mcp
+# Disable unused servers
+```
+
+**Budget-Limited Headless**:
+
+```bash
+# Limit spend on automated runs
+claude -p --max-budget-usd 2.00 "validate data pipeline"
+```
+
+### Cost Monitoring Best Practices
+
+| Practice            | Frequency               |
+| ------------------- | ----------------------- |
+| Check `/cost`       | After complex tasks     |
+| Review `/context`   | Before heavy operations |
+| Clear stale context | Between unrelated tasks |
+| Use `/stats`        | Weekly usage review     |
+
+### Token Reduction Summary
+
+| Strategy                  | Impact                     |
+| ------------------------- | -------------------------- |
+| Clear between tasks       | High                       |
+| Tool search (MCP)         | 46.9% reduction            |
+| Code intelligence plugins | Moderate                   |
+| Model selection           | Variable                   |
+| Extended thinking budget  | High for simple tasks      |
+| Skills over CLAUDE.md     | Moderate                   |
+| Subagent delegation       | High for verbose ops       |
+| Specific prompts          | Moderate                   |
+| Plan Mode                 | Prevents expensive re-work |
