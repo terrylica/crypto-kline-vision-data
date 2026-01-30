@@ -34754,3 +34754,457 @@ jobs:
 | `max_turns`           | `claude_args: --max-turns`            |
 | `model`               | `claude_args: --model`                |
 | `allowed_tools`       | `claude_args: --allowedTools`         |
+## MCP Server Configuration Detailed Reference
+
+Comprehensive reference for configuring MCP (Model Context Protocol) servers in Claude Code.
+
+### Transport Types
+
+MCP servers support three transport methods:
+
+| Transport | Use Case                      | Security          | Example                       |
+| --------- | ----------------------------- | ----------------- | ----------------------------- |
+| stdio     | Local processes               | Process isolation | `npx -y @some/server`         |
+| http      | Remote APIs (recommended)     | OAuth/headers     | `https://mcp.service.com`     |
+| sse       | Legacy streaming (deprecated) | OAuth/headers     | `https://api.service.com/sse` |
+
+#### Stdio Transport
+
+Local processes with JSON-RPC 2.0 over stdin/stdout:
+
+```bash
+# Basic stdio server
+claude mcp add --transport stdio myserver -- npx -y @some/mcp-server
+
+# With environment variables
+claude mcp add --transport stdio --env API_KEY=xxx myserver -- npx -y @some/server
+
+# With arguments
+claude mcp add --transport stdio myserver -- python server.py --port 8080
+```
+
+**Security**: No network exposure, process isolation only.
+
+#### HTTP Transport (Recommended)
+
+Remote servers with request/response model:
+
+```bash
+# Basic HTTP server
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+
+# With Bearer token
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer YOUR_TOKEN"
+
+# With custom headers
+claude mcp add --transport http custom-api https://api.example.com/mcp \
+  --header "X-API-Key: key" --header "X-Custom: value"
+```
+
+#### SSE Transport (Deprecated)
+
+Server-Sent Events for streaming:
+
+```bash
+# SSE server (use HTTP instead when available)
+claude mcp add --transport sse asana https://mcp.asana.com/sse
+```
+
+### Configuration Scopes
+
+MCP servers can be configured at three scope levels:
+
+| Scope   | Storage          | Sharing       | Use Case             |
+| ------- | ---------------- | ------------- | -------------------- |
+| local   | `~/.claude.json` | Private       | Personal dev servers |
+| project | `.mcp.json`      | Team (git)    | Shared team tools    |
+| user    | `~/.claude.json` | Cross-project | Personal utilities   |
+
+#### Local Scope (Default)
+
+```bash
+# Add local-scoped server (default)
+claude mcp add --transport http stripe https://mcp.stripe.com
+
+# Explicitly specify local scope
+claude mcp add --transport http stripe --scope local https://mcp.stripe.com
+```
+
+#### Project Scope
+
+Creates `.mcp.json` file for team sharing:
+
+```bash
+claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+```
+
+Generated `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "paypal": {
+      "type": "http",
+      "url": "https://mcp.paypal.com/mcp"
+    }
+  }
+}
+```
+
+#### User Scope
+
+Available across all projects:
+
+```bash
+claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/anthropic
+```
+
+### Authentication Methods
+
+#### Environment Variables (Stdio)
+
+```bash
+claude mcp add --transport stdio --env AIRTABLE_API_KEY=YOUR_KEY airtable \
+  -- npx -y airtable-mcp-server
+```
+
+#### HTTP Headers (HTTP/SSE)
+
+```bash
+# Bearer token
+claude mcp add --transport http api https://api.example.com/mcp \
+  --header "Authorization: Bearer token"
+
+# API key
+claude mcp add --transport http api https://api.example.com/mcp \
+  --header "X-API-Key: your-key"
+```
+
+#### OAuth 2.0 (Interactive)
+
+```bash
+# Add server
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# Authenticate interactively
+> /mcp
+# Follow browser prompts to login
+```
+
+### Environment Variable Expansion
+
+`.mcp.json` supports variable expansion:
+
+```json
+{
+  "mcpServers": {
+    "api-server": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.example.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    },
+    "local-server": {
+      "command": "${HOME}/servers/mcp-server",
+      "args": ["--config", "${CONFIG_PATH:-/etc/mcp/config.json}"],
+      "env": {
+        "DEBUG": "${DEBUG:-false}"
+      }
+    }
+  }
+}
+```
+
+**Syntax**:
+
+- `${VAR}` - Required variable
+- `${VAR:-default}` - Variable with default value
+
+### MCP Server Management
+
+```bash
+# List all servers
+claude mcp list
+
+# Get server details
+claude mcp get github
+
+# Remove server
+claude mcp remove github
+
+# Check status (in Claude Code)
+/mcp
+
+# Import from Claude Desktop
+claude mcp add-from-claude-desktop
+
+# Add from JSON configuration
+claude mcp add-json weather-api '{"type":"http","url":"https://api.weather.com/mcp"}'
+```
+
+### Tool Search Optimization
+
+When many MCP tools are configured, Tool Search loads them on-demand:
+
+| ENABLE_TOOL_SEARCH | Behavior                              |
+| ------------------ | ------------------------------------- |
+| `auto` (default)   | Activates when tools > 10% of context |
+| `auto:5`           | Custom threshold (5%)                 |
+| `true`             | Always enabled                        |
+| `false`            | All tools loaded upfront              |
+
+```bash
+# Custom threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Disable entirely
+ENABLE_TOOL_SEARCH=false claude
+```
+
+**Disable via settings**:
+
+```json
+{
+  "permissions": {
+    "deny": ["MCPSearch"]
+  }
+}
+```
+
+### MCP Resources and Prompts
+
+#### Resource References
+
+```
+> Can you analyze @github:issue://123?
+> Compare @postgres:schema://users with @docs:file://database/user-model
+```
+
+#### MCP Prompts as Commands
+
+```
+> /mcp__github__list_prs
+> /mcp__github__pr_review 456
+> /mcp__jira__create_issue "Bug in login flow" high
+```
+
+### Plugin MCP Servers
+
+Plugins can bundle MCP servers in `.mcp.json` or inline in `plugin.json`:
+
+```json
+{
+  "mcpServers": {
+    "plugin-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"],
+      "env": {
+        "DB_URL": "${DB_URL}"
+      }
+    }
+  }
+}
+```
+
+**Features**:
+
+- Automatic lifecycle management
+- `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths
+- Access to user environment variables
+
+### Managed MCP Configuration
+
+For enterprise deployment:
+
+#### Option 1: Exclusive Control
+
+Deploy `managed-mcp.json` to system directory:
+
+| Platform  | Path                                                       |
+| --------- | ---------------------------------------------------------- |
+| macOS     | `/Library/Application Support/ClaudeCode/managed-mcp.json` |
+| Linux/WSL | `/etc/claude-code/managed-mcp.json`                        |
+| Windows   | `C:\Program Files\ClaudeCode\managed-mcp.json`             |
+
+```json
+{
+  "mcpServers": {
+    "company-internal": {
+      "type": "stdio",
+      "command": "/usr/local/bin/company-mcp-server",
+      "args": ["--config", "/etc/company/mcp-config.json"]
+    }
+  }
+}
+```
+
+#### Option 2: Policy-Based Control
+
+Use allowlists/denylists in managed settings:
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    { "serverCommand": ["npx", "-y", "@approved/server"] },
+    { "serverUrl": "https://mcp.company.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverName": "dangerous-server" },
+    { "serverUrl": "https://*.untrusted.com/*" }
+  ]
+}
+```
+
+**Matching rules**:
+
+- `serverName`: Matches configured server name
+- `serverCommand`: Exact command array match (stdio only)
+- `serverUrl`: URL pattern with `*` wildcards (remote only)
+
+### MCP Output Limits
+
+```bash
+# Increase output limit for large responses
+export MAX_MCP_OUTPUT_TOKENS=50000
+claude
+```
+
+**Defaults**:
+
+- Warning threshold: 10,000 tokens
+- Maximum limit: 25,000 tokens
+
+### Claude Code as MCP Server
+
+```bash
+# Start Claude Code as MCP server
+claude mcp serve
+```
+
+For Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "type": "stdio",
+      "command": "/full/path/to/claude",
+      "args": ["mcp", "serve"],
+      "env": {}
+    }
+  }
+}
+```
+
+### DSM-Specific MCP Patterns
+
+#### Exchange Data MCP Servers
+
+Configure exchange-specific MCP servers for data access:
+
+```json
+{
+  "mcpServers": {
+    "binance-data": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "-m", "dsm.mcp.binance_server"],
+      "env": {
+        "DSM_CACHE_DIR": "${HOME}/.cache/dsm",
+        "DSM_LOG_LEVEL": "INFO"
+      }
+    },
+    "okx-data": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "-m", "dsm.mcp.okx_server"],
+      "env": {
+        "DSM_CACHE_DIR": "${HOME}/.cache/dsm"
+      }
+    }
+  }
+}
+```
+
+#### FCP Monitor MCP Server
+
+```json
+{
+  "mcpServers": {
+    "fcp-monitor": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "python", "-m", "dsm.mcp.fcp_monitor"],
+      "env": {
+        "FCP_LOG_PATH": "${HOME}/.cache/dsm/fcp.log",
+        "FCP_ALERT_THRESHOLD": "5"
+      }
+    }
+  }
+}
+```
+
+#### DSM MCP Server Registration
+
+Register DSM-specific servers in project scope:
+
+```bash
+# Add to project .mcp.json for team
+claude mcp add --scope project --transport stdio dsm-binance \
+  -- uv run python -m dsm.mcp.binance_server
+
+# Add to local for personal development
+claude mcp add --scope local --transport stdio dsm-okx \
+  --env OKX_API_KEY=xxx \
+  -- uv run python -m dsm.mcp.okx_server
+```
+
+#### MCP Tool Search for DSM
+
+Configure tool search threshold for DSM with multiple exchange servers:
+
+```bash
+# Lower threshold for DSM which may have many exchange tools
+ENABLE_TOOL_SEARCH=auto:5 claude
+```
+
+Or in settings:
+
+```json
+{
+  "env": {
+    "ENABLE_TOOL_SEARCH": "auto:5",
+    "MAX_MCP_OUTPUT_TOKENS": "50000"
+  }
+}
+```
+
+### Best Practices
+
+1. **Use project scope for team servers** - Commit `.mcp.json` to version control
+2. **Environment variables for secrets** - Never hardcode API keys
+3. **HTTP over SSE** - SSE is deprecated, prefer HTTP transport
+4. **Tool search for many servers** - Enable when context usage is high
+5. **Validate server trust** - Only use MCP servers you trust
+6. **Document server purposes** - Add server instructions for Tool Search
+7. **Test authentication flows** - Use `/mcp` to verify OAuth connections
+
+### Troubleshooting
+
+| Issue                         | Solution                                        |
+| ----------------------------- | ----------------------------------------------- |
+| "Connection closed" (Windows) | Use `cmd /c` wrapper: `-- cmd /c npx server`    |
+| OAuth fails                   | Clear auth with `/mcp` → "Clear authentication" |
+| Timeout on startup            | Set `MCP_TIMEOUT=10000 claude`                  |
+| Output truncated              | Increase `MAX_MCP_OUTPUT_TOKENS`                |
+| Server not found              | Check `claude mcp list` and scope               |
+
+### References
+
+- [MCP Documentation](https://code.claude.com/docs/en/mcp)
+- [MCP Protocol Specification](https://modelcontextprotocol.io/introduction)
+- [MCP Server Registry](https://api.anthropic.com/mcp-registry/docs)
+- [Plugin MCP Servers](/en/plugins-reference#mcp-servers)
