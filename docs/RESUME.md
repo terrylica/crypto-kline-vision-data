@@ -4,6 +4,26 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### GitHub Actions Integration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added Claude Code Action features table
+- Added quick setup command (/install-github-app)
+- Added workflow file YAML example
+- Added code review plugin commands table
+- Added workflow permissions table
+- Added authentication options table
+- Added best practices table
+- Added DSM-specific considerations (local-first policy)
+
+**Sources**:
+
+- [Official GitHub Actions Docs](https://code.claude.com/docs/en/github-actions)
+- [Claude Code Action](https://github.com/anthropics/claude-code-action)
+
 ### Sandboxing & Permission Modes (2026-01-30)
 
 **Status**: Complete

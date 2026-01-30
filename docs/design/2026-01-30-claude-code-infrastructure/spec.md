@@ -2389,6 +2389,104 @@ exit 0  # Exit 0 = allow
 | `Bash(pip install:*)`      | deny  | Use uv instead       |
 | `Read(.env*)`              | deny  | Protect secrets      |
 
+## GitHub Actions Integration
+
+Based on [Official GitHub Actions Docs](https://code.claude.com/docs/en/github-actions) and [Claude Code Action](https://github.com/anthropics/claude-code-action).
+
+### Claude Code Action Features
+
+| Feature               | Description                             |
+| --------------------- | --------------------------------------- |
+| @claude mentions      | Responds to mentions in PRs/issues      |
+| Code review           | Analyzes changes, suggests improvements |
+| Code implementation   | Implements fixes, refactoring, features |
+| Intelligent detection | Auto-selects mode based on context      |
+| Multi-provider auth   | Anthropic, Bedrock, Vertex, Foundry     |
+
+### Quick Setup
+
+```bash
+# In Claude Code terminal
+/install-github-app
+```
+
+This guides through GitHub App installation and secret configuration.
+
+### Workflow File Example
+
+```yaml
+# .github/workflows/claude.yml
+name: Claude Code
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### Code Review Plugin
+
+| Command                  | Output              |
+| ------------------------ | ------------------- |
+| `/code-review`           | Terminal output     |
+| `/code-review --comment` | Posts as PR comment |
+
+**Review process**:
+
+- Launches 4 review agents in parallel
+- Scores each issue for confidence
+- Outputs issues with confidence ≥80
+
+### Workflow Permissions
+
+| Permission           | Required For                       |
+| -------------------- | ---------------------------------- |
+| contents: write      | Pushing changes, creating branches |
+| pull-requests: write | Creating/updating PRs, comments    |
+| issues: write        | Responding to issue comments       |
+
+### Authentication Options
+
+| Provider          | Environment Variables        |
+| ----------------- | ---------------------------- |
+| Anthropic Direct  | `ANTHROPIC_API_KEY`          |
+| Amazon Bedrock    | AWS credentials + region     |
+| Google Vertex     | GCP credentials + project ID |
+| Microsoft Foundry | Foundry resource + API key   |
+
+### Best Practices
+
+| Practice                | Benefit                      |
+| ----------------------- | ---------------------------- |
+| CLAUDE.md in repo root  | Context for CI/CD runs       |
+| Explicit permissions    | Required for PR/push actions |
+| Use @claude mentions    | Interactive code assistance  |
+| Set up secrets properly | Never expose API keys        |
+
+### DSM GitHub Actions Considerations
+
+**Note**: Per project policy, DSM does not use GitHub Actions for testing or linting (local-first philosophy). However, Claude Code Actions can be used for:
+
+| Use Case                  | Allowed?                |
+| ------------------------- | ----------------------- |
+| PR code review            | Yes                     |
+| Issue response automation | Yes                     |
+| Test/lint execution       | No (local-first policy) |
+| Deployment automation     | Yes                     |
+
 ## Verification Checklist
 
 ### Infrastructure
