@@ -174,6 +174,18 @@ disable-model-invocation: true # For side-effect commands
 
 ## Skill Configuration
 
+From [Official Skills Docs](https://code.claude.com/docs/en/skills):
+
+### Directory Structure
+
+```
+skill-name/
+├── SKILL.md           # Main instructions (required, under 500 lines)
+├── scripts/           # Executable Python/Bash scripts
+├── references/        # Documentation loaded into context on demand
+└── examples/          # Example output showing expected format
+```
+
 ### Frontmatter Pattern
 
 ```yaml
@@ -181,13 +193,43 @@ disable-model-invocation: true # For side-effect commands
 name: skill-name
 description: When Claude should use this skill. TRIGGERS - keyword1, keyword2.
 argument-hint: "[arg1] [arg2]"
-user-invocable: true
-allowed-tools: Read, Bash, Grep # Optional: tools allowed without permission
-context: fork # Optional: runs in separate context
-agent: Explore # Optional: uses specific agent
-adr: docs/adr/YYYY-MM-DD-related-decision.md # Optional: link to ADR
+user-invocable: true # Show in /slash-command menu (default: true)
+disable-model-invocation: true # Prevent Claude auto-triggering (default: false)
+allowed-tools: Read, Bash, Grep # Tools allowed without permission
+context: fork # Run in forked subagent context
+agent: Explore # Subagent type when context: fork
+model: sonnet # Model override for this skill
+hooks: # Skill-scoped lifecycle hooks
+  PostToolUse:
+    - matcher: "Write"
+      hooks: [{ "command": "./scripts/validate.sh" }]
+adr: docs/adr/YYYY-MM-DD-related-decision.md # Link to ADR
 ---
 ```
+
+### Supported Frontmatter Fields
+
+| Field                      | Required    | Description                                       |
+| -------------------------- | ----------- | ------------------------------------------------- |
+| `name`                     | No          | Display name (defaults to directory name)         |
+| `description`              | Recommended | What skill does and when to use it (for triggers) |
+| `argument-hint`            | No          | Hint for autocomplete: `[issue-number]`           |
+| `disable-model-invocation` | No          | Only user can invoke (for side-effect workflows)  |
+| `user-invocable`           | No          | Hide from `/` menu (for background knowledge)     |
+| `allowed-tools`            | No          | Tools Claude can use without permission           |
+| `model`                    | No          | Model override for skill execution                |
+| `context`                  | No          | Set to `fork` for subagent execution              |
+| `agent`                    | No          | Subagent type: `Explore`, `Plan`, custom          |
+| `hooks`                    | No          | Skill-scoped lifecycle hooks                      |
+
+### String Substitutions
+
+| Variable               | Description                                |
+| ---------------------- | ------------------------------------------ |
+| `$ARGUMENTS`           | All arguments passed when invoking skill   |
+| `$ARGUMENTS[N]`        | Specific argument by 0-based index         |
+| `$0`, `$1`, `$N`       | Shorthand for `$ARGUMENTS[N]`              |
+| `${CLAUDE_SESSION_ID}` | Current session ID for logging/correlation |
 
 ### Skill ADR Traceability
 

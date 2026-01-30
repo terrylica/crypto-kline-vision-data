@@ -4,6 +4,20 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Official Skills Documentation Integration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Enhanced design spec with comprehensive skill frontmatter fields
+- Added all supported fields: `disable-model-invocation`, `model`, `hooks`
+- Added skill directory structure documentation (scripts/, references/, examples/)
+- Added string substitutions table ($ARGUMENTS, $0, ${CLAUDE_SESSION_ID})
+- Added invocation control documentation (user-only vs Claude-only)
+
+**Source**: [Official Skills Docs](https://code.claude.com/docs/en/skills)
+
 ### CC-Skills Patterns Integration (2026-01-30)
 
 **Status**: Complete
