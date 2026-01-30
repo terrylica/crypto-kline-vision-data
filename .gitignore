@@ -129,3 +129,6 @@ docs/journals/
 node_modules/
 package-lock.json
 bun.lockb
+
+# Stash patch exports (local reference only)
+.stash-patches/
