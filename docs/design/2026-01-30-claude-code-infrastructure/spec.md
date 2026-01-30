@@ -15411,3 +15411,412 @@ async def main():
     ):
         print(message)
 ```
+
+---
+
+## Custom Tool Implementation Reference
+
+Build and integrate custom tools with Claude's tool system.
+
+### Tool Definition Schema
+
+```python
+{
+    "name": "get_weather",  # ^[a-zA-Z0-9_-]{1,64}$
+    "description": "Get the current weather in a given location. "
+                   "Returns temperature and conditions. "
+                   "Use when user asks about weather.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "City and state, e.g. San Francisco, CA"
+            },
+            "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"],
+                "description": "Temperature unit"
+            }
+        },
+        "required": ["location"]
+    }
+}
+```
+
+**Best practices for descriptions**:
+
+- Explain what the tool does
+- Describe when it should be used
+- Document what each parameter means
+- List limitations and caveats
+- Aim for 3-4+ sentences per tool
+
+### Tool Runner (Beta)
+
+Automatic tool execution without manual loop handling:
+
+**Python with @beta_tool decorator**:
+
+```python
+import anthropic
+import json
+from anthropic import beta_tool
+
+client = anthropic.Anthropic()
+
+@beta_tool
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Get the current weather in a given location.
+
+    Args:
+        location: The city and state, e.g. San Francisco, CA
+        unit: Temperature unit, either 'celsius' or 'fahrenheit'
+    """
+    # Implementation
+    return json.dumps({"temperature": "20°C", "condition": "Sunny"})
+
+@beta_tool
+def calculate_sum(a: int, b: int) -> str:
+    """Add two numbers together.
+
+    Args:
+        a: First number
+        b: Second number
+    """
+    return str(a + b)
+
+# Tool runner automatically handles the loop
+runner = client.beta.messages.tool_runner(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=[get_weather, calculate_sum],
+    messages=[
+        {"role": "user", "content": "What's the weather in Paris? Also, what's 15 + 27?"}
+    ]
+)
+for message in runner:
+    print(message.content[0].text)
+
+# Or get final message directly
+final_message = runner.until_done()
+```
+
+**TypeScript with Zod**:
+
+```typescript
+import { Anthropic } from "@anthropic-ai/sdk";
+import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { z } from "zod";
+
+const anthropic = new Anthropic();
+
+const getWeatherTool = betaZodTool({
+  name: "get_weather",
+  description: "Get the current weather in a given location",
+  inputSchema: z.object({
+    location: z.string().describe("The city and state, e.g. San Francisco, CA"),
+    unit: z.enum(["celsius", "fahrenheit"]).default("fahrenheit"),
+  }),
+  run: async (input) => {
+    return JSON.stringify({ temperature: "20°C", condition: "Sunny" });
+  },
+});
+
+const runner = anthropic.beta.messages.toolRunner({
+  model: "claude-sonnet-4-5",
+  max_tokens: 1024,
+  tools: [getWeatherTool],
+  messages: [{ role: "user", content: "What's the weather like in Paris?" }],
+});
+
+for await (const message of runner) {
+  console.log(message.content[0].text);
+}
+```
+
+### Parallel Tool Calls
+
+Claude can execute multiple tools simultaneously:
+
+```python
+# Claude's response with parallel tool calls
+{
+  "role": "assistant",
+  "content": [
+    {"type": "text", "text": "I'll check both cities."},
+    {"type": "tool_use", "id": "toolu_01", "name": "get_weather", "input": {"location": "SF"}},
+    {"type": "tool_use", "id": "toolu_02", "name": "get_weather", "input": {"location": "NYC"}},
+    {"type": "tool_use", "id": "toolu_03", "name": "get_time", "input": {"timezone": "America/Los_Angeles"}},
+    {"type": "tool_use", "id": "toolu_04", "name": "get_time", "input": {"timezone": "America/New_York"}}
+  ]
+}
+
+# Provide ALL results in a SINGLE user message
+{
+  "role": "user",
+  "content": [
+    {"type": "tool_result", "tool_use_id": "toolu_01", "content": "68°F, sunny"},
+    {"type": "tool_result", "tool_use_id": "toolu_02", "content": "45°F, cloudy"},
+    {"type": "tool_result", "tool_use_id": "toolu_03", "content": "2:30 PM PST"},
+    {"type": "tool_result", "tool_use_id": "toolu_04", "content": "5:30 PM EST"}
+  ]
+}
+```
+
+**Critical**: All tool results MUST be in a single user message. Separate messages reduce parallel tool use.
+
+**Maximize parallel tool use** with prompting:
+
+```text
+<use_parallel_tool_calls>
+For maximum efficiency, whenever you perform multiple independent operations,
+invoke all relevant tools simultaneously rather than sequentially.
+Prioritize calling tools in parallel whenever possible.
+</use_parallel_tool_calls>
+```
+
+### Tool Choice Options
+
+| Value  | Behavior                            |
+| ------ | ----------------------------------- |
+| `auto` | Claude decides (default with tools) |
+| `any`  | Must use one of the provided tools  |
+| `tool` | Must use specific tool              |
+| `none` | Cannot use any tools                |
+
+```python
+# Force specific tool
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=tools,
+    tool_choice={"type": "tool", "name": "get_weather"},
+    messages=[{"role": "user", "content": "Tell me about Paris"}]
+)
+
+# Disable parallel tool use
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    tools=tools,
+    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+    messages=[{"role": "user", "content": "Check weather in SF and NYC"}]
+)
+```
+
+### Error Handling
+
+**Tool execution errors**:
+
+```python
+# Return error with is_error flag
+{
+    "type": "tool_result",
+    "tool_use_id": "toolu_01",
+    "content": "ConnectionError: weather service unavailable",
+    "is_error": True
+}
+```
+
+**Missing parameters**:
+
+```python
+{
+    "type": "tool_result",
+    "tool_use_id": "toolu_01",
+    "content": "Error: Missing required 'location' parameter",
+    "is_error": True
+}
+```
+
+Claude retries 2-3 times with corrections before apologizing.
+
+**Tool runner error handling**:
+
+```python
+for message in runner:
+    tool_response = runner.generate_tool_call_response()
+    if tool_response:
+        for block in tool_response.content:
+            if block.is_error:
+                raise RuntimeError(f"Tool failed: {block.content}")
+```
+
+**Debug with logging**:
+
+```bash
+export ANTHROPIC_LOG=debug  # Full stack traces
+export ANTHROPIC_LOG=info   # Tool errors only
+```
+
+### Tool Result Formatting
+
+**Text result**:
+
+```python
+{"type": "tool_result", "tool_use_id": "toolu_01", "content": "15 degrees"}
+```
+
+**Image result**:
+
+```python
+{
+    "type": "tool_result",
+    "tool_use_id": "toolu_01",
+    "content": [
+        {"type": "text", "text": "Weather chart:"},
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": "/9j/4AAQSkZJRg..."
+            }
+        }
+    ]
+}
+```
+
+**Document result**:
+
+```python
+{
+    "type": "tool_result",
+    "tool_use_id": "toolu_01",
+    "content": [
+        {
+            "type": "document",
+            "source": {
+                "type": "text",
+                "media_type": "text/plain",
+                "data": "15 degrees"
+            }
+        }
+    ]
+}
+```
+
+### Tool Use Examples (Beta)
+
+Provide concrete examples for complex tools:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    betas=["advanced-tool-use-2025-11-20"],
+    tools=[{
+        "name": "query_database",
+        "description": "Execute SQL query against the database",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "timeout": {"type": "integer"}
+            },
+            "required": ["query"]
+        },
+        "input_examples": [
+            {"query": "SELECT * FROM users WHERE active = true", "timeout": 30},
+            {"query": "SELECT COUNT(*) FROM orders WHERE date > '2024-01-01'"},
+            {"query": "SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id"}
+        ]
+    }],
+    messages=[{"role": "user", "content": "Find all premium users"}]
+)
+```
+
+### Strict Tool Use
+
+Guarantee schema validation with `strict: true`:
+
+```python
+tools = [{
+    "name": "search_flights",
+    "strict": True,  # Enable strict mode
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "destination": {"type": "string"},
+            "passengers": {"type": "integer", "enum": [1, 2, 3, 4, 5, 6]}
+        },
+        "required": ["destination"],
+        "additionalProperties": False
+    }
+}]
+```
+
+**Without strict**: Claude might return `passengers: "two"`.
+**With strict**: Always returns `passengers: 2` (validated integer).
+
+### Stop Reasons
+
+| Stop Reason  | Meaning                     | Action                     |
+| ------------ | --------------------------- | -------------------------- |
+| `end_turn`   | Claude finished naturally   | Process final response     |
+| `tool_use`   | Claude wants to use tool(s) | Execute tools, continue    |
+| `max_tokens` | Hit token limit             | Retry with higher limit    |
+| `pause_turn` | Long-running turn paused    | Continue with same content |
+
+### DSM Custom Tool Example
+
+```python
+import anthropic
+import json
+from anthropic import beta_tool
+from data_source_manager import DataSourceManager
+
+client = anthropic.Anthropic()
+dsm = DataSourceManager()
+
+@beta_tool
+def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 100) -> str:
+    """Fetch OHLCV candlestick data for a trading symbol.
+
+    Args:
+        symbol: Trading pair symbol, e.g. BTCUSDT
+        timeframe: Candle timeframe (1m, 5m, 15m, 1h, 4h, 1d)
+        limit: Number of candles to fetch (max 1000)
+    """
+    try:
+        df = dsm.fetch_ohlcv(symbol=symbol, timeframe=timeframe, limit=limit)
+        return json.dumps({
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "rows": len(df),
+            "columns": df.columns.tolist(),
+            "sample": df.head(3).to_dicts()
+        })
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+@beta_tool
+def check_fcp_status(symbol: str) -> str:
+    """Check Failover Control Protocol status for a symbol.
+
+    Args:
+        symbol: Trading pair symbol to check FCP status for
+    """
+    status = dsm.get_fcp_status(symbol)
+    return json.dumps({
+        "symbol": symbol,
+        "decision": status.decision.value,
+        "cache_hit": status.cache_hit,
+        "source": status.source_used,
+        "staleness_seconds": status.staleness_seconds
+    })
+
+# Use tools with DSM
+runner = client.beta.messages.tool_runner(
+    model="claude-sonnet-4-5",
+    max_tokens=2048,
+    tools=[fetch_ohlcv, check_fcp_status],
+    messages=[
+        {"role": "user", "content": "Get the latest 50 1h candles for BTCUSDT and check FCP status"}
+    ]
+)
+
+for message in runner:
+    print(message.content[0].text)
+```
