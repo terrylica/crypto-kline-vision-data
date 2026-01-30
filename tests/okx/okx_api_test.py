@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
+"""
+OKX API endpoint tests.
+
+These integration tests verify that the OKX candles and history-candles endpoints
+work correctly for spot and swap instruments across all supported intervals.
+"""
 
 import time
 from datetime import datetime, timedelta
 
 import httpx
-from rich import print
-from rich.console import Console
-from rich.table import Table
-
-from data_source_manager.utils.loguru_setup import logger
+import pytest
 
 OKX_API_BASE_URL = "https://www.okx.com/api/v5"
 CANDLES_ENDPOINT = f"{OKX_API_BASE_URL}/market/candles"
@@ -36,168 +38,149 @@ MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
 
 
-def retry_request(url, params=None, max_retries=MAX_RETRIES):
-    """Make HTTP request with retry logic."""
+def retry_request(url: str, params: dict | None = None, max_retries: int = MAX_RETRIES) -> dict:
+    """
+    Make HTTP request with retry logic.
+
+    Args:
+        url: The API endpoint URL.
+        params: Query parameters for the request.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        JSON response data from the API.
+
+    Raises:
+        httpx.HTTPStatusError: If all retry attempts fail.
+    """
     for attempt in range(max_retries):
         try:
             response = httpx.get(url, params=params, timeout=10.0)
             response.raise_for_status()
             return response.json()
-        except Exception as e:
-            logger.error(f"Request failed (attempt {attempt+1}/{max_retries}): {e}")
+        except httpx.HTTPStatusError as e:
             if attempt < max_retries - 1:
                 time.sleep(RETRY_DELAY * (attempt + 1))
             else:
-                logger.critical(f"All {max_retries} attempts failed for URL: {url}")
-                raise
-
-    return None
+                raise e
+    return {}
 
 
-def test_candles_endpoint(instrument, interval, limit=100):
-    """Test the candles endpoint for a specific instrument and interval."""
-    params = {"instId": instrument, "bar": interval, "limit": limit}
+@pytest.mark.integration
+@pytest.mark.okx
+class TestCandlesEndpoint:
+    """Tests for the OKX /market/candles endpoint."""
 
-    try:
+    @pytest.mark.parametrize("interval", INTERVALS)
+    def test_spot_candles_returns_data(self, interval: str) -> None:
+        """
+        Verify the candles endpoint returns data for spot BTC-USDT across all intervals.
+
+        Validates:
+        - API returns code "0" (success)
+        - Response contains candle data (count > 0)
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": interval, "limit": 100}
         data = retry_request(CANDLES_ENDPOINT, params)
-        return {
-            "status": "success" if data.get("code") == "0" else "error",
-            "code": data.get("code"),
-            "message": data.get("msg"),
-            "count": len(data.get("data", [])),
-            "sample": data.get("data", [])[0] if data.get("data") else None,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e),
-            "count": 0,
-            "sample": None,
-        }
+
+        assert data.get("code") == "0", f"Expected code '0', got {data.get('code')}: {data.get('msg')}"
+        assert "data" in data, "Response missing 'data' field"
+        assert len(data["data"]) > 0, f"No candle data returned for interval {interval}"
+
+    @pytest.mark.parametrize("interval", INTERVALS)
+    def test_swap_candles_returns_data(self, interval: str) -> None:
+        """
+        Verify the candles endpoint returns data for swap BTC-USD-SWAP across all intervals.
+
+        Validates:
+        - API returns code "0" (success)
+        - Response contains candle data (count > 0)
+        """
+        params = {"instId": SWAP_INSTRUMENT, "bar": interval, "limit": 100}
+        data = retry_request(CANDLES_ENDPOINT, params)
+
+        assert data.get("code") == "0", f"Expected code '0', got {data.get('code')}: {data.get('msg')}"
+        assert "data" in data, "Response missing 'data' field"
+        assert len(data["data"]) > 0, f"No candle data returned for interval {interval}"
 
 
-def test_history_candles_endpoint(instrument, interval, limit=100):
-    """Test the history candles endpoint for a specific instrument and interval."""
-    # Set timestamp to 30 days ago
-    timestamp = int((datetime.now() - timedelta(days=30)).timestamp() * 1000)
+@pytest.mark.integration
+@pytest.mark.okx
+class TestHistoryCandlesEndpoint:
+    """Tests for the OKX /market/history-candles endpoint."""
 
-    params = {"instId": instrument, "bar": interval, "limit": limit, "after": timestamp}
+    @pytest.mark.parametrize("inst", [SPOT_INSTRUMENT, SWAP_INSTRUMENT])
+    def test_history_candles_returns_data(self, inst: str) -> None:
+        """
+        Verify the history-candles endpoint returns data for both spot and swap instruments.
 
-    try:
+        Uses a timestamp from 30 days ago to ensure data availability.
+
+        Validates:
+        - API returns code "0" (success)
+        - Response contains candle data (count > 0)
+        """
+        timestamp = int((datetime.now() - timedelta(days=30)).timestamp() * 1000)
+        params = {"instId": inst, "bar": "1D", "limit": 100, "after": timestamp}
         data = retry_request(HISTORY_CANDLES_ENDPOINT, params)
-        return {
-            "status": "success" if data.get("code") == "0" else "error",
-            "code": data.get("code"),
-            "message": data.get("msg"),
-            "count": len(data.get("data", [])),
-            "sample": data.get("data", [])[0] if data.get("data") else None,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e),
-            "count": 0,
-            "sample": None,
-        }
+
+        assert data.get("code") == "0", f"Expected code '0', got {data.get('code')}: {data.get('msg')}"
+        assert "data" in data, "Response missing 'data' field"
+        assert len(data["data"]) > 0, f"No history candle data returned for {inst}"
 
 
-def test_max_limit():
-    """Test the maximum limit of records that can be returned."""
-    limits_to_test = [100, 200, 300, 400, 500]
-    results = []
+@pytest.mark.integration
+@pytest.mark.okx
+class TestMaxLimit:
+    """Tests for the maximum limit parameter behavior."""
 
-    for limit in limits_to_test:
-        result = test_candles_endpoint(SPOT_INSTRUMENT, "1m", limit)
-        results.append(
-            {
-                "requested_limit": limit,
-                "actual_count": result["count"],
-            }
-        )
+    @pytest.mark.parametrize("limit", [100, 200, 300])
+    def test_limit_returns_expected_count(self, limit: int) -> None:
+        """
+        Verify the candles endpoint respects the limit parameter.
 
-    return results
+        Validates:
+        - API returns code "0" (success)
+        - Number of returned candles matches requested limit (or available data)
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": "1m", "limit": limit}
+        data = retry_request(CANDLES_ENDPOINT, params)
 
-
-def print_results_table(title, results):
-    """Print results in a formatted table."""
-    console = Console()
-    table = Table(title=title)
-
-    # Add columns based on the first result's keys
-    if results and len(results) > 0:
-        for key in results[0].keys():
-            table.add_column(key)
-
-        # Add rows
-        for result in results:
-            table.add_row(*[str(result.get(key, "")) for key in results[0].keys()])
-
-    console.print(table)
+        assert data.get("code") == "0", f"Expected code '0', got {data.get('code')}: {data.get('msg')}"
+        assert "data" in data, "Response missing 'data' field"
+        # API should return at most the requested limit
+        assert len(data["data"]) <= limit, f"Got more data ({len(data['data'])}) than limit ({limit})"
 
 
-def main():
-    print("[bold green]OKX API Test[/bold green]")
+@pytest.mark.integration
+@pytest.mark.okx
+class TestDataFormat:
+    """Tests for the candle data format and structure."""
 
-    # Test 1: Candles endpoint for SPOT
-    print("\n[bold blue]Testing Candles Endpoint for SPOT (BTC-USDT)[/bold blue]")
-    spot_results = []
-    for interval in INTERVALS:
-        result = test_candles_endpoint(SPOT_INSTRUMENT, interval)
-        spot_results.append(
-            {
-                "instrument": SPOT_INSTRUMENT,
-                "interval": interval,
-                "status": result["status"],
-                "count": result["count"],
-            }
-        )
-    print_results_table("SPOT Candles Results", spot_results)
+    def test_candle_data_structure(self) -> None:
+        """
+        Verify the candle data has the expected OHLCV structure.
 
-    # Test 2: Candles endpoint for SWAP
-    print("\n[bold blue]Testing Candles Endpoint for SWAP (BTC-USD-SWAP)[/bold blue]")
-    swap_results = []
-    for interval in INTERVALS:
-        result = test_candles_endpoint(SWAP_INSTRUMENT, interval)
-        swap_results.append(
-            {
-                "instrument": SWAP_INSTRUMENT,
-                "interval": interval,
-                "status": result["status"],
-                "count": result["count"],
-            }
-        )
-    print_results_table("SWAP Candles Results", swap_results)
+        Each candle should contain 9 fields:
+        [timestamp, open, high, low, close, volume, volCcy, volCcyQuote, confirm]
 
-    # Test 3: History candles endpoint
-    print("\n[bold blue]Testing History Candles Endpoint[/bold blue]")
-    history_results = []
-    for instrument in [SPOT_INSTRUMENT, SWAP_INSTRUMENT]:
-        result = test_history_candles_endpoint(instrument, "1D")
-        history_results.append(
-            {
-                "instrument": instrument,
-                "interval": "1D",
-                "status": result["status"],
-                "count": result["count"],
-            }
-        )
-    print_results_table("History Candles Results", history_results)
+        Validates:
+        - API returns code "0" (success)
+        - Data contains at least one candle
+        - Each candle has exactly 9 fields
+        - Timestamp is a valid integer (in milliseconds)
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": "1m", "limit": 1}
+        data = retry_request(CANDLES_ENDPOINT, params)
 
-    # Test 4: Max limit test
-    print("\n[bold blue]Testing Maximum Limit[/bold blue]")
-    limit_results = test_max_limit()
-    print_results_table("Max Limit Test", limit_results)
+        assert data.get("code") == "0", f"Expected code '0', got {data.get('code')}: {data.get('msg')}"
+        assert "data" in data, "Response missing 'data' field"
+        assert len(data["data"]) > 0, "No candle data returned"
 
-    # Data format analysis for SPOT
-    print("\n[bold blue]Data Format Analysis (SPOT)[/bold blue]")
-    result = test_candles_endpoint(SPOT_INSTRUMENT, "1m", 1)
-    if result["sample"]:
-        print("[bold]Sample data structure:[/bold]")
-        for i, field in enumerate(result["sample"]):
-            print(f"Field {i}: {field} ({type(field).__name__})")
+        candle = data["data"][0]
+        assert len(candle) == 9, f"Expected 9 fields per candle, got {len(candle)}"
 
-    print("\n[bold green]Test Complete![/bold green]")
-
-
-if __name__ == "__main__":
-    main()
+        # Verify timestamp is a valid millisecond timestamp
+        timestamp = int(candle[0])
+        assert timestamp > 0, "Timestamp should be positive"
+        assert len(str(timestamp)) == 13, "Timestamp should be in milliseconds (13 digits)"

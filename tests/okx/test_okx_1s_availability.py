@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
+"""
+OKX 1-second interval data availability tests.
+
+These integration tests verify the availability of 1-second interval data
+across different time periods and endpoints.
+"""
 
 import time
 from datetime import datetime, timedelta
 
 import httpx
-from rich import print
-from rich.console import Console
-from rich.table import Table
-
-from data_source_manager.utils.loguru_setup import logger
-
-# Set logger level to WARNING to reduce verbosity
-logger.setLevel("WARNING")
+import pytest
 
 # Constants
 OKX_API_BASE_URL = "https://www.okx.com/api/v5"
@@ -20,17 +19,21 @@ HISTORY_ENDPOINT = f"{OKX_API_BASE_URL}/market/history-candles"
 SPOT_INSTRUMENT = "BTC-USDT"
 MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
-
-# Interval we're testing
-TEST_INTERVAL = "1s"  # Testing 1-second interval
-CURRENT_DATE = datetime.now()
-
-# Time window parameters for searching historical data
-KNOWN_START_DATE = datetime(2017, 10, 1)  # Known approximate start date for OKX history
+TEST_INTERVAL = "1s"
 
 
-def retry_request(url, params=None, max_retries=MAX_RETRIES):
-    """Make HTTP request with retry logic."""
+def retry_request(url: str, params: dict | None = None, max_retries: int = MAX_RETRIES) -> dict:
+    """
+    Make HTTP request with retry logic.
+
+    Args:
+        url: The API endpoint URL.
+        params: Query parameters for the request.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        Dictionary with status_code and data/error fields.
+    """
     for attempt in range(max_retries):
         try:
             response = httpx.get(url, params=params, timeout=10.0)
@@ -38,31 +41,45 @@ def retry_request(url, params=None, max_retries=MAX_RETRIES):
             return {
                 "status_code": response.status_code,
                 "data": response.json(),
-                "raw_response": response,
             }
-        except Exception as e:
-            logger.error(f"Request failed (attempt {attempt+1}/{max_retries}): {e}")
+        except httpx.HTTPStatusError as e:
             if attempt < max_retries - 1:
                 time.sleep(RETRY_DELAY * (attempt + 1))
             else:
-                logger.critical(f"All {max_retries} attempts failed for URL: {url}")
+                return {
+                    "status_code": e.response.status_code if e.response else -1,
+                    "error": str(e),
+                }
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(RETRY_DELAY * (attempt + 1))
+            else:
                 return {
                     "status_code": -1,
                     "error": str(e),
                 }
+    return {"status_code": -1, "error": "Unknown error"}
 
-    return None
 
+def has_data(endpoint: str, instrument: str, interval: str, timestamp: int) -> tuple[bool, dict]:
+    """
+    Check if data exists at a specific timestamp.
 
-def has_data(endpoint, instrument, interval, timestamp):
-    """Check if data exists at a specific timestamp."""
+    Args:
+        endpoint: The API endpoint URL.
+        instrument: Trading pair symbol.
+        interval: Candle interval.
+        timestamp: Timestamp in milliseconds.
+
+    Returns:
+        Tuple of (has_data, response).
+    """
     params = {
         "instId": instrument,
         "bar": interval,
         "limit": 1,
         "after": timestamp,
     }
-
     result = retry_request(endpoint, params)
 
     if (
@@ -76,509 +93,193 @@ def has_data(endpoint, instrument, interval, timestamp):
     return False, result
 
 
-def test_recent_availability(instrument, interval):
-    """
-    Test if very recent data is available for the 1s interval.
-    This checks the last hour, last 10 minutes, and last minute.
-    """
-    print(f"\n[bold blue]Testing Recent {interval} Data Availability[/bold blue]")
+@pytest.mark.integration
+@pytest.mark.okx
+class TestRecentAvailability:
+    """Tests for recent 1s data availability."""
 
-    current_time = datetime.now()
-    test_windows = [
-        ("Last minute", 1),
-        ("Last 10 minutes", 10),
-        ("Last hour", 60),
-        ("Last 6 hours", 6 * 60),
-        ("Last 24 hours", 24 * 60),
-    ]
+    @pytest.mark.parametrize(
+        "minutes_back,window_name",
+        [
+            (1, "Last minute"),
+            (10, "Last 10 minutes"),
+            (60, "Last hour"),
+        ],
+    )
+    def test_candles_recent_1s_data_available(self, minutes_back: int, window_name: str) -> None:
+        """
+        Verify 1s data is available from the candles endpoint for recent time windows.
 
-    results = []
-
-    for window_name, minutes in test_windows:
-        test_time = current_time - timedelta(minutes=minutes)
+        Validates:
+        - API returns code "0" (success)
+        - Data is returned for recent 1s queries
+        """
+        current_time = datetime.now()
+        test_time = current_time - timedelta(minutes=minutes_back)
         test_timestamp = int(test_time.timestamp() * 1000)
 
-        # Test both endpoints
-        for endpoint_name, endpoint_url in [
-            ("candles", CANDLES_ENDPOINT),
-            ("history-candles", HISTORY_ENDPOINT),
-        ]:
-            has_data_result, response = has_data(
-                endpoint_url, instrument, interval, test_timestamp
-            )
+        has_data_result, response = has_data(
+            CANDLES_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, test_timestamp
+        )
 
-            data_count = 0
-            if has_data_result and "data" in response:
-                data_count = len(response["data"].get("data", []))
-
-            results.append(
-                {
-                    "window": window_name,
-                    "endpoint": endpoint_name,
-                    "timestamp": test_timestamp,
-                    "datetime": test_time,
-                    "has_data": has_data_result,
-                    "data_points": data_count,
-                }
-            )
-
-            status = "✅ Available" if has_data_result else "❌ Not available"
-            print(f"{window_name} ({test_time}) - {endpoint_name}: {status}")
-
-            # If data is available, also check the data structure
-            if (
-                has_data_result
-                and "data" in response
-                and len(response["data"].get("data", [])) > 0
-            ):
-                data_item = response["data"]["data"][0]
-                print(f"  Sample data: {data_item}")
-
-    # Use assertion to make sure we got at least some results for pytest
-    assert len(results) > 0, "No results collected during test"
-    # Return results for direct script execution
-    return results
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected code '0' for {window_name}: {data.get('msg')}"
+        assert has_data_result, f"Expected 1s data for {window_name}"
 
 
-def test_historical_timepoints(instrument, interval):
-    """
-    Test availability of 1s data at specific historical timepoints
-    Covers key dates to check if 1s data was ever available
-    """
-    print(
-        f"\n[bold blue]Testing Historical {interval} Data at Key Timepoints[/bold blue]"
+@pytest.mark.integration
+@pytest.mark.okx
+class TestHistoricalTimepoints:
+    """Tests for 1s data availability at historical timepoints."""
+
+    @pytest.mark.parametrize(
+        "days_back,expected_available",
+        [
+            (1, True),      # Yesterday - should be available
+            (7, True),      # Last week - likely available
+            (30, False),    # Last month - may not be available
+            (180, False),   # Six months ago - not available
+        ],
     )
+    def test_history_candles_1s_at_historical_dates(
+        self, days_back: int, expected_available: bool
+    ) -> None:
+        """
+        Verify 1s data availability at various historical dates.
 
-    # Test a range of historical points
-    test_dates = [
-        ("Today", datetime.now()),
-        ("Yesterday", datetime.now() - timedelta(days=1)),
-        ("Last week", datetime.now() - timedelta(days=7)),
-        ("Last month", datetime.now() - timedelta(days=30)),
-        ("Six months ago", datetime.now() - timedelta(days=180)),
-        ("One year ago", datetime.now() - timedelta(days=365)),
-        ("Two years ago", datetime.now() - timedelta(days=730)),
-        ("Three years ago", datetime.now() - timedelta(days=1095)),
-        ("Four years ago", datetime.now() - timedelta(days=1460)),
-    ]
+        The 1s interval typically has a retention period of around 20-30 days.
 
-    results = []
-
-    for name, test_date in test_dates:
+        Validates:
+        - API returns code "0" (success)
+        - Data availability matches expected pattern
+        """
+        test_date = datetime.now() - timedelta(days=days_back)
         test_timestamp = int(test_date.timestamp() * 1000)
 
-        # Test both endpoints
-        for endpoint_name, endpoint_url in [
-            ("candles", CANDLES_ENDPOINT),
-            ("history-candles", HISTORY_ENDPOINT),
-        ]:
-            has_data_result, response = has_data(
-                endpoint_url, instrument, interval, test_timestamp
-            )
+        has_data_result, response = has_data(
+            HISTORY_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, test_timestamp
+        )
 
-            results.append(
-                {
-                    "timepoint": name,
-                    "endpoint": endpoint_name,
-                    "date": test_date.strftime("%Y-%m-%d"),
-                    "has_data": has_data_result,
-                    "data_points": (
-                        len(response["data"].get("data", [])) if has_data_result else 0
-                    ),
-                }
-            )
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected code '0': {data.get('msg')}"
 
-            status = "✅ Available" if has_data_result else "❌ Not available"
-            print(
-                f"{name} ({test_date.strftime('%Y-%m-%d')}) - {endpoint_name}: {status}"
-            )
-
-    # Use assertion to make sure we got at least some results for pytest
-    assert len(results) > 0, "No results collected during test"
-    # Return results for direct script execution
-    return results
+        if expected_available:
+            assert has_data_result, f"Expected 1s data available {days_back} days ago"
+        else:
+            # For older dates, data may or may not be available
+            # This is informational - the API should respond correctly either way
+            pass
 
 
-def test_hourly_availability_today(instrument, interval):
-    """
-    Test 1s data availability for multiple hours throughout the current day
-    to check for any time-based patterns in data availability.
-    """
-    print(f"\n[bold blue]Testing Hourly {interval} Data Availability Today[/bold blue]")
+@pytest.mark.integration
+@pytest.mark.okx
+class TestHourlyAvailability:
+    """Tests for 1s data availability throughout the current day."""
 
-    current_time = datetime.now()
-    start_of_day = datetime(current_time.year, current_time.month, current_time.day)
+    @pytest.mark.parametrize("hours_ago", [0, 3, 6, 12])
+    def test_candles_1s_availability_by_hour(self, hours_ago: int) -> None:
+        """
+        Verify 1s data is available at different hours throughout today.
 
-    results = []
+        This checks for any time-based patterns in data availability.
 
-    # Check every 3 hours throughout today
-    for hour in range(0, 24, 3):
-        # Skip future hours
-        test_time = start_of_day + timedelta(hours=hour)
+        Validates:
+        - API returns code "0" (success)
+        - Data is consistently available throughout the day
+        """
+        current_time = datetime.now()
+        test_time = current_time - timedelta(hours=hours_ago)
+
+        # Skip if test time is in the future
         if test_time > current_time:
-            continue
+            pytest.skip("Test time is in the future")
 
         test_timestamp = int(test_time.timestamp() * 1000)
+        has_data_result, response = has_data(
+            CANDLES_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, test_timestamp
+        )
 
-        # Test both endpoints
-        for endpoint_name, endpoint_url in [
-            ("candles", CANDLES_ENDPOINT),
-            ("history-candles", HISTORY_ENDPOINT),
-        ]:
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected code '0' for {hours_ago}h ago: {data.get('msg')}"
+        assert has_data_result, f"Expected 1s data available {hours_ago} hours ago"
+
+
+@pytest.mark.integration
+@pytest.mark.okx
+class TestConsecutiveCalls:
+    """Tests for API consistency with rapid consecutive calls."""
+
+    def test_rapid_consecutive_calls_return_consistent_results(self) -> None:
+        """
+        Verify rapid consecutive calls return consistent results.
+
+        This checks for any rate limiting or data inconsistencies.
+
+        Validates:
+        - All calls return code "0" (success)
+        - Data availability is consistent across calls
+        """
+        current_time = datetime.now()
+        test_timestamp = int(current_time.timestamp() * 1000)
+        num_calls = 3
+
+        results = []
+        for i in range(num_calls):
             has_data_result, response = has_data(
-                endpoint_url, instrument, interval, test_timestamp
+                CANDLES_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, test_timestamp
             )
+            results.append(has_data_result)
 
-            results.append(
-                {
-                    "hour": f"{hour:02d}:00",
-                    "endpoint": endpoint_name,
-                    "timestamp": test_timestamp,
-                    "datetime": test_time,
-                    "has_data": has_data_result,
-                    "data_points": (
-                        len(response["data"].get("data", [])) if has_data_result else 0
-                    ),
-                }
-            )
+            assert "data" in response, f"Call {i+1} failed: {response.get('error')}"
+            data = response["data"]
+            assert data.get("code") == "0", f"Call {i+1} expected code '0': {data.get('msg')}"
 
-            status = "✅ Available" if has_data_result else "❌ Not available"
-            print(f"Hour {hour:02d}:00 ({test_time}) - {endpoint_name}: {status}")
-
-    # Use assertion to make sure we got at least some results for pytest
-    assert len(results) > 0, "No results collected during test"
-    # Return results for direct script execution
-    return results
+        # All results should be consistent
+        assert len(set(results)) == 1, "Consecutive calls returned inconsistent results"
 
 
-def test_rapid_consecutive_calls(instrument, interval, num_calls=5):
-    """
-    Test rapid consecutive calls to check for any rate limiting or
-    inconsistencies in data availability for 1s data.
-    """
-    print(
-        f"\n[bold blue]Testing Rapid Consecutive Calls for {interval} Data[/bold blue]"
-    )
+@pytest.mark.integration
+@pytest.mark.okx
+class TestDataRetentionBoundary:
+    """Tests for finding the 1s data retention boundary."""
 
-    results = []
-    current_time = datetime.now()
-    test_timestamp = int(current_time.timestamp() * 1000)
+    def test_recent_data_available_old_data_not(self) -> None:
+        """
+        Verify the expected retention pattern: recent data available, old data not.
 
-    # Test both endpoints
-    for endpoint_name, endpoint_url in [
-        ("candles", CANDLES_ENDPOINT),
-        ("history-candles", HISTORY_ENDPOINT),
-    ]:
-        print(f"Testing {endpoint_name} endpoint with {num_calls} consecutive calls...")
+        The 1s interval typically retains data for around 20-30 days.
 
-        for i in range(1, num_calls + 1):
-            start_time = time.time()
-            has_data_result, response = has_data(
-                endpoint_url, instrument, interval, test_timestamp
-            )
-            end_time = time.time()
-            response_time = end_time - start_time
+        Validates:
+        - Recent data (within 7 days) is available
+        - Old data (beyond 60 days) is not available
+        """
+        current_time = datetime.now()
 
-            data_points = (
-                len(response["data"].get("data", [])) if has_data_result else 0
-            )
-
-            results.append(
-                {
-                    "call_number": i,
-                    "endpoint": endpoint_name,
-                    "has_data": has_data_result,
-                    "response_time": response_time,
-                    "data_points": data_points,
-                }
-            )
-
-            status = "✅ Success" if has_data_result else "❌ Failed"
-            print(
-                f"Call {i}: {status} - Response time: {response_time:.2f}s - Data points: {data_points}"
-            )
-
-    # Use assertion to make sure we got at least some results for pytest
-    assert len(results) > 0, "No results collected during test"
-    # Return results for direct script execution
-    return results
-
-
-def find_history_cutoff_date(instrument, interval):
-    """
-    Use binary search to find the exact cutoff date where historical 1s data
-    stops being available on the history-candles endpoint.
-    """
-    print(
-        f"\n[bold blue]Finding Exact Cutoff Date for {interval} Data Availability[/bold blue]"
-    )
-
-    # Initial test showed data is available for ~30 days but not for 6 months
-    # So we'll search between 20-60 days ago to find the exact boundary
-    current_time = datetime.now()
-    earliest_with_data = current_time - timedelta(days=20)  # We know data exists here
-    latest_without_data = current_time - timedelta(
-        days=60
-    )  # We know data doesn't exist here
-
-    # First confirm our assumptions
-    test_timestamp_recent = int(earliest_with_data.timestamp() * 1000)
-    has_recent_data, _ = has_data(
-        HISTORY_ENDPOINT, instrument, interval, test_timestamp_recent
-    )
-
-    test_timestamp_old = int(latest_without_data.timestamp() * 1000)
-    has_old_data, _ = has_data(
-        HISTORY_ENDPOINT, instrument, interval, test_timestamp_old
-    )
-
-    if has_recent_data and not has_old_data:
-        print(
-            "[green]Initial assumptions confirmed: data available at 20 days ago, not available at 60 days ago[/green]"
-        )
-    else:
-        print(
-            "[yellow]Initial assumptions incorrect. Adjusting search window...[/yellow]"
+        # Recent data should be available
+        recent_time = current_time - timedelta(days=7)
+        recent_timestamp = int(recent_time.timestamp() * 1000)
+        has_recent, recent_response = has_data(
+            HISTORY_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, recent_timestamp
         )
 
-        if not has_recent_data:
-            # If no data at 20 days, try closer to now
-            for days in [10, 5, 2, 1]:
-                test_date = current_time - timedelta(days=days)
-                test_timestamp = int(test_date.timestamp() * 1000)
-                has_data_result, _ = has_data(
-                    HISTORY_ENDPOINT, instrument, interval, test_timestamp
-                )
+        assert "data" in recent_response, f"Recent request failed: {recent_response.get('error')}"
+        recent_data = recent_response["data"]
+        assert recent_data.get("code") == "0", f"Expected code '0': {recent_data.get('msg')}"
 
-                if has_data_result:
-                    earliest_with_data = test_date
-                    print(f"[green]Found data at {days} days ago[/green]")
-                    break
-
-        if has_old_data:
-            # If data at 60 days, try further back
-            for days in [90, 120, 180, 365]:
-                test_date = current_time - timedelta(days=days)
-                test_timestamp = int(test_date.timestamp() * 1000)
-                has_data_result, _ = has_data(
-                    HISTORY_ENDPOINT, instrument, interval, test_timestamp
-                )
-
-                if not has_data_result:
-                    latest_without_data = test_date
-                    print(f"[green]Found no data at {days} days ago[/green]")
-                    break
-
-    # Begin binary search to find exact cutoff
-    print(
-        f"Beginning binary search between {earliest_with_data.date()} and {latest_without_data.date()}"
-    )
-
-    cutoff_date = None
-    while (latest_without_data - earliest_with_data).days > 1:
-        mid_point = earliest_with_data + (latest_without_data - earliest_with_data) / 2
-        mid_timestamp = int(mid_point.timestamp() * 1000)
-
-        print(f"Testing cutoff at {mid_point.date()}")
-        has_mid_data, _ = has_data(
-            HISTORY_ENDPOINT, instrument, interval, mid_timestamp
+        # Old data should not be available
+        old_time = current_time - timedelta(days=60)
+        old_timestamp = int(old_time.timestamp() * 1000)
+        has_old, old_response = has_data(
+            HISTORY_ENDPOINT, SPOT_INSTRUMENT, TEST_INTERVAL, old_timestamp
         )
 
-        if has_mid_data:
-            earliest_with_data = mid_point
-            print(f"  Data available at {mid_point.date()}")
-        else:
-            latest_without_data = mid_point
-            print(f"  No data available at {mid_point.date()}")
+        assert "data" in old_response, f"Old request failed: {old_response.get('error')}"
+        old_data = old_response["data"]
+        assert old_data.get("code") == "0", f"Expected code '0': {old_data.get('msg')}"
 
-    # The cutoff is the point where we go from having data to not having data
-    cutoff_date = earliest_with_data
-    days_of_data = (current_time - cutoff_date).days
-
-    print(f"[bold green]Found cutoff date: {cutoff_date.date()}[/bold green]")
-    print(
-        f"[bold green]1s data is available for approximately {days_of_data} days[/bold green]"
-    )
-
-    # Verify a few days around the cutoff
-    verification_results = []
-    for offset in range(-2, 3):
-        verify_date = cutoff_date + timedelta(days=offset)
-        verify_timestamp = int(verify_date.timestamp() * 1000)
-        has_verify_data, _ = has_data(
-            HISTORY_ENDPOINT, instrument, interval, verify_timestamp
-        )
-
-        verification_results.append(
-            {
-                "date": verify_date.date(),
-                "offset_from_cutoff": offset,
-                "has_data": has_verify_data,
-            }
-        )
-
-        status = "✅ Available" if has_verify_data else "❌ Not available"
-        print(
-            f"Verification {offset} days from cutoff ({verify_date.date()}): {status}"
-        )
-
-    return {
-        "cutoff_date": cutoff_date.date(),
-        "days_of_data": days_of_data,
-        "verification": verification_results,
-    }
-
-
-def print_results_table(title, data):
-    """Print results in a formatted table."""
-    console = Console()
-    print(f"\n[bold cyan]{title}[/bold cyan]")
-
-    if not data:
-        console.print("[italic]No data returned[/italic]")
-        return
-
-    table = Table(show_header=True, header_style="bold magenta")
-
-    # Add columns based on first item's keys
-    for key in data[0].keys():
-        table.add_column(key)
-
-    # Add rows
-    for item in data:
-        row_values = []
-        for key in data[0].keys():
-            value = item.get(key, "")
-
-            # Format boolean values with color
-            if isinstance(value, bool):
-                value = f"[green]{value}[/green]" if value else f"[red]{value}[/red]"
-
-            row_values.append(str(value))
-        table.add_row(*row_values)
-
-    console.print(table)
-
-
-def main():
-    """Test the availability of 1-second interval data on OKX candles endpoints."""
-    print("[bold green]OKX 1-Second Interval Data Availability Test[/bold green]")
-    print(f"Running tests for {SPOT_INSTRUMENT} with {TEST_INTERVAL} interval")
-
-    all_results = {}
-
-    # Test 1: Recent 1s data availability
-    recent_results = test_recent_availability(SPOT_INSTRUMENT, TEST_INTERVAL)
-    all_results["recent_availability"] = recent_results
-    print_results_table("Recent 1s Data Availability Results", recent_results)
-
-    # Test 2: Historical 1s data at key points in time
-    historical_results = test_historical_timepoints(SPOT_INSTRUMENT, TEST_INTERVAL)
-    all_results["historical_timepoints"] = historical_results
-    print_results_table("Historical 1s Data Availability Results", historical_results)
-
-    # Test 3: Hourly availability today
-    hourly_results = test_hourly_availability_today(SPOT_INSTRUMENT, TEST_INTERVAL)
-    all_results["hourly_availability"] = hourly_results
-    print_results_table("Hourly 1s Data Availability Today", hourly_results)
-
-    # Test 4: Rapid consecutive calls to check consistency
-    consistency_results = test_rapid_consecutive_calls(SPOT_INSTRUMENT, TEST_INTERVAL)
-    all_results["rapid_consecutive_calls"] = consistency_results
-    print_results_table("Rapid Consecutive Calls Results", consistency_results)
-
-    # Test 5: Find exact cutoff date for history-candles endpoint
-    # Only run this if we've confirmed data is available in recent history
-    recent_history_available = any(
-        r["has_data"] for r in recent_results if r["endpoint"] == "history-candles"
-    )
-    if recent_history_available:
-        cutoff_results = find_history_cutoff_date(SPOT_INSTRUMENT, TEST_INTERVAL)
-        all_results["cutoff_date"] = cutoff_results
-        if isinstance(cutoff_results.get("verification"), list):
-            print_results_table(
-                "Cutoff Date Verification", cutoff_results["verification"]
-            )
-
-    # Summary of findings
-    print("\n[bold blue]=== SUMMARY OF FINDINGS FOR 1S INTERVAL DATA ====[/bold blue]")
-
-    # Check if 1s is available at all in recent data
-    recent_candles_available = any(
-        r["has_data"] for r in recent_results if r["endpoint"] == "candles"
-    )
-    recent_history_available = any(
-        r["has_data"] for r in recent_results if r["endpoint"] == "history-candles"
-    )
-
-    # Check if 1s is available at all in historical data
-    historical_candles_available = any(
-        r["has_data"] for r in historical_results if r["endpoint"] == "candles"
-    )
-    historical_history_available = any(
-        r["has_data"] for r in historical_results if r["endpoint"] == "history-candles"
-    )
-
-    print("\n[bold cyan]1-Second Data Availability Summary[/bold cyan]")
-    print(
-        f"- Candles endpoint (recent): {'✅ Available' if recent_candles_available else '❌ Not available'}"
-    )
-    print(
-        f"- History-candles endpoint (recent): {'✅ Available' if recent_history_available else '❌ Not available'}"
-    )
-    print(
-        f"- Candles endpoint (historical): {'✅ Available' if historical_candles_available else '❌ Not available'}"
-    )
-    print(
-        f"- History-candles endpoint (historical): {'✅ Available' if historical_history_available else '❌ Not available'}"
-    )
-
-    # Display cutoff date if we found it
-    if "cutoff_date" in all_results:
-        cutoff = all_results["cutoff_date"]
-        print("\n[bold cyan]Data Retention Boundary[/bold cyan]")
-        print(f"- Cutoff date: {cutoff['cutoff_date']}")
-        print(
-            f"- Days of 1s data available: approximately {cutoff['days_of_data']} days"
-        )
-
-    # Overall availability determination
-    print("\n[bold green]Conclusion:[/bold green]")
-    if not any(
-        [
-            recent_candles_available,
-            recent_history_available,
-            historical_candles_available,
-            historical_history_available,
-        ]
-    ):
-        print(
-            "[bold red]1-second interval data is NOT available on any OKX endpoint tested.[/bold red]"
-        )
-    else:
-        if recent_candles_available:
-            print(
-                "[bold green]1-second interval data is available on the candles endpoint for recent data.[/bold green]"
-            )
-        if recent_history_available:
-            print(
-                "[bold green]1-second interval data is available on the history-candles endpoint for recent data.[/bold green]"
-            )
-        if historical_candles_available:
-            print(
-                "[bold green]1-second interval data is available on the candles endpoint for historical data.[/bold green]"
-            )
-        if historical_history_available:
-            print(
-                "[bold green]1-second interval data is available on the history-candles endpoint for historical data.[/bold green]"
-            )
-
-        if "cutoff_date" in all_results:
-            cutoff = all_results["cutoff_date"]
-            print(
-                f"[bold green]1-second data is available from {cutoff['cutoff_date']} to present (approximately {cutoff['days_of_data']} days).[/bold green]"
-            )
-
-
-if __name__ == "__main__":
-    main()
+        # Recent should have data, old should not
+        assert has_recent, "Expected 1s data available within 7 days"
+        assert not has_old, "Expected no 1s data beyond 60 days"

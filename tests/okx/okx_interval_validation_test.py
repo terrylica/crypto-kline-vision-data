@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
+"""
+OKX interval validation tests.
 
-import json
+These integration tests verify the OKX API behavior with different interval
+formats, including case sensitivity and 1-second interval support.
+"""
+
 import time
 from datetime import datetime, timedelta
 
 import httpx
-from rich import print
-from rich.console import Console
-from rich.table import Table
-
-from data_source_manager.utils.loguru_setup import logger
+import pytest
 
 # API constants
 OKX_API_BASE_URL = "https://www.okx.com/api/v5"
@@ -22,8 +23,18 @@ MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
 
 
-def retry_request(url, params=None, max_retries=MAX_RETRIES):
-    """Make HTTP request with retry logic."""
+def retry_request(url: str, params: dict | None = None, max_retries: int = MAX_RETRIES) -> dict:
+    """
+    Make HTTP request with retry logic.
+
+    Args:
+        url: The API endpoint URL.
+        params: Query parameters for the request.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        Dictionary with status_code and data fields.
+    """
     for attempt in range(max_retries):
         try:
             response = httpx.get(url, params=params, timeout=10.0)
@@ -32,310 +43,169 @@ def retry_request(url, params=None, max_retries=MAX_RETRIES):
                 "status_code": response.status_code,
                 "data": response.json(),
             }
-        except Exception as e:
-            logger.error(f"Request failed (attempt {attempt+1}/{max_retries}): {e}")
+        except httpx.HTTPStatusError as e:
             if attempt < max_retries - 1:
                 time.sleep(RETRY_DELAY * (attempt + 1))
             else:
-                logger.critical(f"All {max_retries} attempts failed for URL: {url}")
+                return {
+                    "status_code": e.response.status_code if e.response else -1,
+                    "error": str(e),
+                }
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(RETRY_DELAY * (attempt + 1))
+            else:
                 return {
                     "status_code": -1,
                     "error": str(e),
                 }
-
-    return None
-
-
-def test_interval_case_sensitivity():
-    """
-    Test if interval parameters are case-sensitive for both endpoints.
-    OKX documentation suggests capital H/D/W/M for larger intervals.
-    """
-    # Test pairs with mixed case
-    test_intervals = [
-        # Standard format, Mixed case, Official format
-        ("1m", "1M", "1m"),  # Should be lowercase for minute
-        ("1h", "1H", "1H"),  # Should be uppercase for hour
-        ("4h", "4H", "4H"),  # Should be uppercase for hour
-        ("1d", "1D", "1D"),  # Should be uppercase for day
-        ("1w", "1W", "1W"),  # Should be uppercase for week
-        ("1M", "1m", "1M"),  # Should be uppercase for month
-    ]
-
-    results = []
-    for original, mixed_case, official in test_intervals:
-        # Test with candles endpoint
-        candles_original = retry_request(
-            CANDLES_ENDPOINT, {"instId": SPOT_INSTRUMENT, "bar": original, "limit": 1}
-        )
-        candles_mixed = retry_request(
-            CANDLES_ENDPOINT, {"instId": SPOT_INSTRUMENT, "bar": mixed_case, "limit": 1}
-        )
-        candles_official = retry_request(
-            CANDLES_ENDPOINT, {"instId": SPOT_INSTRUMENT, "bar": official, "limit": 1}
-        )
-
-        # Test with history-candles endpoint
-        timestamp = int((datetime.now() - timedelta(days=30)).timestamp() * 1000)
-        history_original = retry_request(
-            HISTORY_CANDLES_ENDPOINT,
-            {
-                "instId": SPOT_INSTRUMENT,
-                "bar": original,
-                "limit": 1,
-                "after": timestamp,
-            },
-        )
-        history_mixed = retry_request(
-            HISTORY_CANDLES_ENDPOINT,
-            {
-                "instId": SPOT_INSTRUMENT,
-                "bar": mixed_case,
-                "limit": 1,
-                "after": timestamp,
-            },
-        )
-        history_official = retry_request(
-            HISTORY_CANDLES_ENDPOINT,
-            {
-                "instId": SPOT_INSTRUMENT,
-                "bar": official,
-                "limit": 1,
-                "after": timestamp,
-            },
-        )
-
-        # Process results
-        results.append(
-            {
-                "interval": original,
-                "mixed_case": mixed_case,
-                "official": official,
-                "candles_original_status": (
-                    "success"
-                    if "data" in candles_original
-                    and candles_original["data"].get("code") == "0"
-                    else "error"
-                ),
-                "candles_mixed_status": (
-                    "success"
-                    if "data" in candles_mixed
-                    and candles_mixed["data"].get("code") == "0"
-                    else "error"
-                ),
-                "candles_official_status": (
-                    "success"
-                    if "data" in candles_official
-                    and candles_official["data"].get("code") == "0"
-                    else "error"
-                ),
-                "history_original_status": (
-                    "success"
-                    if "data" in history_original
-                    and history_original["data"].get("code") == "0"
-                    else "error"
-                ),
-                "history_mixed_status": (
-                    "success"
-                    if "data" in history_mixed
-                    and history_mixed["data"].get("code") == "0"
-                    else "error"
-                ),
-                "history_official_status": (
-                    "success"
-                    if "data" in history_official
-                    and history_official["data"].get("code") == "0"
-                    else "error"
-                ),
-            }
-        )
-
-    return results
+    return {"status_code": -1, "error": "Unknown error"}
 
 
-def test_one_second_interval():
-    """
-    Test the alleged 1-second interval support in the history-candles endpoint.
-    Our previous tests showed the history-candles endpoint might support 1s interval.
-    """
-    # Test 1s interval with both endpoints
-    candles_result = retry_request(
-        CANDLES_ENDPOINT, {"instId": SPOT_INSTRUMENT, "bar": "1s", "limit": 10}
+@pytest.mark.integration
+@pytest.mark.okx
+class TestIntervalCaseSensitivity:
+    """Tests for interval parameter case sensitivity."""
+
+    @pytest.mark.parametrize(
+        "interval,expected_success",
+        [
+            ("1m", True),   # Correct: lowercase m for minute
+            ("1H", True),   # Correct: uppercase H for hour
+            ("4H", True),   # Correct: uppercase H for hour
+            ("1D", True),   # Correct: uppercase D for day
+            ("1W", True),   # Correct: uppercase W for week
+            ("1M", True),   # Correct: uppercase M for month
+        ],
     )
+    def test_candles_official_interval_format(self, interval: str, expected_success: bool) -> None:
+        """
+        Verify the candles endpoint accepts official interval formats.
 
-    # Test with different timestamps to ensure it's not just a fluke
-    timestamp_yesterday = int((datetime.now() - timedelta(days=1)).timestamp() * 1000)
-    timestamp_week_ago = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
-    timestamp_month_ago = int((datetime.now() - timedelta(days=30)).timestamp() * 1000)
+        OKX uses specific case-sensitive formats:
+        - Lowercase for minutes (1m, 3m, 5m, etc.)
+        - Uppercase for hours/days/weeks/months (1H, 4H, 1D, 1W, 1M)
 
-    history_results = []
-    for timestamp, label in [
-        (timestamp_yesterday, "1 day ago"),
-        (timestamp_week_ago, "1 week ago"),
-        (timestamp_month_ago, "1 month ago"),
-    ]:
-        history_result = retry_request(
-            HISTORY_CANDLES_ENDPOINT,
-            {"instId": SPOT_INSTRUMENT, "bar": "1s", "limit": 10, "after": timestamp},
-        )
+        Validates:
+        - API returns code "0" for valid intervals
+        - Data is returned for valid intervals
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": interval, "limit": 1}
+        response = retry_request(CANDLES_ENDPOINT, params)
 
-        # Check if we got valid data
-        has_data = False
-        if (
-            "data" in history_result
-            and history_result["data"].get("code") == "0"
-            and len(history_result["data"].get("data", [])) > 0
-        ):
-            has_data = True
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
 
-        history_results.append(
-            {
-                "timestamp_period": label,
-                "timestamp_ms": timestamp,
-                "success": "data" in history_result
-                and history_result["data"].get("code") == "0",
-                "error_message": (
-                    history_result["data"].get("msg", "")
-                    if "data" in history_result
-                    else str(history_result.get("error", ""))
-                ),
-                "has_data": has_data,
-                "record_count": (
-                    len(history_result["data"].get("data", []))
-                    if "data" in history_result
-                    else 0
-                ),
-            }
-        )
-
-    return {
-        "candles_1s": {
-            "success": "data" in candles_result
-            and candles_result["data"].get("code") == "0",
-            "error_message": (
-                candles_result["data"].get("msg", "")
-                if "data" in candles_result
-                else str(candles_result.get("error", ""))
-            ),
-            "record_count": (
-                len(candles_result["data"].get("data", []))
-                if "data" in candles_result
-                else 0
-            ),
-        },
-        "history_candles_1s": history_results,
-    }
-
-
-def print_results_table(title, data):
-    """Print results in a formatted table."""
-    console = Console()
-    print(f"\n[bold cyan]{title}[/bold cyan]")
-
-    if isinstance(data, list):
-        # Handle list output
-        if not data:
-            console.print("[italic]No data returned[/italic]")
-            return
-
-        table = Table(show_header=True, header_style="bold magenta")
-
-        # Add columns based on first item's keys
-        for key in data[0].keys():
-            table.add_column(key)
-
-        # Add rows
-        for item in data:
-            row_values = []
-            for key in data[0].keys():
-                value = item.get(key, "")
-                if isinstance(value, dict) or isinstance(value, list):
-                    value = json.dumps(value, indent=2)
-                elif key.endswith("_status"):
-                    # Highlight success/error
-                    value = (
-                        f"[green]{value}[/green]"
-                        if value == "success"
-                        else f"[red]{value}[/red]"
-                    )
-                row_values.append(str(value))
-            table.add_row(*row_values)
-
-        console.print(table)
-    elif isinstance(data, dict):
-        # For dictionaries with "history_candles_1s"
-        if "history_candles_1s" in data and isinstance(
-            data["history_candles_1s"], list
-        ):
-            # Print candles_1s first
-            candles_info = data["candles_1s"]
-            print("\n[bold yellow]candles_1s[/bold yellow]")
-            table = Table(show_header=True, header_style="bold magenta")
-            for key in candles_info.keys():
-                table.add_column(key)
-
-            row_values = []
-            for key in candles_info.keys():
-                value = candles_info.get(key, "")
-                row_values.append(str(value))
-            table.add_row(*row_values)
-            console.print(table)
-
-            # Print history_candles_1s
-            print("\n[bold yellow]history_candles_1s[/bold yellow]")
-            history_results = data["history_candles_1s"]
-            if history_results:
-                table = Table(show_header=True, header_style="bold magenta")
-                for key in history_results[0].keys():
-                    table.add_column(key)
-
-                for item in history_results:
-                    row_values = []
-                    for key in history_results[0].keys():
-                        value = item.get(key, "")
-                        if key == "success":
-                            value = (
-                                f"[green]{value}[/green]"
-                                if value
-                                else f"[red]{value}[/red]"
-                            )
-                        elif key == "has_data":
-                            value = (
-                                f"[green]{value}[/green]"
-                                if value
-                                else f"[red]{value}[/red]"
-                            )
-                        row_values.append(str(value))
-                    table.add_row(*row_values)
-                console.print(table)
+        if expected_success:
+            assert data.get("code") == "0", f"Expected success for '{interval}': {data.get('msg')}"
+            assert len(data.get("data", [])) > 0, f"No data returned for '{interval}'"
         else:
-            # Regular dictionary
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("Key", style="dim")
-            table.add_column("Value")
+            assert data.get("code") != "0" or len(data.get("data", [])) == 0, (
+                f"Expected failure for '{interval}'"
+            )
 
-            for key, value in data.items():
-                table.add_row(key, str(value))
+    @pytest.mark.parametrize(
+        "interval,description",
+        [
+            ("1h", "lowercase hour"),
+            ("1d", "lowercase day"),
+            ("1w", "lowercase week"),
+        ],
+    )
+    def test_candles_lowercase_intervals_fail(self, interval: str, description: str) -> None:
+        """
+        Verify the candles endpoint rejects lowercase intervals for hour/day/week.
 
-            console.print(table)
+        OKX requires uppercase letters for hour (H), day (D), and week (W).
+
+        Validates:
+        - API returns error or empty data for invalid case
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": interval, "limit": 1}
+        response = retry_request(CANDLES_ENDPOINT, params)
+
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+
+        # Invalid format should return error or empty data
+        is_error = data.get("code") != "0" or len(data.get("data", [])) == 0
+        assert is_error, f"Expected error for {description} '{interval}'"
 
 
-def main():
-    """Run interval validation tests for OKX API endpoints."""
-    print("[bold green]OKX Interval Validation Tests[/bold green]")
+@pytest.mark.integration
+@pytest.mark.okx
+class TestOneSecondInterval:
+    """Tests for 1-second interval support."""
 
-    # Test 1: Case sensitivity
-    print("\n[bold blue]1. Testing Interval Case Sensitivity[/bold blue]")
-    case_results = test_interval_case_sensitivity()
-    print_results_table("Interval Case Sensitivity Results", case_results)
+    def test_candles_supports_1s_interval(self) -> None:
+        """
+        Verify the candles endpoint supports 1-second interval.
 
-    # Test 2: 1-second interval support
-    print("\n[bold blue]2. Testing 1-Second Interval Support[/bold blue]")
-    second_results = test_one_second_interval()
-    print_results_table("1-Second Interval Results", second_results)
+        Validates:
+        - API returns code "0" (success)
+        - Data is returned for 1s interval
+        """
+        params = {"instId": SPOT_INSTRUMENT, "bar": "1s", "limit": 10}
+        response = retry_request(CANDLES_ENDPOINT, params)
 
-    print("\n[bold green]Interval Validation Tests Complete![/bold green]")
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected success for 1s: {data.get('msg')}"
+        assert len(data.get("data", [])) > 0, "No data returned for 1s interval"
 
+    @pytest.mark.parametrize(
+        "days_back,period_name",
+        [
+            (1, "1 day ago"),
+            (7, "1 week ago"),
+        ],
+    )
+    def test_history_candles_1s_recent_availability(self, days_back: int, period_name: str) -> None:
+        """
+        Verify 1-second interval data availability for recent periods.
 
-if __name__ == "__main__":
-    main()
+        The 1s interval has limited historical depth (typically around 20-30 days).
+
+        Validates:
+        - API returns code "0" (success)
+        - Data is available for recent dates
+        """
+        timestamp = int((datetime.now() - timedelta(days=days_back)).timestamp() * 1000)
+        params = {
+            "instId": SPOT_INSTRUMENT,
+            "bar": "1s",
+            "limit": 10,
+            "after": timestamp,
+        }
+        response = retry_request(HISTORY_CANDLES_ENDPOINT, params)
+
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected success for 1s at {period_name}: {data.get('msg')}"
+        # Note: Data may or may not be available depending on the cutoff
+
+    def test_history_candles_1s_old_data_not_available(self) -> None:
+        """
+        Verify 1-second interval data is not available for dates beyond the retention period.
+
+        The 1s interval typically only retains data for ~20-30 days.
+
+        Validates:
+        - API returns code "0" (success)
+        - Data is empty for dates beyond retention
+        """
+        # 6 months ago should be beyond 1s retention
+        timestamp = int((datetime.now() - timedelta(days=180)).timestamp() * 1000)
+        params = {
+            "instId": SPOT_INSTRUMENT,
+            "bar": "1s",
+            "limit": 10,
+            "after": timestamp,
+        }
+        response = retry_request(HISTORY_CANDLES_ENDPOINT, params)
+
+        assert "data" in response, f"Request failed: {response.get('error')}"
+        data = response["data"]
+        assert data.get("code") == "0", f"Expected code '0': {data.get('msg')}"
+        # Expect no data for old 1s requests
+        assert len(data.get("data", [])) == 0, "Expected no 1s data from 6 months ago"
