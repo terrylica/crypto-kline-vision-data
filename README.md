@@ -258,7 +258,7 @@ if df is not None:
 
 You can import `fetch_market_data` directly from the `data_source_manager` package. The necessary enums (`MarketType`, `DataProvider`, `ChartType`, `Interval`, `DataSource`) and `DataSourceConfig` are also exposed at the top level for easy access.
 
-Refer to the source code of `data_source_manager.data_source_manager.core.sync.dsm_lib.fetch_market_data` and `data_source_manager.data_source_manager.core.sync.data_source_manager.DataSourceConfig` for detailed parameter information and usage.
+Refer to the source code of `data_source_manager.core.sync.dsm_lib.fetch_market_data` and `data_source_manager.core.sync.data_source_manager.DataSourceConfig` for detailed parameter information and usage.
 
 ## Data Source Manager (DSM) Demo
 
@@ -374,7 +374,7 @@ python your_script.py
 ### Programmatic Control
 
 ```python
-from data_source_manager.data_source_manager.utils.loguru_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 # Set log level
 logger.configure_level("DEBUG")
@@ -395,8 +395,8 @@ If you're using the old `data_source_manager.utils.logger_setup`, migrate easily
 python scripts/dev/migrate_to_loguru.py
 
 # Or manually change imports:
-# Old: from data_source_manager.data_source_manager.utils.logger_setup import logger
-# New: from data_source_manager.data_source_manager.utils.loguru_setup import logger
+# Old: from data_source_manager.utils.logger_setup import logger
+# New: from data_source_manager.utils.loguru_setup import logger
 ```
 
 ### Demo

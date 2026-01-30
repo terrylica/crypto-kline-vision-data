@@ -73,8 +73,8 @@ class TestDataSourceConfig:
 class TestDataSourceManagerLogging:
     """Test DataSourceManager logging functionality."""
     
-    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("core.sync.data_source_manager.UnifiedCacheManager")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_default_logging_configuration(self, mock_cache, mock_handler):
         """Test that DataSourceManager configures logging correctly by default."""
         # Mock the handlers to avoid actual initialization
@@ -106,8 +106,8 @@ class TestDataSourceManagerLogging:
             
             dsm.close()
     
-    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("core.sync.data_source_manager.UnifiedCacheManager")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_debug_logging_configuration(self, mock_cache, mock_handler):
         """Test that debug mode enables HTTP logging."""
         # Mock the handlers to avoid actual initialization
@@ -141,8 +141,8 @@ class TestDataSourceManagerLogging:
             
             dsm.close()
     
-    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("core.sync.data_source_manager.UnifiedCacheManager")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_dynamic_reconfiguration(self, mock_cache, mock_handler):
         """Test dynamic logging reconfiguration."""
         # Mock the handlers to avoid actual initialization
@@ -282,8 +282,8 @@ class TestBackwardCompatibility:
         assert config.suppress_http_debug is True
         assert config.quiet_mode is False
     
-    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("core.sync.data_source_manager.UnifiedCacheManager")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_old_init_signature(self, mock_cache, mock_handler):
         """Test that old __init__ signature still works."""
         # Mock the handlers to avoid actual initialization

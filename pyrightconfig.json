@@ -1,6 +1,6 @@
 // Pyright configuration file
 {
-  "include": ["core", "utils", "examples", "scripts"], // Specifies the directories that Pyright should include when analyzing code.
+  "include": ["src/data_source_manager", "examples", "scripts"], // Specifies the directories that Pyright should include when analyzing code.
   "exclude": [
     // Specifies the directories and patterns that Pyright should exclude from analysis.
     "**/__pycache__", // Exclude Python cache directories

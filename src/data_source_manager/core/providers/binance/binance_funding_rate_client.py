@@ -363,8 +363,8 @@ class BinanceFundingRateClient(DataClientInterface):
                     "limit": limit,
                 }
 
-                # Make the request
-                response = self._client.get(endpoint, params=params)
+                # Make the request with explicit timeout
+                response = self._client.get(endpoint, params=params, timeout=10.0)
                 response.raise_for_status()
                 data = response.json()
 

@@ -45,6 +45,7 @@ dev = [ # development dependencies using latest versions
     "pytest-profiling",
     "pyupgrade>=3.20.0", # for upgrading Python code syntax
     "ruff>=0.11.0", # for linting and formatting
+    "GitPython>=3.1.0", # for recmove CLI (git operations)
 ]
 # Command-line scripts defined here
 [project.scripts]

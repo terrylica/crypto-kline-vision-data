@@ -45,6 +45,12 @@ def __getattr__(name):
     if name == "DataSourceManager":
         from .core.sync.data_source_manager import DataSourceManager
         return DataSourceManager
+    if name == "DataSource":
+        from .core.sync.data_source_manager import DataSource
+        return DataSource
+    if name == "DataSourceConfig":
+        from .core.sync.data_source_manager import DataSourceConfig
+        return DataSourceConfig
     if name == "DataProvider":
         from .utils.market_constraints import DataProvider
         return DataProvider
@@ -54,11 +60,21 @@ def __getattr__(name):
     if name == "Interval":
         from .utils.market_constraints import Interval
         return Interval
+    if name == "ChartType":
+        from .utils.market_constraints import ChartType
+        return ChartType
+    if name == "fetch_market_data":
+        from .core.sync.dsm_lib import fetch_market_data
+        return fetch_market_data
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 __all__ = [
+    "ChartType",
     "DataProvider",
+    "DataSource",
+    "DataSourceConfig",
     "DataSourceManager",
     "Interval",
     "MarketType",
+    "fetch_market_data",
 ]
