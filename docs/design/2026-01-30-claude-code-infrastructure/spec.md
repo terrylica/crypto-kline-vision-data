@@ -24631,3 +24631,350 @@ echo -e "[$MODEL] 📁 ${DIR##*/}$BRANCH | \$${COST_FMT} | ${CTX_COLOR}${PERCENT
 | Use colors          | Highlight important data   |
 | Cache expensive ops | Git status, etc.           |
 | Test manually       | Mock JSON before deploying |
+<!-- SSoT-OK: This section is authoritative for plugin marketplace and discovery -->
+
+## Plugin Marketplace Reference
+
+Discover, install, and manage plugins to extend Claude Code capabilities.
+
+### What Plugins Provide
+
+| Component   | Description                          |
+| ----------- | ------------------------------------ |
+| Skills      | Slash commands for workflows         |
+| Agents      | Specialized subagents for tasks      |
+| Hooks       | Behavior customization at key points |
+| MCP Servers | External service connections         |
+
+### How Marketplaces Work
+
+**Two-Step Process**:
+
+1. **Add the marketplace** - Register catalog for browsing
+2. **Install individual plugins** - Choose what to install
+
+Think of it like adding an app store, then downloading apps individually.
+
+### Plugin Commands
+
+| Command                      | Purpose                      |
+| ---------------------------- | ---------------------------- |
+| `/plugin`                    | Open plugin manager UI       |
+| `/plugin marketplace add`    | Add a marketplace            |
+| `/plugin marketplace list`   | List configured marketplaces |
+| `/plugin marketplace update` | Refresh marketplace listings |
+| `/plugin marketplace remove` | Remove a marketplace         |
+| `/plugin install`            | Install a plugin             |
+| `/plugin uninstall`          | Remove a plugin              |
+| `/plugin enable`             | Enable a disabled plugin     |
+| `/plugin disable`            | Disable without uninstalling |
+
+**Shortcuts**: `/plugin market` = `/plugin marketplace`, `rm` = `remove`
+
+### Plugin Manager Interface
+
+Run `/plugin` to open tabbed interface:
+
+| Tab              | Purpose                        |
+| ---------------- | ------------------------------ |
+| **Discover**     | Browse available plugins       |
+| **Installed**    | View/manage installed plugins  |
+| **Marketplaces** | Add/remove/update marketplaces |
+| **Errors**       | View plugin loading errors     |
+
+Navigate: `Tab` (forward), `Shift+Tab` (backward)
+
+### Official Anthropic Marketplace
+
+Automatically available at startup. Browse with:
+
+```
+/plugin
+# Go to Discover tab
+```
+
+Install directly:
+
+```
+/plugin install plugin-name@claude-plugins-official
+```
+
+### Code Intelligence Plugins
+
+Enable Claude's built-in LSP tool for code navigation.
+
+| Language   | Plugin              | Binary Required              |
+| ---------- | ------------------- | ---------------------------- |
+| C/C++      | `clangd-lsp`        | `clangd`                     |
+| C#         | `csharp-lsp`        | `csharp-ls`                  |
+| Go         | `gopls-lsp`         | `gopls`                      |
+| Java       | `jdtls-lsp`         | `jdtls`                      |
+| Kotlin     | `kotlin-lsp`        | `kotlin-language-server`     |
+| Lua        | `lua-lsp`           | `lua-language-server`        |
+| PHP        | `php-lsp`           | `intelephense`               |
+| Python     | `pyright-lsp`       | `pyright-langserver`         |
+| Rust       | `rust-analyzer-lsp` | `rust-analyzer`              |
+| Swift      | `swift-lsp`         | `sourcekit-lsp`              |
+| TypeScript | `typescript-lsp`    | `typescript-language-server` |
+
+**What Claude Gains**:
+
+| Capability            | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| Automatic diagnostics | Type errors, missing imports after edits        |
+| Code navigation       | Jump to definition, find references, hover info |
+
+**View diagnostics**: Press `Ctrl+O` when "diagnostics found" appears.
+
+### External Integration Plugins
+
+Pre-configured MCP servers for external services:
+
+| Category           | Plugins                                  |
+| ------------------ | ---------------------------------------- |
+| Source control     | `github`, `gitlab`                       |
+| Project management | `atlassian`, `asana`, `linear`, `notion` |
+| Design             | `figma`                                  |
+| Infrastructure     | `vercel`, `firebase`, `supabase`         |
+| Communication      | `slack`                                  |
+| Monitoring         | `sentry`                                 |
+
+### Development Workflow Plugins
+
+| Plugin              | Purpose                        |
+| ------------------- | ------------------------------ |
+| `commit-commands`   | Git commit, push, PR workflows |
+| `pr-review-toolkit` | PR review agents               |
+| `agent-sdk-dev`     | Claude Agent SDK tools         |
+| `plugin-dev`        | Plugin creation toolkit        |
+
+### Output Style Plugins
+
+| Plugin                     | Purpose                             |
+| -------------------------- | ----------------------------------- |
+| `explanatory-output-style` | Educational implementation insights |
+| `learning-output-style`    | Interactive learning mode           |
+
+### Adding Marketplaces
+
+**From GitHub** (owner/repo format):
+
+```
+/plugin marketplace add anthropics/claude-code
+```
+
+**From Other Git Hosts**:
+
+<!-- SSoT-OK: Git ref examples showing syntax, not actual versions -->
+
+```
+# HTTPS
+/plugin marketplace add https://gitlab.com/company/plugins.git
+
+# SSH
+/plugin marketplace add git@gitlab.com:company/plugins.git
+
+# Specific branch/tag (append #ref)
+/plugin marketplace add https://gitlab.com/company/plugins.git#main
+```
+
+**From Local Paths**:
+
+```
+/plugin marketplace add ./my-marketplace
+/plugin marketplace add ./path/to/marketplace.json
+```
+
+**From Remote URLs**:
+
+```
+/plugin marketplace add https://example.com/marketplace.json
+```
+
+### Installation Scopes
+
+| Scope       | Description            | Location                  |
+| ----------- | ---------------------- | ------------------------- |
+| **User**    | All projects, just you | `~/.claude/settings.json` |
+| **Project** | All collaborators      | `.claude/settings.json`   |
+| **Local**   | This repo, just you    | Not shared                |
+| **Managed** | Admin-installed        | Cannot modify             |
+
+**Install to scope**:
+
+```
+/plugin install plugin@marketplace --scope project
+```
+
+**Interactive install**: `/plugin` → Discover → Select plugin → Choose scope
+
+### Install Plugins
+
+**Direct install** (user scope default):
+
+```
+/plugin install plugin-name@marketplace-name
+```
+
+**Example**:
+
+```
+/plugin install commit-commands@anthropics-claude-code
+```
+
+**Using installed plugin**:
+
+```
+/commit-commands:commit
+```
+
+Plugin commands are namespaced: `plugin-name:command`
+
+### Managing Plugins
+
+**Disable without uninstalling**:
+
+```
+/plugin disable plugin-name@marketplace-name
+```
+
+**Re-enable**:
+
+```
+/plugin enable plugin-name@marketplace-name
+```
+
+**Uninstall**:
+
+```
+/plugin uninstall plugin-name@marketplace-name
+```
+
+### Auto-Updates
+
+**Toggle per marketplace**:
+
+1. `/plugin` → Marketplaces tab
+2. Select marketplace
+3. Enable/Disable auto-update
+
+**Defaults**:
+
+| Marketplace Type   | Auto-Update |
+| ------------------ | ----------- |
+| Official Anthropic | Enabled     |
+| Third-party        | Disabled    |
+| Local development  | Disabled    |
+
+**Disable all auto-updates**:
+
+```bash
+export DISABLE_AUTOUPDATER=true
+```
+
+**Keep plugin auto-updates only**:
+
+```bash
+export DISABLE_AUTOUPDATER=true
+export FORCE_AUTOUPDATE_PLUGINS=true
+```
+
+### Team Marketplace Configuration
+
+Add to `.claude/settings.json` for team-wide availability:
+
+```json
+{
+  "extraKnownMarketplaces": [
+    {
+      "type": "git",
+      "source": "https://github.com/your-org/plugins.git"
+    }
+  ],
+  "enabledPlugins": ["code-standards@your-org"]
+}
+```
+
+Team members see prompts to install when trusting the folder.
+
+### Troubleshooting
+
+**/plugin command not recognized**:
+
+1. Check version: `claude --version` (requires recent version with plugin support)
+2. Update: `brew upgrade claude-code` or `npm update -g @anthropic-ai/claude-code`
+3. Restart Claude Code
+
+**Common Issues**:
+
+| Issue                   | Solution                                                |
+| ----------------------- | ------------------------------------------------------- |
+| Marketplace not loading | Verify URL and `.claude-plugin/marketplace.json` exists |
+| Installation failures   | Check source URLs accessible, repos public              |
+| Files not found         | Plugins copied to cache; external paths don't work      |
+| Skills not appearing    | `rm -rf ~/.claude/plugins/cache`, restart, reinstall    |
+
+**Code Intelligence Issues**:
+
+| Issue                        | Solution                                    |
+| ---------------------------- | ------------------------------------------- |
+| Language server not starting | Verify binary in `$PATH`, check Errors tab  |
+| High memory usage            | Disable plugin, use built-in search instead |
+| False positives in monorepos | Configure workspace correctly               |
+
+### DSM Plugin Patterns
+
+**Add cc-skills marketplace**:
+
+```
+/plugin marketplace add terrylica/cc-skills
+```
+
+**Install DSM-relevant plugins**:
+
+```
+# Code intelligence for Python
+/plugin install pyright-lsp@claude-plugins-official
+
+# Git workflows
+/plugin install commit-commands@claude-plugins-official
+
+# GitHub integration
+/plugin install github@claude-plugins-official
+```
+
+**Project-scope for team**:
+
+Add to `.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": [
+    {
+      "type": "git",
+      "source": "https://github.com/terrylica/cc-skills.git"
+    }
+  ],
+  "enabledPlugins": ["pyright-lsp@claude-plugins-official"]
+}
+```
+
+### Plugin Best Practices
+
+| Practice              | Description                                 |
+| --------------------- | ------------------------------------------- |
+| Trust before install  | Review plugin source and purpose            |
+| Use project scope     | Share with team via `.claude/settings.json` |
+| Disable unused        | Reduce memory and context overhead          |
+| Check Errors tab      | Debug loading issues                        |
+| Clear cache on issues | `rm -rf ~/.claude/plugins/cache`            |
+
+### Plugin Types Summary
+
+| Type                 | Purpose             | Example                    |
+| -------------------- | ------------------- | -------------------------- |
+| Code Intelligence    | LSP integration     | `pyright-lsp`              |
+| External Integration | Service connections | `github`, `slack`          |
+| Development Workflow | Common tasks        | `commit-commands`          |
+| Output Style         | Response format     | `explanatory-output-style` |
+| Custom               | Your organization   | Team-specific plugins      |
