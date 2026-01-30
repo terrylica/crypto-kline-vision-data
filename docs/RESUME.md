@@ -4,6 +4,33 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Context Optimization Best Practices (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added `CLAUDE.local.md` to .gitignore for personal preferences
+- Refactored "Common Mistakes" to "Pattern Preferences" using positive alternatives table
+- Enhanced Session Management with Document-Clear workflow and token budgeting notes
+- Added `/context` command reminder for mid-session monitoring
+- Updated design spec with "Best Practices Applied" section
+
+**Patterns Applied**:
+
+| Pattern                 | Source                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| Positive alternatives   | [Builder.io guide](https://www.builder.io/blog/claude-md-guide)                           |
+| Token budgeting (~20k)  | [sshh.io blog](https://blog.sshh.io/p/how-i-use-every-claude-code-feature)                |
+| CLAUDE.local.md         | [shanraisshan monorepo report](https://github.com/shanraisshan/claude-code-best-practice) |
+| Document-Clear workflow | [sshh.io blog](https://blog.sshh.io/p/how-i-use-every-claude-code-feature)                |
+
+**Files Modified**:
+
+- `CLAUDE.md` - Pattern Preferences table, Session Management table
+- `.gitignore` - Added `CLAUDE.local.md` and `*.local.md`
+- `docs/design/.../spec.md` - Best Practices Applied section
+
 ### Monorepo CLAUDE.md Hierarchy Enhancement (2026-01-30)
 
 **Status**: Complete

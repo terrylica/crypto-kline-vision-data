@@ -142,6 +142,10 @@ bun.lockb
 !.claude/hooks/
 !.claude/rules/
 
+# Claude Code personal preferences (per-directory overrides)
+CLAUDE.local.md
+*.local.md
+
 # Lychee link checker cache
 .lycheecache
 .lychee-results.json

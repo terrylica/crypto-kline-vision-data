@@ -308,6 +308,27 @@ Subdirectory CLAUDE.md files load lazily when working with files in those direct
 | `examples/CLAUDE.md` | Example patterns, quick start   |
 | `tests/CLAUDE.md`    | Test fixtures, mocking patterns |
 
+## Best Practices Applied
+
+### Context Optimization
+
+Based on [Anthropic best practices](https://www.anthropic.com/engineering/claude-code-best-practices):
+
+| Pattern                 | Implementation                               |
+| ----------------------- | -------------------------------------------- |
+| Token budgeting         | ~20k baseline, ~180k for work (documented)   |
+| Positive alternatives   | Table of "Instead of X → Prefer Y" patterns  |
+| CLAUDE.local.md         | Gitignored for personal preferences          |
+| Document-Clear workflow | Documented in Session Management section     |
+| Monorepo lazy loading   | 5 CLAUDE.md files across directory hierarchy |
+
+### Writing Guidelines (from sources)
+
+- **Include**: Non-obvious conventions, project-specific gotchas
+- **Exclude**: Generic best practices, verbose explanations
+- **Test**: "Would removing this cause Claude to make mistakes?"
+- **Structure**: Project context → Code style → Commands → Gotchas
+
 ## Verification Checklist
 
 - [ ] CLAUDE.md is under 300 lines
@@ -317,4 +338,5 @@ Subdirectory CLAUDE.md files load lazily when working with files in those direct
 - [ ] hooks.json uses ${CLAUDE_PROJECT_ROOT}
 - [ ] All @ imports point to existing files
 - [ ] Context rules cover all DSM domains
-- [ ] Domain-specific CLAUDE.md in examples/ and tests/
+- [ ] Domain-specific CLAUDE.md in examples/, tests/, src/
+- [ ] CLAUDE.local.md in .gitignore

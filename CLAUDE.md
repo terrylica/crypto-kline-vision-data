@@ -170,14 +170,19 @@ For data-related changes, also verify:
 
 ---
 
-## Common Mistakes to Avoid
+## Pattern Preferences
 
-- **HTTP timeouts**: All HTTP clients MUST have explicit `timeout=` parameter
-- **Bare except**: Never use bare `except:` - always catch specific exceptions
-- **Generic Exception**: Avoid `except Exception` in production code (BLE001)
-- **Process spawning**: Be cautious with subprocess calls - see `~/.claude/CLAUDE.md` for process storm prevention
-- **Naive datetime**: Always use `datetime.now(timezone.utc)`, never `datetime.now()`
-- **Wrong symbol format**: BTCUSDT for spot/futures, BTCUSD_PERP for coin-margined
+Use positive alternatives instead of prohibitions:
+
+| Instead of                      | Prefer                            |
+| ------------------------------- | --------------------------------- |
+| `requests.get(url)`             | `httpx.get(url, timeout=30)`      |
+| `except:` or `except Exception` | `except SpecificError as e:`      |
+| `datetime.now()`                | `datetime.now(timezone.utc)`      |
+| Manual symbol strings           | `MarketType` enum validation      |
+| Subprocess without check        | `subprocess.run(..., check=True)` |
+
+See `~/.claude/CLAUDE.md` for process storm prevention with subprocess calls.
 
 ---
 
@@ -247,15 +252,24 @@ Slash commands in `.claude/commands/`:
 
 ## Session Management
 
-**Context is the primary constraint.** Performance degrades as context fills.
+**Context is the primary constraint.** Performance degrades as context fills (~20k baseline, ~180k for work).
 
-- `/clear` - Reset between unrelated tasks
-- `/compact Focus on X` - Summarize with focus
-- Use **subagents** for exploration (keeps main context clean)
-- After 2 failed corrections, `/clear` and rewrite prompt
+| Workflow       | When to Use             | How                                      |
+| -------------- | ----------------------- | ---------------------------------------- |
+| `/clear`       | Between unrelated tasks | Reset context completely                 |
+| `/compact X`   | Long task, need focus   | Summarize with specific focus            |
+| Document-Clear | Complex multi-step task | Dump progress to markdown, then `/clear` |
+| Subagent       | Exploration/research    | Task tool keeps main context clean       |
+
+**Rules of thumb**:
+
+- After 2 failed corrections → `/clear` and rewrite prompt
 - Investigation without scope fills context → always bound searches
+- Run `/context` mid-session to monitor token usage
 
 **Proactive delegation**: Agents with "Use proactively" in description auto-trigger.
+
+**Personal preferences**: Use `CLAUDE.local.md` (gitignored) for individual settings.
 
 ---
 
@@ -263,25 +277,14 @@ Slash commands in `.claude/commands/`:
 
 **2026-01-30**: Path-specific rules load via `paths:` frontmatter when working with matching files. [Design Spec](/docs/design/2026-01-30-claude-code-infrastructure/spec.md)
 
-**2026-01-30**: Agents can preload skills with `skills:` field for context injection at startup.
+**2026-01-30**: 4 hooks (UserPromptSubmit, PreToolUse, PostToolUse, Stop). [README](/.claude/hooks/README.md)
 
-**2026-01-30**: PreToolUse hooks validate commands BEFORE execution (exit 2 blocks). [Hooks README](/.claude/hooks/README.md)
+**2026-01-30**: Lazy-loaded CLAUDE.md in subdirs (src/, docs/, examples/, tests/).
 
-**2026-01-30**: Stop hooks run at session end for final validation. 4 hooks total: UserPromptSubmit, PreToolUse, PostToolUse, Stop.
-
-**2026-01-30**: Agent `color` field provides visual distinction in Claude Code UI (red=warning, yellow=debug, blue=test, green=data).
-
-**2026-01-30**: Domain-specific CLAUDE.md files (examples/, tests/) load lazily for context isolation.
-
-**2025-01-30**: FCP priority is Cache → Vision → REST. Vision has ~48h delay for new data. [FCP ADR](/docs/adr/2025-01-30-failover-control-protocol.md)
+**2025-01-30**: FCP priority is Cache → Vision → REST. [FCP ADR](/docs/adr/2025-01-30-failover-control-protocol.md)
 
 ---
 
-## Related Documentation
+## Related
 
-- @README.md - Installation and basic usage
-- @docs/INDEX.md - Documentation navigation hub
-- @docs/TROUBLESHOOTING.md - Common issues and solutions
-- @docs/GLOSSARY.md - Domain terminology
-- @examples/sync/README.md - CLI demo documentation
-- @examples/lib_module/README.md - Library usage examples
+@README.md | @docs/INDEX.md | @docs/TROUBLESHOOTING.md | @docs/GLOSSARY.md
