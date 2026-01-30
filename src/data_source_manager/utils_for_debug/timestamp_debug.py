@@ -11,9 +11,8 @@ For TiRex Context Stability experiments and DSM time filtering operations.
 """
 
 import pandas as pd
-from datetime import datetime, timezone
-from typing import Any, Union, Optional
-import pytz
+from datetime import datetime
+from typing import Union
 
 # Use DSM's loguru setup for consistent logging
 from data_source_manager.utils.loguru_setup import logger
@@ -100,10 +99,10 @@ def trace_dataframe_timestamps(
     # Rich timezone-aware logging
     logger.debug("🕐 [TIMEZONE TRACE] TIMESTAMP FILTERING OPERATION")
     logger.debug(f"📊 [TIMEZONE TRACE] DataFrame: {len(df)} rows, column='{time_column}'")
-    logger.debug(f"🎯 [TIMEZONE TRACE] Filter Range:")
+    logger.debug("🎯 [TIMEZONE TRACE] Filter Range:")
     logger.debug(f"  ▶️  START: {_format_timezone_info(start_time)}")
     logger.debug(f"  ▶️  END:   {_format_timezone_info(end_time)}")
-    logger.debug(f"🗃️  [TIMEZONE TRACE] Data Range:")
+    logger.debug("🗃️  [TIMEZONE TRACE] Data Range:")
     logger.debug(f"  📈 MIN:   {_format_timezone_info(min_ts)}")
     logger.debug(f"  📈 MAX:   {_format_timezone_info(max_ts)}")
     
@@ -125,7 +124,7 @@ def trace_dataframe_timestamps(
     
     if start_tz is None and data_tz is not None:
         logger.warning("⚠️  [TIMEZONE TRACE] TIMEZONE MISMATCH DETECTED:")
-        logger.warning(f"  🚨 Filter times are NAIVE (no timezone)")
+        logger.warning("  🚨 Filter times are NAIVE (no timezone)")
         logger.warning(f"  🕐 Data timestamps have timezone: {data_tz}")
         logger.warning("  ⚡ This may cause filtering inconsistencies!")
     
@@ -134,7 +133,7 @@ def trace_dataframe_timestamps(
     exact_start_matches = df[timestamp_series == start_time]
     exact_end_matches = df[timestamp_series == end_time]
     
-    logger.debug(f"🎯 [TIMEZONE TRACE] Boundary Matches:")
+    logger.debug("🎯 [TIMEZONE TRACE] Boundary Matches:")
     logger.debug(f"  ✅ Exact START matches: {len(exact_start_matches)}")
     logger.debug(f"  ✅ Exact END matches:   {len(exact_end_matches)}")
     
@@ -260,7 +259,7 @@ def compare_filtered_results(
         
         logger.debug("✅ [TIMEZONE TRACE] BOUNDARY VALIDATION PASSED:")
         logger.debug(f"  📈 Filtered range: {_format_timezone_info(filtered_min)} to {_format_timezone_info(filtered_max)}")
-        logger.debug(f"  ✅ All timestamps within bounds")
+        logger.debug("  ✅ All timestamps within bounds")
     
     # Check for data loss at exact boundaries  
     if len(original_df) > 0:

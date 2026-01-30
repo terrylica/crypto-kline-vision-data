@@ -2,4 +2,4 @@
 
 from .data_source_manager import DataSourceManager, DataSource, DataSourceConfig
 
-__all__ = ["DataSourceManager", "DataSource", "DataSourceConfig"]
+__all__ = ["DataSource", "DataSourceConfig", "DataSourceManager"]
