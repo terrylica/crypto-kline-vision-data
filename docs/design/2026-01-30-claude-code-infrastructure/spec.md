@@ -48671,3 +48671,321 @@ Run: uv run pytest tests/test_fcp.py -v
   "next_session_start": "Review tests/test_okx.py and continue with timestamp validation"
 }
 ```
+# Batch Processing and Rate Limits Reference
+
+This section covers API rate limits, usage tiers, batch processing, token bucket algorithm, and prompt caching for cost optimization.
+
+## Limit Types
+
+Anthropic enforces two types of limits:
+
+1. **Spend limits**: Maximum monthly cost for API usage
+2. **Rate limits**: Maximum API requests over a defined period
+
+Limits are set at the organization level and can be viewed in the Claude Console.
+
+## Usage Tiers
+
+### Tier Requirements
+
+| Usage Tier        | Credit Purchase | Max Credit Purchase |
+| ----------------- | --------------- | ------------------- |
+| Tier 1            | $5              | $100                |
+| Tier 2            | $40             | $500                |
+| Tier 3            | $200            | $1,000              |
+| Tier 4            | $400            | $5,000              |
+| Monthly Invoicing | N/A             | N/A                 |
+
+**Credit Purchase**: Cumulative purchases required to advance to that tier.
+**Max Credit Purchase**: Maximum single transaction amount.
+
+You advance immediately upon reaching the threshold.
+
+## Rate Limit Types
+
+Rate limits are measured in:
+
+- **RPM**: Requests per minute
+- **ITPM**: Input tokens per minute
+- **OTPM**: Output tokens per minute
+
+### Tier 1 Rate Limits
+
+| Model             | RPM | ITPM   | OTPM   |
+| ----------------- | --- | ------ | ------ |
+| Claude Sonnet 4.x | 50  | 30,000 | 8,000  |
+| Claude Haiku 4.5  | 50  | 50,000 | 10,000 |
+| Claude Opus 4.x   | 50  | 30,000 | 8,000  |
+
+### Tier 2 Rate Limits
+
+| Model             | RPM   | ITPM    | OTPM   |
+| ----------------- | ----- | ------- | ------ |
+| Claude Sonnet 4.x | 1,000 | 450,000 | 90,000 |
+| Claude Haiku 4.5  | 1,000 | 450,000 | 90,000 |
+| Claude Opus 4.x   | 1,000 | 450,000 | 90,000 |
+
+### Tier 3 Rate Limits
+
+| Model             | RPM   | ITPM      | OTPM    |
+| ----------------- | ----- | --------- | ------- |
+| Claude Sonnet 4.x | 2,000 | 800,000   | 160,000 |
+| Claude Haiku 4.5  | 2,000 | 1,000,000 | 200,000 |
+| Claude Opus 4.x   | 2,000 | 800,000   | 160,000 |
+
+### Tier 4 Rate Limits
+
+| Model             | RPM   | ITPM      | OTPM    |
+| ----------------- | ----- | --------- | ------- |
+| Claude Sonnet 4.x | 4,000 | 2,000,000 | 400,000 |
+| Claude Haiku 4.5  | 4,000 | 4,000,000 | 800,000 |
+| Claude Opus 4.x   | 4,000 | 2,000,000 | 400,000 |
+
+**Note**: Opus 4.x limit applies to combined traffic across Opus 4, 4.1, and 4.5. Sonnet 4.x applies to both Sonnet 4 and 4.5.
+
+## Token Bucket Algorithm
+
+Anthropic uses the token bucket algorithm for rate limiting:
+
+- Capacity is continuously replenished up to maximum limit
+- Not reset at fixed intervals
+- If you exhaust tokens, replenishment begins immediately
+- A completely empty bucket refills to maximum within one minute
+
+### Benefit Over Fixed Windows
+
+Unlike fixed-window systems, you don't wait until the next minute when hitting limits. Tokens start replenishing immediately at a steady rate.
+
+## Cache-Aware ITPM
+
+For most Claude models, **only uncached input tokens count towards ITPM rate limits**.
+
+### What Counts Towards ITPM
+
+| Token Type                    | Counts Towards ITPM  |
+| ----------------------------- | -------------------- |
+| `input_tokens`                | Yes                  |
+| `cache_creation_input_tokens` | Yes                  |
+| `cache_read_input_tokens`     | **No** (most models) |
+
+### Total Input Calculation
+
+```
+total_input_tokens = cache_read_input_tokens + cache_creation_input_tokens + input_tokens
+```
+
+### Effective Throughput Example
+
+With a 2,000,000 ITPM limit and 80% cache hit rate:
+
+- Effectively process 10,000,000 total input tokens per minute
+- 2M uncached + 8M cached (cached don't count towards limit)
+
+## Prompt Caching for Rate Limits
+
+Maximize rate limits with prompt caching for:
+
+- System instructions and prompts
+- Large context documents
+- Tool definitions
+- Conversation history
+
+CLAUDE.md and system prompts are automatically cached. After the first request, cached content costs only 10% of the original price.
+
+## Message Batches API
+
+The Batch API has its own rate limits shared across all models.
+
+### Batch API Rate Limits
+
+| Tier   | RPM   | Max Batch Requests in Queue | Max Requests per Batch |
+| ------ | ----- | --------------------------- | ---------------------- |
+| Tier 1 | 50    | 100,000                     | 100,000                |
+| Tier 2 | 1,000 | 200,000                     | 100,000                |
+| Tier 3 | 2,000 | 300,000                     | 100,000                |
+| Tier 4 | 4,000 | 500,000                     | 100,000                |
+
+### Batch API Benefits
+
+- **50% discount** on both input and output tokens
+- Asynchronous processing for large volumes
+- Useful for batch code analysis, bulk file processing
+- Non-real-time development workflows
+
+### Combined Savings
+
+Batch API and prompt caching discounts can be combined for significant cost savings.
+
+## Long Context Rate Limits (1M)
+
+When using Claude Sonnet 4.x with 1M token context window (requires beta header `context-1m-2025-08-07`):
+
+### Tier 4 Long Context Limits
+
+| ITPM      | OTPM    |
+| --------- | ------- |
+| 1,000,000 | 200,000 |
+
+**Note**: 1M context window is currently in beta for Tier 4 organizations.
+
+## Handling 429 Errors
+
+When exceeding rate limits, you receive a 429 error with:
+
+- Description of which limit was exceeded
+- `retry-after` header indicating wait time
+
+### Acceleration Limits
+
+You may hit 429 errors due to acceleration limits if your organization has a sharp increase in usage. To avoid:
+
+- Ramp up traffic gradually
+- Maintain consistent usage patterns
+
+## Response Headers
+
+The API returns headers showing rate limit status:
+
+| Header                                   | Description                                    |
+| ---------------------------------------- | ---------------------------------------------- |
+| `retry-after`                            | Seconds to wait before retry                   |
+| `anthropic-ratelimit-requests-limit`     | Max requests allowed                           |
+| `anthropic-ratelimit-requests-remaining` | Requests remaining before limit                |
+| `anthropic-ratelimit-requests-reset`     | Time when request limit replenishes (RFC 3339) |
+| `anthropic-ratelimit-tokens-limit`       | Max tokens allowed                             |
+| `anthropic-ratelimit-tokens-remaining`   | Tokens remaining (rounded to nearest thousand) |
+| `anthropic-ratelimit-tokens-reset`       | Time when token limit replenishes (RFC 3339)   |
+| `anthropic-ratelimit-input-tokens-*`     | Input token specific limits and remaining      |
+| `anthropic-ratelimit-output-tokens-*`    | Output token specific limits and remaining     |
+
+## Workspace Limits
+
+You can set custom spend and rate limits per Workspace:
+
+- Protects workspaces from overuse
+- Ensures equitable resource distribution
+- Default workspace limits cannot be modified
+- If not set, workspace limits match organization limit
+
+## Pricing Overview
+
+### Standard Pricing (per 1M tokens)
+
+| Model             | Input  | Output |
+| ----------------- | ------ | ------ |
+| Claude Sonnet 4.5 | $3.00  | $15.00 |
+| Claude Haiku 4.5  | $0.80  | $4.00  |
+| Claude Opus 4.5   | $15.00 | $75.00 |
+
+### Long Context Pricing (>200K tokens)
+
+| Model             | Input | Output |
+| ----------------- | ----- | ------ |
+| Claude Sonnet 4.5 | $6.00 | $22.50 |
+
+### Prompt Caching Pricing
+
+- **Cache write**: 25% more than base input price
+- **Cache read**: 10% of base input price (90% savings)
+
+## Retry Strategies
+
+### Exponential Backoff
+
+```python
+import time
+import random
+
+def retry_with_backoff(func, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except RateLimitError as e:
+            if attempt == max_retries - 1:
+                raise
+            wait_time = (2 ** attempt) + random.uniform(0, 1)
+            time.sleep(wait_time)
+```
+
+### Using retry-after Header
+
+```python
+import time
+
+def call_api_with_retry(func):
+    while True:
+        try:
+            return func()
+        except RateLimitError as e:
+            retry_after = e.headers.get('retry-after', 60)
+            time.sleep(int(retry_after))
+```
+
+## DSM-Specific Rate Limit Patterns
+
+For data-source-manager development:
+
+### Batch Data Validation
+
+Use Batch API for validating large datasets:
+
+```python
+# Submit batch for FCP timestamp validation
+batch_requests = [
+    {
+        "custom_id": f"validate-{i}",
+        "params": {
+            "model": "claude-haiku-4-5",
+            "max_tokens": 500,
+            "messages": [{"role": "user", "content": f"Validate: {data}"}]
+        }
+    }
+    for i, data in enumerate(large_dataset)
+]
+```
+
+### Caching Exchange API Docs
+
+Cache large documentation for repeated queries:
+
+```python
+# Cache Binance API documentation
+system = [
+    {"type": "text", "text": "You are an exchange API expert."},
+    {
+        "type": "text",
+        "text": binance_api_docs,  # Large document
+        "cache_control": {"type": "ephemeral"}
+    }
+]
+```
+
+### Rate Limit Monitoring
+
+Monitor rate limits during intensive operations:
+
+```python
+def check_rate_limits(response):
+    remaining = response.headers.get('anthropic-ratelimit-tokens-remaining')
+    if int(remaining) < 10000:
+        logger.warning(f"Low token budget: {remaining}")
+```
+
+### Parallel Request Management
+
+Manage parallel requests within rate limits:
+
+```python
+import asyncio
+
+async def rate_limited_requests(requests, rpm_limit):
+    semaphore = asyncio.Semaphore(rpm_limit // 60)  # Per second
+
+    async def limited_request(req):
+        async with semaphore:
+            result = await make_request(req)
+            await asyncio.sleep(1)  # Ensure we don't exceed limit
+            return result
+
+    return await asyncio.gather(*[limited_request(r) for r in requests])
+```
