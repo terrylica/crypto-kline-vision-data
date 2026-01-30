@@ -2,7 +2,7 @@
 
 Navigation hub for Data Source Manager documentation.
 
-**Quick links**: [CLAUDE.md](/CLAUDE.md) | [README.md](/README.md) | [GLOSSARY.md](GLOSSARY.md) | [Examples](/examples/)
+**Quick links**: [CLAUDE.md](/CLAUDE.md) | [README.md](/README.md) | [GLOSSARY.md](GLOSSARY.md) | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | [Examples](/examples/)
 
 ---
 
