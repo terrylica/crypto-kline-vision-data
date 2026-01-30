@@ -179,17 +179,18 @@ def validate_claude_md(project_root: Path) -> tuple[bool, list[str]]:
 
 def main() -> int:
     """Run all infrastructure validations."""
-    # Find project root (look for CLAUDE.md)
+    # Find project root (look for CLAUDE.md AND .claude/ directory)
     current = Path(__file__).resolve()
     project_root = None
 
     for parent in current.parents:
-        if (parent / "CLAUDE.md").exists():
+        # Project root must have both CLAUDE.md and .claude/ directory
+        if (parent / "CLAUDE.md").exists() and (parent / ".claude").is_dir():
             project_root = parent
             break
 
     if project_root is None:
-        print("ERROR: Could not find project root (no CLAUDE.md found)")
+        print("ERROR: Could not find project root (no CLAUDE.md with .claude/ found)")
         return 1
 
     claude_dir = project_root / ".claude"

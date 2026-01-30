@@ -6,7 +6,7 @@ Professional market data integration with Failover Control Protocol (FCP).
 
 | Topic              | Document                                                 |
 | ------------------ | -------------------------------------------------------- |
-| Documentation Hub  | [docs/INDEX.md](docs/INDEX.md)                           |
+| Documentation      | [docs/](docs/) ([CLAUDE.md](docs/CLAUDE.md))             |
 | Examples           | [examples/](examples/) ([CLAUDE.md](examples/CLAUDE.md)) |
 | Tests              | [tests/](tests/) ([CLAUDE.md](tests/CLAUDE.md))          |
 | Claude Code Config | [.claude/settings.md](.claude/settings.md)               |
