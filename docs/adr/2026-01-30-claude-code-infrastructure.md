@@ -129,8 +129,8 @@ user-invocable: true
 
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Design spec lines   | 7035                                                                             |
-| Sections            | 83                                                                               |
+| Design spec lines   | 7208                                                                             |
+| Sections            | 85                                                                               |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
 | Commands            | 6 (debug-fcp, fetch-data, quick-test, review-dsm, validate-data, feature-dev)    |
 | Skills              | 4 (dsm-usage, dsm-testing, dsm-research, dsm-fcp-monitor)                        |
@@ -200,6 +200,8 @@ user-invocable: true
 - File exclusion patterns (permissions, .claudeignore, DSM patterns)
 - Checkpointing & rewind (restore options, limitations, vs git)
 - Status line configuration (JSON input, scripts, DSM status line)
+- Extended thinking mode (budget tokens, use cases, prompting tips)
+- IDE integration (VS Code extension, JetBrains plugin, shared config)
 
 ## More Information
 

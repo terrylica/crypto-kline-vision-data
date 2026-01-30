@@ -7009,6 +7009,179 @@ printf "[%s] DSM | $%.4f | %s" "$MODEL" "$COST" "$CTX"
 4. **Include model**: Know which model is active
 5. **Track costs**: Real-time spending awareness
 
+## Extended Thinking Mode
+
+Enable deeper reasoning for complex problems.
+
+### What is Extended Thinking
+
+Extended thinking allows Claude to spend more time reasoning through complex problems before responding:
+
+- Multiple sequential reasoning steps
+- Accuracy improves with more "thinking tokens"
+- Best for math, coding, and analysis
+
+### Enabling Extended Thinking
+
+```bash
+# Via keyboard shortcut
+Alt+T (toggle during session)
+
+# Via command
+> /thinking on
+> /thinking off
+
+# Via VS Code command menu
+Click "/" → Toggle Extended Thinking
+```
+
+### Budget Tokens
+
+| Budget   | Use Case                         |
+| -------- | -------------------------------- |
+| 1,024    | Minimum (simple problems)        |
+| 8,192    | Standard complex reasoning       |
+| 32,000   | Sweet spot for most tasks        |
+| 100,000+ | Very complex (batch recommended) |
+
+### Best Use Cases
+
+| Task Type             | Extended Thinking Benefit |
+| --------------------- | ------------------------- |
+| Complex STEM problems | High                      |
+| Architecture design   | High                      |
+| Multi-step debugging  | High                      |
+| Code review           | Medium                    |
+| Simple edits          | Low                       |
+
+### Prompting Tips
+
+1. **Start general**: Let Claude determine reasoning approach
+2. **Read thinking output**: Iterate based on Claude's process
+3. **Use examples**: Show how to think through similar problems
+4. **Be patient**: Complex tasks need time to process
+
+### DSM Extended Thinking
+
+For data-source-manager complex tasks:
+
+```
+# Enable for FCP architecture decisions
+> /thinking on
+> "Design the cache invalidation strategy for partial OHLCV data"
+
+# Enable for complex debugging
+> "Trace why rate limiting fails intermittently for Binance API"
+```
+
+## IDE Integration
+
+VS Code and JetBrains integration for Claude Code.
+
+### VS Code Extension
+
+**Installation:**
+
+```
+1. Open Extensions (Cmd+Shift+X)
+2. Search "Claude Code"
+3. Click Install
+```
+
+**Key Features:**
+
+- Side-by-side diff review
+- @-mention files with line ranges
+- Multiple conversation tabs
+- Checkpoints and rewind
+- Shared history with CLI
+
+### VS Code Commands
+
+| Command          | Shortcut             | Description                  |
+| ---------------- | -------------------- | ---------------------------- |
+| Focus Input      | `Cmd+Esc`/`Ctrl+Esc` | Toggle editor/Claude         |
+| Open in New Tab  | `Cmd+Shift+Esc`      | New conversation tab         |
+| Insert @-Mention | `Option+K`/`Alt+K`   | Reference current file       |
+| New Conversation | `Cmd+N`/`Ctrl+N`     | Start fresh (Claude focused) |
+
+### VS Code Settings
+
+| Setting                 | Default   | Description                     |
+| ----------------------- | --------- | ------------------------------- |
+| `selectedModel`         | `default` | Model for new conversations     |
+| `initialPermissionMode` | `default` | Approval mode                   |
+| `autosave`              | `true`    | Save before Claude reads/writes |
+| `useTerminal`           | `false`   | CLI mode instead of panel       |
+
+### JetBrains Plugin
+
+**Installation:**
+
+```
+1. Settings → Plugins → Marketplace
+2. Search "Claude Code"
+3. Install and restart
+```
+
+**Features:**
+
+- Runs CLI in integrated terminal
+- IDE diff viewer for changes
+- Terminal-based interaction
+
+### Extension vs CLI
+
+| Feature           | VS Code Extension | CLI  |
+| ----------------- | ----------------- | ---- |
+| Graphical panel   | Yes               | No   |
+| All commands      | Subset            | Full |
+| MCP configuration | No (use CLI)      | Yes  |
+| Checkpoints       | Yes               | Yes  |
+| `!` bash shortcut | No                | Yes  |
+
+### Shared Configuration
+
+Extension and CLI share:
+
+- Conversation history
+- `~/.claude/settings.json`
+- CLAUDE.md files
+- Permission rules
+
+Resume CLI session in extension:
+
+```bash
+claude --resume
+# Opens interactive picker
+```
+
+### Git Worktrees in IDE
+
+For parallel tasks:
+
+```bash
+# Create worktree for feature
+git worktree add ../dsm-feature-a -b feature-a
+
+# Open in new VS Code window
+code ../dsm-feature-a
+
+# Each window runs independent Claude session
+```
+
+### DSM IDE Workflow
+
+```
+1. Open VS Code in dsm root
+2. Click Spark icon (top-right)
+3. Select text for context
+4. Ask Claude about FCP logic
+5. Review diffs in side panel
+6. Accept/reject changes
+7. Use /rewind if needed
+```
+
 ## Verification Checklist
 
 ### Infrastructure
