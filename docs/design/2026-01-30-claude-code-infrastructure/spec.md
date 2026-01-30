@@ -165,6 +165,40 @@ description: Use when debugging FCP issues - empty DataFrames, cache misses.
 description: Reviews code for quality.
 ```
 
+### Multi-Agent Orchestration Patterns
+
+Based on [Anthropic Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) and [Task Tool Guide](https://dev.to/bhaidar/the-task-tool-claude-codes-agent-orchestration-system-4bf2):
+
+**Built-in subagents**:
+
+| Agent           | Purpose                          | Context  |
+| --------------- | -------------------------------- | -------- |
+| Explore         | Fast, read-only codebase search  | Isolated |
+| Plan            | Design implementation strategies | Isolated |
+| general-purpose | Multi-step autonomous tasks      | Full     |
+
+**Orchestration patterns**:
+
+| Pattern    | Description                        | Use Case                  |
+| ---------- | ---------------------------------- | ------------------------- |
+| Fan-Out    | Spawn multiple agents in parallel  | Independent searches      |
+| Pipeline   | Sequential agent handoffs          | Dependent transformations |
+| Map-Reduce | Distribute work, aggregate results | Large-scale analysis      |
+
+**Subagent benefits**:
+
+1. **Parallelization**: Multiple agents work on different tasks simultaneously
+2. **Context isolation**: Subagents use own context window, return only relevant info
+3. **Specialization**: Each agent optimized for specific task types
+
+**DSM agent orchestration**:
+
+| Scenario        | Pattern    | Agents Used                     |
+| --------------- | ---------- | ------------------------------- |
+| Code review     | Pipeline   | api-reviewer → silent-failure   |
+| Data validation | Fan-Out    | data-fetcher (parallel symbols) |
+| Test coverage   | Map-Reduce | test-writer per module          |
+
 ## Command Configuration
 
 Based on [Official Slash Commands Docs](https://code.claude.com/docs/en/slash-commands) and [Claude Code Guide](https://www.eesel.ai/blog/slash-commands-claude-code).
@@ -666,6 +700,37 @@ Subdirectory CLAUDE.md files load lazily when working with files in those direct
 | `docs/CLAUDE.md`     | Documentation guide             |
 | `examples/CLAUDE.md` | Example patterns, quick start   |
 | `tests/CLAUDE.md`    | Test fixtures, mocking patterns |
+
+### Polyglot Monorepo Patterns
+
+Based on [DEV.to Monorepo Article](https://dev.to/anvodev/how-i-organized-my-claudemd-in-a-monorepo-with-too-many-contexts-37k7):
+
+**Three methods for context loading**:
+
+| Method          | Approach                  | Context Impact             |
+| --------------- | ------------------------- | -------------------------- |
+| Reference (`@`) | Link to docs with `@path` | Loads at startup (heavier) |
+| Conditional     | Reference without `@`     | Claude loads when needed   |
+| Hierarchical    | CLAUDE.md per directory   | Auto-loads based on folder |
+
+**Recommended**: Hierarchical for large monorepos. Deploy CLAUDE.md per service directory.
+
+**Size guidelines**:
+
+| Metric                | Target      |
+| --------------------- | ----------- |
+| Root CLAUDE.md        | < 10k words |
+| Per-service CLAUDE.md | < 10k chars |
+| Total distributed     | Split 80%+  |
+
+**Example monorepo distribution**:
+
+```
+CLAUDE.md           (~9k chars)   # Shared conventions
+frontend/CLAUDE.md  (~8k chars)   # React patterns
+backend/CLAUDE.md   (~8k chars)   # API patterns
+core/CLAUDE.md      (~7k chars)   # Domain logic
+```
 
 ## CLAUDE.md Imports
 

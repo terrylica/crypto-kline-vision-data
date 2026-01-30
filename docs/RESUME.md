@@ -4,6 +4,24 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Polyglot Monorepo & Multi-Agent Orchestration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added polyglot monorepo patterns (Reference, Conditional, Hierarchical methods)
+- Added size guidelines for monorepo CLAUDE.md distribution
+- Added multi-agent orchestration patterns (Fan-Out, Pipeline, Map-Reduce)
+- Added built-in subagents table (Explore, Plan, general-purpose)
+- Added DSM-specific agent orchestration scenarios
+
+**Sources**:
+
+- [DEV.to Monorepo Article](https://dev.to/anvodev/how-i-organized-my-claudemd-in-a-monorepo-with-too-many-contexts-37k7)
+- [Anthropic Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk)
+- [Task Tool Guide](https://dev.to/bhaidar/the-task-tool-claude-codes-agent-orchestration-system-4bf2)
+
 ### Debugging & Troubleshooting Section (2026-01-30)
 
 **Status**: Complete
