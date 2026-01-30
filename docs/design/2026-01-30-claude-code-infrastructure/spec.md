@@ -203,6 +203,26 @@ Run operation for: $ARGUMENTS
 ...
 ```
 
+### Skill Quality Checklist (from Official Docs)
+
+From [Anthropic skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+
+**Core quality**:
+
+- [x] Description includes both what the Skill does and when to use it
+- [x] SKILL.md body is under 500 lines (largest: 154 lines)
+- [x] Additional details are in separate files (references/)
+- [x] Consistent terminology throughout
+- [x] File references are one level deep
+- [x] Progressive disclosure used appropriately
+
+**DSM-specific**:
+
+- [x] Workflow checklists for complex operations (dsm-testing)
+- [x] ADR references for FCP-related skills (dsm-fcp-monitor)
+- [x] Evolution-log for tracking skill improvements
+- [x] Helper scripts for common operations
+
 ## Hook Configuration
 
 ### hooks.json Pattern

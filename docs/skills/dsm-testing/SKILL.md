@@ -10,6 +10,25 @@ allowed-tools: Read, Bash, Grep, Glob
 
 Run tests for: $ARGUMENTS
 
+## Test Workflow Checklist
+
+Copy this checklist and track progress:
+
+```
+Test Progress:
+- [ ] Step 1: Run lint check (ruff check)
+- [ ] Step 2: Run unit tests (fast, no network)
+- [ ] Step 3: Verify import works
+- [ ] Step 4: Run integration tests (if changing APIs)
+- [ ] Step 5: Check coverage (if adding new code)
+```
+
+**Step 1**: `uv run -p 3.13 ruff check --fix .`
+**Step 2**: `uv run -p 3.13 pytest tests/unit/ -v`
+**Step 3**: `uv run -p 3.13 python -c "from data_source_manager import DataSourceManager; print('OK')"`
+**Step 4**: `uv run -p 3.13 pytest tests/integration/ -v` (if needed)
+**Step 5**: `uv run -p 3.13 pytest tests/unit/ --cov=src/data_source_manager`
+
 ## Test Organization
 
 ```

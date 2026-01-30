@@ -4,6 +4,24 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Official Skill Quality Patterns (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added workflow checklist pattern to dsm-testing skill
+- Added official skill quality checklist to design spec
+- All skills verified under 500 lines (largest: 154 lines)
+
+**Patterns Applied**:
+
+- Workflow checklist with copy-paste progress tracking
+- Step-by-step command references
+- Progressive disclosure with references/ directory
+
+**Source**: [Anthropic skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+
 ### SessionStart Hook for FCP Context (2026-01-30)
 
 **Status**: Complete
