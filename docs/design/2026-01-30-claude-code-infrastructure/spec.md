@@ -1017,6 +1017,70 @@ Starting fresh implementation of [feature].
 Do not carry over patterns from previous tasks.
 ```
 
+## Extended Thinking
+
+Based on [Anthropic Extended Thinking](https://www.anthropic.com/news/visible-extended-thinking) and [Extended Thinking Tips](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/extended-thinking-tips).
+
+### When to Use Extended Thinking
+
+| Task Type         | Recommended | Budget      |
+| ----------------- | ----------- | ----------- |
+| Math, physics     | Yes         | 16k+ tokens |
+| Complex coding    | Yes         | 16k+ tokens |
+| Analysis          | Yes         | 16k+ tokens |
+| Simple queries    | No          | Standard    |
+| Tool-heavy chains | Use "think" | N/A         |
+
+**Default budget**: 31,999 tokens (Claude Code sweet spot).
+
+### Best Practices
+
+- Use high-level instructions ("think deeply") rather than prescriptive step-by-step
+- Model creativity often exceeds human-prescribed processes
+- For budgets > 32k, use batch processing
+- "Ultrathink" keyword deprecated as of January 2026
+
+### Think Tool vs Extended Thinking
+
+| Feature              | Extended Thinking     | Think Tool                |
+| -------------------- | --------------------- | ------------------------- |
+| Best for             | Math, coding, physics | Complex tool chains       |
+| Tool calls           | Not needed            | Multiple tools required   |
+| Policy navigation    | Basic                 | Policy-heavy environments |
+| Sequential decisions | Simple                | Each step builds on prior |
+
+## Prompt Engineering
+
+Based on [Claude 4 Best Practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-4-best-practices) and [CLAUDE.md Optimization](https://arize.com/blog/claude-md-best-practices-learned-from-optimizing-claude-code-with-prompt-learning/).
+
+### CLAUDE.md Prompt Structure
+
+| Section              | Content                            |
+| -------------------- | ---------------------------------- |
+| Role                 | One-line project context           |
+| Success criteria     | Bullet points of desired outcomes  |
+| Constraints          | Bullet points of limitations       |
+| Uncertainty handling | How to handle ambiguous situations |
+| Output format        | Expected response structure        |
+
+### Claude 4.x Specific Guidance
+
+- Models trained for precise instruction following
+- Be specific about desired output
+- Explicitly request "above and beyond" behavior if wanted
+- Use structured prompts (XML, JSON work well)
+
+### Optimization Techniques
+
+| Technique        | Impact       | Application           |
+| ---------------- | ------------ | --------------------- |
+| Clear sections   | +clarity     | INSTRUCTIONS, CONTEXT |
+| XML tagging      | +parsing     | `<task>`, `<output>`  |
+| Chain of thought | +reasoning   | Complex analysis      |
+| Examples         | +consistency | Show expected format  |
+
+**Research finding**: +10% boost on SWE Bench possible through CLAUDE.md optimization alone.
+
 ## Verification Checklist
 
 - [ ] CLAUDE.md is under 300 lines

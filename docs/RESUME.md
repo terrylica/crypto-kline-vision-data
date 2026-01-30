@@ -4,6 +4,24 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Extended Thinking & Prompt Engineering (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added extended thinking usage table by task type
+- Added Think Tool vs Extended Thinking comparison
+- Added CLAUDE.md prompt structure table
+- Added Claude 4.x specific guidance
+- Added optimization techniques with impact ratings
+
+**Sources**:
+
+- [Anthropic Extended Thinking](https://www.anthropic.com/news/visible-extended-thinking)
+- [Claude 4 Best Practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-4-best-practices)
+- [CLAUDE.md Optimization Research](https://arize.com/blog/claude-md-best-practices-learned-from-optimizing-claude-code-with-prompt-learning/)
+
 ### CI/CD & Headless Mode Section (2026-01-30)
 
 **Status**: Complete
