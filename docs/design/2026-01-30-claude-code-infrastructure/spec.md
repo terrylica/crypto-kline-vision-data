@@ -2218,6 +2218,83 @@ export ANTHROPIC_BASE_URL='https://your-llm-gateway.com'
 | Hooks for quality       | 5 hooks (guards, validators)         |
 | MCP servers             | .mcp.json checked in for consistency |
 
+## Keyboard Shortcuts & Productivity
+
+Based on [Official Interactive Mode](https://code.claude.com/docs/en/interactive-mode) and [Keyboard Shortcuts Guide](https://nikiforovall.blog/claude-code-rules/tips-and-tricks/keyboard-shortcuts/).
+
+### Essential Editing Shortcuts
+
+| Shortcut      | Action                       |
+| ------------- | ---------------------------- |
+| `Ctrl+A`      | Move to start of line        |
+| `Ctrl+E`      | Move to end of line          |
+| `Option+F`    | Move forward one word        |
+| `Option+B`    | Move backward one word       |
+| `Ctrl+W`      | Delete previous word         |
+| `Escape` (2x) | Clear input / browse history |
+| `Ctrl+C` (2x) | Hard exit                    |
+| `Shift+Enter` | Multi-line input             |
+
+**Note**: Option/Alt shortcuts require configuring Option as Meta in terminal settings.
+
+### Command History
+
+| Shortcut     | Action                        |
+| ------------ | ----------------------------- |
+| `Up Arrow`   | Previous command              |
+| `Down Arrow` | Next command                  |
+| `Ctrl+R`     | Reverse search                |
+| `Ctrl+S`     | Forward search (after Ctrl+R) |
+
+### Tab Completion
+
+| Example            | Expands To              |
+| ------------------ | ----------------------- |
+| `/com<Tab>`        | `/commit`               |
+| `/read src/c<Tab>` | `/read src/components/` |
+| `Ctrl+Space`       | Show suggestions        |
+
+### Session Management
+
+| Command/Shortcut    | Action                        |
+| ------------------- | ----------------------------- |
+| `?`                 | Show available shortcuts      |
+| `claude --resume`   | Resume previous session       |
+| `claude --continue` | Continue most recent session  |
+| `Escape` (2x)       | Browse history, restore point |
+
+### Terminal Setup for Shift+Enter
+
+| Terminal         | Setup Required?       |
+| ---------------- | --------------------- |
+| iTerm2           | Works out of box      |
+| WezTerm          | Works out of box      |
+| Ghostty          | Works out of box      |
+| Kitty            | Works out of box      |
+| VS Code terminal | Run `/terminal-setup` |
+| Alacritty        | Run `/terminal-setup` |
+| Zed              | Run `/terminal-setup` |
+| Warp             | Run `/terminal-setup` |
+
+### Shell Aliases for Productivity
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+alias c="claude"
+alias cr="claude --resume"
+alias cc="claude --continue"
+alias ci="claude --init"
+```
+
+### DSM Productivity Tips
+
+| Tip                     | Benefit                         |
+| ----------------------- | ------------------------------- |
+| Use `/quick-test` often | Fast feedback on changes        |
+| `/debug-fcp` for cache  | Quick FCP diagnostics           |
+| `Ctrl+R` for commands   | Find previous mise/git commands |
+| Tab-complete file paths | Faster file references          |
+
 ## Verification Checklist
 
 ### Infrastructure
