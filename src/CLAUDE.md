@@ -2,7 +2,7 @@
 
 Context-specific instructions for working with DSM source code.
 
-**Parent context**: See [/CLAUDE.md](/CLAUDE.md) for project-wide conventions.
+**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [tests/](../tests/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [examples/](../examples/CLAUDE.md)
 
 ---
 

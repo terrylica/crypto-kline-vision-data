@@ -2,7 +2,7 @@
 
 Context for working with data-source-manager documentation.
 
-**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Sibling**: [examples/CLAUDE.md](../examples/CLAUDE.md) | [tests/CLAUDE.md](../tests/CLAUDE.md)
+**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [src/](../src/CLAUDE.md) | [tests/](../tests/CLAUDE.md) | [examples/](../examples/CLAUDE.md)
 
 ## Directory Structure
 
