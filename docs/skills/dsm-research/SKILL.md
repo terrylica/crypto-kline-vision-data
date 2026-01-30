@@ -1,6 +1,6 @@
 ---
 name: dsm-research
-description: Research DSM codebase for implementation details, patterns, or architecture questions. Use when exploring how FCP works, understanding data flow, or finding relevant code.
+description: Research DSM codebase for implementation details, patterns, or architecture questions. TRIGGERS - how does FCP work, understand data flow, find code, explore codebase, architecture questions.
 argument-hint: "[topic]"
 context: fork
 agent: Explore

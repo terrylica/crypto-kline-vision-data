@@ -1,3 +1,11 @@
+---
+adr: 2025-01-30-failover-control-protocol
+source: feature-request
+implementation-status: completed
+phase: phase-3
+last-updated: 2025-01-30
+---
+
 # FCP Implementation Specification
 
 **ADR**: [Failover Control Protocol](/docs/adr/2025-01-30-failover-control-protocol.md)

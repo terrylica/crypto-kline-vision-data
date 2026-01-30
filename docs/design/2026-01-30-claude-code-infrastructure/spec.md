@@ -1,3 +1,11 @@
+---
+adr: 2026-01-30-claude-code-infrastructure
+source: session-continuation
+implementation-status: completed
+phase: phase-3
+last-updated: 2026-01-30
+---
+
 # Claude Code Infrastructure Implementation Specification
 
 **ADR**: [Claude Code Infrastructure](/docs/adr/2026-01-30-claude-code-infrastructure.md)

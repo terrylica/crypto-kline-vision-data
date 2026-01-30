@@ -71,12 +71,38 @@ The hooks are configured in `hooks.json`:
 | 0    | Allow execution                           |
 | 2    | Block execution (sends message to Claude) |
 
-## Philosophy
+## Code Correctness Philosophy
 
-Following the [Code Correctness Hook Policy](https://github.com/terrylica/cc-skills):
+**Principle**: Only check for **silent failure patterns** - code that fails without visible errors.
 
-- **CHECK**: Silent failure patterns that can cause runtime bugs
-- **DON'T CHECK**: Cosmetic issues like unused imports (IDE responsibility)
+### Rules Checked (Runtime Bugs)
+
+| Rule    | Pattern                    | Why Checked                      |
+| ------- | -------------------------- | -------------------------------- |
+| E722    | Bare `except:`             | Swallows SystemExit, KeyboardInt |
+| S110    | `except: pass`             | Silent failure, data integrity   |
+| BLE001  | `except Exception`         | Too broad, hides specific errors |
+| PLW1510 | subprocess without `check` | Silent command failures          |
+
+### Rules NOT Checked (Cosmetic)
+
+| Rule | Pattern          | Why NOT Checked                     |
+| ---- | ---------------- | ----------------------------------- |
+| F401 | Unused imports   | Development-in-progress, re-exports |
+| F841 | Unused variables | IDE responsibility                  |
+| I    | Import sorting   | Pre-commit/IDE handles              |
+| E/W  | PEP8 style       | Not a runtime issue                 |
+
+### Rationale
+
+**Unused imports are NOT checked** because:
+
+1. Development-in-progress (imports before code)
+2. Intentional re-exports (`__init__.py`)
+3. Type-only imports (`TYPE_CHECKING`)
+4. IDE/pre-commit responsibility, not interactive hooks
+
+Following [cc-skills Code Correctness Policy](https://github.com/terrylica/cc-skills/blob/main/plugins/itp-hooks/CLAUDE.md#code-correctness-philosophy)
 
 ## Related
 
