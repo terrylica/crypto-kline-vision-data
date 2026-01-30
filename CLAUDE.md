@@ -138,12 +138,33 @@ uv run -p 3.13 python -c "from data_source_manager import DataSourceManager; pri
 
 ---
 
-## Project-Specific Warnings
+## Verification (IMPORTANT)
+
+Before considering any task complete, verify your work:
+
+```bash
+# 1. Lint check (must pass)
+uv run -p 3.13 ruff check --fix .
+
+# 2. Unit tests (must pass)
+uv run -p 3.13 pytest tests/unit/ -v
+
+# 3. Import check (must succeed)
+uv run -p 3.13 python -c "from data_source_manager import DataSourceManager; print('OK')"
+```
+
+For data-related changes, also verify timestamp handling and FCP fallback behavior.
+
+---
+
+## Common Mistakes to Avoid
 
 - **HTTP timeouts**: All HTTP clients MUST have explicit `timeout=` parameter
 - **Bare except**: Never use bare `except:` - always catch specific exceptions
 - **Generic Exception**: Avoid `except Exception` in production code (BLE001)
 - **Process spawning**: Be cautious with subprocess calls - see `~/.claude/CLAUDE.md` for process storm prevention
+- **Naive datetime**: Always use `datetime.now(timezone.utc)`, never `datetime.now()`
+- **Wrong symbol format**: BTCUSDT for spot/futures, BTCUSD_PERP for coin-margined
 
 ---
 
