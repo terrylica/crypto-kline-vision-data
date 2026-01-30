@@ -4,6 +4,19 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Additional Hook & Documentation Enhancements (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added 2 new PostToolUse checks (DataFrame validation, Polars preference)
+- Total DSM-specific hooks: 11 checks covering silent failures and data integrity
+- Updated .claude/README.md with hooks summary table
+- Support `# polars-exception` comment to suppress Polars reminder
+
+**Sources**: [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code), [DataCamp hooks tutorial](https://www.datacamp.com/tutorial/claude-code-hooks)
+
 ### CC-Skills Patterns Integration (2026-01-30)
 
 **Status**: Complete
