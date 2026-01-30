@@ -32862,3 +32862,330 @@ claude -p "Verify FCP protocol compliance in src/fcp/" \
 - User-invocable skills (`/commit`, `/review`) only work in interactive mode
 - Built-in commands (`/help`, `/clear`) not available in `-p` mode
 - Describe tasks directly instead of using slash commands
+## Troubleshooting Reference
+
+### Diagnostic Tools
+
+#### /doctor Command
+
+Run `/doctor` to diagnose common issues. It checks:
+
+| Check                       | What It Detects                             |
+| --------------------------- | ------------------------------------------- |
+| Installation type & version | Native vs npm, current version              |
+| Search functionality        | ripgrep availability and performance        |
+| Auto-update status          | Available updates                           |
+| Settings files              | Malformed JSON, incorrect types             |
+| MCP server configuration    | Server errors and connectivity              |
+| Keybinding configuration    | Keybinding problems                         |
+| Context usage               | Large CLAUDE.md files, high MCP token usage |
+| Plugin/agent loading        | Loading errors                              |
+
+#### Verbose and Debug Flags
+
+```bash
+# Detailed logging
+claude --verbose
+
+# MCP configuration debugging
+claude --mcp-debug
+```
+
+### Configuration File Locations
+
+| File                          | Purpose                                  |
+| ----------------------------- | ---------------------------------------- |
+| `~/.claude/settings.json`     | User settings (permissions, hooks)       |
+| `.claude/settings.json`       | Project settings (source controlled)     |
+| `.claude/settings.local.json` | Local project settings (not committed)   |
+| `~/.claude.json`              | Global state (theme, OAuth, MCP servers) |
+| `.mcp.json`                   | Project MCP servers (source controlled)  |
+| `managed-settings.json`       | Managed settings (admin-controlled)      |
+| `managed-mcp.json`            | Managed MCP servers (admin-controlled)   |
+
+**Managed file locations:**
+
+- macOS: `/Library/Application Support/ClaudeCode/`
+- Linux/WSL: `/etc/claude-code/`
+- Windows: `C:\Program Files\ClaudeCode\`
+
+#### Reset Configuration
+
+```bash
+# Reset all user settings and state
+rm ~/.claude.json
+rm -rf ~/.claude/
+
+# Reset project-specific settings
+rm -rf .claude/
+rm .mcp.json
+```
+
+### Installation Issues
+
+#### Native Installation (Recommended)
+
+```bash
+# macOS, Linux, WSL - stable version
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Latest version
+curl -fsSL https://claude.ai/install.sh | bash -s latest
+
+# Windows PowerShell - stable version
+irm https://claude.ai/install.ps1 | iex
+```
+
+Installs to `~/.local/bin/claude` (or `%USERPROFILE%\.local\bin\claude.exe` on Windows).
+
+#### npm Permission Errors
+
+Do NOT use `sudo` when installing. If permission errors occur:
+
+```bash
+# Migrate to user-local installation
+claude migrate-installer
+
+# Or set npm prefix
+npm config set prefix ~/.npm-global
+export PATH=~/.npm-global/bin:$PATH
+```
+
+#### Windows: Git Bash Required
+
+```powershell
+# Set path explicitly
+$env:CLAUDE_CODE_GIT_BASH_PATH="C:\Program Files\Git\bin\bash.exe"
+```
+
+#### Windows: Command Not Found After Installation
+
+1. Open Environment Variables (Win+R, type `sysdm.cpl`, Advanced → Environment Variables)
+2. Edit User PATH, add: `%USERPROFILE%\.local\bin`
+3. Restart terminal
+
+Verify: `claude doctor`
+
+### WSL-Specific Issues
+
+#### OS/Platform Detection
+
+```bash
+# Fix npm OS detection
+npm config set os linux
+
+# Force install
+npm install -g @anthropic-ai/claude-code --force --no-os-check
+```
+
+#### Node Not Found
+
+If `exec: node: not found`:
+
+```bash
+# Check paths (should be Linux paths, not /mnt/c/)
+which npm
+which node
+
+# Install via nvm (see https://github.com/nvm-sh/nvm for latest version)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+source ~/.nvm/nvm.sh
+nvm install node
+```
+
+#### nvm Version Conflicts
+
+Add to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+# Load nvm if it exists
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+```
+
+Avoid disabling Windows PATH importing (`appendWindowsPath = false`).
+
+#### Sandbox Setup (WSL2 Only)
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install bubblewrap socat
+
+# Fedora
+sudo dnf install bubblewrap socat
+```
+
+WSL1 does not support sandboxing.
+
+#### Slow Search Results
+
+Disk read performance across filesystems causes slow search.
+
+**Solutions:**
+
+1. Submit more specific searches (specify directories/file types)
+2. Move project to Linux filesystem (`/home/`) instead of `/mnt/c/`
+3. Use native Windows instead of WSL
+
+### Authentication Issues
+
+#### General Authentication Reset
+
+```bash
+/logout  # Sign out
+# Close and restart Claude Code
+claude
+```
+
+If browser doesn't open, press `c` to copy OAuth URL.
+
+#### Force Clean Login
+
+```bash
+rm -rf ~/.config/claude-code/auth.json
+claude
+```
+
+### Performance Issues
+
+#### High CPU/Memory Usage
+
+1. Use `/compact` regularly to reduce context size
+2. Close and restart between major tasks
+3. Add large build directories to `.gitignore`
+
+#### Command Hangs
+
+1. Press `Ctrl+C` to cancel
+2. If unresponsive, close terminal and restart
+
+#### Search Not Working
+
+Install system ripgrep:
+
+```bash
+# macOS
+brew install ripgrep
+
+# Windows
+winget install BurntSushi.ripgrep.MSVC
+
+# Ubuntu/Debian
+sudo apt install ripgrep
+
+# Alpine
+apk add ripgrep
+```
+
+Then set `USE_BUILTIN_RIPGREP=0` in environment.
+
+### IDE Integration Issues
+
+#### JetBrains Not Detected on WSL2
+
+**Option 1: Configure Windows Firewall (recommended)**
+
+```bash
+# Get WSL2 IP
+wsl hostname -I
+```
+
+```powershell
+# PowerShell as Admin
+New-NetFirewallRule -DisplayName "Allow WSL2 Internal Traffic" -Direction Inbound -Protocol TCP -Action Allow -RemoteAddress 172.21.0.0/16 -LocalAddress 172.21.0.0/16
+```
+
+**Option 2: Switch to mirrored networking**
+
+Add to `.wslconfig` in Windows user directory:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+Then: `wsl --shutdown`
+
+#### JetBrains Escape Key Not Working
+
+1. Settings → Tools → Terminal
+2. Uncheck "Move focus to the editor with Escape"
+3. Or delete "Switch focus to Editor" shortcut
+
+### Common Error Messages
+
+| Error                                                   | Solution                                   |
+| ------------------------------------------------------- | ------------------------------------------ |
+| `Sandbox requires socat and bubblewrap`                 | Install packages for WSL2 sandboxing       |
+| `Sandboxing requires WSL2`                              | Upgrade to WSL2 or run without sandboxing  |
+| `exec: node: not found`                                 | Install Node via Linux package manager/nvm |
+| `No available IDEs detected`                            | Configure firewall or mirrored networking  |
+| `installMethod is native, but claude command not found` | Add `~/.local/bin` to PATH                 |
+| `Claude Code on Windows requires git-bash`              | Install Git for Windows                    |
+
+### Markdown Formatting Issues
+
+#### Missing Language Tags
+
+Request: "Add appropriate language tags to all code blocks in this markdown file."
+
+Or use post-processing hooks for automatic formatting.
+
+#### Inconsistent Spacing
+
+Request: "Fix spacing and formatting issues in this markdown file."
+
+Use formatters like `prettier` via hooks.
+
+### Getting More Help
+
+1. `/bug` - Report problems directly to Anthropic
+2. `/doctor` - Run diagnostics
+3. [GitHub Issues](https://github.com/anthropics/claude-code) - Check known issues
+4. Ask Claude about capabilities - built-in documentation access
+
+### DSM-Specific Troubleshooting
+
+#### FCP Cache Issues
+
+```bash
+# Clear FCP cache (use mise task, not direct deletion)
+mise run cache:clear
+
+# Check cache status
+mise run cache:status
+```
+
+#### Python Version Issues
+
+```bash
+# Verify Python version (must be 3.13)
+python --version
+
+# Use uv with explicit version
+uv run --python 3.13 pytest
+```
+
+#### DataFrame Validation Errors
+
+If polars operations fail:
+
+1. Check column types match expected schema
+2. Verify timestamp columns are UTC
+3. Use `df.schema` to inspect types
+
+#### Data Source Connection Issues
+
+```bash
+# Test Binance connectivity
+uv run --python 3.13 python -c "from data_source_manager import DataSourceManager; print(DataSourceManager().test_connection('binance'))"
+```
+
+#### Symbol Format Errors
+
+Ensure symbols follow market-specific formats:
+
+- Binance spot: `BTCUSDT`
+- Binance futures: `BTCUSDT` (perp) or `BTCUSDT_241227` (delivery)
+- OKX: `BTC-USDT`, `BTC-USDT-SWAP`
