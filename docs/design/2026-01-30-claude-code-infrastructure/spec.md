@@ -43266,3 +43266,385 @@ claude
 | Subagent execution     | `context: fork`, `agent: Explore`   |
 | Size limit             | SKILL.md under 500 lines            |
 | DSM patterns           | Usage, testing, research, FCP debug |
+## Settings and Permissions Reference
+
+### Overview
+
+Claude Code uses a hierarchical settings system with four configuration scopes. Understanding precedence rules and permission patterns is essential for secure, team-friendly configurations.
+
+### Configuration Scopes
+
+| Scope   | Location                             | Audience          | Git Tracked     |
+| ------- | ------------------------------------ | ----------------- | --------------- |
+| Managed | System-level `managed-settings.json` | All machine users | IT-deployed     |
+| User    | `~/.claude/settings.json`            | You, all projects | No              |
+| Project | `.claude/settings.json`              | All collaborators | Yes             |
+| Local   | `.claude/settings.local.json`        | You, this repo    | No (gitignored) |
+
+### Precedence Order (Highest to Lowest)
+
+1. **Managed settings** (cannot be overridden)
+2. **Command line arguments**
+3. **Local project settings** (`.claude/settings.local.json`)
+4. **Shared project settings** (`.claude/settings.json`)
+5. **User settings** (`~/.claude/settings.json`)
+
+### File Locations
+
+```
+# User settings
+~/.claude/settings.json
+
+# Project settings
+.claude/settings.json        # Shared (committed)
+.claude/settings.local.json  # Personal (gitignored)
+
+# Managed settings (system-wide)
+macOS:     /Library/Application Support/ClaudeCode/managed-settings.json
+Linux/WSL: /etc/claude-code/managed-settings.json
+Windows:   C:\Program Files\ClaudeCode\managed-settings.json
+```
+
+### Permission System
+
+#### Rule Syntax
+
+| Pattern                        | Matches                          |
+| ------------------------------ | -------------------------------- |
+| `Bash` or `Bash(*)`            | All bash commands                |
+| `Bash(npm run build)`          | Exact command                    |
+| `Bash(npm run *)`              | Commands starting with `npm run` |
+| `Bash(* --version)`            | Commands ending with `--version` |
+| `Read(./.env)`                 | Reading .env file                |
+| `Read(./secrets/**)`           | Directory recursion              |
+| `Read(**/.env)`                | .env files in any directory      |
+| `Read(**/*.key)`               | Files with .key extension        |
+| `WebFetch(domain:example.com)` | Fetch to specific domain         |
+| `WebFetch`                     | All fetch requests               |
+
+#### Rule Evaluation Order
+
+1. **Deny** rules checked first (highest priority, blocks immediately)
+2. **Ask** rules checked second (prompts for approval)
+3. **Allow** rules checked last (auto-approves)
+
+First match wins. If a command matches deny, it's blocked regardless of allow rules.
+
+### Basic Settings Structure
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Bash(git commit *)", "Read(src/**)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Bash(curl *)", "Read(./.env)"]
+  },
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1"
+  },
+  "model": "claude-sonnet-4-5-20250929",
+  "outputStyle": "Explanatory"
+}
+```
+
+### Key Settings Fields
+
+| Setting                 | Purpose                             | Example                        |
+| ----------------------- | ----------------------------------- | ------------------------------ |
+| `model`                 | Override default model              | `"claude-opus-4-5-20251101"`   |
+| `outputStyle`           | Adjust system prompt style          | `"Explanatory"` or `"Concise"` |
+| `language`              | Response language                   | `"english"`                    |
+| `cleanupPeriodDays`     | Auto-delete inactive sessions       | `20`                           |
+| `respectGitignore`      | Exclude gitignored files            | `false`                        |
+| `alwaysThinkingEnabled` | Enable extended thinking by default | `true`                         |
+| `showTurnDuration`      | Show response time                  | `true`                         |
+| `autoUpdatesChannel`    | Release channel                     | `"stable"` or `"latest"`       |
+| `apiKeyHelper`          | Script to generate auth token       | `/bin/gen_api_key.sh`          |
+| `forceLoginMethod`      | Restrict login type                 | `"claudeai"` or `"console"`    |
+
+### Permission Settings Fields
+
+| Key                            | Description                       |
+| ------------------------------ | --------------------------------- |
+| `allow`                        | Rules to auto-approve             |
+| `ask`                          | Rules requiring confirmation      |
+| `deny`                         | Rules to block                    |
+| `additionalDirectories`        | Extra working directories         |
+| `defaultMode`                  | Default permission mode           |
+| `disableBypassPermissionsMode` | Set `"disable"` to prevent bypass |
+
+### Sandbox Configuration
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["git", "docker"],
+    "allowUnsandboxedCommands": true,
+    "network": {
+      "allowUnixSockets": ["~/.ssh/agent-socket"],
+      "allowLocalBinding": true,
+      "httpProxyPort": 8080,
+      "socksProxyPort": 8081
+    }
+  }
+}
+```
+
+### Sensitive File Protection
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)",
+      "Read(~/.aws/**)",
+      "Read(**/*.key)",
+      "Read(**/*.pem)"
+    ]
+  }
+}
+```
+
+### MCP Server Control
+
+```json
+{
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }],
+  "enableAllProjectMcpServers": true
+}
+```
+
+### Hook Configuration (Managed Only)
+
+```json
+{
+  "allowManagedHooksOnly": true,
+  "disableAllHooks": false,
+  "hooks": {
+    "PreToolUse": {
+      "Bash": "echo 'Running command...'"
+    }
+  }
+}
+```
+
+### Plugin Configuration
+
+```json
+{
+  "enabledPlugins": {
+    "formatter@acme-tools": true,
+    "deployer@acme-tools": true,
+    "analyzer@security-plugins": false
+  },
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": {
+        "source": "github",
+        "repo": "acme-corp/claude-plugins"
+      }
+    }
+  }
+}
+```
+
+### Attribution Settings
+
+```json
+{
+  "attribution": {
+    "commit": "🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "pr": "🤖 Generated with Claude Code"
+  }
+}
+```
+
+Set to empty string `""` to hide attribution.
+
+### Environment Variables
+
+| Variable                        | Purpose                  |
+| ------------------------------- | ------------------------ |
+| `ANTHROPIC_API_KEY`             | API key for Claude SDK   |
+| `CLAUDE_CODE_ENABLE_TELEMETRY`  | Enable OpenTelemetry     |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Max output tokens        |
+| `CLAUDE_CODE_SHELL`             | Override shell detection |
+| `CLAUDE_CONFIG_DIR`             | Custom config location   |
+| `MAX_THINKING_TOKENS`           | Extended thinking budget |
+| `DISABLE_TELEMETRY`             | Opt-out of telemetry     |
+| `DISABLE_AUTOUPDATER`           | Disable auto-updates     |
+| `HTTP_PROXY` / `HTTPS_PROXY`    | Proxy configuration      |
+| `ENABLE_TOOL_SEARCH`            | MCP tool search mode     |
+| `MAX_MCP_OUTPUT_TOKENS`         | MCP output limit         |
+
+### File Organization
+
+**User configuration**:
+
+```
+~/.claude/
+├── settings.json          # Global settings
+├── CLAUDE.md              # Memory file
+├── agents/                # Custom subagents
+├── skills/                # Personal skills
+└── plans/                 # Saved plans
+```
+
+**Project configuration**:
+
+```
+project/
+├── .claude/
+│   ├── settings.json      # Shared team settings
+│   ├── settings.local.json # Personal overrides
+│   ├── CLAUDE.md          # Project memory
+│   ├── agents/            # Project subagents
+│   ├── commands/          # Slash commands
+│   ├── hooks/             # Project hooks
+│   ├── rules/             # Context rules
+│   └── skills/            # Project skills
+├── .mcp.json              # MCP servers
+└── CLAUDE.md              # Root memory
+```
+
+### DSM-Specific Settings
+
+#### Project Settings (.claude/settings.json)
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(mise run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Read(src/**)",
+      "Read(tests/**)",
+      "Edit(src/**)",
+      "Edit(tests/**)"
+    ],
+    "ask": ["Bash(git push *)"],
+    "deny": [
+      "Read(.env*)",
+      "Read(.mise.local.toml)",
+      "Bash(pip install *)",
+      "Bash(python3.14 *)",
+      "Bash(python3.12 *)",
+      "Bash(git push --force *)",
+      "Bash(rm -rf *)"
+    ]
+  },
+  "env": {
+    "PYTHONPATH": "src"
+  },
+  "model": "claude-sonnet-4-5-20250929",
+  "respectGitignore": true
+}
+```
+
+#### Key DSM Denials Explained
+
+| Pattern                    | Rationale                   |
+| -------------------------- | --------------------------- |
+| `Read(.env*)`              | Secrets protection          |
+| `Read(.mise.local.toml)`   | Local environment secrets   |
+| `Bash(pip install *)`      | Use uv instead              |
+| `Bash(python3.14 *)`       | Wrong Python version        |
+| `Bash(python3.12 *)`       | Wrong Python version        |
+| `Bash(git push --force *)` | Dangerous git operation     |
+| `Bash(rm -rf *)`           | Prevent accidental deletion |
+
+#### Key DSM Allows Explained
+
+| Pattern            | Rationale                 |
+| ------------------ | ------------------------- |
+| `Bash(uv run *)`   | Python package management |
+| `Bash(mise run *)` | Task runner               |
+| `Read(src/**)`     | Source code access        |
+| `Read(tests/**)`   | Test code access          |
+| `Edit(src/**)`     | Source code modification  |
+| `Edit(tests/**)`   | Test code modification    |
+
+### Enterprise Managed Settings
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(.env*)",
+      "Read(./secrets/**)",
+      "WebFetch"
+    ],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "sandbox": {
+    "enabled": true,
+    "excludedCommands": ["git"]
+  },
+  "forceLoginOrgUUID": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "allowManagedHooksOnly": true,
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "strictKnownMarketplaces": [
+    { "source": "github", "repo": "company/claude-plugins" }
+  ]
+}
+```
+
+### Status Line Configuration
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  }
+}
+```
+
+### File Suggestion Configuration
+
+```json
+{
+  "fileSuggestion": {
+    "type": "command",
+    "command": "~/.claude/file-suggest.sh"
+  }
+}
+```
+
+### Configuration Backup
+
+Claude Code automatically creates timestamped backups of configuration files, retaining the five most recent.
+
+### Troubleshooting
+
+| Issue                  | Solution                         |
+| ---------------------- | -------------------------------- |
+| Permission denied      | Check deny rules take precedence |
+| Setting not applying   | Check scope hierarchy            |
+| Managed can't override | Managed is highest priority      |
+| Local ignored          | Ensure file is `.local.json`     |
+
+### Summary
+
+| Component     | Pattern                                |
+| ------------- | -------------------------------------- |
+| Hierarchy     | Managed > CLI > Local > Project > User |
+| Permissions   | deny > ask > allow (first match wins)  |
+| File patterns | Gitignore-style for Read               |
+| Bash patterns | Wildcard `*` for prefix/suffix         |
+| DSM denials   | Secrets, wrong Python, force push      |
+| DSM allows    | uv, mise, git workflow, src/tests      |
+| Enterprise    | Managed settings, force org login      |
