@@ -1,6 +1,7 @@
 ---
 name: debug-fcp
 description: Debug Failover Control Protocol data retrieval issues
+disable-model-invocation: true
 ---
 
 # Debug FCP Issues

@@ -1,6 +1,7 @@
 ---
 name: fetch-data
 description: Fetch market data using DataSourceManager
+disable-model-invocation: true
 ---
 
 # Fetch Market Data

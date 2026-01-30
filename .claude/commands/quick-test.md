@@ -1,6 +1,7 @@
 ---
 name: quick-test
 description: Run quick unit tests to validate changes
+disable-model-invocation: true
 ---
 
 # Quick Test
