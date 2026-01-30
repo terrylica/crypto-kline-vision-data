@@ -4,6 +4,27 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Agentic Loop Best Practices (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added core design philosophy (single-threaded master loop)
+- Added completion criteria table (vague vs specific goals)
+- Added planning-first pattern with example prompt
+- Added self-correction & feedback loops table
+- Added subagent delegation pattern with YAML example
+- Added context hygiene table
+- Added flow-based architecture diagram
+- Added DSM agentic patterns table
+
+**Sources**:
+
+- [Anthropic Engineering Best Practices](https://www.anthropic.com/engineering/claude-code-best-practices)
+- [Agentic Coding Guide](https://research.aimultiple.com/agentic-coding/)
+- [Claude Code Architecture](https://www.zenml.io/llmops-database/claude-code-agent-architecture-single-threaded-master-loop-for-autonomous-coding)
+
 ### Configuration Sync & Team Sharing (2026-01-30)
 
 **Status**: Complete

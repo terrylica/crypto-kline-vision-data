@@ -1766,6 +1766,92 @@ chezmoi update
 | hooks/hooks.json      | Yes        | Code quality automation            |
 | CLAUDE.local.md       | No         | Individual preferences             |
 
+## Agentic Loop Best Practices
+
+Based on [Anthropic Engineering Best Practices](https://www.anthropic.com/engineering/claude-code-best-practices), [Agentic Coding Guide](https://research.aimultiple.com/agentic-coding/), and [Claude Code Architecture](https://www.zenml.io/llmops-database/claude-code-agent-architecture-single-threaded-master-loop-for-autonomous-coding).
+
+### Core Design Philosophy
+
+Claude Code uses a **single-threaded master loop** that continues while responses include tool calls. Plain text responses terminate the loop and return control to the user.
+
+**Key principle**: Simple, single-threaded master loop with disciplined tools delivers controllable autonomy.
+
+### Completion Criteria
+
+| Bad (Vague)                  | Good (Specific)                         |
+| ---------------------------- | --------------------------------------- |
+| "Make it better"             | "All tests pass with 80% coverage"      |
+| "Improve the authentication" | "JWT refresh works and tests pass"      |
+| "Fix the bugs"               | "No TypeScript errors, all tests green" |
+| "Optimize the code"          | "Response time < 200ms, memory < 100MB" |
+
+### Planning-First Pattern
+
+1. **Research**: Ask Claude to explore the codebase
+2. **Plan**: Request a plan before coding
+3. **Confirm**: Review and approve the plan
+4. **Execute**: Only then allow implementation
+
+```
+"Research the caching layer, then create a plan for adding Redis support.
+Don't write any code until I approve the plan."
+```
+
+### Self-Correction & Feedback Loops
+
+| Anti-Pattern                   | Better Approach                              |
+| ------------------------------ | -------------------------------------------- |
+| "Fix this"                     | Detail what went wrong and expected behavior |
+| Repeat corrections 3+ times    | `/clear`, write better initial prompt        |
+| Context polluted with failures | Start fresh with learned context             |
+| Vague redirection              | Specific acceptance criteria                 |
+
+### Subagent Delegation Pattern
+
+```yaml
+# .claude/agents/researcher.md
+---
+name: researcher
+tools: [Read, Grep, Glob]
+permissionMode: plan
+---
+Research the codebase without making changes.
+```
+
+**Use subagents when**:
+
+- Task requires reading many files
+- Specialized focus needed
+- Want isolated context (doesn't pollute main conversation)
+
+### Context Hygiene
+
+| Signal                         | Action                        |
+| ------------------------------ | ----------------------------- |
+| Two failed correction attempts | `/clear`, reframe the request |
+| Switching unrelated tasks      | `/clear` between tasks        |
+| Context window > 80%           | `/compact` or start fresh     |
+| Repeated same mistakes         | Add to CLAUDE.md, restart     |
+
+### Flow-Based Architecture
+
+```
+[Decision Node] → [Analysis Node] → [Modification Node] → [Validation Node]
+      ↓                                                          ↓
+  Plan/Research                                            Tests/Checks
+```
+
+Task progression between nodes occurs automatically without manual intervention.
+
+### DSM Agentic Patterns
+
+| Task                        | Agentic Approach                       |
+| --------------------------- | -------------------------------------- |
+| Implement new data source   | Research → Plan → Implement → Test     |
+| Debug FCP cache miss        | Diagnose with fcp-debugger agent       |
+| Add symbol validation       | TDD: write tests first, then implement |
+| Refactor timestamp handling | Plan mode → approval → execute         |
+
 ## Verification Checklist
 
 ### Infrastructure
