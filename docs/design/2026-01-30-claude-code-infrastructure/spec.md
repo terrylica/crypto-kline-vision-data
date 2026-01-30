@@ -69,19 +69,42 @@ data-source-manager/
 
 ### Frontmatter Pattern
 
+From [Official Subagents Docs](https://code.claude.com/docs/en/sub-agents):
+
 ```yaml
 ---
 name: agent-name
 description: Use proactively when [trigger]. Performs [task].
 tools: Read, Grep, Glob, Bash
-model: sonnet
-permissionMode: plan # Optional: plan, default, acceptEdits, dontAsk
-color: red # Optional: visual identifier (red, green, blue, yellow)
+disallowedTools: Write, Edit # Optional: explicitly deny tools
+model: sonnet # sonnet | opus | haiku | inherit
+permissionMode: plan # default | acceptEdits | dontAsk | bypassPermissions | plan
+color: red # Optional: visual identifier
 skills: # Optional: preload skills into agent context
   - dsm-usage
   - dsm-testing
+hooks: # Optional: lifecycle hooks scoped to agent
+  PostToolUse:
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: "./script.sh"
 ---
 ```
+
+### Supported Frontmatter Fields
+
+| Field             | Required | Description                                      |
+| ----------------- | -------- | ------------------------------------------------ |
+| `name`            | Yes      | Unique identifier (lowercase, hyphens)           |
+| `description`     | Yes      | When Claude should delegate to this subagent     |
+| `tools`           | No       | Tools allowed (inherits all if omitted)          |
+| `disallowedTools` | No       | Tools to deny (removed from inherited/specified) |
+| `model`           | No       | Model: `sonnet`, `opus`, `haiku`, `inherit`      |
+| `permissionMode`  | No       | Permission handling mode                         |
+| `skills`          | No       | Skills to preload (full content injected)        |
+| `hooks`           | No       | Lifecycle hooks (PreToolUse, PostToolUse, Stop)  |
+| `color`           | No       | Visual identifier in UI                          |
 
 ### Agent Features
 
@@ -95,19 +118,15 @@ skills: # Optional: preload skills into agent context
 
 ### Agent Hooks Pattern
 
-Agents can define lifecycle hooks in frontmatter. These run only while the agent is active:
+Agent hooks run only while the agent is active and are cleaned up when it finishes.
 
-```yaml
----
-name: test-writer
-hooks:
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "${CLAUDE_PROJECT_ROOT}/.claude/hooks/dsm-code-guard.sh"
----
-```
+| Event         | Matcher Input | When It Fires                 |
+| ------------- | ------------- | ----------------------------- |
+| `PreToolUse`  | Tool name     | Before the subagent uses tool |
+| `PostToolUse` | Tool name     | After the subagent uses tool  |
+| `Stop`        | (none)        | When the subagent finishes    |
+
+**DSM agents with hooks**:
 
 | Agent       | Hook Event  | Purpose                      |
 | ----------- | ----------- | ---------------------------- |

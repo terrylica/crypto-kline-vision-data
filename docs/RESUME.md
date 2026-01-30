@@ -4,6 +4,23 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Official Documentation Integration (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Enhanced design spec with official subagent frontmatter field documentation
+- Added `disallowedTools` field documentation from official docs
+- Added agent hooks event table (PreToolUse, PostToolUse, Stop)
+- Updated permission modes list with `bypassPermissions`
+- Referenced official Claude Code docs throughout
+
+**Sources**:
+
+- [Official Subagents Docs](https://code.claude.com/docs/en/sub-agents)
+- [Official Best Practices](https://code.claude.com/docs/en/best-practices)
+
 ### Project Settings.json Configuration (2026-01-30)
 
 **Status**: Complete
