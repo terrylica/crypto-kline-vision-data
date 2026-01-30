@@ -4,6 +4,24 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Error Recovery & Troubleshooting (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added common error categories table with recovery actions
+- Added loop detection & recovery patterns
+- Added diagnostic commands reference
+- Added "Instrumentation Over Argument" debugging strategy
+- Added DSM-specific error recovery table
+- Added prevention patterns list
+
+**Sources**:
+
+- [ClaudeLog Troubleshooting](https://claudelog.com/troubleshooting/)
+- [Debugging Best Practices](https://www.nathanonn.com/claude-code-debugging-visibility-methods/)
+
 ### Model Selection & Routing (2026-01-30)
 
 **Status**: Complete

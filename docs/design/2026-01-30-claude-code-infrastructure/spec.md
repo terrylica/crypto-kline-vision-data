@@ -1462,6 +1462,65 @@ tools: [Bash, Read]
 | Cache invalidation logic     | opus   | Multi-layer dependency analysis |
 | Data fetching implementation | sonnet | Standard API patterns           |
 
+## Error Recovery & Troubleshooting
+
+Based on [ClaudeLog Troubleshooting](https://claudelog.com/troubleshooting/) and [Debugging Best Practices](https://www.nathanonn.com/claude-code-debugging-visibility-methods/).
+
+### Common Error Categories
+
+| Category         | Symptoms                         | Recovery                          |
+| ---------------- | -------------------------------- | --------------------------------- |
+| Auth failure     | Invalid/expired API key          | `claude config`, check console    |
+| Context overflow | Slow responses, degradation      | `/compact`, `/clear`, split tasks |
+| Network issues   | 503 errors, timeouts             | Check status.anthropic.com, retry |
+| Stuck loops      | Repeated errors, no progress     | `/clear`, restart session         |
+| Performance      | Excessive memory, slow responses | Switch model, partition files     |
+
+### Loop Detection & Recovery
+
+| Pattern             | Cause                           | Resolution                          |
+| ------------------- | ------------------------------- | ----------------------------------- |
+| Apology-repeat loop | Same error 3+ times             | `/clear`, reframe the request       |
+| Specification drift | Treats specs as goals           | Use explicit requirements in prompt |
+| Image format loop   | Unsupported format (HEIC, etc.) | Convert to JPEG/PNG first           |
+| Infinite retry      | Resource exhaustion             | Add max retries (3-5), backoff      |
+
+### Diagnostic Commands
+
+| Command    | Purpose                              |
+| ---------- | ------------------------------------ |
+| `/doctor`  | Automated issue detection            |
+| `/context` | Check context window usage           |
+| `/memory`  | View session memory state            |
+| `/clear`   | Reset conversation, fix stuck states |
+| `/compact` | Compress history before overflow     |
+
+### Debugging Strategy: Instrumentation Over Argument
+
+When stuck in debugging loops:
+
+1. **Stop arguing** - Don't repeat "please fix this"
+2. **Add visibility** - Ask Claude to add logging/tracing
+3. **Request diagrams** - Forces systematic problem mapping
+4. **Check assumptions** - Verify data flow, not just code logic
+
+### DSM-Specific Error Recovery
+
+| Error Scenario              | Recovery Action                        |
+| --------------------------- | -------------------------------------- |
+| FCP cache miss loops        | Use `/debug-fcp` command, check Vision |
+| Symbol format rejection     | Verify market-specific format in rules |
+| Timestamp conversion errors | Check UTC requirement, avoid naive dt  |
+| Rate limit exhaustion       | Wait, check Binance rule in rules/     |
+| DataFrame validation fails  | Use `/validate-data` command           |
+
+### Prevention Patterns
+
+- Use PreToolUse hooks to block dangerous commands before execution
+- Use PostToolUse hooks to detect silent failure patterns early
+- Configure deny rules for sensitive operations in settings.json
+- Keep context under 80% to maintain Claude's reasoning quality
+
 ## Verification Checklist
 
 ### Infrastructure
