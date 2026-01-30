@@ -50898,3 +50898,640 @@ your-repo-file-index --query "$query" | head -20
 6. **Sensitive Data**: Always use `deny` rules for `.env`, secrets, and credentials
 7. **Plugin Control**: Use `strictKnownMarketplaces` for enterprise restrictions
 8. **Configuration Backup**: Automatic timestamped backups retained (5 most recent)
+# Common Workflows Reference
+
+This section covers practical workflows for everyday development: exploring codebases, debugging, refactoring, testing, PR creation, documentation, working with images, and session management.
+
+## Understand New Codebases
+
+### Get a Quick Codebase Overview
+
+1. Navigate to the project root directory:
+
+   ```bash
+   cd /path/to/project
+   ```
+
+2. Start Claude Code:
+
+   ```bash
+   claude
+   ```
+
+3. Ask for a high-level overview:
+
+   ```
+   > give me an overview of this codebase
+   ```
+
+4. Dive deeper into specific components:
+
+   ```
+   > explain the main architecture patterns used here
+   > what are the key data models?
+   > how is authentication handled?
+   ```
+
+**Tips:**
+
+- Start with broad questions, then narrow down to specific areas
+- Ask about coding conventions and patterns used in the project
+- Request a glossary of project-specific terms
+
+### Find Relevant Code
+
+1. Ask Claude to find relevant files:
+
+   ```
+   > find the files that handle user authentication
+   ```
+
+2. Get context on how components interact:
+
+   ```
+   > how do these authentication files work together?
+   ```
+
+3. Understand the execution flow:
+
+   ```
+   > trace the login process from front-end to database
+   ```
+
+**Tips:**
+
+- Be specific about what you're looking for
+- Use domain language from the project
+- Install a code intelligence plugin for your language
+
+## Fix Bugs Efficiently
+
+1. Share the error with Claude:
+
+   ```
+   > I'm seeing an error when I run npm test
+   ```
+
+2. Ask for fix recommendations:
+
+   ```
+   > suggest a few ways to fix the @ts-ignore in user.ts
+   ```
+
+3. Apply the fix:
+
+   ```
+   > update user.ts to add the null check you suggested
+   ```
+
+**Tips:**
+
+- Tell Claude the command to reproduce the issue and get a stack trace
+- Mention any steps to reproduce the error
+- Let Claude know if the error is intermittent or consistent
+
+## Refactor Code
+
+1. Identify legacy code for refactoring:
+
+   ```
+   > find deprecated API usage in our codebase
+   ```
+
+2. Get refactoring recommendations:
+
+   ```
+   > suggest how to refactor utils.js to use modern JavaScript features
+   ```
+
+3. Apply the changes safely:
+
+   ```
+   > refactor utils.js to use ES2024 features while maintaining the same behavior
+   ```
+
+4. Verify the refactoring:
+
+   ```
+   > run tests for the refactored code
+   ```
+
+**Tips:**
+
+- Ask Claude to explain the benefits of the modern approach
+- Request that changes maintain backward compatibility when needed
+- Do refactoring in small, testable increments
+
+## Use Specialized Subagents
+
+### View Available Subagents
+
+```
+> /agents
+```
+
+This shows all available subagents and lets you create new ones.
+
+### Use Subagents Automatically
+
+Claude Code automatically delegates appropriate tasks to specialized subagents:
+
+```
+> review my recent code changes for security issues
+> run all tests and fix any failures
+```
+
+### Explicitly Request Specific Subagents
+
+```
+> use the code-reviewer subagent to check the auth module
+> have the debugger subagent investigate why users can't log in
+```
+
+### Create Custom Subagents
+
+1. Run `/agents`
+2. Select "Create New subagent"
+3. Define:
+   - A unique identifier that describes the subagent's purpose (e.g., `code-reviewer`, `api-designer`)
+   - When Claude should use this agent
+   - Which tools it can access
+   - A system prompt describing the agent's role and behavior
+
+**Tips:**
+
+- Create project-specific subagents in `.claude/agents/` for team sharing
+- Use descriptive `description` fields to enable automatic delegation
+- Limit tool access to what each subagent actually needs
+
+## Use Plan Mode for Safe Code Analysis
+
+Plan Mode instructs Claude to create a plan by analyzing the codebase with read-only operations, perfect for exploring codebases, planning complex changes, or reviewing code safely.
+
+### When to Use Plan Mode
+
+- **Multi-step implementation**: When your feature requires making edits to many files
+- **Code exploration**: When you want to research the codebase thoroughly before changing anything
+- **Interactive development**: When you want to iterate on the direction with Claude
+
+### How to Use Plan Mode
+
+**Turn on Plan Mode during a session:**
+
+Use **Shift+Tab** to cycle through permission modes:
+
+- First press: Auto-Accept Mode (`⏵⏵ accept edits on`)
+- Second press: Plan Mode (`⏸ plan mode on`)
+
+**Start a new session in Plan Mode:**
+
+```bash
+claude --permission-mode plan
+```
+
+**Run "headless" queries in Plan Mode:**
+
+```bash
+claude --permission-mode plan -p "Analyze the authentication system and suggest improvements"
+```
+
+### Example: Planning a Complex Refactor
+
+```bash
+claude --permission-mode plan
+```
+
+```
+> I need to refactor our authentication system to use OAuth2. Create a detailed migration plan.
+```
+
+Refine with follow-ups:
+
+```
+> What about backward compatibility?
+> How should we handle database migration?
+```
+
+**Tip:** Press `Ctrl+G` to open the plan in your default text editor.
+
+### Configure Plan Mode as Default
+
+```json
+// .claude/settings.json
+{
+  "permissions": {
+    "defaultMode": "plan"
+  }
+}
+```
+
+## Work with Tests
+
+1. Identify untested code:
+
+   ```
+   > find functions in NotificationsService.swift that are not covered by tests
+   ```
+
+2. Generate test scaffolding:
+
+   ```
+   > add tests for the notification service
+   ```
+
+3. Add meaningful test cases:
+
+   ```
+   > add test cases for edge conditions in the notification service
+   ```
+
+4. Run and verify tests:
+
+   ```
+   > run the new tests and fix any failures
+   ```
+
+Claude examines your existing test files to match the style, frameworks, and assertion patterns already in use. For comprehensive coverage, ask Claude to identify edge cases you might have missed.
+
+## Create Pull Requests
+
+### Quick Method
+
+Use the `/commit-push-pr` skill:
+
+```
+> /commit-push-pr
+```
+
+This commits, pushes, and opens a PR in one step. If you have a Slack MCP server configured and specify channels in your CLAUDE.md, the skill automatically posts the PR URL to those channels.
+
+### Step-by-Step Method
+
+1. Summarize your changes:
+
+   ```
+   > summarize the changes I've made to the authentication module
+   ```
+
+2. Generate a pull request:
+
+   ```
+   > create a pr
+   ```
+
+3. Review and refine:
+
+   ```
+   > enhance the PR description with more context about the security improvements
+   ```
+
+**Tip:** Review Claude's generated PR before submitting and ask Claude to highlight potential risks or considerations.
+
+## Handle Documentation
+
+1. Identify undocumented code:
+
+   ```
+   > find functions without proper JSDoc comments in the auth module
+   ```
+
+2. Generate documentation:
+
+   ```
+   > add JSDoc comments to the undocumented functions in auth.js
+   ```
+
+3. Review and enhance:
+
+   ```
+   > improve the generated documentation with more context and examples
+   ```
+
+4. Verify documentation:
+
+   ```
+   > check if the documentation follows our project standards
+   ```
+
+**Tips:**
+
+- Specify the documentation style you want (JSDoc, docstrings, etc.)
+- Ask for examples in the documentation
+- Request documentation for public APIs, interfaces, and complex logic
+
+## Work with Images
+
+### Add an Image to the Conversation
+
+Three methods:
+
+1. Drag and drop an image into the Claude Code window
+2. Copy an image and paste with `Ctrl+V` (not `Cmd+V`)
+3. Provide an image path: "Analyze this image: /path/to/your/image.png"
+
+### Analyze Images
+
+```
+> What does this image show?
+> Describe the UI elements in this screenshot
+> Are there any problematic elements in this diagram?
+```
+
+### Use Images for Context
+
+```
+> Here's a screenshot of the error. What's causing it?
+> This is our current database schema. How should we modify it for the new feature?
+```
+
+### Get Code Suggestions from Visual Content
+
+```
+> Generate CSS to match this design mockup
+> What HTML structure would recreate this component?
+```
+
+**Tips:**
+
+- Use images when text descriptions would be unclear or cumbersome
+- Include screenshots of errors, UI designs, or diagrams for better context
+- You can work with multiple images in a conversation
+- When Claude references images (e.g., `[Image #1]`), `Cmd+Click` (Mac) or `Ctrl+Click` (Windows/Linux) to open
+
+## Reference Files and Directories
+
+Use `@` to quickly include files or directories without waiting for Claude to read them.
+
+### Reference a Single File
+
+```
+> Explain the logic in @src/utils/auth.js
+```
+
+This includes the full content of the file in the conversation.
+
+### Reference a Directory
+
+```
+> What's the structure of @src/components?
+```
+
+This provides a directory listing with file information.
+
+### Reference MCP Resources
+
+```
+> Show me the data from @github:repos/owner/repo/issues
+```
+
+This fetches data from connected MCP servers using the format `@server:resource`.
+
+**Tips:**
+
+- File paths can be relative or absolute
+- `@` file references add `CLAUDE.md` in the file's directory and parent directories to context
+- Directory references show file listings, not contents
+- You can reference multiple files in a single message (e.g., "@file1.js and @file2.js")
+
+## Use Extended Thinking (Thinking Mode)
+
+Extended thinking is enabled by default, reserving a portion of the output token budget (up to ~32k tokens) for Claude to reason through complex problems step-by-step.
+
+### When Extended Thinking Helps
+
+- Complex architectural decisions
+- Challenging bugs
+- Multi-step implementation planning
+- Evaluating tradeoffs between different approaches
+
+### Configure Thinking Mode
+
+| Scope                  | How to configure                                    |
+| ---------------------- | --------------------------------------------------- |
+| **Toggle shortcut**    | Press `Option+T` (macOS) or `Alt+T` (Windows/Linux) |
+| **Global default**     | Use `/config` to toggle thinking mode               |
+| **Limit token budget** | Set `MAX_THINKING_TOKENS` environment variable      |
+
+To view Claude's thinking process, press `Ctrl+O` to toggle verbose mode.
+
+### Token Budget Notes
+
+- When thinking is **enabled**, Claude can use up to ~32k tokens for internal reasoning
+- When thinking is **disabled**, Claude uses 0 tokens for thinking
+- You're charged for all thinking tokens used
+
+## Resume Previous Conversations
+
+### Command Line Options
+
+- `claude --continue` continues the most recent conversation in the current directory
+- `claude --resume` opens a conversation picker or resumes by name
+
+### From Inside a Session
+
+Use `/resume` to switch to a different conversation.
+
+### Name Your Sessions
+
+Give sessions descriptive names to find them later:
+
+```
+> /rename auth-refactor
+```
+
+Resume by name later:
+
+```bash
+claude --resume auth-refactor
+```
+
+Or from inside a session:
+
+```
+> /resume auth-refactor
+```
+
+### Session Picker Keyboard Shortcuts
+
+| Shortcut  | Action                                            |
+| --------- | ------------------------------------------------- |
+| `↑` / `↓` | Navigate between sessions                         |
+| `→` / `←` | Expand or collapse grouped sessions               |
+| `Enter`   | Select and resume the highlighted session         |
+| `P`       | Preview the session content                       |
+| `R`       | Rename the highlighted session                    |
+| `/`       | Search to filter sessions                         |
+| `A`       | Toggle between current directory and all projects |
+| `B`       | Filter to sessions from your current git branch   |
+| `Esc`     | Exit the picker or search mode                    |
+
+## Run Parallel Claude Code Sessions with Git Worktrees
+
+### Create a New Worktree
+
+```bash
+# Create a new worktree with a new branch
+git worktree add ../project-feature-a -b feature-a
+
+# Or create a worktree with an existing branch
+git worktree add ../project-bugfix bugfix-123
+```
+
+### Run Claude Code in Each Worktree
+
+```bash
+# Terminal 1
+cd ../project-feature-a
+claude
+
+# Terminal 2
+cd ../project-bugfix
+claude
+```
+
+### Manage Worktrees
+
+```bash
+# List all worktrees
+git worktree list
+
+# Remove a worktree when done
+git worktree remove ../project-feature-a
+```
+
+**Tips:**
+
+- Each worktree has its own independent file state
+- Changes in one worktree won't affect others
+- All worktrees share the same Git history and remote connections
+- Remember to initialize your development environment in each new worktree
+
+## Use Claude as a Unix-Style Utility
+
+### Add Claude to Verification Process
+
+```json
+// package.json
+{
+  "scripts": {
+    "lint:claude": "claude -p 'you are a linter. please look at the changes vs. main and report any issues related to typos. report the filename and line number on one line, and a description of the issue on the second line. do not return any other text.'"
+  }
+}
+```
+
+### Pipe In, Pipe Out
+
+```bash
+cat build-error.txt | claude -p 'concisely explain the root cause of this build error' > output.txt
+```
+
+### Control Output Format
+
+**Text format (default):**
+
+```bash
+cat data.txt | claude -p 'summarize this data' --output-format text > summary.txt
+```
+
+**JSON format:**
+
+```bash
+cat code.py | claude -p 'analyze this code for bugs' --output-format json > analysis.json
+```
+
+**Streaming JSON format:**
+
+```bash
+cat log.txt | claude -p 'parse this log file for errors' --output-format stream-json
+```
+
+## Ask Claude About Its Capabilities
+
+Claude has built-in access to its documentation:
+
+```
+> can Claude Code create pull requests?
+> how does Claude Code handle permissions?
+> what skills are available?
+> how do I use MCP with Claude Code?
+> how do I configure Claude Code for Amazon Bedrock?
+> what are the limitations of Claude Code?
+```
+
+**Tips:**
+
+- Claude always has access to the latest Claude Code documentation
+- Ask specific questions to get detailed answers
+- Claude can explain complex features like MCP integration, enterprise configurations, and advanced workflows
+
+## DSM-Specific Workflow Patterns
+
+### Exploring DSM Codebase
+
+```
+> give me an overview of the data-source-manager package structure
+> explain the FCP (Failover Control Protocol) architecture
+> trace how market data flows from exchange APIs to consumers
+```
+
+### Debugging Exchange Integrations
+
+```
+> I'm seeing rate limit errors from Binance. Analyze the rate limiter implementation
+> trace the data flow when fetching OHLCV data from OKX
+> explain why timestamps might be inconsistent between exchanges
+```
+
+### Refactoring DSM Components
+
+```
+> find deprecated pandas usage in the data fetchers
+> suggest how to refactor the symbol format conversion to use a unified approach
+> refactor the timestamp handling to ensure UTC consistency
+```
+
+### Testing DSM Features
+
+```
+> find functions in the FCP module that lack test coverage
+> add tests for the exchange rate limiter edge cases
+> generate fixtures for testing OHLCV data processing
+```
+
+### DSM-Specific Plan Mode Usage
+
+```bash
+claude --permission-mode plan
+```
+
+```
+> I need to add support for a new exchange (Kraken). Create a detailed implementation plan including:
+> - API integration approach
+> - Symbol format conversion
+> - Rate limiting strategy
+> - Test coverage requirements
+```
+
+### DSM Session Naming Convention
+
+Use descriptive session names for DSM work:
+
+```
+> /rename fcp-state-machine-debug
+> /rename binance-rate-limit-fix
+> /rename okx-symbol-format-refactor
+```
+
+### DSM Git Worktree Workflow
+
+```bash
+# Feature development
+git worktree add ../dsm-kraken-integration -b feature/kraken-support
+
+# Bug fix
+git worktree add ../dsm-timestamp-fix bugfix/utc-timestamps
+
+# Run Claude in each
+cd ../dsm-kraken-integration && claude
+cd ../dsm-timestamp-fix && claude
+```
