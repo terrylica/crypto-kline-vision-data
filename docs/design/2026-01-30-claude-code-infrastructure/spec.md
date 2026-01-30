@@ -93,6 +93,26 @@ skills: # Optional: preload skills into agent context
 | silent-failure-hunter | red    | Read, Grep, Glob   | plan | dsm-usage    |
 | test-writer           | blue   | Read, Bash, Grep,G | -    | dsm-testing  |
 
+### Agent Hooks Pattern
+
+Agents can define lifecycle hooks in frontmatter. These run only while the agent is active:
+
+```yaml
+---
+name: test-writer
+hooks:
+  PostToolUse:
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: "${CLAUDE_PROJECT_ROOT}/.claude/hooks/dsm-code-guard.sh"
+---
+```
+
+| Agent       | Hook Event  | Purpose                      |
+| ----------- | ----------- | ---------------------------- |
+| test-writer | PostToolUse | Run code-guard on test files |
+
 ### Description Best Practices
 
 Include "Use proactively" in descriptions to encourage automatic delegation:

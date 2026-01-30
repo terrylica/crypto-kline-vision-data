@@ -4,6 +4,20 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Agent Hooks Pattern (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added `hooks:` frontmatter to test-writer agent for PostToolUse validation
+- Added Write and Edit tools to test-writer (needed to write tests)
+- Updated design spec with Agent Hooks Pattern section
+
+**Pattern Applied**: Agents can define lifecycle hooks scoped to their execution
+
+**Source**: [Official subagents documentation](https://code.claude.com/docs/en/sub-agents)
+
 ### Official Skill Quality Patterns (2026-01-30)
 
 **Status**: Complete
