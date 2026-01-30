@@ -27346,3 +27346,502 @@ Organizations can set per-workspace limits:
 - Default workspace cannot have custom limits
 
 **Example**: Organization has 40,000 ITPM, limit workspace A to 30,000 ITPM, leaving 10,000+ for other workspaces.
+## MCP Server Development and Configuration Reference
+
+Reference for Model Context Protocol (MCP) server development, configuration, and integration with Claude Code.
+
+### Overview
+
+MCP (Model Context Protocol) is an open source standard for AI-tool integrations. MCP servers give Claude Code access to external tools, databases, and APIs.
+
+**Capabilities**:
+
+- Query databases with natural language
+- Integrate with issue trackers (GitHub, Jira)
+- Monitor errors (Sentry)
+- Automate browser testing (Playwright)
+- Access cloud services (AWS, GCP)
+
+### Transport Types
+
+| Transport | Description                     | Use Case                    |
+| --------- | ------------------------------- | --------------------------- |
+| HTTP      | Recommended for remote servers  | Cloud services, APIs        |
+| SSE       | Server-Sent Events (deprecated) | Legacy real-time servers    |
+| stdio     | Local process communication     | Local tools, custom scripts |
+
+### Installing MCP Servers
+
+#### HTTP Server (Recommended)
+
+```bash
+# Basic syntax
+claude mcp add --transport http <name> <url>
+
+# Example: Notion
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+
+# With authentication header
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer your-token"
+```
+
+#### SSE Server (Deprecated)
+
+```bash
+claude mcp add --transport sse asana https://mcp.asana.com/sse
+```
+
+#### stdio Server (Local)
+
+```bash
+# Basic syntax
+claude mcp add [options] <name> -- <command> [args...]
+
+# Example: Airtable
+claude mcp add --transport stdio --env AIRTABLE_API_KEY=YOUR_KEY airtable \
+  -- npx -y airtable-mcp-server
+```
+
+**Important**: All options must come before the server name. `--` separates Claude flags from server command.
+
+### Managing Servers
+
+```bash
+# List all servers
+claude mcp list
+
+# Get server details
+claude mcp get github
+
+# Remove server
+claude mcp remove github
+
+# Check status (within Claude Code)
+/mcp
+
+# Import from Claude Desktop (macOS/WSL only)
+claude mcp add-from-claude-desktop
+```
+
+### MCP Server Scopes
+
+| Scope   | Storage Location | Accessibility              | Use Case                        |
+| ------- | ---------------- | -------------------------- | ------------------------------- |
+| local   | `~/.claude.json` | Current project only       | Personal, sensitive credentials |
+| project | `.mcp.json`      | Shared via version control | Team collaboration              |
+| user    | `~/.claude.json` | All projects               | Personal utilities              |
+
+```bash
+# Add with specific scope
+claude mcp add --transport http stripe --scope local https://mcp.stripe.com
+claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/anthropic
+```
+
+### Project Scope Configuration
+
+Project-scoped servers stored in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "shared-server": {
+      "command": "/path/to/server",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+**Environment variable expansion**:
+
+```json
+{
+  "mcpServers": {
+    "api-server": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.example.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Supported syntax:
+
+- `${VAR}` - Variable value
+- `${VAR:-default}` - Value with default fallback
+
+### Authentication
+
+OAuth 2.0 authentication for cloud services:
+
+```bash
+# Add server requiring auth
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# Authenticate within Claude Code
+/mcp
+# Select "Authenticate" and follow browser flow
+```
+
+### MCP Tool Search
+
+When many MCP servers consume >10% of context window, Tool Search activates automatically:
+
+| ENABLE_TOOL_SEARCH | Behavior                                    |
+| ------------------ | ------------------------------------------- |
+| `auto` (default)   | Activates when MCP tools exceed 10% context |
+| `auto:<N>`         | Custom threshold (e.g., `auto:5` for 5%)    |
+| `true`             | Always enabled                              |
+| `false`            | Disabled, all tools loaded upfront          |
+
+```bash
+# Custom threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Disable entirely
+ENABLE_TOOL_SEARCH=false claude
+```
+
+### MCP Output Limits
+
+| Setting               | Default | Description                     |
+| --------------------- | ------- | ------------------------------- |
+| Warning threshold     | 10,000  | Tokens before warning displayed |
+| MAX_MCP_OUTPUT_TOKENS | 25,000  | Maximum allowed tokens          |
+
+```bash
+# Increase limit for large outputs
+export MAX_MCP_OUTPUT_TOKENS=50000
+claude
+```
+
+### Using Claude Code as MCP Server
+
+Claude Code can expose its tools via MCP:
+
+```bash
+# Start as MCP server
+claude mcp serve
+```
+
+**Claude Desktop configuration** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "type": "stdio",
+      "command": "claude",
+      "args": ["mcp", "serve"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Exposed tools**: View, Edit, LS, Bash, Read, Write, GrepTool, GlobTool, Replace.
+
+### Plugin-Provided MCP Servers
+
+Plugins can bundle MCP servers via `.mcp.json` at plugin root:
+
+```json
+{
+  "database-tools": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/servers/db-server",
+    "args": ["--config", "${CLAUDE_PLUGIN_ROOT}/config.json"],
+    "env": {
+      "DB_URL": "${DB_URL}"
+    }
+  }
+}
+```
+
+Or inline in `plugin.json`:
+
+```json
+{
+  "name": "my-plugin",
+  "mcpServers": {
+    "plugin-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"]
+    }
+  }
+}
+```
+
+### MCP Resources as @ Mentions
+
+Reference MCP resources in prompts:
+
+```
+> Can you analyze @github:issue://123 and suggest a fix?
+> Compare @postgres:schema://users with @docs:file://database/user-model
+```
+
+### MCP Prompts as Commands
+
+MCP servers expose prompts as slash commands:
+
+```
+> /mcp__github__list_prs
+> /mcp__github__pr_review 456
+> /mcp__jira__create_issue "Bug in login flow" high
+```
+
+### Managed MCP Configuration (Enterprise)
+
+**Exclusive control** (`managed-mcp.json`):
+
+Location:
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-mcp.json`
+- Linux/WSL: `/etc/claude-code/managed-mcp.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "company-internal": {
+      "type": "stdio",
+      "command": "/usr/local/bin/company-mcp-server",
+      "args": ["--config", "/etc/company/mcp-config.json"]
+    }
+  }
+}
+```
+
+**Policy-based control** (allowlists/denylists):
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    {
+      "serverCommand": ["npx", "-y", "@modelcontextprotocol/server-filesystem"]
+    },
+    { "serverUrl": "https://mcp.company.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverName": "dangerous-server" },
+    { "serverUrl": "https://*.untrusted.com/*" }
+  ]
+}
+```
+
+### Building Custom MCP Servers
+
+**Python with MCP SDK**:
+
+```python
+from mcp import Server, Tool
+from mcp.types import TextContent
+
+server = Server("my-server")
+
+@server.tool()
+async def get_weather(location: str) -> list[TextContent]:
+    """Get weather for a location."""
+    # Fetch weather data
+    data = await fetch_weather(location)
+    return [TextContent(type="text", text=f"Weather in {location}: {data}")]
+
+@server.tool()
+async def search_database(query: str) -> list[TextContent]:
+    """Search the database."""
+    results = await db.search(query)
+    return [TextContent(type="text", text=json.dumps(results))]
+
+if __name__ == "__main__":
+    server.run()
+```
+
+**TypeScript with MCP SDK**:
+
+```typescript
+import { Server } from "@modelcontextprotocol/sdk/server";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio";
+
+const server = new Server(
+  {
+    name: "my-server",
+    version: "1.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  },
+);
+
+server.setRequestHandler("tools/list", async () => ({
+  tools: [
+    {
+      name: "get_weather",
+      description: "Get weather for a location",
+      inputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string", description: "City name" },
+        },
+        required: ["location"],
+      },
+    },
+  ],
+}));
+
+server.setRequestHandler("tools/call", async (request) => {
+  if (request.params.name === "get_weather") {
+    const { location } = request.params.arguments;
+    const weather = await fetchWeather(location);
+    return { content: [{ type: "text", text: JSON.stringify(weather) }] };
+  }
+});
+
+const transport = new StdioServerTransport();
+server.connect(transport);
+```
+
+### Server Instructions for Tool Search
+
+When building MCP servers, add clear server instructions:
+
+```python
+server = Server(
+    "dsm-tools",
+    instructions="""
+    DSM Tools Server - Use for data source management tasks:
+    - Fetch OHLCV data from exchanges
+    - Validate DataFrame integrity
+    - Debug FCP failover behavior
+    - Check symbol format compatibility
+    """
+)
+```
+
+### DSM-Specific MCP Patterns
+
+**DSM MCP Server Example**:
+
+```python
+from mcp import Server, Tool
+from datasourcemanager import DataSourceManager
+
+server = Server("dsm-mcp")
+dsm = DataSourceManager()
+
+@server.tool()
+async def get_ohlcv(
+    symbol: str,
+    interval: str = "1h",
+    limit: int = 100
+) -> list[TextContent]:
+    """Fetch OHLCV data for a symbol."""
+    try:
+        df = dsm.get_ohlcv(symbol=symbol, interval=interval, limit=limit)
+        return [TextContent(
+            type="text",
+            text=df.to_json(orient="records")
+        )]
+    except Exception as e:
+        return [TextContent(type="text", text=f"Error: {e}")]
+
+@server.tool()
+async def check_fcp_status(symbol: str) -> list[TextContent]:
+    """Check FCP failover status for a symbol."""
+    status = dsm.get_fcp_status(symbol)
+    return [TextContent(type="text", text=json.dumps(status))]
+
+@server.tool()
+async def validate_dataframe(data: str) -> list[TextContent]:
+    """Validate OHLCV DataFrame structure."""
+    import polars as pl
+    df = pl.read_json(data)
+
+    issues = []
+    required_cols = ["open_time", "open", "high", "low", "close", "volume"]
+
+    for col in required_cols:
+        if col not in df.columns:
+            issues.append(f"Missing column: {col}")
+
+    if "open_time" in df.columns and df["open_time"].dtype != pl.Datetime:
+        issues.append("open_time should be datetime")
+
+    return [TextContent(
+        type="text",
+        text=json.dumps({"valid": len(issues) == 0, "issues": issues})
+    )]
+```
+
+**Project MCP configuration** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "dsm": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "datasourcemanager.mcp_server"],
+      "env": {
+        "DSM_CACHE_DIR": "${HOME}/.cache/dsm"
+      }
+    }
+  }
+}
+```
+
+### Popular MCP Servers
+
+| Server     | URL/Command                                       | Purpose              |
+| ---------- | ------------------------------------------------- | -------------------- |
+| GitHub     | `https://api.githubcopilot.com/mcp/`              | PRs, issues, CI/CD   |
+| Sentry     | `https://mcp.sentry.dev/mcp`                      | Error monitoring     |
+| Notion     | `https://mcp.notion.com/mcp`                      | Documentation, notes |
+| PostgreSQL | `npx -y @bytebase/dbhub --dsn "postgresql://..."` | Database queries     |
+| Playwright | `npx -y @playwright/mcp@latest`                   | Browser automation   |
+| Filesystem | `npx -y @modelcontextprotocol/server-filesystem`  | File operations      |
+
+### Windows-Specific Notes
+
+On native Windows (not WSL), use `cmd /c` wrapper for npx:
+
+```bash
+claude mcp add --transport stdio my-server -- cmd /c npx -y @some/package
+```
+
+### Dynamic Tool Updates
+
+Claude Code supports MCP `list_changed` notifications for dynamic capability updates without reconnection.
+
+### Troubleshooting
+
+**Common issues**:
+
+| Issue                | Solution                                     |
+| -------------------- | -------------------------------------------- |
+| Connection closed    | Check command path, use `cmd /c` on Windows  |
+| spawn ENOENT         | Use full path to executable (`which claude`) |
+| Timeout              | Set `MCP_TIMEOUT=10000` environment variable |
+| Large output warning | Increase `MAX_MCP_OUTPUT_TOKENS`             |
+| OAuth not working    | Use `/mcp` to authenticate, check browser    |
+
+**Debugging**:
+
+```bash
+# Enable MCP debug mode
+claude --mcp-debug
+
+# Check server status
+/mcp
+```
