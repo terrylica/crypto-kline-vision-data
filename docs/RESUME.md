@@ -4,6 +4,19 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Advanced Hook Patterns from cc-skills (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added advanced hook output control table (additionalContext, updatedInput, permissionDecision)
+- Added visibility patterns table (user vs Claude sees)
+- Added additional hook events (PostToolUseFailure, PreCompact)
+- Added timeout guidelines table by hook type
+
+**Source**: [cc-skills Lifecycle Reference](https://github.com/terrylica/cc-skills)
+
 ### Commands vs Skills & CLAUDE.md Organization (2026-01-30)
 
 **Status**: Complete

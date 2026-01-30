@@ -440,6 +440,43 @@ Hooks can return structured JSON for sophisticated control:
 
 Note: Matchers are case-sensitive. `bash` won't match `Bash`.
 
+### Advanced Hook Output Control
+
+Based on [cc-skills Lifecycle Reference](https://github.com/terrylica/cc-skills):
+
+| JSON Field           | Effect                                               |
+| -------------------- | ---------------------------------------------------- |
+| `additionalContext`  | Inject text into Claude's context (SessionStart)     |
+| `updatedInput`       | Rewrite tool arguments before execution (PreToolUse) |
+| `permissionDecision` | `allow\|deny\|ask` for nuanced permission handling   |
+| `decision: block`    | Soft block with feedback to Claude (PostToolUse)     |
+
+**Visibility patterns**:
+
+| Output Type         | User Sees | Claude Sees |
+| ------------------- | --------- | ----------- |
+| Plain text stdout   | Yes       | No          |
+| `systemMessage`     | Yes       | No          |
+| `additionalContext` | No        | Yes         |
+| `decision: block`   | Yes       | Yes         |
+
+### Additional Hook Events
+
+| Event              | Purpose                         | Use Case                  |
+| ------------------ | ------------------------------- | ------------------------- |
+| PostToolUseFailure | Fires when tool execution fails | Recovery/fallback logic   |
+| PreCompact         | Fires before context compaction | Backup/archival workflows |
+
+### Timeout Guidelines
+
+| Hook Type      | Recommended Timeout | Reason                   |
+| -------------- | ------------------- | ------------------------ |
+| Validation     | 5000ms (5s)         | Quick syntax checks      |
+| Git operations | 15000ms (15s)       | Network latency          |
+| Network calls  | 30000ms (30s)       | External API variability |
+
+**Note**: Timeouts are in milliseconds (e.g., `15000` not `15`).
+
 ### DSM Code Guard Checks
 
 | Check             | Pattern                     | Severity |
