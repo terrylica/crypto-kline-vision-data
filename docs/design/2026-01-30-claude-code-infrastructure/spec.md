@@ -19057,3 +19057,302 @@ User: "Generate a Streamlit dashboard matching this design"
 | Inaccurate interpretation | Low quality/rotated           | Use clear, upright images |
 | Metadata not read         | Claude doesn't parse metadata | Include info in prompt    |
 | Request too large         | Over 32 MB with images        | Reduce image count/size   |
+---
+
+<!-- SSoT-OK: Section added by autonomous Claude Code infrastructure improvement loop -->
+
+## CLI & Headless Mode Reference
+
+Comprehensive guide to Claude Code CLI usage, headless mode, and CI/CD integration.
+
+### Basic CLI Commands
+
+| Command                 | Description                       | Example                             |
+| ----------------------- | --------------------------------- | ----------------------------------- |
+| `claude`                | Start interactive REPL            | `claude`                            |
+| `claude "query"`        | Start REPL with initial prompt    | `claude "explain this project"`     |
+| `claude -p "query"`     | Print mode (non-interactive)      | `claude -p "explain this function"` |
+| `claude -c`             | Continue most recent conversation | `claude -c`                         |
+| `claude -r "<session>"` | Resume session by ID or name      | `claude -r "auth-refactor"`         |
+| `claude update`         | Update to latest version          | `claude update`                     |
+
+### Print Mode (-p)
+
+Print mode enables non-interactive usage for scripting and CI/CD:
+
+```bash
+# Simple query
+claude -p "Analyze this function for bugs"
+
+# Process piped content
+cat logs.txt | claude -p "Explain these errors"
+
+# Continue conversation in print mode
+claude -c -p "Check for type errors"
+```
+
+### Output Formats
+
+| Format        | Flag                          | Use Case                        |
+| ------------- | ----------------------------- | ------------------------------- |
+| `text`        | `--output-format text`        | Human-readable output (default) |
+| `json`        | `--output-format json`        | Parseable JSON for automation   |
+| `stream-json` | `--output-format stream-json` | NDJSON streaming for pipelines  |
+
+**JSON output example**:
+
+```bash
+claude -p "List all files in src/" --output-format json | jq '.result'
+```
+
+**Stream-JSON (NDJSON) for chaining**:
+
+```bash
+claude -p --output-format stream-json "First task" \
+  | claude -p --input-format stream-json --output-format stream-json "Process" \
+  | claude -p --input-format stream-json "Final report"
+```
+
+### CI/CD Integration
+
+**GitHub Actions example**:
+
+```yaml
+- name: Run Claude Code Analysis
+  run: |
+    claude -p "If there are linting errors, fix them" \
+      --output-format json \
+      --max-turns 5 \
+      --max-budget-usd 2.00
+```
+
+**Key CI/CD flags**:
+
+| Flag                             | Description                            |
+| -------------------------------- | -------------------------------------- |
+| `--max-turns N`                  | Limit agentic turns (prevents runaway) |
+| `--max-budget-usd N`             | Spending limit in dollars              |
+| `--dangerously-skip-permissions` | Skip permission prompts                |
+| `--no-session-persistence`       | Don't save session to disk             |
+| `--fallback-model sonnet`        | Use fallback when overloaded           |
+
+### System Prompt Customization
+
+| Flag                          | Behavior                   | Mode                |
+| ----------------------------- | -------------------------- | ------------------- |
+| `--system-prompt`             | Replace entire prompt      | Interactive + Print |
+| `--system-prompt-file`        | Replace with file contents | Print only          |
+| `--append-system-prompt`      | Append to default prompt   | Interactive + Print |
+| `--append-system-prompt-file` | Append file contents       | Print only          |
+
+**Examples**:
+
+```bash
+# Replace system prompt
+claude --system-prompt "You are a Python expert"
+
+# Append to default (recommended)
+claude --append-system-prompt "Always use TypeScript"
+
+# Load from file
+claude -p --system-prompt-file ./prompts/review.txt "Review this PR"
+```
+
+### Tool Control
+
+**Allow specific tools**:
+
+```bash
+claude --allowedTools "Bash(git log *)" "Read" "Glob"
+```
+
+**Restrict available tools**:
+
+```bash
+claude --tools "Bash,Edit,Read"
+
+# Disable all tools
+claude --tools ""
+```
+
+**Disallow specific tools**:
+
+```bash
+claude --disallowedTools "Bash(rm *)" "Edit"
+```
+
+### Custom Agents via CLI
+
+Define subagents dynamically:
+
+```bash
+claude --agents '{
+  "code-reviewer": {
+    "description": "Expert code reviewer",
+    "prompt": "You are a senior code reviewer",
+    "tools": ["Read", "Grep", "Glob"],
+    "model": "sonnet"
+  }
+}'
+```
+
+**Agent definition fields**:
+
+| Field         | Required | Description                             |
+| ------------- | -------- | --------------------------------------- |
+| `description` | Yes      | When to invoke the subagent             |
+| `prompt`      | Yes      | System prompt for subagent              |
+| `tools`       | No       | Array of allowed tools                  |
+| `model`       | No       | `sonnet`, `opus`, `haiku`, or `inherit` |
+
+### Permission Modes
+
+```bash
+# Start in plan mode
+claude --permission-mode plan
+
+# Allow bypass as option (composable)
+claude --permission-mode plan --allow-dangerously-skip-permissions
+
+# Skip all permissions (CI/CD)
+claude --dangerously-skip-permissions
+```
+
+### Session Management
+
+**Resume by ID or name**:
+
+```bash
+claude --resume auth-refactor
+claude -r abc123def456
+```
+
+**Fork session (new ID)**:
+
+```bash
+claude --resume abc123 --fork-session
+```
+
+**Specify session ID**:
+
+```bash
+claude --session-id "550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Additional Directories
+
+Grant Claude access to directories outside working directory:
+
+```bash
+claude --add-dir ../apps ../lib ../shared
+```
+
+### MCP Configuration via CLI
+
+```bash
+# Load MCP from file
+claude --mcp-config ./mcp.json
+
+# Use only specified MCP config
+claude --strict-mcp-config --mcp-config ./mcp.json
+```
+
+### Structured Output (JSON Schema)
+
+Get validated JSON output:
+
+```bash
+claude -p --json-schema '{
+  "type": "object",
+  "properties": {
+    "functions": {"type": "array"},
+    "complexity": {"type": "number"}
+  }
+}' "Analyze src/main.py"
+```
+
+### DSM CLI Patterns
+
+#### Pattern: Automated Code Review
+
+```bash
+#!/bin/bash
+claude -p \
+  --output-format json \
+  --max-turns 3 \
+  --append-system-prompt "Focus on FCP patterns and silent failures" \
+  "Review changes in src/fcp/" \
+  | jq '.result.text'
+```
+
+#### Pattern: Batch File Processing
+
+```bash
+for file in src/**/*.py; do
+  claude -p \
+    --output-format json \
+    --no-session-persistence \
+    "Check $file for FCP compliance" \
+    | jq -r '.result.text' >> review.log
+done
+```
+
+#### Pattern: CI Pipeline Integration
+
+```bash
+# Run analysis with budget limit
+result=$(claude -p \
+  --output-format json \
+  --max-budget-usd 1.00 \
+  --max-turns 5 \
+  "Fix linting errors in staged files")
+
+# Check for errors
+if echo "$result" | jq -e '.error' > /dev/null; then
+  echo "Analysis failed"
+  exit 1
+fi
+```
+
+### Environment Variables
+
+| Variable                  | Description                |
+| ------------------------- | -------------------------- |
+| `ANTHROPIC_API_KEY`       | API key for authentication |
+| `CLAUDE_CODE_USE_BEDROCK` | Use AWS Bedrock (`true`)   |
+| `CLAUDE_CODE_USE_VERTEX`  | Use Google Vertex (`true`) |
+| `ENABLE_TOOL_SEARCH`      | Tool search behavior       |
+| `MAX_MCP_OUTPUT_TOKENS`   | MCP output limit           |
+| `MCP_TIMEOUT`             | MCP server startup timeout |
+
+### Verbose and Debug Modes
+
+```bash
+# Verbose output (turn-by-turn)
+claude --verbose -p "query"
+
+# Debug with category filter
+claude --debug "api,mcp" -p "query"
+
+# Debug excluding categories
+claude --debug "!statsig,!file" -p "query"
+```
+
+### Best Practices for CI/CD
+
+1. **Always set limits**: Use `--max-turns` and `--max-budget-usd`
+2. **Use JSON output**: Parse results programmatically
+3. **Disable persistence**: Use `--no-session-persistence` for CI
+4. **Set fallback model**: Use `--fallback-model sonnet` for reliability
+5. **Skip permissions carefully**: Only use `--dangerously-skip-permissions` in trusted CI
+6. **Log verbose output**: Use `--verbose` for debugging CI failures
+
+### Troubleshooting CLI
+
+| Issue               | Cause                    | Solution                               |
+| ------------------- | ------------------------ | -------------------------------------- |
+| Hangs on permission | Interactive prompt in CI | Use `--dangerously-skip-permissions`   |
+| Output truncated    | Default text format      | Use `--output-format json`             |
+| Budget exceeded     | Long-running task        | Set `--max-budget-usd` limit           |
+| Session not found   | Invalid ID               | Use `--resume` without ID for picker   |
+| MCP timeout         | Slow server startup      | Set `MCP_TIMEOUT` environment variable |
