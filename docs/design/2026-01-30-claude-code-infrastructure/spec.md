@@ -50387,3 +50387,514 @@ uv run pytest --cov=src/data_source_manager
 ```
 
 ```
+# Settings and Permissions Reference
+
+This section covers Claude Code settings and permissions: configuration hierarchy, allow/deny/ask rules, permission patterns, managed settings, and enterprise deployment.
+
+## Configuration Hierarchy
+
+Claude Code uses a **four-tier scope system** with this precedence (highest to lowest):
+
+1. **Managed Settings** (system-level) - `/Library/Application Support/ClaudeCode/` (macOS), `/etc/claude-code/` (Linux/WSL), `C:\Program Files\ClaudeCode\` (Windows)
+2. **Command Line Arguments** - temporary session overrides
+3. **Local Project Settings** (`.claude/settings.local.json`) - personal, gitignored
+4. **Project Settings** (`.claude/settings.json`) - team-shared, committed to git
+5. **User Settings** (`~/.claude/settings.json`) - personal global
+
+### Settings File Locations
+
+| Scope       | Location                  | Who It Affects       | Shared with Team |
+| ----------- | ------------------------- | -------------------- | ---------------- |
+| **Managed** | System-level paths        | All users on machine | Yes (via IT)     |
+| **User**    | `~/.claude/`              | You, all projects    | No               |
+| **Project** | `.claude/` in repository  | All collaborators    | Yes (git)        |
+| **Local**   | `.claude/*.local.*` files | You, this repo only  | No (gitignored)  |
+
+## Permission System
+
+### Permission Rule Syntax
+
+Rules follow the format: `Tool` or `Tool(specifier)`
+
+**Rule Evaluation Order:**
+
+1. **Deny** rules (highest priority)
+2. **Ask** rules
+3. **Allow** rules (lowest priority)
+
+First matching rule determines behavior.
+
+### Basic Permission Examples
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run lint)", "Bash(npm run test *)", "Read(~/.zshrc)"],
+    "deny": [
+      "Bash(curl *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ],
+    "ask": ["Bash(git push *)"]
+  }
+}
+```
+
+### Permission Pattern Matching
+
+**Match entire tool use:**
+
+```json
+"Bash"           // All bash commands
+"WebFetch"       // All web requests
+"Read"           // All file reads
+"Bash(*)"        // Equivalent to "Bash"
+```
+
+**Exact command matching:**
+
+```json
+"Bash(npm run build)"              // Exact command only
+"Read(./.env)"                     // Specific file
+"WebFetch(domain:example.com)"     // Domain matching
+```
+
+**Wildcard patterns (glob-style):**
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git commit *)",
+      "Bash(git * main)",
+      "Bash(* --version)",
+      "Bash(* --help *)"
+    ],
+    "deny": ["Bash(git push *)"]
+  }
+}
+```
+
+**Important:** Space before `*` matters:
+
+- `Bash(ls *)` matches `ls -la` but not `lsof`
+- `Bash(ls*)` matches both
+
+### Permission Modes
+
+| Mode                | Default | Effect                                 |
+| ------------------- | ------- | -------------------------------------- |
+| `askPermissions`    | Yes     | Ask before each tool use               |
+| `acceptEdits`       | No      | Auto-approve tool use                  |
+| `bypassPermissions` | No      | Skip all permission checks (dangerous) |
+
+Set via settings:
+
+```json
+{
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  }
+}
+```
+
+Disable bypass mode:
+
+```json
+{
+  "permissions": {
+    "disableBypassPermissionsMode": "disable"
+  }
+}
+```
+
+## Available Settings Keys
+
+| Key                     | Description                                       | Example                                                     |
+| ----------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| `apiKeyHelper`          | Script to generate auth values                    | `/bin/generate_temp_api_key.sh`                             |
+| `cleanupPeriodDays`     | Session deletion period (default: 30)             | `20`                                                        |
+| `companyAnnouncements`  | Random startup messages                           | `["Welcome message"]`                                       |
+| `env`                   | Environment variables for all sessions            | `{"FOO": "bar"}`                                            |
+| `attribution`           | Git commit/PR attribution                         | `{"commit": "🤖 Generated", "pr": ""}`                      |
+| `permissions`           | Allow/deny/ask tool access                        | See permission examples above                               |
+| `hooks`                 | Pre/post tool execution commands                  | `{"PreToolUse": {"Bash": "echo 'Running'"}}`                |
+| `disableAllHooks`       | Disable all hooks                                 | `true`                                                      |
+| `allowManagedHooksOnly` | Managed settings only: block user/project hooks   | `true`                                                      |
+| `model`                 | Default model override                            | `"claude-sonnet-4-5-20250929"`                              |
+| `statusLine`            | Custom status line configuration                  | `{"type": "command", "command": "~/.claude/statusline.sh"}` |
+| `respectGitignore`      | Honor `.gitignore` in file picker (default: true) | `false`                                                     |
+| `outputStyle`           | Adjust system prompt style                        | `"Explanatory"`                                             |
+| `forceLoginMethod`      | Restrict login type                               | `"claudeai"` or `"console"`                                 |
+| `forceLoginOrgUUID`     | Auto-select organization on login                 | `"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`                    |
+| `language`              | Preferred response language                       | `"japanese"`, `"spanish"`, `"french"`                       |
+| `alwaysThinkingEnabled` | Enable extended thinking by default               | `true`                                                      |
+| `spinnerVerbs`          | Custom action verbs in spinner                    | `{"mode": "append", "verbs": ["Pondering"]}`                |
+| `autoUpdatesChannel`    | Update channel: `"stable"` or `"latest"`          | `"stable"`                                                  |
+
+### Example: Full settings.json
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run lint)", "Bash(npm run test *)", "Read(~/.zshrc)"],
+    "deny": [
+      "Bash(curl *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ],
+    "defaultMode": "askPermissions",
+    "additionalDirectories": ["../docs/"]
+  },
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp"
+  },
+  "companyAnnouncements": [
+    "Welcome to Acme Corp! Review our code guidelines at docs.acme.com",
+    "Reminder: Code reviews required for all PRs"
+  ],
+  "attribution": {
+    "commit": "🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "pr": "🤖 Generated with Claude Code"
+  },
+  "model": "claude-sonnet-4-5-20250929",
+  "outputStyle": "Explanatory",
+  "language": "english"
+}
+```
+
+## Sandbox Configuration
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["docker"],
+    "allowUnsandboxedCommands": true,
+    "network": {
+      "allowUnixSockets": ["~/.ssh/agent-socket"],
+      "allowLocalBinding": true,
+      "httpProxyPort": 8080,
+      "socksProxyPort": 8081
+    },
+    "enableWeakerNestedSandbox": false
+  },
+  "permissions": {
+    "deny": ["Read(.envrc)", "Read(~/.aws/**)"]
+  }
+}
+```
+
+## Managed Settings (Enterprise)
+
+### Purpose and Location
+
+Managed settings enforce organization-wide policies that **cannot be overridden**:
+
+- **macOS**: `/Library/Application Support/ClaudeCode/managed-settings.json`
+- **Linux/WSL**: `/etc/claude-code/managed-settings.json`
+- **Windows**: `C:\Program Files\ClaudeCode\managed-settings.json`
+
+Require administrator privileges.
+
+### Managed Settings Example
+
+```json
+{
+  "permissions": {
+    "deny": ["WebFetch", "Bash(curl *)", "Read(./.env)"]
+  },
+  "allowManagedHooksOnly": true,
+  "disableBypassPermissionsMode": "disable",
+  "companyAnnouncements": [
+    "Security policy: No external API calls without approval"
+  ]
+}
+```
+
+### Managed MCP Configuration
+
+```json
+{
+  "allowedMcpServers": [{ "serverName": "github" }, { "serverName": "memory" }],
+  "deniedMcpServers": [{ "serverName": "filesystem" }]
+}
+```
+
+**MCP Denylist takes precedence over allowlist.**
+
+### Managed Marketplace Restrictions
+
+`strictKnownMarketplaces` (managed settings only) controls which plugin marketplaces can be added:
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "acme-corp/approved-plugins"
+    },
+    {
+      "source": "github",
+      "repo": "acme-corp/security-tools",
+      "ref": "v2.0"
+    },
+    {
+      "source": "url",
+      "url": "https://plugins.example.com/marketplace.json"
+    },
+    {
+      "source": "npm",
+      "package": "@acme-corp/compliance-plugins"
+    }
+  ]
+}
+```
+
+**Complete lockdown:**
+
+```json
+{
+  "strictKnownMarketplaces": []
+}
+```
+
+**Allow all from internal git server:**
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "hostPattern",
+      "hostPattern": "^github\\.example\\.com$"
+    }
+  ]
+}
+```
+
+Supported sources:
+
+- `github` (with `repo`, optional `ref`, `path`)
+- `git` (with `url`, optional `ref`, `path`)
+- `url` (with `url`, optional `headers`)
+- `npm` (with `package`)
+- `file` (with `path`)
+- `directory` (with `path`)
+- `hostPattern` (with regex `hostPattern`)
+
+## Plugin Configuration
+
+```json
+{
+  "enabledPlugins": {
+    "formatter@acme-tools": true,
+    "deployer@acme-tools": true,
+    "analyzer@security-plugins": false
+  },
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": {
+        "source": "github",
+        "repo": "acme-corp/claude-plugins"
+      }
+    },
+    "security-plugins": {
+      "source": {
+        "source": "git",
+        "url": "https://git.example.com/security/plugins.git"
+      }
+    }
+  }
+}
+```
+
+**Difference between approaches:**
+
+| Aspect            | `strictKnownMarketplaces`  | `extraKnownMarketplaces` |
+| ----------------- | -------------------------- | ------------------------ |
+| **Purpose**       | Enforce restrictions       | Auto-install for team    |
+| **Settings file** | managed-settings.json only | Any settings file        |
+| **Enforced**      | Before network operations  | After user trust         |
+| **Overridable**   | No                         | Yes                      |
+| **Use case**      | Compliance/security        | Convenience              |
+
+## Environment Variables Reference
+
+Key environment variables for Claude Code (values are runtime configuration, not package versions):
+
+| Variable                        | Description              | Example Value                  |
+| ------------------------------- | ------------------------ | ------------------------------ |
+| `ANTHROPIC_API_KEY`             | API authentication       | `sk-...`                       |
+| `ANTHROPIC_AUTH_TOKEN`          | Custom auth value        | `custom-value`                 |
+| `ANTHROPIC_MODEL`               | Model override           | `claude-sonnet-4-5-20250929`   |
+| `CLAUDE_CODE_SUBAGENT_MODEL`    | Subagent model           | `claude-opus-4-1-20250805`     |
+| `MAX_THINKING_TOKENS`           | Extended thinking budget | Integer (max ~32k)             |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Output token limit       | Integer (default 32k, max 64k) |
+| `BASH_MAX_OUTPUT_LENGTH`        | Bash output limit        | Integer (default 50k)          |
+| `BASH_DEFAULT_TIMEOUT_MS`       | Bash timeout             | Integer in milliseconds        |
+| `CLAUDE_CODE_ENABLE_TELEMETRY`  | Enable telemetry         | `1` or `0`                     |
+| `OTEL_METRICS_EXPORTER`         | Metrics exporter         | `otlp`                         |
+| `CLAUDE_CODE_SKIP_BEDROCK_AUTH` | Skip Bedrock auth        | `1` or `0`                     |
+| `CLAUDE_CODE_SKIP_VERTEX_AUTH`  | Skip Vertex auth         | `1` or `0`                     |
+| `DISABLE_AUTOUPDATER`           | Disable updates          | `1`                            |
+| `DISABLE_TELEMETRY`             | Disable telemetry        | `1`                            |
+| `DISABLE_ERROR_REPORTING`       | Disable error reports    | `1`                            |
+| `HTTP_PROXY`                    | HTTP proxy               | `http://proxy:8080`            |
+| `HTTPS_PROXY`                   | HTTPS proxy              | `https://proxy:8080`           |
+| `NO_PROXY`                      | Proxy bypass             | `localhost,127.0.0.1`          |
+
+### Configuration via settings.json
+
+All environment variables can be set in `settings.json`:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "CUSTOM_VAR": "value"
+  }
+}
+```
+
+## Sensitive File Exclusion Best Practices
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.envrc)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)",
+      "Read(./build)",
+      "Read(~/.aws/**)",
+      "Read(~/.ssh/**)",
+      "Bash(curl *)",
+      "WebFetch"
+    ]
+  }
+}
+```
+
+## File Suggestion Customization
+
+```json
+{
+  "fileSuggestion": {
+    "type": "command",
+    "command": "~/.claude/file-suggestion.sh"
+  }
+}
+```
+
+Script receives JSON with `query` field via stdin:
+
+```json
+{ "query": "src/comp" }
+```
+
+Output newline-separated paths (max 15):
+
+```bash
+#!/bin/bash
+query=$(cat | jq -r '.query')
+your-repo-file-index --query "$query" | head -20
+```
+
+## DSM-Specific Settings Patterns
+
+### Project Settings for DSM
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest *)",
+      "Bash(uv run python *)",
+      "Bash(uv pip *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ],
+    "ask": ["Bash(git push *)", "Bash(git commit *)"]
+  },
+  "env": {
+    "PYTHONPATH": "src",
+    "DSM_ENV": "development"
+  }
+}
+```
+
+### Exchange API Security
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./config/exchange_credentials.json)",
+      "Read(./secrets/api_keys.json)",
+      "Bash(*BINANCE*)",
+      "Bash(*OKX*)",
+      "Bash(*api_key*)",
+      "Bash(*api_secret*)"
+    ]
+  }
+}
+```
+
+### Development vs Production
+
+**Development settings (.claude/settings.local.json):**
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(uv run pytest *)", "Bash(uv run python -m pytest *)"],
+    "defaultMode": "acceptEdits"
+  },
+  "env": {
+    "DSM_ENV": "development",
+    "LOG_LEVEL": "DEBUG"
+  }
+}
+```
+
+**Shared settings (.claude/settings.json):**
+
+```json
+{
+  "permissions": {
+    "deny": ["Read(./.env)", "Bash(curl *)", "Bash(wget *)"]
+  },
+  "companyAnnouncements": [
+    "DSM: Always use UTC timestamps",
+    "DSM: Check rate limits before API calls"
+  ]
+}
+```
+
+## Key Takeaways
+
+1. **Scope Precedence**: Managed > Command Line > Local Project > Project > User
+2. **Permission Rules**: Deny takes precedence over Allow; Ask sits in between
+3. **Wildcard Patterns**: Glob-style `*` matching with space sensitivity
+4. **Managed Settings**: System-level enforcement that cannot be overridden
+5. **Team Standardization**: Use project `.claude/settings.json` for shared config
+6. **Sensitive Data**: Always use `deny` rules for `.env`, secrets, and credentials
+7. **Plugin Control**: Use `strictKnownMarketplaces` for enterprise restrictions
+8. **Configuration Backup**: Automatic timestamped backups retained (5 most recent)
