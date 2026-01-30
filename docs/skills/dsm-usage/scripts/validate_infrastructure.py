@@ -74,7 +74,10 @@ def validate_commands(claude_dir: Path) -> tuple[int, int, list[str]]:
 
     for cmd_file in commands_dir.glob("*.md"):
         total += 1
-        ok, file_issues = check_file_has_frontmatter(cmd_file, ["name", "description"])
+        # Check required fields including argument-hint and allowed-tools
+        ok, file_issues = check_file_has_frontmatter(
+            cmd_file, ["name", "description", "argument-hint", "allowed-tools"]
+        )
 
         if cmd_file.name in side_effect_commands:
             content = cmd_file.read_text()
@@ -132,7 +135,7 @@ def validate_skills(docs_dir: Path) -> tuple[int, int, list[str]]:
 
 
 def validate_rules(claude_dir: Path) -> tuple[int, int, list[str]]:
-    """Validate rules exist."""
+    """Validate rules exist and have proper frontmatter."""
     rules_dir = claude_dir / "rules"
     if not rules_dir.exists():
         return 0, 0, ["rules/ directory not found"]
@@ -147,6 +150,14 @@ def validate_rules(claude_dir: Path) -> tuple[int, int, list[str]]:
         "timestamp-handling.md",
     ]
 
+    # Rules that should have ADR references (FCP-related)
+    rules_with_adr = {
+        "binance-api.md",
+        "caching-patterns.md",
+        "fcp-protocol.md",
+        "symbol-formats.md",
+    }
+
     issues = []
     passed = 0
     total = len(expected_rules)
@@ -154,6 +165,19 @@ def validate_rules(claude_dir: Path) -> tuple[int, int, list[str]]:
     for rule in expected_rules:
         rule_path = rules_dir / rule
         if rule_path.exists():
+            # Check for paths: field
+            ok, file_issues = check_file_has_frontmatter(rule_path, ["paths"])
+            if not ok:
+                issues.extend(file_issues)
+                continue
+
+            # Check for adr: field in FCP-related rules
+            if rule in rules_with_adr:
+                content = rule_path.read_text()
+                if "adr:" not in content:
+                    issues.append(f"{rule} missing adr: field")
+                    continue
+
             passed += 1
         else:
             issues.append(f"Missing rule: {rule}")
