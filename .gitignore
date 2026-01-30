@@ -132,3 +132,6 @@ bun.lockb
 
 # Stash patch exports (local reference only)
 .stash-patches/
+
+# Claude Code local state (Ralph loop, etc.)
+.claude/
