@@ -3490,6 +3490,195 @@ Cache hits reduce latency by up to 85% by avoiding:
 # - Total session cost
 ```
 
+## Testing & Test Generation
+
+AI-powered test creation, execution, and debugging.
+
+### Test Generation Prompts
+
+```
+> Find functions in UserService.py not covered by tests
+> Add tests for the authentication module
+> Add test cases for edge conditions
+> Run new tests and fix any failures
+```
+
+### Specialized Test Agents
+
+Playwright ships specialized agents for Claude Code:
+
+| Agent     | Purpose                           |
+| --------- | --------------------------------- |
+| Planner   | Exploration strategy              |
+| Generator | Test code generation              |
+| Healer    | Fix failures (up to 5 iterations) |
+
+### Bounded QA Agents
+
+Separation of concerns for QA:
+
+| Agent    | Responsibility        |
+| -------- | --------------------- |
+| Analyst  | Feature analysis only |
+| Sentinel | Auditing only         |
+| Healer   | Debugging only        |
+
+### Test-Driven Development (TDD)
+
+```
+> Write failing tests for the new feature first
+> [Claude generates test cases]
+> Now implement the feature to make tests pass
+```
+
+### Edge Case Generation
+
+Claude generates comprehensive edge cases:
+
+- Malformed JSON responses
+- Empty responses
+- Special characters in IDs
+- Extremely long URLs (414 errors)
+- Timeout scenarios
+- Concurrent access
+
+### Debugging Loop
+
+When tests fail, Claude:
+
+1. Reads test output and error logs
+2. Identifies failure type (selector, timeout, assertion)
+3. Suggests specific fixes
+4. Updates broken selectors
+5. Adds waits where needed
+6. Re-runs failed tests
+
+### Test Commands
+
+Create in `.claude/commands/`:
+
+```yaml
+---
+name: run-tests
+description: Run tests and fix failures
+user-invocable: true
+---
+
+Run the test suite with `uv run pytest`.
+If any tests fail:
+1. Analyze the failure output
+2. Identify root cause
+3. Fix the issue
+4. Re-run tests
+5. Repeat until all pass or 3 iterations
+```
+
+### DSM Testing Patterns
+
+| Test Area         | Approach                         |
+| ----------------- | -------------------------------- |
+| FCP behavior      | Mock cache, verify decisions     |
+| Rate limiting     | Test backoff with mock responses |
+| Symbol validation | Property-based testing           |
+| DataFrame ops     | Fixture-based with known data    |
+| Error handling    | Verify exception hierarchy       |
+
+## Documentation Generation
+
+Automated documentation from code analysis.
+
+### Documentation Types
+
+| Type              | Example                        |
+| ----------------- | ------------------------------ |
+| Module docstrings | File-level purpose explanation |
+| Function docs     | Parameters, returns, examples  |
+| Inline comments   | Complex logic explanation      |
+| API documentation | OpenAPI/Swagger generation     |
+| Architecture docs | High-level system overview     |
+
+### Generation Prompts
+
+```
+> Add JSDoc comments to undocumented functions in auth.js
+> Generate Javadoc-style comments for all methods
+> Add inline comments explaining the FCP decision logic
+> Create API documentation for the data endpoints
+```
+
+### Comment Directives
+
+Add directives in CLAUDE.md:
+
+```markdown
+# Comment Directives
+
+When you see @implement in comments:
+
+1. Use comment instructions to implement changes
+2. Convert comment blocks to documentation blocks
+3. Remove @implement after completion
+```
+
+### Code Commenting Example
+
+Before:
+
+```python
+def fetch_data(symbol, start, end):
+    # Complex logic here
+    ...
+```
+
+After Claude documentation:
+
+```python
+def fetch_data(symbol: str, start: datetime, end: datetime) -> DataFrame:
+    """
+    Fetch historical OHLCV data for a symbol.
+
+    Args:
+        symbol: Trading pair symbol (e.g., "BTCUSDT")
+        start: Start datetime (UTC)
+        end: End datetime (UTC)
+
+    Returns:
+        Polars DataFrame with columns: open_time, open, high, low, close, volume
+
+    Raises:
+        RateLimitError: If API rate limit exceeded
+        SymbolNotFoundError: If symbol doesn't exist
+    """
+    ...
+```
+
+### Documentation Standards
+
+| Standard     | Languages      | Claude Support               |
+| ------------ | -------------- | ---------------------------- |
+| JSDoc        | JavaScript, TS | Full                         |
+| Javadoc      | Java           | Full                         |
+| Docstring    | Python         | Full (Google, NumPy, Sphinx) |
+| RustDoc      | Rust           | Full                         |
+| XML comments | C#             | Full                         |
+
+### Iterative Improvement
+
+1. Ask Claude to analyze undocumented code
+2. Review initial documentation output
+3. Refine with specific feedback
+4. Request consistency checks
+
+### DSM Documentation Patterns
+
+| Area              | Documentation Focus           |
+| ----------------- | ----------------------------- |
+| FCP protocol      | Decision flow, cache keys     |
+| Error hierarchy   | When to use each exception    |
+| Symbol formats    | Market-specific examples      |
+| DataFrame columns | Column names, types, meanings |
+| Rate limiting     | Backoff strategy explanation  |
+
 ## Verification Checklist
 
 ### Infrastructure
