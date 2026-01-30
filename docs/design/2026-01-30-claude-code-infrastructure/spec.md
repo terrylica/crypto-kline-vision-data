@@ -16111,3 +16111,514 @@ AWS_PROFILE = "dsm-production"
   }
 }
 ```
+---
+
+## Plugin Development Reference
+
+Build and distribute Claude Code plugins with skills, commands, hooks, and MCP servers.
+
+### Plugin Directory Structure
+
+**Basic plugin**:
+
+```
+my-plugin/
+├── .claude-plugin/
+│   └── plugin.json       # Plugin manifest
+├── skills/
+│   └── my-skill/
+│       └── SKILL.md      # Skill definition
+└── README.md
+```
+
+**Full-featured plugin**:
+
+```
+database-migration-plugin/
+├── .claude-plugin/
+│   └── plugin.json       # Plugin manifest
+├── .mcp.json             # MCP server configuration
+├── agents/
+│   └── migration-planner.md
+├── commands/
+│   └── migrate.md
+├── skills/
+│   └── migration-best-practices/
+│       └── SKILL.md
+├── hooks/
+│   └── hooks.json
+└── scripts/
+    └── migration-check.sh
+```
+
+### Plugin Manifest (plugin.json)
+
+<!-- SSoT-OK: Example plugin manifest with version placeholders -->
+```json
+{
+  "name": "my-plugin",
+  "version": "<version>",
+  "description": "Description of what the plugin does",
+  "author": {
+    "name": "Your Name",
+    "email": "you@example.com"
+  },
+  "homepage": "https://github.com/you/my-plugin",
+  "repository": "https://github.com/you/my-plugin",
+  "license": "MIT",
+  "keywords": ["automation", "testing"]
+}
+```
+
+**Required fields**:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Plugin identifier (kebab-case, no spaces) |
+
+**Optional fields**:
+
+| Field | Description |
+|-------|-------------|
+| `version` | Semantic version |
+| `description` | Brief description |
+| `author` | Author info (`name`, `email`) |
+| `homepage` | Documentation URL |
+| `repository` | Source code URL |
+| `license` | SPDX identifier (MIT, Apache-2.0) |
+| `keywords` | Discovery tags |
+
+### Skill Definition (SKILL.md)
+
+```markdown
+---
+
+description: Review code for bugs, security, and performance
+disable-model-invocation: true
+
+---
+
+Review the code I've selected or the recent changes for:
+
+- Potential bugs or edge cases
+- Security concerns
+- Performance issues
+- Readability improvements
+
+Be concise and actionable.
+
+````
+
+**Frontmatter options**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Skill name (defaults to directory name) |
+| `description` | string | When to use this skill |
+| `disable-model-invocation` | boolean | Run without API call |
+| `user-invocable` | boolean | Show in /help |
+| `context` | string | `fork` for isolated context |
+| `agent` | string | Subagent type (Explore, Plan) |
+
+### Command Definition
+
+**commands/migrate.md**:
+
+```markdown
+---
+name: migrate
+description: Run database migration
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+---
+
+# Database Migration
+
+Execute the migration for the specified version.
+
+## Steps
+
+1. Check current schema version
+2. Validate migration files
+3. Apply migrations in order
+4. Verify schema state
+````
+
+### Hook Configuration
+
+**hooks/hooks.json**:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-command.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Note**: Use `${CLAUDE_PLUGIN_ROOT}` to reference files within the plugin directory.
+
+### MCP Server Configuration
+
+**.mcp.json**:
+
+```json
+{
+  "mcpServers": {
+    "plugin-db": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/db-server",
+      "args": ["--config", "${CLAUDE_PLUGIN_ROOT}/config.json"],
+      "env": {
+        "DB_URL": "${DATABASE_URL}"
+      }
+    }
+  }
+}
+```
+
+### Marketplace Structure
+
+```
+my-marketplace/
+├── .claude-plugin/
+│   └── marketplace.json    # Marketplace manifest
+├── plugins/
+│   ├── plugin-a/
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   └── skills/
+│   └── plugin-b/
+│       └── ...
+├── CHANGELOG.md
+└── README.md
+```
+
+### Marketplace Manifest (marketplace.json)
+
+<!-- SSoT-OK: Example marketplace manifest with version placeholders -->
+
+```json
+{
+  "name": "company-tools",
+  "owner": {
+    "name": "DevTools Team",
+    "email": "devtools@example.com"
+  },
+  "metadata": {
+    "description": "Internal development tools",
+    "version": "<version>",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "code-formatter",
+      "source": "./plugins/formatter",
+      "description": "Automatic code formatting",
+      "version": "<version>"
+    },
+    {
+      "name": "deployment-tools",
+      "source": {
+        "source": "github",
+        "repo": "company/deploy-plugin"
+      },
+      "description": "Deployment automation"
+    }
+  ]
+}
+```
+
+**Required fields**:
+
+| Field     | Description                         |
+| --------- | ----------------------------------- |
+| `name`    | Marketplace identifier (kebab-case) |
+| `owner`   | Maintainer info (name required)     |
+| `plugins` | Array of plugin entries             |
+
+**Reserved names** (cannot use):
+
+- claude-code-marketplace
+- claude-code-plugins
+- claude-plugins-official
+- anthropic-marketplace
+- anthropic-plugins
+- agent-skills
+
+### Plugin Source Types
+
+**Relative path** (same repository):
+
+```json
+{
+  "name": "my-plugin",
+  "source": "./plugins/my-plugin"
+}
+```
+
+**GitHub repository**:
+
+<!-- SSoT-OK: Example GitHub source with version tag placeholder -->
+
+```json
+{
+  "name": "github-plugin",
+  "source": {
+    "source": "github",
+    "repo": "owner/plugin-repo",
+    "ref": "v<version>",
+    "sha": "a1b2c3d4e5f6..."
+  }
+}
+```
+
+**Git URL**:
+
+```json
+{
+  "name": "git-plugin",
+  "source": {
+    "source": "url",
+    "url": "https://gitlab.com/team/plugin.git",
+    "ref": "main"
+  }
+}
+```
+
+### Installation Commands
+
+```bash
+# Add marketplace
+/plugin marketplace add owner/repo
+/plugin marketplace add https://gitlab.com/company/plugins.git
+/plugin marketplace add ./local-marketplace
+
+# Install plugin
+/plugin install my-plugin@marketplace-name
+
+# Update marketplace
+/plugin marketplace update
+
+# Validate plugin
+/plugin validate .
+claude plugin validate .
+```
+
+### Project Integration
+
+**.claude/settings.json** (auto-prompt for marketplace):
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "company-tools": {
+      "source": {
+        "source": "github",
+        "repo": "your-org/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "code-formatter@company-tools": true,
+    "deployment-tools@company-tools": true
+  }
+}
+```
+
+### Managed Marketplace Restrictions
+
+**Disable all marketplace additions**:
+
+```json
+{
+  "strictKnownMarketplaces": []
+}
+```
+
+**Allow specific marketplaces only**:
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "github",
+      "repo": "acme-corp/approved-plugins"
+    },
+    {
+      "source": "url",
+      "url": "https://plugins.example.com/marketplace.json"
+    }
+  ]
+}
+```
+
+**Allow by host pattern**:
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "hostPattern",
+      "hostPattern": "^github\\.example\\.com$"
+    }
+  ]
+}
+```
+
+### Private Repository Authentication
+
+**Environment variables**:
+
+| Provider  | Variables                    |
+| --------- | ---------------------------- |
+| GitHub    | `GITHUB_TOKEN` or `GH_TOKEN` |
+| GitLab    | `GITLAB_TOKEN` or `GL_TOKEN` |
+| Bitbucket | `BITBUCKET_TOKEN`            |
+
+```bash
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+```
+
+### Plugin Caching
+
+Plugins are copied to a cache directory when installed:
+
+- Files outside plugin directory won't be copied
+- Use `${CLAUDE_PLUGIN_ROOT}` in configs
+- Symlinks are followed during copying
+
+**Workarounds for shared files**:
+
+- Use symlinks inside plugin directory
+- Restructure to include shared files in plugin
+
+### Validation and Testing
+
+```bash
+# Validate marketplace syntax
+claude plugin validate .
+/plugin validate .
+
+# Add for testing
+/plugin marketplace add ./path/to/marketplace
+
+# Install test plugin
+/plugin install test-plugin@marketplace-name
+
+# Check for issues
+/plugin list
+```
+
+### Common Issues
+
+| Issue               | Cause                 | Solution                          |
+| ------------------- | --------------------- | --------------------------------- |
+| Plugin not found    | Missing plugin.json   | Create .claude-plugin/plugin.json |
+| Relative paths fail | URL-based marketplace | Use GitHub/git sources            |
+| Files not found     | Plugin caching        | Use ${CLAUDE_PLUGIN_ROOT}         |
+| Auth fails          | Missing token         | Set GITHUB_TOKEN env var          |
+
+### DSM Plugin Example
+
+**dsm-tools plugin structure**:
+
+```
+dsm-tools/
+├── .claude-plugin/
+│   └── plugin.json
+├── skills/
+│   ├── fcp-debugging/
+│   │   └── SKILL.md
+│   └── ohlcv-validation/
+│       └── SKILL.md
+├── commands/
+│   ├── debug-fcp.md
+│   └── validate-ohlcv.md
+├── hooks/
+│   └── hooks.json
+└── scripts/
+    └── check-cache.sh
+```
+
+<!-- SSoT-OK: Example DSM plugin manifest with version placeholder -->
+
+**plugin.json**:
+
+```json
+{
+  "name": "dsm-tools",
+  "version": "<version>",
+  "description": "DataSourceManager development tools",
+  "author": {
+    "name": "DSM Team"
+  },
+  "keywords": ["dsm", "fcp", "ohlcv", "trading"]
+}
+```
+
+**skills/fcp-debugging/SKILL.md**:
+
+```markdown
+---
+description: Debug FCP cache behavior for trading symbols
+user-invocable: true
+---
+
+# FCP Debugging Skill
+
+Debug the Failover Control Protocol for the specified symbol.
+
+## Steps
+
+1. Check cache state in ~/.cache/dsm/
+2. Verify staleness thresholds
+3. Test failover behavior
+4. Report anomalies
+
+## Usage
+
+Provide the symbol (e.g., BTCUSDT) and I'll analyze the FCP state.
+```
+
+**hooks/hooks.json**:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-cache.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
