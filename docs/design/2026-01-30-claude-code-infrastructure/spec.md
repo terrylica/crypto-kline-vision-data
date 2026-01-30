@@ -43648,3 +43648,337 @@ Claude Code automatically creates timestamped backups of configuration files, re
 | DSM denials   | Secrets, wrong Python, force push      |
 | DSM allows    | uv, mise, git workflow, src/tests      |
 | Enterprise    | Managed settings, force org login      |
+## Agentic Coding Best Practices
+
+### Overview
+
+Claude Code is an agentic coding environment that explores, plans, and implements autonomously. This section covers proven patterns for effective agentic workflows, context management, and scaling across parallel sessions.
+
+### Core Constraint: Context Management
+
+Most best practices derive from one constraint: **Claude's context window fills up fast and performance degrades as it fills**.
+
+The context window holds:
+
+- Your entire conversation
+- Every file Claude reads
+- Every command output
+
+A single debugging session can consume tens of thousands of tokens. As context fills, Claude may "forget" earlier instructions or make more mistakes.
+
+### The Explore → Plan → Code → Commit Workflow
+
+Letting Claude jump straight to coding often produces code that solves the wrong problem. Use a phased approach:
+
+#### Phase 1: Explore (Plan Mode)
+
+```
+Read /src/data_source_manager/fcp and understand how we handle
+cache invalidation. Also look at timestamp handling patterns.
+```
+
+Claude reads files and answers questions without making changes.
+
+#### Phase 2: Plan (Plan Mode)
+
+```
+I want to add multi-exchange support to FCP. What files need to change?
+What's the data flow? Create a detailed implementation plan.
+```
+
+Press `Ctrl+G` to open the plan in your editor for review.
+
+#### Phase 3: Implement (Normal Mode)
+
+```
+Implement the multi-exchange support from your plan. Write tests for
+the cache invalidation logic, run the test suite and fix any failures.
+```
+
+#### Phase 4: Commit
+
+```
+Commit with a descriptive message and open a PR.
+```
+
+### When to Skip Planning
+
+Skip planning for:
+
+- Typo fixes
+- Adding log lines
+- Renaming variables
+- Single-line changes
+
+If you could describe the diff in one sentence, skip the plan.
+
+### Verification: The Highest-Leverage Practice
+
+Claude performs dramatically better when it can verify its own work.
+
+| Strategy             | Before                       | After                                                                 |
+| -------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| Provide verification | "implement email validation" | "write validateEmail. test: <a@b.com>=true, invalid=false. run tests" |
+| Verify UI visually   | "make dashboard look better" | "[screenshot] implement this. screenshot result and compare"          |
+| Address root causes  | "the build is failing"       | "build fails with [error]. fix and verify build succeeds"             |
+
+### Provide Specific Context
+
+| Strategy           | Before                   | After                                                         |
+| ------------------ | ------------------------ | ------------------------------------------------------------- |
+| Scope the task     | "add tests for foo.py"   | "test foo.py edge case where user is logged out. avoid mocks" |
+| Point to sources   | "why is this API weird?" | "look through git history and summarize how this evolved"     |
+| Reference patterns | "add a widget"           | "look at HotDogWidget.php pattern. implement calendar widget" |
+| Describe symptoms  | "fix the login bug"      | "login fails after timeout. check auth flow in src/auth/"     |
+
+### Rich Content Methods
+
+| Method           | Usage                                                  |
+| ---------------- | ------------------------------------------------------ |
+| `@` references   | `@src/fcp/control.py` - Claude reads before responding |
+| Paste images     | Copy/paste or drag and drop                            |
+| Give URLs        | Documentation and API references                       |
+| Pipe data        | `cat error.log \| claude`                              |
+| Let Claude fetch | "read the FCP implementation and explain it"           |
+
+### CLAUDE.md Best Practices
+
+**Include:**
+
+- Bash commands Claude can't guess
+- Code style rules that differ from defaults
+- Testing instructions and preferred runners
+- Repository etiquette (branch naming, PR conventions)
+- Architectural decisions specific to your project
+- Common gotchas or non-obvious behaviors
+
+**Exclude:**
+
+- Anything Claude can figure out from code
+- Standard language conventions
+- Detailed API docs (link instead)
+- Information that changes frequently
+- Self-evident practices
+
+**Size guideline**: If Claude ignores rules, the file is probably too long. Treat it like code: review, prune, test.
+
+### Session Management
+
+#### Course-Correct Early
+
+| Action        | Effect                             |
+| ------------- | ---------------------------------- |
+| `Esc`         | Stop mid-action, context preserved |
+| `Esc + Esc`   | Open rewind menu                   |
+| `/rewind`     | Restore previous state             |
+| `"Undo that"` | Have Claude revert changes         |
+| `/clear`      | Reset context between tasks        |
+
+**Rule**: After two failed corrections, `/clear` and write a better prompt incorporating what you learned.
+
+#### Context Management Commands
+
+| Command                 | Purpose                           |
+| ----------------------- | --------------------------------- |
+| `/clear`                | Reset context entirely            |
+| `/compact`              | Manual compaction with summary    |
+| `/compact Focus on API` | Directed compaction               |
+| Auto-compaction         | Triggered when approaching limits |
+
+### Subagents for Investigation
+
+Subagents run in separate context windows and report back summaries:
+
+```
+Use subagents to investigate how our FCP handles cache invalidation,
+and whether we have existing timestamp utilities I should reuse.
+```
+
+For verification:
+
+```
+Use a subagent to review this code for edge cases in timestamp handling.
+```
+
+### Checkpoints and Rewind
+
+Every action creates a checkpoint. Double-tap `Escape` or `/rewind` to:
+
+- Restore conversation only (keep code)
+- Restore code only (keep conversation)
+- Restore both
+
+Checkpoints persist across sessions.
+
+### Resume Conversations
+
+```bash
+claude --continue    # Resume most recent
+claude --resume      # Select from recent sessions
+```
+
+Use `/rename` for descriptive names (`"fcp-multi-exchange"`, `"debug-cache-miss"`).
+
+### Parallel Sessions
+
+#### Writer/Reviewer Pattern
+
+| Session A (Writer)                 | Session B (Reviewer)                               |
+| ---------------------------------- | -------------------------------------------------- |
+| "Implement FCP cache invalidation" | -                                                  |
+| -                                  | "Review cache implementation. Look for edge cases" |
+| "Address review feedback: [...]"   | -                                                  |
+
+#### Fan-Out Pattern
+
+```bash
+for file in $(cat files.txt); do
+  claude -p "Migrate $file to new FCP API. Return OK or FAIL." \
+    --allowedTools "Edit,Bash(git commit *)"
+done
+```
+
+### Headless Mode
+
+```bash
+# One-off queries
+claude -p "Explain the FCP implementation"
+
+# Structured output
+claude -p "List all exchange adapters" --output-format json
+
+# Streaming for real-time processing
+claude -p "Analyze cache hit/miss patterns" --output-format stream-json
+```
+
+### Common Failure Patterns
+
+| Pattern                  | Symptom                           | Fix                           |
+| ------------------------ | --------------------------------- | ----------------------------- |
+| Kitchen sink session     | Unrelated tasks in one session    | `/clear` between tasks        |
+| Repeated corrections     | Same mistake after multiple fixes | `/clear`, write better prompt |
+| Over-specified CLAUDE.md | Rules get ignored                 | Ruthlessly prune              |
+| Trust-then-verify gap    | Plausible but broken code         | Always provide verification   |
+| Infinite exploration     | Reads hundreds of files           | Scope narrowly, use subagents |
+
+### DSM-Specific Best Practices
+
+#### FCP Debugging Workflow
+
+```
+# Phase 1: Explore
+Read src/data_source_manager/fcp/ and explain how fcp_control_status()
+determines cache validity. Focus on timestamp comparisons.
+
+# Phase 2: Plan
+There's a cache miss when data should be cached. Create a debugging plan:
+1. What conditions cause fcp_control_status() to return False?
+2. How are timestamps compared (UTC aware vs naive)?
+3. What symbol format mismatches could cause issues?
+
+# Phase 3: Implement fix
+Based on investigation, the issue is [X]. Fix it and add a test that
+reproduces the original bug and passes after the fix.
+
+# Phase 4: Verify and commit
+Run mise run test to verify, then commit with description of root cause.
+```
+
+#### Data Validation Workflow
+
+```
+# Provide verification criteria
+Write validate_dataframe() that checks:
+- Required columns: open_time, open, high, low, close, volume
+- Timestamps are UTC timezone-aware
+- No NaN values in OHLCV
+- Prices > 0, volume >= 0
+
+Test cases:
+- Valid DataFrame: returns True
+- Missing column: raises ValueError with column name
+- Naive timestamp: raises ValueError mentioning UTC
+- Negative price: raises ValueError with specific value
+
+Run tests after implementing.
+```
+
+#### Exchange Adapter Development
+
+```
+# Reference existing patterns
+Look at how BinanceAdapter is implemented in src/exchanges/binance.py.
+Follow the same pattern to implement OkxAdapter:
+- Use the rate limiting from binance adapter
+- Match the error handling approach
+- Use the same timestamp conversion utilities
+
+Write integration tests similar to test_binance.py.
+```
+
+### CLAUDE.md Template for DSM
+
+```markdown
+# DSM Development Guide
+
+## Commands
+
+- `mise run test` - Run test suite
+- `mise run lint` - Run linters
+- `mise run fcp:status <symbol>` - Check FCP status
+- `uv run python -m data_source_manager` - Run module
+
+## Code Style
+
+- Use Polars for DataFrames, not pandas
+- All timestamps must be UTC timezone-aware
+- Use open_time as primary timestamp column
+- Symbol format: BTCUSDT (no slash, uppercase)
+
+## Testing
+
+- Prefer pytest-asyncio for async tests
+- Mock exchange APIs for unit tests
+- Real API calls only in integration tests (sparingly)
+
+## Architecture
+
+- FCP handles cache validity decisions
+- Exchange adapters are stateless
+- Cache files go in ~/.cache/dsm/
+
+## Common Gotchas
+
+- Never use datetime.now() - always datetime.now(timezone.utc)
+- FCP checks are sensitive to symbol format
+- Cache invalidation compares timestamps, not just existence
+```
+
+### Developing Intuition
+
+Pay attention to what works:
+
+- When Claude produces great output, notice the prompt structure and context
+- When Claude struggles, ask why (noisy context? vague prompt? too big?)
+
+**Sometimes you should**:
+
+- Let context accumulate for deep single-problem sessions
+- Skip planning for exploratory tasks
+- Use vague prompts to see how Claude interprets problems
+
+Over time, develop intuition for when to be specific vs open-ended, when to plan vs explore, when to clear vs accumulate context.
+
+### Summary
+
+| Practice         | Pattern                                  |
+| ---------------- | ---------------------------------------- |
+| Workflow         | Explore → Plan → Code → Commit           |
+| Verification     | Always provide tests or expected outputs |
+| Context          | Scope narrowly, `/clear` often           |
+| Prompts          | Specific files, reference patterns       |
+| CLAUDE.md        | Concise, review and prune regularly      |
+| Sessions         | Course-correct early, rewind when stuck  |
+| Subagents        | Investigation and review tasks           |
+| Scaling          | Parallel sessions, headless mode         |
+| Failure patterns | Recognize and fix early                  |
