@@ -26299,3 +26299,350 @@ utc_dt = naive_dt.replace(tzinfo=timezone.utc)
 | `MAX_THINKING_TOKENS`       | Override thinking budget           |
 | `ENABLE_LSP_TOOL`           | Enable/disable LSP (set to 0/1)    |
 | `MCP_TIMEOUT`               | MCP server timeout in milliseconds |
+## Extended Thinking Reference
+
+Reference for Claude's extended thinking capabilities with enhanced reasoning for complex tasks.
+
+### Overview
+
+Extended thinking gives Claude enhanced reasoning capabilities by allowing internal step-by-step reasoning before delivering final answers. Supported models include:
+
+- Claude Opus 4.5, 4.1, 4
+- Claude Sonnet 4.5, 4, 3.7
+- Claude Haiku 4.5
+
+### How Extended Thinking Works
+
+When enabled, Claude creates `thinking` content blocks with internal reasoning, then incorporates insights before crafting a final response.
+
+**Response format**:
+
+```json
+{
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "Let me analyze this step by step...",
+      "signature": "WaUjzkypQ2mUEVM36O2TxuC06KN8xyfbJwyem2dw3URve/op91XWHOEBLLqIOMfFG..."
+    },
+    {
+      "type": "text",
+      "text": "Based on my analysis..."
+    }
+  ]
+}
+```
+
+### Enabling Extended Thinking
+
+**API usage**:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 10000
+    },
+    messages=[{
+        "role": "user",
+        "content": "Are there an infinite number of prime numbers such that n mod 4 == 3?"
+    }]
+)
+
+# Process thinking and text blocks
+for block in response.content:
+    if block.type == "thinking":
+        print(f"Thinking summary: {block.thinking}")
+    elif block.type == "text":
+        print(f"Response: {block.text}")
+```
+
+### Budget Tokens Parameter
+
+The `budget_tokens` parameter determines maximum tokens for internal reasoning:
+
+| Budget Range | Recommended For                      |
+| ------------ | ------------------------------------ |
+| 1,024        | Minimum budget (simple tasks)        |
+| 10,000       | Standard reasoning tasks             |
+| 16,000+      | Complex analysis tasks               |
+| 32,000+      | Deep reasoning (use batch API)       |
+| 63,999       | Maximum (with `MAX_THINKING_TOKENS`) |
+
+**Key considerations**:
+
+- `budget_tokens` must be less than `max_tokens`
+- Minimum budget is 1,024 tokens
+- Claude may not use entire budget (especially above 32k)
+- Higher budgets can improve quality but increase latency
+
+### Summarized Thinking (Claude 4 Models)
+
+Claude 4 models return **summarized** thinking instead of full output:
+
+- Charged for full thinking tokens generated
+- Billed output count **won't match** visible token count
+- First few lines more verbose for prompt engineering
+- Summarization preserves key ideas with minimal latency
+
+**Note**: Claude Sonnet 3.7 continues to return full thinking output.
+
+### Streaming Extended Thinking
+
+```python
+with client.messages.stream(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    messages=[{"role": "user", "content": "Explain recursion"}],
+) as stream:
+    for event in stream:
+        if event.type == "content_block_delta":
+            if event.delta.type == "thinking_delta":
+                print(event.delta.thinking, end="", flush=True)
+            elif event.delta.type == "text_delta":
+                print(event.delta.text, end="", flush=True)
+```
+
+**Streaming events**:
+
+- `content_block_start` - New thinking or text block starting
+- `thinking_delta` - Thinking content arriving
+- `signature_delta` - Signature for verification
+- `text_delta` - Response text arriving
+- `content_block_stop` - Block complete
+
+### Extended Thinking with Tool Use
+
+Thinking can be used alongside tools for reasoning through selection and results:
+
+```python
+weather_tool = {
+    "name": "get_weather",
+    "description": "Get current weather for a location",
+    "input_schema": {
+        "type": "object",
+        "properties": {"location": {"type": "string"}},
+        "required": ["location"]
+    }
+}
+
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    tools=[weather_tool],
+    messages=[{"role": "user", "content": "What's the weather in Paris?"}]
+)
+```
+
+**Important limitations**:
+
+- Only supports `tool_choice: {"type": "auto"}` or `tool_choice: {"type": "none"}`
+- Cannot use `tool_choice: {"type": "any"}` or `tool_choice: {"type": "tool", "name": "..."}`
+
+### Preserving Thinking Blocks
+
+When continuing conversations with tools, **must pass thinking blocks back**:
+
+```python
+# Extract blocks from first response
+thinking_block = next((b for b in response.content if b.type == 'thinking'), None)
+tool_use_block = next((b for b in response.content if b.type == 'tool_use'), None)
+
+# Include in continuation - CRITICAL
+continuation = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    tools=[weather_tool],
+    messages=[
+        {"role": "user", "content": "What's the weather in Paris?"},
+        {"role": "assistant", "content": [thinking_block, tool_use_block]},  # Must include
+        {"role": "user", "content": [{
+            "type": "tool_result",
+            "tool_use_id": tool_use_block.id,
+            "content": "20°C, sunny"
+        }]}
+    ]
+)
+```
+
+### Interleaved Thinking (Beta)
+
+Enables Claude to think between tool calls with beta header `interleaved-thinking-2025-05-14`:
+
+**Without interleaved thinking**:
+
+```
+Turn 1: [thinking] → [tool_use]
+Turn 2: [tool_use] (no thinking)
+Turn 3: [text] (no thinking)
+```
+
+**With interleaved thinking**:
+
+```
+Turn 1: [thinking] → [tool_use]
+Turn 2: [thinking] → [tool_use] (thinks after tool result)
+Turn 3: [thinking] → [text] (thinks before final answer)
+```
+
+**Key considerations**:
+
+- `budget_tokens` can exceed `max_tokens` (represents total across all thinking blocks)
+- Supported for Claude 4 models only
+- Enables more sophisticated multi-step reasoning
+
+### Thinking and Prompt Caching
+
+**Cache invalidation**:
+
+- Changes to thinking parameters invalidate message cache breakpoints
+- System prompts and tools remain cached despite thinking changes
+- Interleaved thinking amplifies cache invalidation
+
+**Thinking block caching behavior**:
+
+- Thinking blocks from previous turns are stripped (not counted in context)
+- Cached thinking blocks count as input tokens when read from cache
+- Claude Opus 4.5 preserves thinking blocks by default (enables cache optimization)
+
+### Thinking Encryption and Redaction
+
+**Encryption**: Full thinking encrypted in `signature` field for verification.
+
+**Redacted thinking**: Safety systems may flag content, returning `redacted_thinking` blocks:
+
+```json
+{
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "Let me analyze...",
+      "signature": "..."
+    },
+    {
+      "type": "redacted_thinking",
+      "data": "EmwKAhgBEgy3va3pzix/LafPsn4..."
+    },
+    {
+      "type": "text",
+      "text": "Based on my analysis..."
+    }
+  ]
+}
+```
+
+**Handling redacted blocks**:
+
+- Filter from user display while preserving in API calls
+- Pass back unmodified for reasoning continuity
+- Still billable as output tokens
+
+### Context Window Considerations
+
+**With extended thinking**:
+
+```
+context window =
+  (current input - previous thinking) +
+  (thinking + encrypted thinking + text output)
+```
+
+**With thinking and tool use**:
+
+```
+context window =
+  (current input + previous thinking + tool use) +
+  (thinking + encrypted thinking + text output)
+```
+
+### Best Practices
+
+**Budget optimization**:
+
+- Start at minimum (1,024) and increase incrementally
+- Higher budgets improve quality with diminishing returns
+- Above 32k, use batch processing to avoid timeouts
+
+**Performance**:
+
+- Expect longer response times
+- Streaming required when `max_tokens` > 21,333
+- Factor in thinking block generation time
+
+**Feature compatibility**:
+
+- Not compatible with `temperature` or `top_k` modifications
+- `top_p` limited to 1-0.95 range
+- Cannot pre-fill responses
+
+**Task selection**:
+
+- Best for complex reasoning (math, coding, analysis)
+- Don't use for simple queries (wastes tokens)
+- Review extended thinking prompting tips for optimization
+
+### DSM-Specific Extended Thinking Patterns
+
+**Complex FCP analysis**:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 16000},
+    messages=[{
+        "role": "user",
+        "content": "Analyze the FCP failover behavior for BTCUSDT across all data sources, identify patterns in rate limiting, and suggest optimization strategies."
+    }]
+)
+```
+
+**DataFrame integrity investigation**:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    messages=[{
+        "role": "user",
+        "content": "Review the OHLCV data integrity for the past week, identify any gaps or anomalies, and determine root causes."
+    }]
+)
+```
+
+**Architecture decisions**:
+
+```python
+response = client.messages.create(
+    model="claude-opus-4-5",
+    max_tokens=32000,
+    thinking={"type": "enabled", "budget_tokens": 32000},
+    messages=[{
+        "role": "user",
+        "content": "Design a new caching strategy for DSM that handles rate limiting gracefully while maintaining data freshness. Consider trade-offs between memory usage, latency, and API costs."
+    }]
+)
+```
+
+### Environment Variables
+
+| Variable              | Purpose                          |
+| --------------------- | -------------------------------- |
+| `MAX_THINKING_TOKENS` | Override default thinking budget |
+
+**Unlocking higher budgets**:
+
+```bash
+# Set to 63,999 for 2x default budget
+export MAX_THINKING_TOKENS=63999
+```
