@@ -5372,6 +5372,316 @@ export WHISPER_MODEL=base.en
 export WHISPER_THREADS=4
 ```
 
+## Context Engineering for Agents
+
+Advanced context window management strategies for AI agents.
+
+### Core Principles
+
+Context engineering involves curating the optimal set of tokens during LLM inference:
+
+- **System prompts**: Calibrate at the "right altitude" - avoid overly rigid or vague
+- **Tool design**: Self-contained, robust, clear on intended use
+- **Few-shot examples**: Canonical examples more effective than exhaustive edge cases
+- **Token efficiency**: Find smallest set of high-signal tokens
+
+### Just-In-Time Context
+
+Maintain lightweight identifiers, dynamically load data using tools:
+
+```
+Agent maintains: file paths, queries, links
+Agent retrieves: content on demand via tools
+
+Benefits:
+- Progressive disclosure through exploration
+- Metadata signaling via file hierarchies
+- Avoids loading irrelevant information
+```
+
+### Compaction Strategies
+
+When approaching context limits:
+
+| Strategy        | Description                            | Best For                |
+| --------------- | -------------------------------------- | ----------------------- |
+| Tool clearing   | Remove stale tool results              | Lightest touch (safest) |
+| Summarization   | Distill to critical details            | Long conversations      |
+| Context editing | Auto-clear while preserving flow       | Ongoing tasks           |
+| Session restart | Fresh context with CLAUDE.md preserved | 80%+ utilization        |
+
+### Structured Note-Taking
+
+Maintain external memory for long-horizon tasks:
+
+```markdown
+# NOTES.md (Agent's External Memory)
+
+## Objectives
+
+- Implement FCP cache warming for BTCUSDT
+- Add rate limit backoff to Binance adapter
+
+## Progress
+
+- [x] Cache structure analyzed
+- [ ] Warming strategy designed
+
+## Key Decisions
+
+- Use polars for DataFrame operations (ADR: 2025-01-30)
+- Binance rate limit: 1200 req/min
+```
+
+### Sub-Agent Architecture
+
+Specialized agents with clean context windows:
+
+```
+Lead Agent (coordinator)
+├── Explorer Agent (codebase search) → returns 1-2K token summary
+├── Reviewer Agent (code review) → returns findings list
+└── Tester Agent (test execution) → returns pass/fail + errors
+
+Benefits:
+- Clean separation of concerns
+- Each agent explores extensively
+- Condensed summaries preserve signal
+```
+
+### Context Window Signals
+
+| Signal          | Action                     |
+| --------------- | -------------------------- |
+| 50% utilization | Normal operation           |
+| 70% utilization | Consider task completion   |
+| 80% utilization | Wrap up or restart session |
+| 90% utilization | Auto-compact triggers      |
+
+### DSM Context Patterns
+
+For data-source-manager specifically:
+
+```python
+# Lightweight identifiers over full content
+context = {
+    "provider": "binance",
+    "symbol": "BTCUSDT",
+    "interval": "1h",
+    "fcp_status": "cache_hit",
+    # Not the full DataFrame - just metadata
+    "df_shape": (1000, 6),
+    "df_schema": ["open_time", "open", "high", "low", "close", "volume"]
+}
+```
+
+## Team Collaboration Workflows
+
+Patterns for team-based Claude Code development.
+
+### Shared Configuration
+
+Version-controlled project configuration ensures consistency:
+
+```
+.claude/
+├── settings.json       # Team permission rules (committed)
+├── settings.local.json # Personal overrides (gitignored)
+├── agents/             # Shared subagents
+├── commands/           # Team slash commands
+└── rules/              # Domain knowledge
+
+Benefits:
+- All team members get same Claude behavior
+- Consistent coding standards
+- Unified architectural patterns
+```
+
+### CLAUDE.md as Team Knowledge
+
+Each team maintains a CLAUDE.md documenting:
+
+- **Mistakes**: What to avoid (learned from errors)
+- **Best practices**: Style conventions, design guidelines
+- **PR templates**: Review checklist, commit formats
+- **Domain expertise**: Data pipeline dependencies, API quirks
+
+### Parallel Session Management
+
+Running multiple Claude instances with git worktrees:
+
+```bash
+# Create worktree for feature
+git worktree add ../project-feature-a feature-a
+
+# Launch Claude in isolated workspace
+cd ../project-feature-a && claude
+
+# Run /init to orient Claude to worktree
+> /init
+```
+
+### Worktree Manager Pattern
+
+```bash
+# Custom function for quick worktree access
+w() {
+    project=$1
+    feature=$2
+    cmd=$3
+
+    worktree_path=~/.worktrees/$project/$feature
+
+    if [ ! -d "$worktree_path" ]; then
+        git worktree add "$worktree_path" -b "$USER/$feature"
+    fi
+
+    if [ -n "$cmd" ]; then
+        cd "$worktree_path" && $cmd
+    else
+        cd "$worktree_path"
+    fi
+}
+
+# Usage
+w dsm new-provider claude    # Open Claude on new-provider branch
+w dsm new-provider git status # Run git status in worktree
+```
+
+### Multi-Agent Team Workflows
+
+| Pattern           | Description                            | Use Case            |
+| ----------------- | -------------------------------------- | ------------------- |
+| Writer + Reviewer | One Claude writes, another reviews     | Quality assurance   |
+| Writer + Tester   | One writes code, another writes tests  | TDD workflow        |
+| Parallel features | Multiple Claudes on different features | Sprint acceleration |
+| Scratchpad comms  | Agents share via working files         | Complex tasks       |
+
+### GitHub Actions Integration
+
+Automated workflows with Claude:
+
+```yaml
+# .github/workflows/claude-review.yml
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Claude PR Review
+        uses: anthropic/claude-code-action@v1
+        with:
+          prompt: |
+            Review this PR for:
+            - Code quality and patterns
+            - DSM-specific conventions
+            - Silent failure anti-patterns
+```
+
+### Incident Response Pattern
+
+For production issues, teams use Claude for rapid diagnosis:
+
+```bash
+# Feed stack trace and docs to Claude
+cat error.log | claude -p "Diagnose this error given our FCP implementation"
+
+# Result: 10-15 min → 3 min resolution time
+```
+
+### Cross-Functional Collaboration
+
+| Team         | Claude Usage                        |
+| ------------ | ----------------------------------- |
+| Product Eng  | First stop for bug identification   |
+| Security     | TDD with Claude at each stage       |
+| Data Science | CLAUDE.md for pipeline dependencies |
+| Marketing    | Agentic workflows for campaigns     |
+
+## Git Worktree Best Practices
+
+Deep dive into parallel development with worktrees.
+
+### Directory Structure
+
+```
+~/projects/
+├── data-source-manager/         # Main repository
+│   └── .git/
+└── worktrees/                   # Parallel workspaces
+    └── data-source-manager/
+        ├── feature-a/           # Feature A worktree
+        ├── feature-b/           # Feature B worktree
+        └── experiment/          # Experiment worktree
+```
+
+### Worktree Commands
+
+```bash
+# List existing worktrees
+git worktree list
+
+# Create new worktree with new branch
+git worktree add ../worktrees/dsm/feature-a -b feature-a
+
+# Create worktree from existing branch
+git worktree add ../worktrees/dsm/bugfix bugfix-branch
+
+# Remove worktree when done
+git worktree remove ../worktrees/dsm/feature-a
+
+# Prune stale worktree info
+git worktree prune
+```
+
+### Session Isolation Rules
+
+| Rule                    | Reason                         |
+| ----------------------- | ------------------------------ |
+| One Claude per worktree | Prevents context collision     |
+| Don't share files       | Agents overwrite each other    |
+| Run /init per worktree  | Orient Claude to workspace     |
+| Use separate terminals  | Visual isolation aids tracking |
+
+### Resource Management
+
+When running multiple Claude sessions:
+
+```bash
+# Check resource usage
+ps aux | grep claude
+
+# Limit concurrent sessions based on system RAM
+# Recommendation: 1 session per 8GB RAM
+
+# Each session may spawn subprocesses
+# Monitor with: Activity Monitor or htop
+```
+
+### DSM Worktree Workflow
+
+```bash
+# 1. Create worktree for new data source
+git worktree add ../worktrees/dsm/add-coinbase -b add-coinbase
+
+# 2. Launch Claude in worktree
+cd ../worktrees/dsm/add-coinbase && claude
+
+# 3. Claude uses project CLAUDE.md (shared)
+# 4. Implement in isolation
+# 5. Create PR from worktree
+git push -u origin add-coinbase
+gh pr create
+
+# 6. Cleanup after merge
+cd ~/projects/data-source-manager
+git worktree remove ../worktrees/dsm/add-coinbase
+```
+
 ## Verification Checklist
 
 ### Infrastructure

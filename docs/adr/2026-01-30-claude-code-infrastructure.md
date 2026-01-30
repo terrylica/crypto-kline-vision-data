@@ -129,8 +129,8 @@ user-invocable: true
 
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
-| Design spec lines   | 5398                                                                             |
-| Sections            | 69                                                                               |
+| Design spec lines   | 5708                                                                             |
+| Sections            | 72                                                                               |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
 | Commands            | 6 (debug-fcp, fetch-data, quick-test, review-dsm, validate-data, feature-dev)    |
 | Skills              | 4 (dsm-usage, dsm-testing, dsm-research, dsm-fcp-monitor)                        |
@@ -186,6 +186,9 @@ user-invocable: true
 - Session logging & debug tools (JSONL, LangSmith, workflows)
 - Project templates & scaffolding (plugins, starter kits, CLAUDE.md seeds)
 - Voice input & audio mode (VoiceMode MCP, Whisper, accessibility)
+- Context engineering (JIT loading, compaction, sub-agents, note-taking)
+- Team collaboration workflows (shared config, CLAUDE.md knowledge, parallel sessions)
+- Git worktree best practices (isolation, multi-agent, resource management)
 
 ## More Information
 
