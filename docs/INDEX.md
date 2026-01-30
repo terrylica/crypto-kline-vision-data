@@ -76,11 +76,49 @@ See [itp:adr-graph-easy-architect](https://github.com/terrylica/cc-skills) for d
 
 ---
 
-## Claude Code Skills
+## Claude Code Infrastructure
 
-Skills provide progressive disclosure for Claude Code agents. Each skill has a SKILL.md with YAML frontmatter.
+Claude Code extensions for AI-assisted development. See [.claude/](/.claude/) directory.
+
+### Skills
+
+Progressive disclosure for detailed guidance. Each has a SKILL.md with YAML frontmatter.
 
 | Skill                              | Purpose                       |
 | ---------------------------------- | ----------------------------- |
 | [dsm-usage](skills/dsm-usage/)     | DataSourceManager usage guide |
 | [dsm-testing](skills/dsm-testing/) | Testing patterns and pytest   |
+
+### Agents
+
+Specialized subagents that Claude can delegate to:
+
+| Agent                 | Purpose                                |
+| --------------------- | -------------------------------------- |
+| api-reviewer          | Reviews code for API consistency       |
+| data-fetcher          | Fetches data with proper FCP handling  |
+| test-writer           | Writes tests following DSM patterns    |
+| silent-failure-hunter | Finds silent failures and bare excepts |
+| fcp-debugger          | Diagnoses FCP issues                   |
+
+### Commands
+
+Slash commands for common workflows:
+
+| Command        | Purpose                           |
+| -------------- | --------------------------------- |
+| /debug-fcp     | Debug FCP behavior for a symbol   |
+| /quick-test    | Run quick verification tests      |
+| /review-dsm    | Review code against DSM patterns  |
+| /fetch-data    | Fetch market data with validation |
+| /validate-data | Validate DataFrame structure      |
+
+### Context Rules
+
+Domain-specific rules Claude loads on demand (in `.claude/rules/`):
+
+- `binance-api.md` - API rate limits, error codes
+- `timestamp-handling.md` - UTC requirements
+- `dataframe-operations.md` - Polars/OHLCV patterns
+- `caching-patterns.md` - Cache structure
+- `symbol-formats.md` - Market-specific formats
