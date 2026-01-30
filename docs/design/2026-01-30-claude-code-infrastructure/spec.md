@@ -33434,3 +33434,198 @@ Let me work through this step by step...
 ```
 
 This gives similar reasoning benefits without the thinking budget overhead.
+## @ File Reference Syntax
+
+### Overview
+
+The @ symbol is a powerful mechanism for referencing files, directories, and MCP resources directly in prompts. It enables Claude to access relevant information without needing to search or read files explicitly.
+
+### Basic File References
+
+Type @ followed by filename to reference any file in your project:
+
+```
+@package.json
+@src/components/Header.tsx
+@README.md
+```
+
+Files are automatically fetched and included as attachments when referenced.
+
+### Tab Completion
+
+Press Tab after typing @ to:
+
+- Navigate file system
+- Select files quickly
+- Prevent path errors
+- Access fuzzy-searchable paths
+
+```
+@src/[Tab]  → Shows files in src/
+@READ[Tab]  → Completes to @README.md
+```
+
+### MCP Resource References
+
+Reference MCP server resources using extended syntax:
+
+**Format:** `@server:protocol://resource/path`
+
+```
+# Reference a GitHub issue
+@github:issue://123
+
+# Reference API documentation
+@docs:file://api/authentication
+
+# Reference database schema
+@postgres:schema://users
+```
+
+### Multiple References
+
+Reference multiple files or resources in a single prompt:
+
+```
+Compare @postgres:schema://users with @docs:file://database/user-model
+
+Review @src/auth.py and @tests/test_auth.py for consistency
+```
+
+### CLAUDE.md Imports
+
+CLAUDE.md files can import additional markdown files:
+
+```markdown
+# Project CLAUDE.md
+
+@.claude/rules/fcp-protocol.md
+@.claude/rules/timestamp-handling.md
+```
+
+This modularizes knowledge base and prevents main file from becoming too large.
+
+### Context Loading Benefits
+
+| Without @ Reference         | With @ Reference         |
+| --------------------------- | ------------------------ |
+| Claude searches for file    | File loaded immediately  |
+| Takes time to find and read | Direct context inclusion |
+| May miss correct file       | Exact file specified     |
+| Multiple tool calls         | Single attachment        |
+
+### Syntax Reference
+
+| Pattern               | Description                 |
+| --------------------- | --------------------------- |
+| `@filename`           | File in current directory   |
+| `@path/to/file`       | File at relative path       |
+| `@/absolute/path`     | File at absolute path       |
+| `@server:protocol://` | MCP resource                |
+| `@*.md`               | Glob pattern (if supported) |
+
+### MCP Resources Details
+
+**List available resources:**
+Type `@` to see autocomplete menu with files and MCP resources.
+
+**Resource types:**
+
+- Text content
+- JSON data
+- Structured data
+- Any content MCP server provides
+
+**Automatic tools:**
+Claude Code provides tools to list and read MCP resources when servers support them.
+
+### Best Practices
+
+1. **Use @ for known files** - Faster than asking Claude to find files
+
+2. **Tab completion** - Reduces errors and speeds input
+
+3. **Multiple references** - Compare files in single prompt
+
+4. **MCP resources** - Access external data without manual API calls
+
+5. **CLAUDE.md imports** - Keep main file concise, modularize rules
+
+### DSM @ Reference Patterns
+
+**Reference FCP rules:**
+
+```
+Review this code against @.claude/rules/fcp-protocol.md requirements
+```
+
+**Compare implementations:**
+
+```
+Compare @src/data_sources/binance.py with @src/data_sources/okx.py
+for symbol format handling differences
+```
+
+**Test against implementation:**
+
+```
+Check if @tests/test_binance.py covers all cases in @src/data_sources/binance.py
+```
+
+**Include multiple rules:**
+
+```
+Apply @.claude/rules/error-handling.md and @.claude/rules/timestamp-handling.md
+to review this code
+```
+
+**Reference examples:**
+
+```
+Follow the pattern in @docs/skills/dsm-usage/examples/basic-fetch.md
+```
+
+### Tool Search Integration
+
+When MCP tool descriptions exceed 10% of context window, Tool Search activates:
+
+1. MCP tools deferred instead of preloaded
+2. Claude searches for relevant tools when needed
+3. Only needed tools loaded into context
+4. Reduces context consumption
+
+**Configure threshold:**
+
+```bash
+# Custom 5% threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Always enabled
+ENABLE_TOOL_SEARCH=true claude
+
+# Disabled
+ENABLE_TOOL_SEARCH=false claude
+```
+
+### MCP Resource Configuration
+
+**Add server with resources:**
+
+```bash
+claude mcp add --transport http docs https://docs.example.com/mcp
+```
+
+**Reference resources:**
+
+```
+@docs:file://api/reference
+@docs:schema://openapi
+```
+
+### Limitations
+
+- Resources require MCP server support
+- Large files may consume significant context
+- Some servers may require authentication before resources available
+- Tab completion availability depends on terminal
