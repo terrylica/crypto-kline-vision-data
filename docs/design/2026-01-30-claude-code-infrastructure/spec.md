@@ -48989,3 +48989,488 @@ async def rate_limited_requests(requests, rpm_limit):
 
     return await asyncio.gather(*[limited_request(r) for r in requests])
 ```
+# MCP Server Development Reference
+
+This section covers Model Context Protocol (MCP) server configuration, custom tool development, transport methods, authentication, and management for Claude Code.
+
+## Overview
+
+MCP (Model Context Protocol) is an open standard for AI-tool integrations. MCP servers act as bridges connecting Claude Code to external tools, databases, and APIs.
+
+## What You Can Do with MCP
+
+With MCP servers connected, you can:
+
+- **Implement features from issue trackers**: Work with JIRA, GitHub issues
+- **Analyze monitoring data**: Query Sentry, Statsig
+- **Query databases**: Connect to PostgreSQL, MySQL
+- **Integrate designs**: Access Figma, design tools
+- **Automate workflows**: Create drafts, send notifications
+
+## Transport Methods
+
+### HTTP Transport (Recommended)
+
+HTTP servers are the recommended option for remote MCP servers:
+
+```bash
+# Basic syntax
+claude mcp add --transport http <name> <url>
+
+# Example: Connect to Notion
+claude mcp add --transport http notion https://mcp.notion.com/mcp
+
+# With Bearer token
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer your-token"
+```
+
+### SSE Transport (Deprecated)
+
+Server-Sent Events transport is deprecated. Use HTTP instead:
+
+```bash
+# Basic syntax (deprecated)
+claude mcp add --transport sse <name> <url>
+
+# Example with authentication
+claude mcp add --transport sse private-api https://api.company.com/sse \
+  --header "X-API-Key: your-key-here"
+```
+
+### Stdio Transport
+
+Stdio servers run as local processes. Ideal for tools needing direct system access:
+
+```bash
+# Basic syntax
+claude mcp add [options] <name> -- <command> [args...]
+
+# Example: Add Airtable server
+claude mcp add --transport stdio --env AIRTABLE_API_KEY=YOUR_KEY airtable \
+  -- npx -y airtable-mcp-server
+```
+
+**Important - Option ordering**: All options must come before the server name. The `--` separates the name from the command.
+
+```bash
+# Correct
+claude mcp add --transport stdio --env KEY=value myserver -- python server.py --port 8080
+```
+
+## Installation Scopes
+
+### Local Scope (Default)
+
+Private to you, only in current project. Stored in `~/.claude.json`:
+
+```bash
+# Add local-scoped server (default)
+claude mcp add --transport http stripe https://mcp.stripe.com
+
+# Explicitly specify
+claude mcp add --transport http stripe --scope local https://mcp.stripe.com
+```
+
+### Project Scope
+
+Shared with team via `.mcp.json` file in project root:
+
+```bash
+# Add project-scoped server
+claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+```
+
+Resulting `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "shared-server": {
+      "command": "/path/to/server",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+### User Scope
+
+Available across all projects on your machine:
+
+```bash
+# Add user server
+claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/anthropic
+```
+
+### Choosing the Right Scope
+
+| Scope   | Use Case                                        |
+| ------- | ----------------------------------------------- |
+| Local   | Personal servers, experimental, sensitive creds |
+| Project | Team-shared, project-specific, collaboration    |
+| User    | Personal utilities across multiple projects     |
+
+## Server Management Commands
+
+```bash
+# List all configured servers
+claude mcp list
+
+# Get details for a specific server
+claude mcp get github
+
+# Remove a server
+claude mcp remove github
+
+# Check server status (within Claude Code)
+/mcp
+```
+
+## Authentication
+
+### OAuth 2.0 Authentication
+
+Many cloud-based MCP servers require authentication:
+
+1. Add the server:
+
+   ```bash
+   claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+   ```
+
+2. Use `/mcp` command in Claude Code and follow browser steps
+
+### Environment Variables
+
+Pass credentials through environment variables:
+
+```bash
+claude mcp add --transport stdio --env API_KEY=your-key myserver -- npx server
+```
+
+## Tool Permissions
+
+MCP tools require explicit permission. Tools follow the naming pattern:
+
+```
+mcp__<server-name>__<tool-name>
+```
+
+Example: `mcp__github__list_issues`
+
+Use `allowedTools` to specify which MCP tools Claude can use:
+
+```json
+{
+  "permissions": {
+    "allow": ["mcp__github__*"]
+  }
+}
+```
+
+## Environment Variable Expansion
+
+`.mcp.json` supports environment variable expansion:
+
+### Supported Syntax
+
+- `${VAR}` - Expands to value of `VAR`
+- `${VAR:-default}` - Uses `default` if `VAR` not set
+
+### Expansion Locations
+
+- `command` - Server executable path
+- `args` - Command-line arguments
+- `env` - Environment variables to server
+- `url` - For HTTP server types
+- `headers` - For HTTP authentication
+
+```json
+{
+  "mcpServers": {
+    "api-server": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.example.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    }
+  }
+}
+```
+
+## MCP Tool Search
+
+When you have many MCP servers, tool definitions can consume significant context. Tool Search dynamically loads tools on-demand.
+
+### How It Works
+
+Automatically enabled when MCP tool descriptions exceed 10% of context window:
+
+1. MCP tools are deferred rather than loaded upfront
+2. Claude uses a search tool to discover relevant tools when needed
+3. Only needed tools are loaded into context
+
+### Configuration
+
+```bash
+# Use custom 5% threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+
+# Disable tool search entirely
+ENABLE_TOOL_SEARCH=false claude
+```
+
+| Value      | Behavior                           |
+| ---------- | ---------------------------------- |
+| `auto`     | Activates at 10% context threshold |
+| `auto:<N>` | Activates at custom percentage     |
+| `true`     | Always enabled                     |
+| `false`    | Disabled, all tools loaded upfront |
+
+## MCP Resources
+
+Reference MCP resources using @ mentions:
+
+```
+> Can you analyze @github:issue://123 and suggest a fix?
+> Compare @postgres:schema://users with @docs:file://database/user-model
+```
+
+Resources are fuzzy-searchable in the @ mention autocomplete.
+
+## MCP Prompts as Commands
+
+MCP prompts become available as commands:
+
+```
+> /mcp__github__list_prs
+> /mcp__github__pr_review 456
+> /mcp__jira__create_issue "Bug in login flow" high
+```
+
+## Claude Code as MCP Server
+
+Use Claude Code itself as an MCP server:
+
+```bash
+# Start as MCP server
+claude mcp serve
+```
+
+Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "claude-code": {
+      "type": "stdio",
+      "command": "claude",
+      "args": ["mcp", "serve"],
+      "env": {}
+    }
+  }
+}
+```
+
+## Output Limits
+
+- **Warning threshold**: 10,000 tokens
+- **Default maximum**: 25,000 tokens
+
+Configure with environment variable:
+
+```bash
+export MAX_MCP_OUTPUT_TOKENS=50000
+claude
+```
+
+## Plugin-Provided MCP Servers
+
+Plugins can bundle MCP servers that start automatically when enabled.
+
+### Plugin MCP Configuration
+
+In `.mcp.json` at plugin root:
+
+```json
+{
+  "database-tools": {
+    "command": "${CLAUDE_PLUGIN_ROOT}/servers/db-server",
+    "args": ["--config", "${CLAUDE_PLUGIN_ROOT}/config.json"],
+    "env": {
+      "DB_URL": "${DB_URL}"
+    }
+  }
+}
+```
+
+Or inline in `plugin.json`:
+
+```json
+{
+  "name": "my-plugin",
+  "mcpServers": {
+    "plugin-api": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/api-server",
+      "args": ["--port", "8080"]
+    }
+  }
+}
+```
+
+## Managed MCP Configuration
+
+For organizations needing centralized control:
+
+### Option 1: Exclusive Control (`managed-mcp.json`)
+
+Deploy fixed servers users cannot modify:
+
+**Locations**:
+
+- macOS: `/Library/Application Support/ClaudeCode/managed-mcp.json`
+- Linux/WSL: `/etc/claude-code/managed-mcp.json`
+- Windows: `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "company-internal": {
+      "type": "stdio",
+      "command": "/usr/local/bin/company-mcp-server",
+      "args": ["--config", "/etc/company/mcp-config.json"]
+    }
+  }
+}
+```
+
+### Option 2: Policy-Based Control
+
+Use `allowedMcpServers` and `deniedMcpServers` in managed settings:
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    {
+      "serverCommand": ["npx", "-y", "@modelcontextprotocol/server-filesystem"]
+    },
+    { "serverUrl": "https://mcp.company.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverName": "dangerous-server" },
+    { "serverUrl": "https://*.untrusted.com/*" }
+  ]
+}
+```
+
+## FastMCP Integration
+
+FastMCP provides easy Claude Code integration:
+
+```bash
+fastmcp install claude-code server.py --server-name "Weather Server" \
+  --env API_KEY=your-api-key \
+  --env DEBUG=true
+```
+
+FastMCP automatically:
+
+- Looks for server object named `mcp`, `server`, or `app`
+- Uses `claude mcp add` to register servers
+- Handles dependency management with `--with` flag
+
+## DSM-Specific MCP Patterns
+
+For data-source-manager development:
+
+### Exchange API MCP Server
+
+Create a custom MCP server for exchange integrations:
+
+```python
+# servers/exchange-mcp.py
+from mcp import Server
+
+server = Server("exchange-api")
+
+@server.tool()
+async def fetch_klines(symbol: str, interval: str, limit: int = 100):
+    """Fetch OHLCV klines from configured exchange."""
+    from data_source_manager import DataSourceManager
+    dsm = DataSourceManager()
+    return await dsm.fetch_klines(symbol, interval, limit)
+
+@server.tool()
+async def validate_symbol(symbol: str):
+    """Validate symbol format for configured exchange."""
+    from data_source_manager.symbols import validate_symbol_format
+    return validate_symbol_format(symbol)
+```
+
+### FCP Monitoring MCP Server
+
+```python
+# servers/fcp-monitor-mcp.py
+from mcp import Server
+
+server = Server("fcp-monitor")
+
+@server.tool()
+async def get_fcp_status():
+    """Get current FCP failover status."""
+    from data_source_manager.fcp import FCPManager
+    manager = FCPManager()
+    return manager.get_status()
+
+@server.tool()
+async def trigger_failover(reason: str):
+    """Manually trigger FCP failover."""
+    from data_source_manager.fcp import FCPManager
+    manager = FCPManager()
+    return manager.trigger_failover(reason)
+```
+
+### Project `.mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "dsm-exchange": {
+      "command": "uv",
+      "args": ["run", "python", "servers/exchange-mcp.py"],
+      "env": {
+        "EXCHANGE": "${EXCHANGE:-binance}",
+        "API_KEY": "${EXCHANGE_API_KEY}"
+      }
+    },
+    "dsm-fcp": {
+      "command": "uv",
+      "args": ["run", "python", "servers/fcp-monitor-mcp.py"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Tool Permissions for DSM
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__dsm-exchange__fetch_klines",
+      "mcp__dsm-exchange__validate_symbol",
+      "mcp__dsm-fcp__get_fcp_status"
+    ],
+    "ask": ["mcp__dsm-fcp__trigger_failover"]
+  }
+}
+```
