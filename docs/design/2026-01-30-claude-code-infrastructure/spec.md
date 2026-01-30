@@ -9693,3 +9693,274 @@ All results in single user message:
 - [ ] Credentials directories blocked
 - [ ] Network exfiltration commands blocked
 - [ ] settings.json committed (not settings.local.json)
+
+## Memory Management
+
+### Overview
+
+Claude Code's memory system uses CLAUDE.md files at multiple levels to provide persistent instructions across sessions. Memory is hierarchical, with higher precedence for more specific locations.
+
+### Memory Hierarchy (Precedence Order)
+
+| Priority | Location                                        | Scope              | Controlled By |
+| -------- | ----------------------------------------------- | ------------------ | ------------- |
+| 1        | `.claude/settings.local.json`                   | Personal overrides | User          |
+| 2        | `CLAUDE.local.md`                               | Personal project   | User          |
+| 3        | `.claude/rules/*.md`                            | Modular project    | Team          |
+| 4        | `CLAUDE.md`                                     | Project-wide       | Team          |
+| 5        | `~/.claude/CLAUDE.md`                           | User global        | User          |
+| 6        | `/Library/.../ClaudeCode/managed-settings.json` | Enterprise managed | Admin         |
+| 7        | `/Library/.../ClaudeCode/CLAUDE.md`             | Enterprise policy  | Admin         |
+
+### Memory Locations
+
+1. **Managed Policy** (Enterprise): `/Library/Application Support/ClaudeCode/CLAUDE.md`
+   - Deployed via MDM/Jamf
+   - Read-only, cannot be overridden
+   - Sets company-wide standards
+
+2. **Project Memory**: `CLAUDE.md` in repository root
+   - Checked into version control
+   - Shared across team
+   - Architecture, patterns, conventions
+
+3. **User Memory**: `~/.claude/CLAUDE.md`
+   - Personal preferences
+   - Cross-project settings
+   - Private API keys, tooling
+
+4. **Local Memory**: `CLAUDE.local.md` (gitignored)
+   - Personal project overrides
+   - Work-in-progress notes
+   - Experimental settings
+
+### Memory Imports (@syntax)
+
+Import external files into CLAUDE.md:
+
+```markdown
+## References
+
+@docs/architecture.md
+@.claude/rules/api-patterns.md
+@../shared-patterns/error-handling.md
+```
+
+**Import behavior**:
+
+- Relative paths from CLAUDE.md location
+- Supports glob patterns: `@docs/**/*.md`
+- Tab completion in Claude Code UI
+- Imported content appears in system prompt
+
+### Modular Rules (.claude/rules/)
+
+Split large CLAUDE.md into focused rule files:
+
+```
+.claude/rules/
+├── typescript.md      # TypeScript conventions
+├── testing.md         # Test patterns
+├── api-design.md      # API guidelines
+└── security.md        # Security requirements
+```
+
+**Rule file frontmatter**:
+
+```yaml
+---
+paths:
+  - "src/**/*.ts"
+  - "tests/**/*.ts"
+description: TypeScript conventions
+alwaysApply: false
+---
+# TypeScript Rules
+
+- Use strict mode
+- Prefer interfaces over types
+```
+
+**Frontmatter fields**:
+
+| Field         | Type     | Purpose                                       |
+| ------------- | -------- | --------------------------------------------- |
+| `paths`       | string[] | Glob patterns that trigger this rule          |
+| `description` | string   | Summary shown when rule is loaded             |
+| `alwaysApply` | boolean  | Load regardless of file path (default: false) |
+
+### Session Persistence
+
+**Continue previous session**:
+
+```bash
+claude --continue          # Resume most recent
+claude --resume            # Interactive session picker
+```
+
+**Session context includes**:
+
+- Full conversation history
+- Tool call results
+- Generated file changes
+- Memory file contents
+
+### Memory Commands
+
+```bash
+/memory                    # View current memory files
+/memory edit              # Edit project CLAUDE.md
+/memory edit --user       # Edit user CLAUDE.md
+```
+
+### DSM Memory Structure
+
+```
+data-source-manager/
+├── CLAUDE.md                    # Project hub (navigation + critical rules)
+├── CLAUDE.local.md              # Personal overrides (gitignored)
+├── src/CLAUDE.md                # Source-specific context
+├── tests/CLAUDE.md              # Test-specific patterns
+├── docs/CLAUDE.md               # Documentation guidelines
+├── examples/CLAUDE.md           # Example conventions
+└── .claude/
+    ├── rules/                   # Domain-specific rules
+    │   ├── fcp-protocol.md      # FCP decision logic
+    │   ├── symbol-formats.md    # Market-specific symbols
+    │   └── timestamp-handling.md # UTC requirements
+    └── settings.json            # Permission rules
+```
+
+### Memory Best Practices
+
+1. **Keep CLAUDE.md concise** (<500 lines for main file)
+2. **Use imports for details**: Reference files, don't inline
+3. **Leverage rules for domains**: Path-specific loading
+4. **gitignore local files**: `CLAUDE.local.md`, `settings.local.json`
+5. **Use directory CLAUDE.md**: Context-specific guidance
+
+## Context Compaction
+
+### Overview
+
+Context compaction manages token usage when conversations grow large. Claude Code implements both server-side and client-side compaction strategies.
+
+### Server-Side Context Editing
+
+**Tool Result Clearing**:
+
+- Server removes `tool_result` content from older turns
+- Keeps structure and tool names visible
+- Reduces tokens while preserving conversation flow
+
+**Thinking Block Clearing**:
+
+- Removes thinking/reasoning blocks from older turns
+- Keeps final conclusions and outputs
+- Significant token savings for extended thinking
+
+### Client-Side Compaction
+
+**Automatic trigger**: When context reaches ~85% capacity
+
+**Manual trigger**:
+
+```bash
+/compact                           # Default summarization
+/compact Focus on API patterns     # Guided summarization
+```
+
+**Process**:
+
+1. Claude summarizes full conversation history
+2. New turn starts with summary as system context
+3. Original messages cleared from context
+4. Recent tool results preserved
+
+### SDK Compaction Support
+
+```typescript
+import { createAgent } from "@anthropic-ai/agent-sdk";
+
+const agent = createAgent({
+  model: "claude-sonnet-4-5",
+  compaction: {
+    type: "summarize",
+    threshold: 0.8, // Compact at 80% context
+    preserveRecent: 5, // Keep last 5 turns intact
+  },
+});
+```
+
+**Compaction types**:
+
+| Type        | Behavior                             |
+| ----------- | ------------------------------------ |
+| `summarize` | AI summary of older messages         |
+| `truncate`  | Remove oldest messages (no summary)  |
+| `sliding`   | Rolling window of recent turns       |
+| `smart`     | Hybrid: summarize + keep key content |
+
+### Thresholds and Configuration
+
+**Default thresholds**:
+
+- Warning at 70% context usage
+- Auto-compact at 85% context usage
+- Hard limit at 95% (forces compaction)
+
+**Environment configuration**:
+
+```bash
+export CLAUDE_COMPACT_THRESHOLD=0.8     # Trigger at 80%
+export CLAUDE_COMPACT_PRESERVE=3        # Keep 3 recent turns
+```
+
+### Memory Tool Integration
+
+After compaction, memory tools ensure continuity:
+
+1. **Task list preserved**: TodoRead/TodoWrite state maintained
+2. **File changes tracked**: Git diff shows modifications
+3. **Key decisions logged**: Summary includes architectural choices
+
+### DSM Compaction Strategy
+
+```markdown
+# In CLAUDE.md or CLAUDE.local.md
+
+## Compaction Guidelines
+
+When compacting DSM sessions, preserve:
+
+- FCP decision context (which data sources, why)
+- Symbol format discoveries (exchange-specific patterns)
+- Error patterns encountered (rate limits, API quirks)
+- Test results and debugging findings
+
+Use: /compact Preserve FCP context, symbol formats, and error patterns
+```
+
+### Context Window Management
+
+**Monitor usage**:
+
+```bash
+/context                   # Show current token usage
+/cost                      # Show cost and usage stats
+```
+
+**Reduce context proactively**:
+
+1. **Clear between tasks**: `/clear` for fresh context
+2. **Use subagents**: Delegate verbose operations
+3. **Summarize files**: Don't read entire files repeatedly
+4. **Prune tool results**: Let server-side clearing work
+
+### Compaction Best Practices
+
+1. **Compact with guidance**: Specify what to preserve
+2. **Use /clear for new tasks**: Fresh context is cheaper
+3. **Monitor /context regularly**: Stay below 70%
+4. **Let server clear tool results**: Don't fight it
+5. **Design for compaction**: Commit decisions to files/tasks
