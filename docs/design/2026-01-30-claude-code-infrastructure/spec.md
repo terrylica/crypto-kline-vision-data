@@ -11,6 +11,10 @@ Implementation details for the Claude Code infrastructure enabling AI-assisted d
 ```
 data-source-manager/
 ├── CLAUDE.md                      # Main instructions (<300 lines)
+├── examples/
+│   └── CLAUDE.md                  # Example-specific context (lazy loaded)
+├── tests/
+│   └── CLAUDE.md                  # Test-specific context (lazy loaded)
 ├── .claude/
 │   ├── agents/                    # Specialized subagents
 │   │   ├── api-reviewer.md
@@ -178,6 +182,32 @@ Claude loads rules on demand based on file/topic relevance:
 | error-handling.md       | exceptions, try/except |
 | fcp-protocol.md         | FCP, failover          |
 
+## Monorepo-Style Loading
+
+Claude Code loads CLAUDE.md files using a hierarchical strategy:
+
+### Ancestor Loading (Upward)
+
+When Claude Code starts, it walks up from cwd to root, loading all CLAUDE.md files:
+
+```
+/Users/user/eon/data-source-manager/tests/unit/
+    ↑ loads tests/CLAUDE.md
+    ↑ loads CLAUDE.md (root)
+```
+
+### Descendant Loading (Downward)
+
+Subdirectory CLAUDE.md files load lazily when working with files in those directories.
+
+### Content Placement
+
+| File Location        | Contains                        |
+| -------------------- | ------------------------------- |
+| `CLAUDE.md`          | Project-wide conventions, FCP   |
+| `examples/CLAUDE.md` | Example patterns, quick start   |
+| `tests/CLAUDE.md`    | Test fixtures, mocking patterns |
+
 ## Verification Checklist
 
 - [ ] CLAUDE.md is under 300 lines
@@ -187,3 +217,4 @@ Claude loads rules on demand based on file/topic relevance:
 - [ ] hooks.json uses ${CLAUDE_PROJECT_ROOT}
 - [ ] All @ imports point to existing files
 - [ ] Context rules cover all DSM domains
+- [ ] Domain-specific CLAUDE.md in examples/ and tests/
