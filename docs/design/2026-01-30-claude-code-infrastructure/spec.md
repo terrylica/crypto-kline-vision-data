@@ -47445,3 +47445,421 @@ claude -p "Check if all FCP timestamps are properly validated before merge" \
   --append-system-prompt "Focus on FCP protocol compliance and timestamp handling" \
   --output-format json
 ```
+# Troubleshooting Reference
+
+This section covers common issues, diagnostics, and solutions for Claude Code installation and usage.
+
+## Diagnostics Commands
+
+### Claude Doctor
+
+Run `/doctor` to diagnose issues. It checks:
+
+- Installation type, version, and search functionality
+- Auto-update status and available versions
+- Invalid settings files (malformed JSON, incorrect types)
+- MCP server configuration errors
+- Keybinding configuration problems
+- Context usage warnings (large CLAUDE.md files, high MCP token usage, unreachable permission rules)
+- Plugin and agent loading errors
+
+```bash
+claude doctor  # Run from command line
+/doctor        # Run from within Claude Code
+```
+
+### Verbose Mode
+
+Use `--verbose` flag for detailed logging:
+
+```bash
+claude --verbose
+```
+
+### MCP Debug
+
+For Model Context Protocol issues:
+
+```bash
+claude --mcp-debug
+```
+
+## Installation Issues
+
+### Windows WSL Issues
+
+**OS/Platform Detection Issues**:
+
+If you receive an error during installation, WSL may be using Windows npm:
+
+```bash
+# Set OS before installation
+npm config set os linux
+
+# Or install with flags
+npm install -g @anthropic-ai/claude-code --force --no-os-check
+```
+
+Do NOT use `sudo` for installation.
+
+**Node Not Found Errors**:
+
+If you see `exec: node: not found`, WSL may be using Windows Node.js:
+
+```bash
+# Check paths - should start with /usr/, not /mnt/c/
+which npm
+which node
+```
+
+Fix by installing Node via Linux package manager or nvm.
+
+**nvm Version Conflicts**:
+
+WSL imports Windows PATH by default, causing conflicts. Add to shell config:
+
+```bash
+# Load nvm if it exists
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+```
+
+Or adjust PATH order:
+
+```bash
+export PATH="$HOME/.nvm/versions/node/$(node -v)/bin:$PATH"
+```
+
+### WSL2 Sandbox Setup
+
+Sandboxing requires additional packages:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install bubblewrap socat
+
+# Fedora
+sudo dnf install bubblewrap socat
+```
+
+WSL1 does not support sandboxing.
+
+### Linux and Mac Permission Errors
+
+#### Native Installation (Recommended)
+
+Use the native installer that doesn't depend on npm:
+
+**macOS, Linux, WSL**:
+
+```bash
+# Install stable version
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Install latest version
+curl -fsSL https://claude.ai/install.sh | bash -s latest
+
+# Install specific version
+curl -fsSL https://claude.ai/install.sh | bash -s 1.0.58
+```
+
+**Windows PowerShell**:
+
+```powershell
+# Install stable version
+irm https://claude.ai/install.ps1 | iex
+
+# Install latest version
+& ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest
+```
+
+Installation directory: `~/.local/bin/claude` (or `%USERPROFILE%\.local\bin\claude.exe` on Windows).
+
+### Windows Git Bash Required
+
+Claude Code on native Windows requires Git for Windows. If Git is installed but not detected:
+
+```powershell
+# Set path in PowerShell
+$env:CLAUDE_CODE_GIT_BASH_PATH="C:\Program Files\Git\bin\bash.exe"
+```
+
+Or add to system environment variables permanently.
+
+### Windows PATH Issues
+
+If `claude` command not found after installation:
+
+1. Press Win + R, type `sysdm.cpl`, Enter
+2. Click Advanced → Environment Variables
+3. Under "User variables", select Path → Edit
+4. Click New and add: `%USERPROFILE%\.local\bin`
+5. Restart terminal
+
+Verify: `claude doctor`
+
+## Authentication Issues
+
+### Repeated Permission Prompts
+
+Use `/permissions` command to allow specific tools without approval.
+
+### Authentication Problems
+
+```bash
+# Sign out and restart
+/logout
+# Close Claude Code, then restart
+claude
+```
+
+If browser doesn't open during login, press `c` to copy OAuth URL.
+
+### Force Clean Login
+
+```bash
+rm -rf ~/.config/claude-code/auth.json
+claude
+```
+
+## Configuration File Locations
+
+| File                          | Purpose                                       |
+| ----------------------------- | --------------------------------------------- |
+| `~/.claude/settings.json`     | User settings (permissions, hooks, overrides) |
+| `.claude/settings.json`       | Project settings (source control)             |
+| `.claude/settings.local.json` | Local project settings (not committed)        |
+| `~/.claude.json`              | Global state (theme, OAuth, MCP servers)      |
+| `.mcp.json`                   | Project MCP servers (source control)          |
+| `managed-settings.json`       | Managed settings                              |
+| `managed-mcp.json`            | Managed MCP servers                           |
+
+**Managed File Locations**:
+
+- macOS: `/Library/Application Support/ClaudeCode/`
+- Linux/WSL: `/etc/claude-code/`
+- Windows: `C:\Program Files\ClaudeCode\`
+
+### Reset Configuration
+
+```bash
+# Reset all user settings and state
+rm ~/.claude.json
+rm -rf ~/.claude/
+
+# Reset project-specific settings
+rm -rf .claude/
+rm .mcp.json
+```
+
+Warning: This removes all settings, MCP configurations, and session history.
+
+## Performance Issues
+
+### High CPU or Memory Usage
+
+1. Use `/compact` regularly to reduce context size
+2. Close and restart Claude Code between major tasks
+3. Add large build directories to `.gitignore`
+
+### Command Hangs or Freezes
+
+1. Press Ctrl+C to cancel current operation
+2. If unresponsive, close terminal and restart
+
+### Search and Discovery Issues
+
+If Search tool, @file mentions, custom agents, and skills aren't working, install system ripgrep:
+
+```bash
+# macOS (Homebrew)
+brew install ripgrep
+
+# Windows (winget)
+winget install BurntSushi.ripgrep.MSVC
+
+# Ubuntu/Debian
+sudo apt install ripgrep
+
+# Alpine Linux
+apk add ripgrep
+
+# Arch Linux
+pacman -S ripgrep
+```
+
+Then set `USE_BUILTIN_RIPGREP=0` in environment.
+
+### Slow Search on WSL
+
+Disk read penalties when working across file systems affect performance.
+
+**Solutions**:
+
+1. **More specific searches**: Specify directories or file types
+2. **Use Linux filesystem**: Keep project in `/home/` not `/mnt/c/`
+3. **Use native Windows**: Run Claude Code natively instead of WSL
+
+Note: `/doctor` shows Search as OK even with WSL performance issues.
+
+## IDE Integration Issues
+
+### JetBrains IDE Not Detected on WSL2
+
+WSL2 uses NAT networking which can prevent IDE detection.
+
+**Option 1: Configure Windows Firewall** (recommended):
+
+```bash
+# Find WSL2 IP
+wsl hostname -I
+# Example: 172.21.123.456
+```
+
+```powershell
+# PowerShell as Administrator
+New-NetFirewallRule -DisplayName "Allow WSL2 Internal Traffic" -Direction Inbound -Protocol TCP -Action Allow -RemoteAddress 172.21.0.0/16 -LocalAddress 172.21.0.0/16
+```
+
+**Option 2: Mirrored Networking**:
+
+Add to `.wslconfig` in Windows user directory:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+Restart WSL: `wsl --shutdown`
+
+### Escape Key Not Working in JetBrains
+
+If Esc doesn't interrupt Claude Code in JetBrains terminals:
+
+1. Go to Settings → Tools → Terminal
+2. Either:
+   - Uncheck "Move focus to the editor with Escape"
+   - Click "Configure terminal keybindings" and delete "Switch focus to Editor"
+3. Apply changes
+
+## Markdown Formatting Issues
+
+### Missing Language Tags
+
+If code blocks lack language tags:
+
+```markdown
+<!-- Bad -->
+```
+
+function example() {}
+
+````
+
+<!-- Good -->
+```javascript
+function example() {}
+````
+
+````
+
+**Solutions**:
+
+1. Ask Claude to add language tags
+2. Use post-processing hooks for automatic formatting
+3. Review generated markdown for proper formatting
+
+### Inconsistent Spacing
+
+1. Request formatting corrections
+2. Use formatters like prettier via hooks
+3. Specify preferences in CLAUDE.md
+
+## Getting More Help
+
+1. Use `/bug` command to report problems to Anthropic
+2. Check [GitHub repository](https://github.com/anthropics/claude-code) for known issues
+3. Run `/doctor` for diagnostics
+4. Ask Claude about its capabilities
+
+## DSM-Specific Troubleshooting
+
+### Python Environment Issues
+
+```bash
+# Verify Python version (must be 3.13)
+python --version
+
+# Check uv is working
+uv --version
+
+# Verify mise configuration
+mise doctor
+````
+
+### FCP Module Issues
+
+If FCP (Failover Control Protocol) tests fail:
+
+```bash
+# Run FCP tests specifically
+uv run pytest tests/test_fcp.py -v
+
+# Check FCP debug logging
+PYTHONPATH=src uv run python -c "from data_source_manager.fcp import *; print('FCP OK')"
+```
+
+### Timestamp Handling
+
+If timestamp-related tests fail:
+
+```bash
+# Verify timezone handling
+uv run pytest tests/test_timestamp.py -v
+
+# Check pandas/polars compatibility
+uv run python -c "import pandas as pd; import polars as pl; print('OK')"
+```
+
+### Exchange API Connection Issues
+
+```bash
+# Test API connectivity
+uv run pytest tests/exchanges/ -v -k "test_connection"
+
+# Check rate limit status
+uv run pytest tests/exchanges/ -v -k "test_rate_limit"
+```
+
+### Cache Issues
+
+If caching behavior is unexpected:
+
+```bash
+# Clear test cache
+rm -rf .pytest_cache/
+
+# Clear any application cache
+rm -rf ~/.cache/data-source-manager/
+```
+
+### Import Errors
+
+If imports fail in Claude Code context:
+
+```bash
+# Verify package is installed in editable mode
+uv pip install -e .
+
+# Check sys.path includes src
+python -c "import sys; print([p for p in sys.path if 'data-source-manager' in p])"
+```
+
+### Context Window Issues
+
+For DSM projects with many files:
+
+1. Use `/compact` when context fills
+2. Focus on specific modules: `@src/data_source_manager/fcp/`
+3. Use skills for progressive disclosure: `/dsm-research`
