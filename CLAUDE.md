@@ -1,22 +1,29 @@
 # Data Source Manager
 
-**Navigation**: [docs/INDEX.md](docs/INDEX.md) | [Examples](examples/) | [Tests](tests/)
+Professional market data integration with Failover Control Protocol (FCP).
 
-Professional market data integration package with Failover Control Protocol (FCP) for reliable data retrieval from Binance Vision API, REST API, and local Apache Arrow cache.
+## Navigation
 
----
+| Topic              | Document                                                 |
+| ------------------ | -------------------------------------------------------- |
+| Documentation Hub  | [docs/INDEX.md](docs/INDEX.md)                           |
+| Examples           | [examples/](examples/) ([CLAUDE.md](examples/CLAUDE.md)) |
+| Tests              | [tests/](tests/) ([CLAUDE.md](tests/CLAUDE.md))          |
+| Claude Code Config | [.claude/settings.md](.claude/settings.md)               |
+| ADRs               | [docs/adr/](docs/adr/)                                   |
+| Troubleshooting    | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)       |
 
-## Quick Reference
+## Essential Commands
 
-Run `mise run help` for full task list. Key commands:
+| Command                    | Purpose                    |
+| -------------------------- | -------------------------- |
+| `mise run test`            | Run unit tests             |
+| `mise run check:all`       | Lint + format + typecheck  |
+| `mise run quick`           | Quick validation           |
+| `mise run claude:validate` | Validate Claude Code setup |
+| `mise run release:dry`     | Preview semantic-release   |
 
-| Command                 | Purpose                   |
-| ----------------------- | ------------------------- |
-| `mise run test`         | Run unit tests            |
-| `mise run check:all`    | Lint + format + typecheck |
-| `mise run verify`       | Verify package imports    |
-| `mise run release:dry`  | Preview semantic-release  |
-| `mise run release:full` | Run full release          |
+Run `mise run help` for full task list.
 
 ---
 
@@ -234,6 +241,18 @@ Slash commands in `.claude/commands/`:
 | This repo docs | Repo-root (`/`) | `[ADR](/docs/adr/file.md)`       |
 | Skill-internal | Relative (`./`) | `[Guide](./references/guide.md)` |
 | External       | Full URL        | `[Docs](https://example.com)`    |
+
+---
+
+## Recent Lessons Learned
+
+**2026-01-30**: PreToolUse hooks validate commands BEFORE execution (exit 2 blocks). [Hooks README](/.claude/hooks/README.md)
+
+**2026-01-30**: Domain-specific CLAUDE.md files (examples/, tests/) load lazily for context isolation. [Design Spec](/docs/design/2026-01-30-claude-code-infrastructure/spec.md)
+
+**2026-01-30**: Skills need `user-invocable: true` and `$ARGUMENTS` placeholder for slash command usage. [Anthropic Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+
+**2025-01-30**: FCP priority is Cache → Vision → REST. Vision has ~48h delay for new data. [FCP ADR](/docs/adr/2025-01-30-failover-control-protocol.md)
 
 ---
 
