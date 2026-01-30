@@ -13,7 +13,7 @@ from data_source_manager.utils.config import FEATURE_FLAGS
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
-logger.setup_root(level="DEBUG")
+logger.configure_level("DEBUG")
 
 
 class TestDsmCacheUtils(unittest.TestCase):

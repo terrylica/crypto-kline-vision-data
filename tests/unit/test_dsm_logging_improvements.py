@@ -32,7 +32,7 @@ class TestDataSourceConfig:
             provider=DataProvider.BINANCE
         )
         
-        assert config.log_level == 'WARNING'
+        assert config.log_level == "WARNING"
         assert config.suppress_http_debug is True
         assert config.quiet_mode is False
     
@@ -41,12 +41,12 @@ class TestDataSourceConfig:
         config = DataSourceConfig(
             market_type=MarketType.SPOT,
             provider=DataProvider.BINANCE,
-            log_level='DEBUG',
+            log_level="DEBUG",
             suppress_http_debug=False,
             quiet_mode=True
         )
         
-        assert config.log_level == 'DEBUG'
+        assert config.log_level == "DEBUG"
         assert config.suppress_http_debug is False
         assert config.quiet_mode is True
     
@@ -56,7 +56,7 @@ class TestDataSourceConfig:
             DataSourceConfig(
                 market_type=MarketType.SPOT,
                 provider=DataProvider.BINANCE,
-                log_level='INVALID'
+                log_level="INVALID"
             )
     
     def test_log_level_case_conversion(self):
@@ -64,31 +64,31 @@ class TestDataSourceConfig:
         config = DataSourceConfig(
             market_type=MarketType.SPOT,
             provider=DataProvider.BINANCE,
-            log_level='debug'
+            log_level="debug"
         )
         
-        assert config.log_level == 'DEBUG'
+        assert config.log_level == "DEBUG"
 
 
 class TestDataSourceManagerLogging:
     """Test DataSourceManager logging functionality."""
     
-    @patch('core.sync.data_source_manager.FSSpecVisionHandler')
-    @patch('core.sync.data_source_manager.UnifiedCacheManager')
+    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("core.sync.data_source_manager.UnifiedCacheManager")
     def test_default_logging_configuration(self, mock_cache, mock_handler):
         """Test that DataSourceManager configures logging correctly by default."""
         # Mock the handlers to avoid actual initialization
         mock_handler.return_value = MagicMock()
         mock_cache.return_value = MagicMock()
         
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             mock_httpx_logger = MagicMock()
             
             def get_logger_side_effect(name):
-                if name == 'httpcore':
+                if name == "httpcore":
                     return mock_httpcore_logger
-                elif name == 'httpx':
+                if name == "httpx":
                     return mock_httpx_logger
                 return MagicMock()
             
@@ -106,22 +106,22 @@ class TestDataSourceManagerLogging:
             
             dsm.close()
     
-    @patch('core.sync.data_source_manager.FSSpecVisionHandler')
-    @patch('core.sync.data_source_manager.UnifiedCacheManager')
+    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("core.sync.data_source_manager.UnifiedCacheManager")
     def test_debug_logging_configuration(self, mock_cache, mock_handler):
         """Test that debug mode enables HTTP logging."""
         # Mock the handlers to avoid actual initialization
         mock_handler.return_value = MagicMock()
         mock_cache.return_value = MagicMock()
         
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             mock_httpx_logger = MagicMock()
             
             def get_logger_side_effect(name):
-                if name == 'httpcore':
+                if name == "httpcore":
                     return mock_httpcore_logger
-                elif name == 'httpx':
+                if name == "httpx":
                     return mock_httpx_logger
                 return MagicMock()
             
@@ -131,7 +131,7 @@ class TestDataSourceManagerLogging:
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE,
                 market_type=MarketType.SPOT,
-                log_level='DEBUG',
+                log_level="DEBUG",
                 suppress_http_debug=False
             )
             
@@ -141,19 +141,19 @@ class TestDataSourceManagerLogging:
             
             dsm.close()
     
-    @patch('core.sync.data_source_manager.FSSpecVisionHandler')
-    @patch('core.sync.data_source_manager.UnifiedCacheManager')
+    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("core.sync.data_source_manager.UnifiedCacheManager")
     def test_dynamic_reconfiguration(self, mock_cache, mock_handler):
         """Test dynamic logging reconfiguration."""
         # Mock the handlers to avoid actual initialization
         mock_handler.return_value = MagicMock()
         mock_cache.return_value = MagicMock()
         
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             
             def get_logger_side_effect(name):
-                if name == 'httpcore':
+                if name == "httpcore":
                     return mock_httpcore_logger
                 return MagicMock()
             
@@ -166,14 +166,14 @@ class TestDataSourceManagerLogging:
             )
             
             # Verify initial configuration
-            assert dsm.log_level == 'WARNING'
+            assert dsm.log_level == "WARNING"
             assert dsm.suppress_http_debug is True
             
             # Reconfigure to debug mode
-            dsm.reconfigure_logging(log_level='DEBUG', suppress_http_debug=False)
+            dsm.reconfigure_logging(log_level="DEBUG", suppress_http_debug=False)
             
             # Verify configuration changed
-            assert dsm.log_level == 'DEBUG'
+            assert dsm.log_level == "DEBUG"
             assert dsm.suppress_http_debug is False
             
             # Verify HTTP logger was reconfigured
@@ -187,14 +187,14 @@ class TestCleanLoggingUtilities:
     
     def test_suppress_http_logging(self):
         """Test global HTTP logging suppression."""
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             mock_httpx_logger = MagicMock()
             
             def get_logger_side_effect(name):
-                if name == 'httpcore':
+                if name == "httpcore":
                     return mock_httpcore_logger
-                elif name == 'httpx':
+                if name == "httpx":
                     return mock_httpx_logger
                 return MagicMock()
             
@@ -207,7 +207,7 @@ class TestCleanLoggingUtilities:
             mock_httpcore_logger.setLevel.assert_called_with(logging.WARNING)
             mock_httpx_logger.setLevel.assert_called_with(logging.WARNING)
     
-    @patch('core.sync.data_source_manager.DataSourceManager.create')
+    @patch("data_source_manager.core.sync.data_source_manager.DataSourceManager.create")
     def test_clean_context_manager(self, mock_create):
         """Test that clean context manager passes correct parameters."""
         mock_dsm = MagicMock()
@@ -220,13 +220,13 @@ class TestCleanLoggingUtilities:
         mock_create.assert_called_once_with(
             DataProvider.BINANCE,
             MarketType.SPOT,
-            log_level='WARNING',
+            log_level="WARNING",
             suppress_http_debug=True,
             quiet_mode=False
         )
         mock_dsm.close.assert_called_once()
     
-    @patch('core.sync.data_source_manager.DataSourceManager.create')
+    @patch("data_source_manager.core.sync.data_source_manager.DataSourceManager.create")
     def test_quiet_context_manager(self, mock_create):
         """Test that quiet context manager passes correct parameters."""
         mock_dsm = MagicMock()
@@ -244,7 +244,7 @@ class TestCleanLoggingUtilities:
         )
         mock_dsm.close.assert_called_once()
     
-    @patch('core.sync.data_source_manager.DataSourceManager.create')
+    @patch("data_source_manager.core.sync.data_source_manager.DataSourceManager.create")
     def test_debug_context_manager(self, mock_create):
         """Test that debug context manager passes correct parameters."""
         mock_dsm = MagicMock()
@@ -257,7 +257,7 @@ class TestCleanLoggingUtilities:
         mock_create.assert_called_once_with(
             DataProvider.BINANCE,
             MarketType.SPOT,
-            log_level='DEBUG',
+            log_level="DEBUG",
             suppress_http_debug=False,
             quiet_mode=False
         )
@@ -278,19 +278,19 @@ class TestBackwardCompatibility:
         )
         
         # Should use default logging values
-        assert config.log_level == 'WARNING'
+        assert config.log_level == "WARNING"
         assert config.suppress_http_debug is True
         assert config.quiet_mode is False
     
-    @patch('core.sync.data_source_manager.FSSpecVisionHandler')
-    @patch('core.sync.data_source_manager.UnifiedCacheManager')
+    @patch("core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("core.sync.data_source_manager.UnifiedCacheManager")
     def test_old_init_signature(self, mock_cache, mock_handler):
         """Test that old __init__ signature still works."""
         # Mock the handlers to avoid actual initialization
         mock_handler.return_value = MagicMock()
         mock_cache.return_value = MagicMock()
         
-        with patch('logging.getLogger'):
+        with patch("logging.getLogger"):
             # This should work with old-style parameters
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE,
@@ -300,7 +300,7 @@ class TestBackwardCompatibility:
             )
             
             # Should use default logging values
-            assert dsm.log_level == 'WARNING'
+            assert dsm.log_level == "WARNING"
             assert dsm.suppress_http_debug is True
             assert dsm.quiet_mode is False
             
