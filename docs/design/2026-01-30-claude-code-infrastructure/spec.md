@@ -43982,3 +43982,677 @@ Over time, develop intuition for when to be specific vs open-ended, when to plan
 | Subagents        | Investigation and review tasks           |
 | Scaling          | Parallel sessions, headless mode         |
 | Failure patterns | Recognize and fix early                  |
+## MCP Server Ecosystem and Integration Guide
+
+This section provides comprehensive guidance on integrating Claude Code with external tools through the Model Context Protocol (MCP) and configuring the MCP server ecosystem.
+
+### MCP Server Overview
+
+MCP servers act as bridges connecting Claude Code to external tools, APIs, and data sources. They enable real-time interactions with systems like GitHub, databases, cloud providers, and web browsers through a standardized protocol.
+
+| Component         | Purpose                                    |
+| ----------------- | ------------------------------------------ |
+| MCP Servers       | Bridges to external tools and APIs         |
+| Transport Methods | Communication protocols (stdio, HTTP, SSE) |
+| Tool Search       | Dynamic discovery of available tools       |
+| Configuration     | Scopes, settings, and permissions          |
+
+### Configuration Scopes
+
+MCP servers can be configured at three different scope levels:
+
+| Scope     | Location                 | Visibility      | Use Case                     |
+| --------- | ------------------------ | --------------- | ---------------------------- |
+| `user`    | `~/.claude.json`         | All projects    | Personal development servers |
+| `project` | `.claude/settings.json`  | Current project | Team-shared servers          |
+| `local`   | `.claude/settings.local` | Current project | Personal credentials         |
+
+```bash
+# Add server with specific scope
+claude mcp add github --scope user      # Global for your account
+claude mcp add github --scope project   # Project-specific
+```
+
+### Configuration Structure
+
+Basic JSON format for MCP servers:
+
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-name"],
+      "env": {
+        "API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+Configuration file locations:
+
+- **macOS/Linux**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+### Essential MCP Servers
+
+#### Sequential Thinking
+
+Enables structured problem-solving with reflective reasoning:
+
+```bash
+claude mcp add sequential-thinking npx -- -y @modelcontextprotocol/server-sequential-thinking
+```
+
+**Use Cases**: Architectural decisions, debugging complex issues, planning large-scale features.
+
+**Configuration**:
+
+```json
+"sequential-thinking": {
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+}
+```
+
+#### Context7 Documentation
+
+Provides real-time documentation from source repositories:
+
+```bash
+claude mcp add --transport http context7 https://mcp.context7.com/mcp
+```
+
+**Use Cases**: Working with rapidly evolving frameworks (React, Vue, Next.js), accessing unreleased features.
+
+```json
+"context7": {
+  "command": "npx",
+  "args": ["-y", "@upstash/context7-mcp@latest"]
+}
+```
+
+#### GitHub Integration
+
+Direct interaction with repositories, PRs, issues, and CI/CD:
+
+```bash
+claude mcp add --transport http github https://api.githubcopilot.com/mcp/
+```
+
+**Use Cases**: Code review suggestions, creating issues from bug reports, managing open-source contributions.
+
+```json
+"github": {
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxxxxxxxxxxx"
+  }
+}
+```
+
+#### Playwright Browser Automation
+
+Web automation using accessibility trees:
+
+```bash
+claude mcp add playwright npx -- @playwright/mcp@latest
+```
+
+**Use Cases**: End-to-end testing, web workflow automation, browser-based debugging.
+
+#### Apidog API Integration
+
+Bridges API documentation and code generation:
+
+```bash
+claude mcp add apidog -- npx -y apidog-mcp-server@latest --oas=<url-or-path>
+```
+
+**Use Cases**: Generating type-safe client code, validating API responses, ensuring spec alignment.
+
+### Cloud Provider Servers
+
+| Provider   | Coverage                                       |
+| ---------- | ---------------------------------------------- |
+| AWS        | Lambda, DynamoDB, CloudFormation, CDK, Bedrock |
+| Cloudflare | 16 servers for Workers, R2, edge computing, AI |
+| GCP        | Compute Engine, BigQuery, Cloud Functions      |
+
+### Observability and Analytics Servers
+
+| Server  | Purpose                                       |
+| ------- | --------------------------------------------- |
+| Sentry  | Error tracking with stack trace analysis      |
+| PostHog | Product analytics, feature flags, A/B testing |
+
+### Workflow and Productivity Servers
+
+| Server    | Purpose                            |
+| --------- | ---------------------------------- |
+| Linear    | Project management with OAuth      |
+| Figma     | Design-to-code from Dev Mode       |
+| Notion    | Workspace access for documentation |
+| Airtable  | Database read/write operations     |
+| Atlassian | Jira and Confluence with OAuth     |
+
+### Management Commands
+
+| Task          | Command                                 |
+| ------------- | --------------------------------------- |
+| List servers  | `claude mcp list`                       |
+| View config   | `claude mcp get [name]`                 |
+| Remove server | `claude mcp remove [name]`              |
+| Verify setup  | Check `~/.claude/logs/mcp-server-*.log` |
+| Debug mode    | `claude --mcp-debug`                    |
+
+### Environment Variables for Secrets
+
+Store secrets safely using environment variables:
+
+```json
+"env": {
+  "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+}
+```
+
+Then export in your shell: `export GITHUB_TOKEN=ghp_xxxx`
+
+### Advanced Configuration Patterns
+
+#### Multiple Instances
+
+Run same server with different configs using unique names:
+
+```json
+{
+  "github-work": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_WORK_TOKEN}" }
+  },
+  "github-personal": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_TOKEN}" }
+  }
+}
+```
+
+#### Disable Without Removing
+
+```json
+"github": {
+  "disabled": true,
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"]
+}
+```
+
+### Security Best Practices
+
+| Practice                      | Rationale                              |
+| ----------------------------- | -------------------------------------- |
+| Only install trusted servers  | Servers have full system access        |
+| Use project scope for testing | Limits exposure for unfamiliar servers |
+| Rotate API keys regularly     | Minimize credential exposure window    |
+| Review server source code     | Verify behavior before installation    |
+| Never commit credentials      | Use environment variables instead      |
+| Use TLS/HTTPS                 | Ensure encrypted data exchange         |
+| Minimal permissions           | Read-only unless write is required     |
+
+### Troubleshooting MCP Servers
+
+#### Connection Issues
+
+Test server directly:
+
+```bash
+echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | \
+  npx @modelcontextprotocol/server-github
+```
+
+Check logs:
+
+```bash
+cat ~/.claude/logs/mcp-server-[name].log
+```
+
+Try project scope if permission errors appear:
+
+```bash
+claude mcp remove github
+claude mcp add github --scope project
+```
+
+#### Post-Installation Steps
+
+After configuration changes:
+
+1. Restart Claude Code
+2. Verify with `claude mcp list`
+3. Test with simple commands relevant to that server
+
+### DSM-Specific MCP Configuration
+
+For data-source-manager, recommended MCP server setup:
+
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GH_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Priority servers for DSM development**:
+
+| Server              | DSM Use Case                             |
+| ------------------- | ---------------------------------------- |
+| sequential-thinking | FCP debugging, architectural decisions   |
+| context7            | Polars, ccxt, exchange API documentation |
+| github              | PR creation, issue management            |
+
+---
+
+## GitHub Actions Integration Reference
+
+This section provides comprehensive guidance on integrating Claude Code with GitHub Actions for automated PR review, code implementation, and CI/CD workflows.
+
+### Overview
+
+Claude Code GitHub Actions brings AI-powered automation to your GitHub workflow. With a simple `@claude` mention in any PR or issue, Claude can analyze your code, create pull requests, implement features, and fix bugs while following your project's standards.
+
+### Key Capabilities
+
+| Feature                       | Description                                |
+| ----------------------------- | ------------------------------------------ |
+| Instant PR creation           | Describe needs, Claude creates complete PR |
+| Automated code implementation | Turn issues into working code              |
+| Standard adherence            | Respects CLAUDE.md and existing patterns   |
+| @claude mentions              | Trigger Claude from any comment            |
+| Secure by default             | Code stays on GitHub's runners             |
+
+### Quick Setup
+
+The easiest setup method is through Claude Code terminal:
+
+```bash
+claude
+/install-github-app
+```
+
+This command guides through:
+
+- Installing the Claude GitHub app
+- Adding required secrets
+- Creating workflow files
+
+**Requirements**:
+
+- Repository admin access
+- GitHub App permissions: Contents, Issues, Pull Requests (read & write)
+
+### Manual Setup
+
+1. **Install Claude GitHub App**: <https://github.com/apps/claude>
+
+2. **Add API Key to Secrets**:
+   - Go to repository Settings → Secrets and variables → Actions
+   - Create `ANTHROPIC_API_KEY` secret
+
+3. **Create Workflow File**: `.github/workflows/claude.yml`
+
+### Basic Workflow Configuration
+
+```yaml
+name: Claude Code
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Responds to @claude mentions in comments
+```
+
+### @claude Mention Examples
+
+In issue or PR comments:
+
+```
+@claude implement this feature based on the issue description
+@claude how should I implement user authentication for this endpoint?
+@claude fix the TypeError in the user dashboard component
+@claude review this PR for security issues
+```
+
+### Using Skills in Workflows
+
+```yaml
+name: Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/review"
+          claude_args: "--max-turns 5"
+```
+
+### Custom Automation with Prompts
+
+```yaml
+name: Daily Report
+on:
+  schedule:
+    - cron: "0 9 * * *"
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "Generate a summary of yesterday's commits and open issues"
+          claude_args: "--model claude-opus-4-5-20251101"
+```
+
+### Action Parameters Reference
+
+| Parameter           | Description                                | Required |
+| ------------------- | ------------------------------------------ | -------- |
+| `prompt`            | Instructions for Claude (text or skill)    | No\*     |
+| `claude_args`       | CLI arguments passed to Claude Code        | No       |
+| `anthropic_api_key` | Claude API key                             | Yes\*\*  |
+| `github_token`      | GitHub token for API access                | No       |
+| `trigger_phrase`    | Custom trigger phrase (default: "@claude") | No       |
+| `use_bedrock`       | Use AWS Bedrock instead of Claude API      | No       |
+| `use_vertex`        | Use Google Vertex AI instead of Claude API | No       |
+
+\*Prompt is optional - when omitted for issue/PR comments, Claude responds to trigger phrase
+\*\*Required for direct Claude API, not for Bedrock/Vertex
+
+### CLI Arguments via claude_args
+
+```yaml
+claude_args: "--max-turns 5 --model claude-sonnet-4-5-20250929 --mcp-config /path/to/config.json"
+```
+
+Common arguments:
+
+- `--max-turns`: Maximum conversation turns (default: 10)
+- `--model`: Model to use
+- `--mcp-config`: Path to MCP configuration
+- `--allowed-tools`: Comma-separated list of allowed tools
+- `--debug`: Enable debug output
+
+### Model Selection
+
+Claude Opus 4.5 is now available. Default is Sonnet.
+
+To use Opus 4.5:
+
+```yaml
+claude_args: "--model claude-opus-4-5-20251101"
+```
+
+### AWS Bedrock Integration
+
+```yaml
+name: Claude PR Action
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+jobs:
+  claude-pr:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-west-2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          use_bedrock: "true"
+          claude_args: "--model us.anthropic.claude-sonnet-4-5-20250929-v1:0 --max-turns 10"
+```
+
+**Bedrock Model ID Format**: Includes region prefix (e.g., `us.anthropic.claude...`) and version suffix.
+
+### Google Vertex AI Integration
+
+```yaml
+name: Claude PR Action
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+jobs:
+  claude-pr:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          trigger_phrase: "@claude"
+          use_vertex: "true"
+          claude_args: "--model claude-sonnet-4@20250514 --max-turns 10"
+        env:
+          ANTHROPIC_VERTEX_PROJECT_ID: ${{ steps.auth.outputs.project_id }}
+          CLOUD_ML_REGION: us-east5
+          VERTEX_REGION_CLAUDE_3_7_SONNET: us-east5
+```
+
+### Creating Custom GitHub App
+
+For enterprise environments needing branded usernames or custom authentication:
+
+1. Go to <https://github.com/settings/apps/new>
+2. Fill in:
+   - **GitHub App name**: Unique name (e.g., "YourOrg Claude Assistant")
+   - **Homepage URL**: Organization website or repository URL
+3. Configure:
+   - **Webhooks**: Uncheck "Active" (not needed)
+4. Set permissions:
+   - **Contents**: Read & Write
+   - **Issues**: Read & Write
+   - **Pull requests**: Read & Write
+5. Create app and generate private key
+6. Install app to repository
+7. Add secrets:
+   - `APP_PRIVATE_KEY`: Contents of .pem file
+   - `APP_ID`: GitHub App's ID
+
+### Cost Optimization
+
+**GitHub Actions Costs**:
+
+- Runs on GitHub-hosted runners consuming Actions minutes
+- See GitHub billing documentation for limits
+
+**API Costs**:
+
+- Token usage varies by task complexity and codebase size
+- See Claude pricing page for current rates
+
+**Optimization Tips**:
+
+- Use specific `@claude` commands to reduce API calls
+- Configure appropriate `--max-turns` in `claude_args`
+- Set workflow-level timeouts
+- Use GitHub's concurrency controls
+
+### Security Best Practices
+
+| Practice                    | Implementation                             |
+| --------------------------- | ------------------------------------------ |
+| Never commit API keys       | Use GitHub Secrets                         |
+| Limit action permissions    | Only what's necessary                      |
+| Review Claude's suggestions | Before merging                             |
+| Use OIDC authentication     | For Bedrock/Vertex (no static credentials) |
+
+### Troubleshooting
+
+#### Claude Not Responding
+
+- Verify GitHub App is installed correctly
+- Check workflows are enabled
+- Ensure API key is set in repository secrets
+- Confirm comment contains `@claude` (not `/claude`)
+
+#### CI Not Running on Claude's Commits
+
+- Ensure using GitHub App or custom app (not Actions user)
+- Check workflow triggers include necessary events
+- Verify app permissions include CI triggers
+
+#### Authentication Errors
+
+- Confirm API key is valid with sufficient permissions
+- For Bedrock/Vertex, check credentials configuration
+- Ensure secrets are named correctly in workflows
+
+### DSM-Specific GitHub Actions Patterns
+
+For data-source-manager, recommended workflow patterns:
+
+```yaml
+name: DSM Claude Code
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --max-turns 10
+            --append-system-prompt "Follow DSM patterns in CLAUDE.md. Use Polars not pandas. All timestamps UTC timezone-aware."
+```
+
+**DSM Review Automation**:
+
+```yaml
+name: DSM PR Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "src/**/*.py"
+      - "tests/**/*.py"
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this PR for DSM patterns:
+            - Verify timestamps are UTC timezone-aware
+            - Check symbol format consistency (BTCUSDT uppercase, no slash)
+            - Ensure proper error handling (no bare except)
+            - Validate DataFrame operations use Polars
+          claude_args: "--max-turns 5"
+```
