@@ -58,6 +58,13 @@ df = fetch_market_data(
 )
 ```
 
+## Examples
+
+Practical code examples:
+
+- @examples/basic-fetch.md - Single/multiple symbols, market types
+- @examples/error-handling.md - Exception patterns, validation, retries
+
 ## Detailed References
 
 For deeper information, see:
