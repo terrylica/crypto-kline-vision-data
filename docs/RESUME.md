@@ -4,6 +4,25 @@ Last updated: 2026-01-30
 
 ## Recent Work
 
+### Workspace & Session Management (2026-01-30)
+
+**Status**: Complete
+
+**What was done**:
+
+- Added session commands table (--resume, /resume, /rename, --continue)
+- Added git worktree pattern for parallel development
+- Added "when to use parallel sessions" decision table
+- Added resource considerations table (tokens, ports, memory, cognitive)
+- Added context isolation benefits list
+- Added DSM parallel development patterns table
+
+**Sources**:
+
+- [Official Workflows](https://code.claude.com/docs/en/common-workflows)
+- [Git Worktrees with Claude Code](https://dev.to/datadeer/part-2-running-multiple-claude-code-sessions-in-parallel-with-git-worktree-165i)
+- [incident.io Blog](https://incident.io/blog/shipping-faster-with-claude-code-and-git-worktrees)
+
 ### MCP Server Configuration (2026-01-30)
 
 **Status**: Complete

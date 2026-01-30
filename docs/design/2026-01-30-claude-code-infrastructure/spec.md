@@ -1611,6 +1611,72 @@ For data-source-manager, consider these MCP integrations:
 | sequential-think | Complex FCP debugging workflows      |
 | context7         | Up-to-date library documentation     |
 
+## Workspace & Session Management
+
+Based on [Official Workflows](https://code.claude.com/docs/en/common-workflows), [Git Worktrees with Claude Code](https://dev.to/datadeer/part-2-running-multiple-claude-code-sessions-in-parallel-with-git-worktree-165i), and [incident.io Blog](https://incident.io/blog/shipping-faster-with-claude-code-and-git-worktrees).
+
+### Session Commands
+
+| Command             | Purpose                             |
+| ------------------- | ----------------------------------- |
+| `claude --resume`   | Open conversation picker or by name |
+| `/resume`           | Switch conversations mid-session    |
+| `/rename <name>`    | Name session for later retrieval    |
+| `claude --continue` | Resume most recent session          |
+
+**Session storage**: Per project directory. Sessions from same git repo (including worktrees) appear in `/resume` picker.
+
+### Git Worktree Pattern for Parallel Development
+
+```bash
+# Create worktree with feature branch
+git worktree add ../dsm-worktrees/fcp-refactor -b feat/fcp-refactor
+
+# Launch Claude in worktree
+cd ../dsm-worktrees/fcp-refactor && claude
+
+# List active worktrees
+git worktree list
+
+# Cleanup when done
+git worktree remove ../dsm-worktrees/fcp-refactor
+```
+
+### When to Use Parallel Sessions
+
+| Scenario                    | Parallel? | Rationale                     |
+| --------------------------- | --------- | ----------------------------- |
+| Long-running feature (>30m) | Yes       | Worth setup overhead          |
+| Quick fix (<10m)            | No        | Setup time exceeds benefit    |
+| Independent features        | Yes       | No cross-feature dependencies |
+| Dependent changes           | No        | Sequential workflow required  |
+| Architecture exploration    | Yes       | Compare multiple approaches   |
+
+### Resource Considerations
+
+| Resource  | Challenge                          | Mitigation                    |
+| --------- | ---------------------------------- | ----------------------------- |
+| Tokens    | Multiple sessions consume faster   | Reserve for complex work only |
+| Ports     | Services conflict across worktrees | Use port offsets per worktree |
+| Memory    | Multiple Claude instances          | Limit concurrent sessions     |
+| Cognitive | Context-switching fatigue          | Focus on one, check other     |
+
+### Context Isolation Benefits
+
+- Each worktree has independent working directory
+- Claude instances cannot interfere with each other
+- All worktrees share Git history and remotes
+- Perfect for simultaneous feature development
+
+### DSM Parallel Development Patterns
+
+| Task Pair                          | Parallel Viable? |
+| ---------------------------------- | ---------------- |
+| FCP refactor + New data source     | Yes              |
+| Cache layer + Tests for cache      | No (dependent)   |
+| Binance fixes + OKX implementation | Yes              |
+| Symbol normalization + Docs update | Yes              |
+
 ## Verification Checklist
 
 ### Infrastructure
