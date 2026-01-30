@@ -32285,3 +32285,280 @@ my-plugin/
 5. **Team coordination** - Use `extraKnownMarketplaces` in `.claude/settings.json` for consistent team setup.
 
 6. **Version control** - Commit `.claude/settings.json` for project-scope plugins, exclude `settings.local.json`.
+## Chrome Browser Integration Reference
+
+### Overview
+
+Claude Code integrates with the Claude in Chrome browser extension to provide browser automation capabilities directly from the terminal. Build in terminal, test and debug in browser without switching contexts.
+
+### Key Capabilities
+
+| Capability          | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| Live debugging      | Read console errors and DOM state, fix code that caused them    |
+| Design verification | Build UI from Figma mock, verify it matches in browser          |
+| Web app testing     | Test form validation, check regressions, verify user flows      |
+| Authenticated apps  | Interact with Google Docs, Gmail, Notion without API connectors |
+| Data extraction     | Pull structured information from web pages                      |
+| Task automation     | Automate repetitive browser tasks, form filling                 |
+| Session recording   | Record browser interactions as GIFs                             |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 Chrome Integration Architecture                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐    Native Messaging    ┌─────────────────┐   │
+│  │ Claude Code │ ◀────── API ──────────▶ │ Chrome Extension│   │
+│  │    CLI      │                         │                 │   │
+│  └─────────────┘                         └────────┬────────┘   │
+│                                                   │             │
+│                                          ┌────────▼────────┐   │
+│                                          │  Browser Tabs   │   │
+│                                          │  (visible)      │   │
+│                                          └─────────────────┘   │
+│                                                                 │
+│  Notes:                                                        │
+│  - Requires visible browser window (no headless mode)          │
+│  - Shares browser's login state                                │
+│  - Opens new tabs for tasks (doesn't take over existing)       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Prerequisites
+
+<!-- SSoT-OK: Claude Code Chrome extension version requirements from official docs -->
+
+| Requirement | Details                                          |
+| ----------- | ------------------------------------------------ |
+| Browser     | Google Chrome only (beta limitation)             |
+| Extension   | Claude in Chrome (see official docs for version) |
+| CLI         | Claude Code (see `claude --version`)             |
+| Plan        | Paid Claude plan (Pro, Team, Enterprise)         |
+
+**Not supported:**
+
+- Brave, Arc, or other Chromium browsers
+- WSL (Windows Subsystem for Linux)
+- Headless mode
+
+### Setup
+
+**1. Update Claude Code:**
+
+```bash
+claude update
+```
+
+**2. Start with Chrome enabled:**
+
+```bash
+claude --chrome
+```
+
+**3. Verify connection:**
+
+```bash
+/chrome  # Check status and manage settings
+```
+
+**Enable by default (optional):**
+Run `/chrome` and select "Enabled by default".
+
+Note: Enabling by default increases context usage since browser tools are always loaded.
+
+### Browser Actions
+
+| Action            | Description                         |
+| ----------------- | ----------------------------------- |
+| Navigate pages    | Go to URLs, follow links            |
+| Click and type    | Interact with buttons, inputs       |
+| Fill forms        | Complete form fields                |
+| Scroll            | Scroll to elements or positions     |
+| Read console logs | Access browser console output       |
+| Monitor network   | View network requests and responses |
+| Manage tabs       | Open, close, switch tabs            |
+| Resize windows    | Set browser window dimensions       |
+| Record GIFs       | Capture interaction sequences       |
+
+View all available tools: `/mcp` → click `claude-in-chrome`
+
+### Example Workflows
+
+#### Test Local Web Application
+
+```
+I just updated the login form validation. Can you open localhost:3000,
+try submitting the form with invalid data, and check if the error
+messages appear correctly?
+```
+
+#### Debug with Console Logs
+
+```
+Open the dashboard page and check the console for any errors when
+the page loads.
+```
+
+#### Automate Form Filling
+
+```
+I have a spreadsheet of customer contacts in contacts.csv. For each row,
+go to our CRM at crm.example.com, click "Add Contact", and fill in the
+name, email, and phone fields.
+```
+
+#### Draft Content in Google Docs
+
+```
+Draft a project update based on our recent commits and add it to my
+Google Doc at docs.google.com/document/d/abc123
+```
+
+#### Extract Data from Web Pages
+
+```
+Go to the product listings page and extract the name, price, and
+availability for each item. Save the results as a CSV file.
+```
+
+#### Multi-Site Workflows
+
+```
+Check my calendar for meetings tomorrow, then for each meeting with
+an external attendee, look up their company on LinkedIn and add a
+note about what they do.
+```
+
+#### Record a Demo GIF
+
+```
+Record a GIF showing how to complete the checkout flow, from adding
+an item to the cart through to the confirmation page.
+```
+
+### Login Handling
+
+When Claude encounters login pages, CAPTCHAs, or blockers:
+
+1. Claude pauses and asks you to handle it
+2. Options:
+   - Provide credentials for Claude to enter
+   - Log in manually in the browser
+3. Tell Claude to continue after bypassing blocker
+
+Claude shares your browser's login state - if you're signed into a site, Claude can access it.
+
+### Best Practices
+
+1. **Modal dialogs interrupt flow** - JavaScript alerts, confirms, and prompts block browser events. Dismiss manually and tell Claude to continue.
+
+2. **Use fresh tabs** - Claude creates new tabs for each session. If a tab becomes unresponsive, ask Claude to create a new one.
+
+3. **Filter console output** - Console logs can be verbose. Tell Claude what patterns to look for rather than asking for all output.
+
+4. **Permission management** - Site-level permissions inherited from Chrome extension. Manage in extension settings to control which sites Claude can browse, click, and type on.
+
+### Troubleshooting
+
+#### Extension Not Detected
+
+| Check             | Action                              |
+| ----------------- | ----------------------------------- |
+| Extension version | Verify latest version installed     |
+| CLI version       | Run `claude --version`              |
+| Chrome running    | Ensure Chrome browser is open       |
+| Reconnect         | `/chrome` → "Reconnect extension"   |
+| Restart           | Restart both Claude Code and Chrome |
+
+#### Browser Not Responding
+
+| Issue                 | Solution                               |
+| --------------------- | -------------------------------------- |
+| Modal dialog blocking | Dismiss alert/confirm/prompt manually  |
+| Tab unresponsive      | Ask Claude to create new tab           |
+| Extension issues      | Disable and re-enable Chrome extension |
+
+#### First-Time Setup
+
+Claude Code installs a native messaging host on first use. If permission errors occur, restart Chrome for installation to take effect.
+
+### Playwright MCP Comparison
+
+| Feature           | Chrome Integration   | Playwright MCP          |
+| ----------------- | -------------------- | ----------------------- |
+| Browser           | Chrome only          | Chrome, Firefox, WebKit |
+| Mode              | Visible browser      | Headless or headed      |
+| Login state       | Shares existing      | Fresh session           |
+| Setup             | Extension + CLI flag | MCP server config       |
+| GIF recording     | Built-in             | Screenshot capture      |
+| Device emulation  | No                   | 143+ devices            |
+| Parallel browsers | No                   | Yes                     |
+
+**Use Chrome Integration when:**
+
+- Need existing login state
+- Testing authenticated apps
+- Recording GIFs
+- Live debugging with console
+
+**Use Playwright MCP when:**
+
+- Need headless automation
+- Cross-browser testing
+- Device emulation
+- CI/CD integration
+
+### DSM Browser Testing Patterns
+
+**Test data fetch UI:**
+
+```
+Open localhost:8000/dashboard, check that the BTCUSDT chart loads
+without console errors, and verify the timestamp format is UTC.
+```
+
+**Validate cache behavior:**
+
+```
+Open the metrics page, record a GIF of the cache hit/miss indicators
+updating as new data arrives.
+```
+
+**Debug FCP issues:**
+
+```
+Open the data source status page and check the console for any
+FCP-related warnings or errors during the initial data load.
+```
+
+### Configuration
+
+**Enable Chrome by default in settings:**
+
+```json
+{
+  "chrome": {
+    "enabledByDefault": true
+  }
+}
+```
+
+**Environment variable:**
+
+```bash
+export CLAUDE_CHROME_ENABLED=true
+```
+
+### Security Considerations
+
+1. **Site permissions** - Control which sites Claude can access via Chrome extension settings
+
+2. **Credential handling** - Claude can enter credentials you provide, but never stores them
+
+3. **Session isolation** - Claude uses new tabs, but shares your browser's session state
+
+4. **Network visibility** - Claude can monitor network requests including headers and bodies
