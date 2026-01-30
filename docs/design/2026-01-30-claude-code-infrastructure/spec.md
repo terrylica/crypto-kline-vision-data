@@ -12504,3 +12504,281 @@ Location:
 # Execute prompt with arguments
 > /mcp__github__pr_review 456
 ```
+
+---
+
+## Extended Thinking Reference
+
+Extended thinking provides Claude enhanced reasoning capabilities for complex tasks through internal step-by-step reasoning.
+
+### Supported Models
+
+| Model             | Model ID                   | Features                          |
+| ----------------- | -------------------------- | --------------------------------- |
+| Claude Opus 4.5   | claude-opus-4-5-20251101   | Full thinking, block preservation |
+| Claude Opus 4.1   | claude-opus-4-1-20250805   | Full thinking, interleaved        |
+| Claude Opus 4     | claude-opus-4-20250514     | Full thinking, interleaved        |
+| Claude Sonnet 4.5 | claude-sonnet-4-5-20250929 | Summarized thinking               |
+| Claude Sonnet 4   | claude-sonnet-4-20250514   | Summarized thinking, interleaved  |
+| Claude Haiku 4.5  | claude-haiku-4-5-20251001  | Summarized thinking               |
+
+### Enabling Extended Thinking
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 10000
+    },
+    messages=[{
+        "role": "user",
+        "content": "Solve this complex problem step by step..."
+    }]
+)
+
+# Process response with thinking blocks
+for block in response.content:
+    if block.type == "thinking":
+        print(f"Thinking: {block.thinking}")
+    elif block.type == "text":
+        print(f"Response: {block.text}")
+```
+
+### Budget Token Guidelines
+
+| Budget Range | Use Case                                      |
+| ------------ | --------------------------------------------- |
+| 1,024        | Minimum budget, simple reasoning              |
+| 4,000-8,000  | Standard tasks, moderate complexity           |
+| 16,000+      | Complex analysis, multi-step problems         |
+| 32,000+      | Use batch processing (avoid network timeouts) |
+
+**Key considerations**:
+
+- `budget_tokens` must be less than `max_tokens`
+- Budget is a target, not strict limit
+- Claude may not use entire budget for simple tasks
+- Start at minimum and increase incrementally
+
+### Response Format
+
+```json
+{
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "Let me analyze this step by step...",
+      "signature": "WaUjzkypQ2mUEVM..."
+    },
+    {
+      "type": "text",
+      "text": "Based on my analysis..."
+    }
+  ]
+}
+```
+
+### Streaming Extended Thinking
+
+```python
+with client.messages.stream(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    messages=[{"role": "user", "content": "Complex problem..."}],
+) as stream:
+    for event in stream:
+        if event.type == "content_block_delta":
+            if event.delta.type == "thinking_delta":
+                print(event.delta.thinking, end="", flush=True)
+            elif event.delta.type == "text_delta":
+                print(event.delta.text, end="", flush=True)
+```
+
+### Extended Thinking with Tool Use
+
+```python
+# First request with thinking
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    tools=[weather_tool],
+    messages=[{"role": "user", "content": "What's the weather in Paris?"}]
+)
+
+# Extract blocks
+thinking_block = next(b for b in response.content if b.type == 'thinking')
+tool_use_block = next(b for b in response.content if b.type == 'tool_use')
+
+# Continue with tool result - MUST include thinking block
+continuation = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    tools=[weather_tool],
+    messages=[
+        {"role": "user", "content": "What's the weather in Paris?"},
+        {"role": "assistant", "content": [thinking_block, tool_use_block]},
+        {"role": "user", "content": [{
+            "type": "tool_result",
+            "tool_use_id": tool_use_block.id,
+            "content": "Current temperature: 88°F"
+        }]}
+    ]
+)
+```
+
+### Interleaved Thinking (Claude 4 Models)
+
+Enable thinking between tool calls:
+
+```python
+response = client.messages.create(
+    model="claude-opus-4",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 10000},
+    extra_headers={"anthropic-beta": "interleaved-thinking-2025-05-14"},
+    tools=[calculator, database],
+    messages=[{"role": "user", "content": "Calculate and compare..."}]
+)
+```
+
+**Interleaved flow**:
+
+```
+User: "Calculate revenue and compare"
+Turn 1: [thinking] → [tool_use: calculator]
+  ↓ tool result
+Turn 2: [thinking about result] → [tool_use: database]
+  ↓ tool result
+Turn 3: [thinking] → [text: final answer]
+```
+
+### Summarized vs Full Thinking
+
+| Aspect             | Claude Sonnet 3.7 | Claude 4 Models     |
+| ------------------ | ----------------- | ------------------- |
+| Thinking output    | Full              | Summarized          |
+| Billing            | Full tokens       | Full tokens         |
+| Visible tokens     | Match billed      | Less than billed    |
+| Block preservation | Not preserved     | Opus 4.5: preserved |
+
+### Thinking with Prompt Caching
+
+**System prompt caching** - preserved when thinking changes:
+
+```python
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=20000,
+    thinking={"type": "enabled", "budget_tokens": 4000},
+    system=[
+        {"type": "text", "text": "System instructions..."},
+        {"type": "text", "text": large_context, "cache_control": {"type": "ephemeral"}}
+    ],
+    messages=messages
+)
+```
+
+**Message caching** - invalidated when thinking changes:
+
+- Changing `budget_tokens` invalidates message cache
+- System prompt cache remains valid
+- Use 1-hour cache for long thinking sessions
+
+### Redacted Thinking
+
+Safety-flagged reasoning is encrypted:
+
+```json
+{
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "Normal reasoning...",
+      "signature": "..."
+    },
+    { "type": "redacted_thinking", "data": "EmwKAhgBEgy3va3..." },
+    { "type": "text", "text": "Final answer..." }
+  ]
+}
+```
+
+**Handling redacted blocks**:
+
+- Pass back unmodified in subsequent requests
+- Model can still use encrypted reasoning
+- No impact on response quality
+
+### Feature Compatibility
+
+| Feature             | Compatible | Notes                            |
+| ------------------- | ---------- | -------------------------------- |
+| temperature         | No         | Must use defaults                |
+| top_k               | No         | Must use defaults                |
+| top_p               | Yes        | Values 0.95-1.0 only             |
+| Forced tool use     | No         | Only auto or none                |
+| Response prefilling | No         | Cannot pre-fill with thinking    |
+| Streaming           | Yes        | Required for max_tokens > 21,333 |
+
+### Context Window with Thinking
+
+```
+context window =
+  (current input tokens - previous thinking tokens) +
+  (thinking tokens + encrypted thinking tokens + text output tokens)
+```
+
+**With tool use**:
+
+```
+context window =
+  (current input + previous thinking + tool use tokens) +
+  (thinking + encrypted thinking + text output tokens)
+```
+
+### DSM Extended Thinking Patterns
+
+```python
+# Complex FCP analysis with extended thinking
+response = client.messages.create(
+    model="claude-opus-4",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 16000},
+    messages=[{
+        "role": "user",
+        "content": """Analyze the FCP decision logic for BTCUSDT:
+        - Current cache state
+        - API availability
+        - Data freshness requirements
+        - Optimal fetch strategy"""
+    }]
+)
+
+# Debug data inconsistencies with reasoning
+response = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=12000,
+    thinking={"type": "enabled", "budget_tokens": 8000},
+    messages=[{
+        "role": "user",
+        "content": "Debug why OHLCV data has gaps between 2024-01-15 and 2024-01-16"
+    }]
+)
+```
+
+### Best Practices
+
+1. **Start small**: Begin with 1,024 tokens, increase as needed
+2. **Monitor usage**: Track thinking tokens for cost optimization
+3. **Use batch for large budgets**: >32k tokens need batch processing
+4. **Preserve blocks**: Always pass thinking blocks back for tool use
+5. **Consider latency**: Extended thinking increases response time
+6. **Task selection**: Best for math, coding, analysis, complex reasoning
