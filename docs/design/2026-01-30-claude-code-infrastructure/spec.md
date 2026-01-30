@@ -4839,6 +4839,192 @@ Mitigation:
 - Parse for rate limit messages
 - Implement output validation
 
+## Cost Optimization & Token Reduction
+
+Strategies for managing Claude Code costs effectively.
+
+### Cost Benchmarks
+
+| Metric                | Value                  |
+| --------------------- | ---------------------- |
+| Average daily cost    | $6 per developer       |
+| 90th percentile daily | < $12                  |
+| Monthly average       | $100-200 per developer |
+
+### Model Pricing (per million tokens)
+
+| Model         | Input | Output |
+| ------------- | ----- | ------ |
+| Claude Haiku  | $1    | $5     |
+| Claude Sonnet | $3    | $15    |
+| Claude Opus   | $5    | $25    |
+
+### Model Selection Strategy
+
+| Task Complexity   | Recommended Model | Cost Impact |
+| ----------------- | ----------------- | ----------- |
+| 80% of work       | Sonnet            | Baseline    |
+| Complex reasoning | Opus              | +40%        |
+| Simple queries    | Haiku             | -70%        |
+
+Switching to Sonnet for routine work reduces costs 30-40%.
+
+### Context Optimization
+
+| Strategy               | Savings               |
+| ---------------------- | --------------------- |
+| `/clear` between tasks | Avoid stale context   |
+| CLAUDE.md < 500 lines  | Smaller base context  |
+| Skills (on-demand)     | Load only when needed |
+| `.claudeignore`        | Skip irrelevant files |
+
+### .claudeignore Example
+
+```
+node_modules/
+.git/
+*.log
+dist/
+build/
+__pycache__/
+.pytest_cache/
+```
+
+Prevent 50-90% wasted tokens from irrelevant files.
+
+### Prompt Caching
+
+| Requests | Savings |
+| -------- | ------- |
+| 1        | 0%      |
+| 2+       | 90%     |
+
+Caching reduces repeated content costs dramatically.
+
+### Extended Thinking Management
+
+Default budget: 31,999 tokens (billed as output).
+
+| Task Type        | Thinking Budget    |
+| ---------------- | ------------------ |
+| Simple queries   | Disable in /config |
+| Standard coding  | 8,000 tokens       |
+| Complex planning | 31,999 (default)   |
+
+### MCP Server Context
+
+Each MCP server adds tool definitions to context.
+
+Check with `/context`, disable unused servers.
+
+### Batch Processing
+
+API batch mode: 50% discount on requests.
+
+### Subscription vs Pay-as-you-go
+
+| Plan     | Cost       | Best For             |
+| -------- | ---------- | -------------------- |
+| Max $100 | $100/month | Heavy individual use |
+| Max $200 | $200/month | Power users          |
+| API      | Pay-as-go  | Variable/low usage   |
+
+### DSM Cost Optimization
+
+| Pattern                | Implementation         |
+| ---------------------- | ---------------------- |
+| Use Haiku for tests    | `--model haiku` for CI |
+| Cache FCP rules        | Load via @import       |
+| Focused sessions       | One task per session   |
+| Subagents for research | Preserve main context  |
+
+## Feature Flags & Configuration Toggles
+
+Environment variables and configuration options.
+
+### Permission Mode Toggle
+
+Cycle with `Shift+Tab`:
+
+```
+Normal → Auto-Accept → Plan Mode
+```
+
+Or start directly:
+
+```bash
+claude --permission-mode plan
+```
+
+### Environment Variable Toggles
+
+| Variable                              | Effect                    |
+| ------------------------------------- | ------------------------- |
+| `DISABLE_AUTOUPDATER=1`               | No auto-updates           |
+| `DISABLE_TELEMETRY=1`                 | No Statsig telemetry      |
+| `DISABLE_ERROR_REPORTING=1`           | No Sentry reports         |
+| `DISABLE_COST_WARNINGS=1`             | Hide cost warnings        |
+| `DISABLE_NON_ESSENTIAL_MODEL_CALLS=1` | Skip non-critical calls   |
+| `MAX_THINKING_TOKENS=0`               | Disable extended thinking |
+
+### Terminal & IDE Toggles
+
+| Variable                                     | Effect                   |
+| -------------------------------------------- | ------------------------ |
+| `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`       | No title updates         |
+| `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1` | Stay in project dir      |
+| `CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1`        | No IDE extension install |
+| `USE_BUILTIN_RIPGREP=0`                      | Use system rg            |
+
+### MCP Server Toggle
+
+```
+/mcp enable server-name
+/mcp disable server-name
+```
+
+### Config Command
+
+```
+/config
+```
+
+Toggles available:
+
+- Extended thinking
+- Prompt suggestions
+- Release channel (stable/latest)
+- Auto-compaction
+
+### Release Channels
+
+| Channel | Description            |
+| ------- | ---------------------- |
+| stable  | Production-ready       |
+| latest  | Newest features (beta) |
+
+### DSM Feature Flag Patterns
+
+Add to CLAUDE.md or settings:
+
+```markdown
+# Feature Toggles
+
+When running tests: Use --model haiku
+When in CI: Set DISABLE_AUTOUPDATER=1
+For debugging: Use --verbose
+For cost control: MAX_THINKING_TOKENS=8000
+```
+
+### Hooks vs CLAUDE.md
+
+| Type      | Enforcement   | Use Case             |
+| --------- | ------------- | -------------------- |
+| Hooks     | Deterministic | Must-do rules        |
+| CLAUDE.md | Suggestive    | Should-do guidelines |
+
+Hooks are critical for steering Claude in complex repos.
+
 ## Verification Checklist
 
 ### Infrastructure
