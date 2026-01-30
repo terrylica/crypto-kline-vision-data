@@ -119,6 +119,49 @@ run = "uv run -p 3.13 python scripts/dev/clear_cache.py clear -d ~/.cache/data_s
 description = "Show cache directory status"
 run = "du -sh ~/.cache/data_source_manager 2>/dev/null || echo 'Cache directory not found'"
 
+[tasks."cache:health"]
+description = "Check cache health and statistics"
+run = "uv run -p 3.13 python docs/skills/dsm-fcp-monitor/scripts/cache_health.py --verbose"
+
+#
+# === FCP DIAGNOSTICS TASKS ===
+#
+
+[tasks."fcp:diagnose"]
+description = "Diagnose FCP behavior for BTCUSDT (default)"
+run = "uv run -p 3.13 python docs/skills/dsm-usage/scripts/diagnose_fcp.py BTCUSDT futures_usdt 1h --days 3"
+
+[tasks."fcp:validate"]
+description = "Validate symbol format for market type"
+run = """
+echo "Usage: mise run fcp:validate -- SYMBOL MARKET_TYPE"
+echo "Example: mise run fcp:validate -- BTCUSDT FUTURES_USDT"
+echo ""
+echo "Valid market types: SPOT, FUTURES_USDT, FUTURES_COIN"
+"""
+
+#
+# === QUICK CHECK TASKS ===
+#
+
+[tasks.quick]
+description = "Quick validation (lint + unit tests + import)"
+run = """
+echo "=== Quick Validation ==="
+echo ""
+echo "1. Lint check..."
+uv run -p 3.13 ruff check . --quiet
+echo "   ✓ Lint passed"
+echo ""
+echo "2. Unit tests..."
+uv run -p 3.13 pytest tests/unit/ -q --tb=no
+echo ""
+echo "3. Import check..."
+uv run -p 3.13 python -c 'from data_source_manager import DataSourceManager; print("   ✓ Import OK")'
+echo ""
+echo "=== All checks passed ==="
+"""
+
 #
 # === HELP TASK ===
 #
@@ -153,10 +196,18 @@ echo "  mise run verify         # Verify imports"
 echo ""
 echo "Cache Management:"
 echo "  mise run cache:status   # Show cache size"
+echo "  mise run cache:health   # Check cache health"
 echo "  mise run cache:clear    # Clear cache (prompts)"
 echo "  mise run cache:clear-force  # Clear without prompts"
 echo ""
-echo "Release (see .mise/tasks/release/):"
+echo "FCP Diagnostics:"
+echo "  mise run fcp:diagnose   # Diagnose FCP for BTCUSDT"
+echo "  mise run fcp:validate   # Validate symbol format"
+echo ""
+echo "Quick Checks:"
+echo "  mise run quick          # Quick validation (lint+test+import)"
+echo ""
+echo "Release (see .mise/tasks/release/):
 echo "  mise run release:preflight  # Validate prerequisites"
 echo "  mise run release:dry        # Dry run"
 echo "  mise run release:full       # Full release"
