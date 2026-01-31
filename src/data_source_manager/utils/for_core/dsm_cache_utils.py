@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Cache utilities for DataSourceManager.
-
+# polars-exception: Cache utilities read/write pandas DataFrames from Arrow files
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
-"""
+"""Cache utilities for DataSourceManager."""
 
 from datetime import datetime
 from pathlib import Path

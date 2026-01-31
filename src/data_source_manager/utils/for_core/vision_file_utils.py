@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Utility module for file handling with Binance Vision API data.
+# polars-exception: Vision file utilities process pandas DataFrames from S3 data
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
+"""Utility module for file handling with Binance Vision API data.
 
 This module provides functions for downloading, processing, and handling files from
 the Binance Vision API, including boundary gap filling and related operations.
-
-# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 from datetime import datetime, timedelta

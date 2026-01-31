@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# polars-exception: DSM utilities work with pandas DataFrames for reindexing and validation
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
 """Utility functions for working with DataSourceManager data.
 
 This module provides helper functions for:
@@ -6,9 +9,6 @@ This module provides helper functions for:
 2. Verifying data completeness
 3. Safely handling timezone-aware and naive datetimes
 4. Standardizing timestamp formats
-
-# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 from datetime import datetime, timezone

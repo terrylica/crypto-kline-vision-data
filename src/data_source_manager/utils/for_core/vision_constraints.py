@@ -1,12 +1,12 @@
 #!/usr/bin/env python
+# polars-exception: Vision constraints work with pandas for timestamp validation
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
 """Vision constraints and utilities for the Binance Vision API.
 
 This module provides constraints and utility functions specific to the Binance
 Vision API, leveraging centralized definitions from the utils modules for common
 functionality to maintain DRY principles.
-
-# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 import logging

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Utility module for timestamp handling in Vision API data.
+# polars-exception: Timestamp utilities convert Vision API data to pandas timestamps
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
+"""Utility module for timestamp handling in Vision API data.
 
 This module provides functions for processing timestamp columns from Binance Vision API data,
 ensuring proper conversion and preservation of semantic meaning.
-
-# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 import re

@@ -1,9 +1,8 @@
 #!/usr/bin/env python
-"""Utility functions for Failover Control Protocol (FCP) implementation.
-
+# polars-exception: FCP utilities process pandas DataFrames from DSM pipeline
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
-"""
+"""Utility functions for Failover Control Protocol (FCP) implementation."""
 
 from datetime import datetime, timezone
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# polars-exception: Time range utilities work with pandas DataFrames and timestamps
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Utility functions for DataSourceManager time range and data segment operations."""
 
 from datetime import datetime, timedelta

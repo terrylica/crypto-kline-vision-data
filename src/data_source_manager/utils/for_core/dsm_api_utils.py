@@ -1,9 +1,8 @@
 #!/usr/bin/env python
-"""Utility functions for DataSourceManager API operations.
-
+# polars-exception: API utilities return pandas DataFrames from Vision/REST APIs
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
-"""
+"""Utility functions for DataSourceManager API operations."""
 
 import traceback
 from datetime import datetime

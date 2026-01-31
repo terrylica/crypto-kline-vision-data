@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# polars-exception: REST data processing converts API responses to pandas DataFrames
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Utilities for processing REST API data responses.
 
 This module provides common utilities for processing data from REST API responses including:
