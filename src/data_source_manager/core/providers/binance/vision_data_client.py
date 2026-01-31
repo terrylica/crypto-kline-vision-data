@@ -14,6 +14,9 @@ a unified interface for data retrieval with automatic source selection and cachi
 
 For most use cases, users should interact with the DataSourceManager rather than
 directly with this client.
+
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 import tempfile
@@ -498,11 +501,11 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                                                 f"Checksum verification failed for recent data ({date.date()}). "
                                                 f"This may be expected for data within the freshness window."
                                             )
-                        except Exception as extract_e:
+                        except (OSError, ValueError) as extract_e:
                             # Extraction failed, but we can still self-verify
                             logger.debug(f"Could not extract checksum from file: {extract_e}")
 
-                    except Exception as e:
+                    except (OSError, ValueError, httpx.HTTPError) as e:
                         # Only log a warning, don't set checksum_failed
                         logger.debug(f"Error in checksum verification for {date.date()}: {e}")
 
@@ -569,13 +572,13 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
                             return df, warning_msg
                         return None, f"Empty dataframe for {date.date()}"
-            except Exception as e:
+            except (zipfile.BadZipFile, OSError, pd.errors.ParserError) as e:
                 logger.error(
                     f"Error processing zip file {temp_file_path}: {e!s}",
                     exc_info=True,
                 )
                 return None, f"Error processing zip file: {e!s}"
-        except Exception as e:
+        except (httpx.HTTPError, OSError, TimeoutError) as e:
             logger.error(f"Unexpected error processing {date.date()}: {e!s}")
             return None, f"Unexpected error: {e!s}"
         finally:
@@ -585,7 +588,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     temp_file_path.unlink()
                 if "temp_checksum_path" in locals() and temp_checksum_path.exists():
                     temp_checksum_path.unlink()
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Error cleaning up temporary files: {e}")
 
         return None, None
@@ -670,7 +673,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             if "open_time" in df.columns and not df["open_time"].is_monotonic_increasing:
                                 df = df.sort_values("open_time").reset_index(drop=True)
                             downloaded_dfs.append(df)
-                    except Exception as exc:
+                    except (httpx.HTTPError, OSError, TimeoutError, zipfile.BadZipFile, pd.errors.ParserError) as exc:
                         # Check if this date is too fresh
                         if self._should_skip_retry_for_fresh_date(date):
                             fresh_date_failures.append((date, f"Error: {exc}"))
@@ -767,7 +770,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             if interval_obj is None:
                 interval_obj = Interval.MINUTE_1
                 logger.warning(f"Could not find interval {self._interval_str}, using MINUTE_1 as default for gap detection")
-        except Exception as e:
+        except (ValueError, StopIteration) as e:
             logger.warning(f"Error parsing interval for gap detection: {e}")
             interval_obj = Interval.MINUTE_1
 
@@ -789,12 +792,12 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 ):
                     try:
                         df_for_gap_detection["open_time"] = pd.to_datetime(df_for_gap_detection["open_time"], unit="ms", utc=True)
-                    except Exception as e:
+                    except (ValueError, TypeError, pd.errors.ParserError) as e:
                         logger.warning(f"Failed to convert open_time to datetime: {e}")
 
                 # Check if we have a valid time column now
                 if "open_time" in df_for_gap_detection.columns:
-                    gaps, stats = detect_gaps(
+                    gaps, _stats = detect_gaps(
                         df_for_gap_detection,
                         interval_obj,
                         time_column="open_time",
@@ -805,7 +808,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 else:
                     logger.warning("No open_time column available for gap detection")
                     gaps = []
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 logger.error(f"Error detecting gaps: {e}")
                 gaps = []
 
@@ -1116,7 +1119,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     symbol_result, df = future.result()
                     results[symbol_result] = df
                     logger.info(f"Completed download for {symbol} ({i + 1}/{len(symbols)}): {len(df)} records")
-                except Exception as e:
+                except (httpx.HTTPError, OSError, TimeoutError, zipfile.BadZipFile, pd.errors.ParserError) as e:
                     logger.error(f"Error processing result for {symbol}: {e}")
                     # Create empty dataframe for failed symbols
                     client = VisionDataClient(symbol=symbol, interval=interval, market_type=market_type)
