@@ -21,8 +21,9 @@ Quick Start:
     >>> # Create a manager for USDT-margined futures
     >>> manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
     >>> 
-    >>> # Fetch recent data with automatic failover
-    >>> end_time = datetime.now()
+    >>> # Fetch recent data with automatic failover (always use UTC)
+    >>> from datetime import timezone
+    >>> end_time = datetime.now(timezone.utc)
     >>> start_time = end_time - timedelta(days=7)
     >>> df = manager.get_data("BTCUSDT", start_time, end_time, Interval.HOUR_1)
     >>> print(f"Loaded {len(df)} bars of BTCUSDT data")
