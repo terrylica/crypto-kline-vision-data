@@ -9,12 +9,13 @@ This module provides consistent datetime parsing functionality for all DSM Demos
 """
 
 import pendulum
+from pendulum.parsing.exceptions import ParserError
 
 from data_source_manager.utils.config import DATE_STRING_LENGTH
 from data_source_manager.utils.loguru_setup import logger
 
 
-def parse_datetime(dt_str):
+def parse_datetime(dt_str: str | None) -> pendulum.DateTime | None:
     """Parse datetime string in ISO format or human readable format using pendulum.
 
     Args:
@@ -41,7 +42,7 @@ def parse_datetime(dt_str):
             dt = dt.in_timezone("UTC")
         logger.debug(f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
         return dt
-    except Exception as e:
+    except (ParserError, ValueError, TypeError) as e:
         try:
             # Try more explicitly with from_format for certain patterns
             if "T" not in dt_str and ":" in dt_str:
@@ -62,7 +63,9 @@ def parse_datetime(dt_str):
         raise ValueError(error_msg) from e
 
 
-def calculate_date_range(start_time, end_time, days):
+def calculate_date_range(
+    start_time: str | None, end_time: str | None, days: int
+) -> tuple[pendulum.DateTime, pendulum.DateTime]:
     """Calculate a date range based on provided parameters.
 
     Args:

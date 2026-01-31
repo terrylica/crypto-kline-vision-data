@@ -18,6 +18,7 @@ from datetime import datetime
 
 import pendulum
 from pendulum import DateTime
+from pendulum.parsing.exceptions import ParserError
 
 from data_source_manager.utils.config import DATE_STRING_LENGTH
 from data_source_manager.utils.loguru_setup import logger
@@ -52,7 +53,7 @@ def parse_datetime_string(dt_str: str | None) -> DateTime | None:
             dt = dt.in_timezone("UTC")
         logger.debug(f"Successfully parsed datetime: {dt.format('YYYY-MM-DD HH:mm:ss.SSS')}")
         return dt
-    except Exception as e:
+    except (ParserError, ValueError, TypeError) as e:
         try:
             # Try more explicitly with from_format for certain patterns
             if "T" not in dt_str and ":" in dt_str:
