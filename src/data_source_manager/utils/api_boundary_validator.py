@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# polars-exception: ApiBoundaryValidator has deep integration with pandas-based
+# DataFrameValidator and timestamp manipulation that needs coordinated migration
 """API Boundary Validator to handle Binance API time boundaries.
 
 This module provides the ApiBoundaryValidator class, which is responsible for validating

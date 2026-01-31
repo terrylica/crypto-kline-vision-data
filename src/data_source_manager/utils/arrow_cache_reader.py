@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""
-Arrow Cache Reader - Utility for reading from the Arrow Cache database.
+# polars-exception: ArrowCacheReader returns pandas DataFrames for
+# compatibility with existing consumers that expect pandas
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
+"""Arrow Cache Reader - Utility for reading from the Arrow Cache database.
 
 This module provides a class for interacting with the Arrow Cache SQLite database
 and reading data from the Arrow cache files. It's designed to be used by external
 modules that need to efficiently determine what data is available in the cache.
-
-# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Fix silent failure patterns (BLE001)
 
 Example usage:
 

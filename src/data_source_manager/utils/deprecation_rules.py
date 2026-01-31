@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
-"""
-Deprecation Rules and Standards for Pandas Operations
+# polars-exception: Module specifically for pandas deprecation handling
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Deprecation Rules and Standards for Pandas Operations.
 
 This module provides standardized rules and utilities for handling deprecated pandas operations,
 particularly focusing on Timedelta string formats and other common deprecation warnings.

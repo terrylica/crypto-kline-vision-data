@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# polars-exception: config.py provides empty DataFrame factory functions
+# used throughout the codebase - coordinated migration with downstream consumers needed
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Centralized configuration for the data services system.
 
 This module centralizes constants and configuration parameters that were previously
