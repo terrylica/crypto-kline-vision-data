@@ -6,11 +6,16 @@ This module provides:
 2. Download functions (both single and concurrent) with optimized handling
 3. Connection testing and validation
 4. API request helpers with retry logic and response handling
+
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
 """
 
+import csv
 import json
 import platform
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -346,7 +351,7 @@ class DownloadHandler:
             logger.debug(f"Download successful: {url} -> {local_path} ({len(content)} bytes)")
             return True
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, TimeoutError) as e:
             logger.error(f"Error downloading {url}: {e!s}")
             return False
 
@@ -412,7 +417,7 @@ def download_files_concurrently(
     def download_worker(url: str, path: Path) -> bool:
         try:
             return handler.download_file(url, path, **download_kwargs)
-        except Exception as e:
+        except (DownloadException, httpx.HTTPError, OSError, TimeoutError) as e:
             logger.error(f"Error downloading {url}: {e!s}")
             return False
 
@@ -434,7 +439,7 @@ def download_files_concurrently(
             idx = future_to_index[future]
             try:
                 results[idx] = future.result()
-            except Exception as e:
+            except (DownloadException, httpx.HTTPError, OSError, TimeoutError) as e:
                 logger.error(f"Download task raised exception: {e}")
                 results[idx] = False
 
@@ -565,7 +570,7 @@ class VisionDownloadManager:
                 logger.debug("[ProgressIndicator] VisionDownloadManager: Cancelling remaining download tasks")
                 # For synchronous tasks, we can't really cancel them, but we can clear the list
                 self._current_tasks = []
-        except Exception as e:
+        except AttributeError as e:
             error_msg = f"Error cancelling download tasks: {e}"
             logger.warning(error_msg)
             cleanup_errors.append(error_msg)
@@ -578,7 +583,7 @@ class VisionDownloadManager:
                 safely_close_client(self.client)
                 self.client = None
                 logger.debug("[ProgressIndicator] VisionDownloadManager: HTTP client closed")
-        except Exception as e:
+        except (AttributeError, OSError) as e:
             error_msg = f"Error closing HTTP client: {e}"
             logger.warning(error_msg)
             cleanup_errors.append(error_msg)
@@ -591,11 +596,11 @@ class VisionDownloadManager:
                     try:
                         if hasattr(temp_file, "exists") and temp_file.exists():
                             temp_file.unlink()
-                    except Exception as e:
+                    except OSError as e:
                         logger.debug(f"Error removing temp file {temp_file}: {e}")
                 self._temp_files = []
                 logger.debug("[ProgressIndicator] VisionDownloadManager: Temporary files cleaned up")
-        except Exception as e:
+        except (AttributeError, OSError) as e:
             error_msg = f"Error cleaning up temporary files: {e}"
             logger.warning(error_msg)
             cleanup_errors.append(error_msg)
@@ -642,8 +647,6 @@ class VisionDownloadManager:
                 return None
 
             # Process the zip file
-            import csv
-            import zipfile
             from io import StringIO
 
             data = []
@@ -663,11 +666,11 @@ class VisionDownloadManager:
             try:
                 temp_file.unlink()
                 self._temp_files.remove(temp_file)
-            except Exception as e:
+            except OSError as e:
                 logger.debug(f"Error removing temp file {temp_file}: {e}")
 
             return data
-        except Exception as e:
+        except (httpx.HTTPError, OSError, zipfile.BadZipFile, csv.Error) as e:
             logger.error(f"Error downloading data for {date}: {e}")
             return None
 
@@ -705,7 +708,7 @@ def safely_close_client(client):
         if hasattr(client, "close") and callable(client.close):
             client.close()
             logger.debug("HTTP client closed successfully")
-    except Exception as e:
+    except OSError as e:
         logger.warning(f"Error while closing HTTP client: {e}")
 
 
@@ -744,7 +747,7 @@ def test_connectivity(
                     wait_time = 1 + attempt  # 1s, 2s, etc.
                     logger.info(f"Retrying in {wait_time}s... (attempt {attempt + 1}/{retry_count})")
                     time.sleep(wait_time)
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, ConnectionError) as e:
                 logger.warning(f"Connection test attempt {attempt + 1} failed: {e}")
                 if attempt < retry_count:
                     wait_time = 1 + attempt
