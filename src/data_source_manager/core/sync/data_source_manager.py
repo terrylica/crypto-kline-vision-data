@@ -37,6 +37,7 @@ Example:
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -254,8 +255,8 @@ class DataSourceManager:
         cls,
         provider: DataProvider | None = None,
         market_type: MarketType | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> "DataSourceManager":
         """Create a DataSourceManager with a more Pythonic interface.
 
         This factory method provides a cleaner way to instantiate the DataSourceManager
@@ -372,7 +373,7 @@ class DataSourceManager:
         log_level: str = "WARNING",
         suppress_http_debug: bool = True,
         quiet_mode: bool = False,
-    ):
+    ) -> None:
         """Initialize the data source manager.
 
         Args:
@@ -975,7 +976,7 @@ class DataSourceManager:
             # Improved error handling using the dedicated error handler
             handle_error(e)
 
-    def __enter__(self):
+    def __enter__(self) -> "DataSourceManager":
         """Context manager entry point.
 
         Allows using the DataSourceManager in a with statement for automatic
@@ -991,7 +992,7 @@ class DataSourceManager:
         """
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type: type | None, _exc_val: BaseException | None, _exc_tb: Any) -> None:
         """Context manager exit with resource cleanup.
 
         Automatically closes all clients and releases resources when exiting
@@ -1004,7 +1005,7 @@ class DataSourceManager:
         """
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close all clients and release resources.
 
         This method should be called when the DataSourceManager is no longer needed
