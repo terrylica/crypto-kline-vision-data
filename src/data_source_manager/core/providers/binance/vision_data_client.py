@@ -510,8 +510,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             logger.debug(f"Could not extract checksum from file: {extract_e}")
 
                     except (OSError, ValueError, httpx.HTTPError) as e:
-                        # Only log a warning, don't set checksum_failed
-                        logger.debug(f"Error in checksum verification for {date.date()}: {e}")
+                        # Log checksum verification errors at warning level for visibility
+                        logger.warning(f"Checksum verification error for {date.date()}: {e}")
 
             # Process the zip file
             try:

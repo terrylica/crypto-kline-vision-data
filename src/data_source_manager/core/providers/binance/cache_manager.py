@@ -286,7 +286,7 @@ class UnifiedCacheManager:
                 files = list(cache_path.parent.glob("*.arrow"))
                 logger.debug(f"Directory contents: {[f.name for f in files]}")
             except OSError as e:
-                logger.debug(f"Error listing directory: {e}")
+                logger.warning(f"Error listing cache directory: {e}")
 
         # Check if the file exists
         if not cache_path.exists():
