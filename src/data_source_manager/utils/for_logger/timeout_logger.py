@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Timeout logger functionality.
 
 This module provides functions for logging timeout events to a dedicated log file
@@ -55,9 +56,10 @@ class TimeoutLoggerState:
 _state = TimeoutLoggerState()
 
 
-def configure_timeout_logger():
-    """Configure the timeout logger for dedicated timeout logging,
-    which can be used for analyzing performance issues.
+def configure_timeout_logger() -> logging.Logger:
+    """Configure the timeout logger for dedicated timeout logging.
+
+    Used for analyzing performance issues.
 
     Returns:
         logging.Logger: The configured timeout logger
@@ -97,8 +99,8 @@ def log_timeout(
     timeout_value: float,
     module_name: str | None = None,
     details: dict | None = None,
-    get_module_logger=None,
-):
+    get_module_logger: object | None = None,
+) -> bool:
     """Log a timeout event to the dedicated timeout log file.
 
     Args:
@@ -140,7 +142,7 @@ def log_timeout(
     return True
 
 
-def set_timeout_log_file(path: str):
+def set_timeout_log_file(path: str) -> bool:
     """Set the file path for timeout logging.
 
     Args:
@@ -159,7 +161,7 @@ def set_timeout_log_file(path: str):
     return True
 
 
-def get_timeout_log_file():
+def get_timeout_log_file() -> str:
     """Get the current timeout log file path.
 
     Returns:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Session logging utilities.
 
 This module provides utilities for configuring session-specific logging.
@@ -11,7 +12,9 @@ from pathlib import Path
 import pendulum
 
 
-def configure_session_logging(session_name, log_level="DEBUG", logger=None):
+def configure_session_logging(
+    session_name: str, log_level: str = "DEBUG", logger: object | None = None
+) -> tuple[str, str, str]:
     """Configure comprehensive session logging with timestamp-based files.
 
     This function:
