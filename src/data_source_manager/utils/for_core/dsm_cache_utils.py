@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Cache utilities for DataSourceManager."""
+"""Cache utilities for DataSourceManager.
+
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
+"""
 
 from datetime import datetime
 from pathlib import Path
@@ -92,11 +96,11 @@ def get_from_cache(
                         result_df = pd.concat([result_df, daily_df])
                     else:
                         logger.warning(f"Cache file exists but is empty: {cache_path}")
-                except Exception as e:
+                except (OSError, pd.errors.ParserError, ValueError, KeyError) as e:
                     logger.error(f"Error loading cache file {cache_path}: {e}")
             else:
                 logger.info(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
-        except Exception as e:
+        except (OSError, ValueError, TypeError) as e:
             logger.error(f"Error processing cache for {current_date.format('YYYY-MM-DD')}: {e}")
 
         # Move to next day
@@ -208,7 +212,7 @@ def save_to_cache(
                 logger.info(f"Saved {len(save_df)} records to cache: {cache_path}")
                 saved_files += 1
 
-            except Exception as e:
+            except (OSError, PermissionError, pd.errors.ParserError) as e:
                 logger.error(f"Error saving cache file for {date}: {e}")
 
         if saved_files > 0:
@@ -217,6 +221,6 @@ def save_to_cache(
         logger.warning("No cache files were saved")
         return False
 
-    except Exception as e:
+    except (OSError, PermissionError, ValueError) as e:
         logger.error(f"Error saving to cache: {e}")
         return False
