@@ -40,8 +40,10 @@ __version__ = "0.2.0"
 __author__ = "EonLabs"
 __email__ = "terry@eonlabs.com"
 
+from typing import Any
+
 # Lazy imports to avoid dependency issues during package discovery
-def __getattr__(name):
+def __getattr__(name: str) -> Any:
     """Lazy import for main package exports."""
     if name == "DataSourceManager":
         from .core.sync.data_source_manager import DataSourceManager
