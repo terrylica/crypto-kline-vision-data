@@ -6,6 +6,9 @@ This module provides a class for interacting with the Arrow Cache SQLite databas
 and reading data from the Arrow cache files. It's designed to be used by external
 modules that need to efficiently determine what data is available in the cache.
 
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
+
 Example usage:
 
     # Check if data is available in cache
@@ -306,7 +309,7 @@ class ArrowCacheReader:
                 df = self.read_arrow_file(file_path)
                 if not df.empty:
                     dfs.append(df)
-            except Exception as e:
+            except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
                 logger.error(f"Error reading file for {date}: {e}")
 
         if not dfs:
