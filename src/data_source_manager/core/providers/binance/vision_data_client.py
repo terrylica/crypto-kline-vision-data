@@ -23,7 +23,7 @@ directly with this client.
 
 import tempfile
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import BrokenExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Generic, TypeVar
@@ -702,7 +702,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     f"Higher-level components may fall back to REST API."
                 )
 
-        except Exception as e:
+        except (BrokenExecutor, RuntimeError, OSError) as e:
             logger.error(f"Error in ThreadPoolExecutor: {e}")
             # Re-raise if this was a checksum failure
             if "Checksum verification failed" in str(e):
@@ -971,7 +971,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 # Ensure open_time is properly handled
                 return ensure_open_time_as_column(df)
 
-            except Exception as e:
+            except (httpx.HTTPError, OSError, ValueError, RuntimeError, pd.errors.ParserError) as e:
                 if "Checksum verification failed" in str(e):
                     # Log but don't stop execution for checksum failures
                     logger.critical(f"Checksum verification issues detected: {e}")
@@ -986,7 +986,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 logger.error(f"Error in _download_data: {e}")
                 raise
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ValueError, RuntimeError, pd.errors.ParserError) as e:
             # Check if this is a checksum error that needs to be propagated
             if "Checksum verification failed" in str(e) or "VISION API DATA INTEGRITY ERROR" in str(e):
                 # This is critical and should be propagated to trigger failover
@@ -1096,7 +1096,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 with VisionDataClient(symbol=symbol, interval=interval, market_type=market_type) as client:
                     df = client.fetch(symbol, interval, start_time, end_time)
                 return symbol, df
-            except Exception as e:
+            except (httpx.HTTPError, OSError, ValueError, RuntimeError, pd.errors.ParserError) as e:
                 logger.error(f"Error fetching data for {symbol}: {e}")
                 # Propagate critical errors
                 if "CRITICAL ERROR" in str(e) or "DATA INTEGRITY ERROR" in str(e):
