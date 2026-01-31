@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Use UTC-aware datetimes consistently
 """Utilities for tracking REST API metrics and performance.
 
 This module provides functionality for monitoring and tracking metrics related to
@@ -8,7 +10,7 @@ REST API requests, such as response times, success rates, and rate limiting.
 import threading
 import time
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from data_source_manager.utils.config import SECONDS_IN_HOUR
@@ -105,10 +107,11 @@ class RestMetricsTracker:
                 # Track rate limiting
                 if status_code in (418, 429):
                     self._rate_limited_calls += 1
-                    self._rate_limit_windows.append(datetime.now())
+                    now = datetime.now(timezone.utc)
+                    self._rate_limit_windows.append(now)
                     # Clean up old rate limit windows (older than 1 hour)
                     self._rate_limit_windows = [
-                        t for t in self._rate_limit_windows if (datetime.now() - t).total_seconds() < SECONDS_IN_HOUR
+                        t for t in self._rate_limit_windows if (now - t).total_seconds() < SECONDS_IN_HOUR
                     ]
 
     def get_metrics(self) -> dict[str, Any]:
