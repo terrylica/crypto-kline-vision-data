@@ -235,10 +235,7 @@ def get_market_capabilities(
         ValueError: If the market type is not found in capabilities dictionary
     """
     # Select the appropriate capabilities dictionary based on the provider
-    if data_provider.name == "OKX":
-        capabilities_dict = OKX_MARKET_CAPABILITIES
-    else:
-        capabilities_dict = MARKET_CAPABILITIES
+    capabilities_dict = OKX_MARKET_CAPABILITIES if data_provider.name == "OKX" else MARKET_CAPABILITIES
 
     # Use name-based comparison for compatibility with module reloading
     for key, value in capabilities_dict.items():

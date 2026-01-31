@@ -145,10 +145,7 @@ def trace_dataframe_timestamps(
     sample_size = min(3, len(df))
     logger.debug(f"📋 [TIMEZONE TRACE] Sample Timestamps (first {sample_size}):")
     for i in range(sample_size):
-        if time_column in df.columns:
-            timestamp = timestamp_series.iloc[i]
-        else:
-            timestamp = timestamp_series[i]
+        timestamp = timestamp_series.iloc[i] if time_column in df.columns else timestamp_series[i]
         logger.debug(f"  [{i}] {_format_timezone_info(timestamp)}")
 
 
