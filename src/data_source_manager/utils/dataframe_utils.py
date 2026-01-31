@@ -29,8 +29,7 @@ from data_source_manager.utils.loguru_setup import logger
 
 
 def ensure_open_time_as_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure that open_time exists as a column in the DataFrame.
+    """Ensure that open_time exists as a column in the DataFrame.
 
     This handles the common cases:
     1. DataFrame has open_time as an index but not as a column
@@ -112,8 +111,7 @@ def ensure_open_time_as_column(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure that open_time exists as the DataFrame index.
+    """Ensure that open_time exists as the DataFrame index.
 
     This handles the common cases:
     1. DataFrame has open_time as a column but not as the index
@@ -278,8 +276,7 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
 def verify_data_completeness(
     df: pd.DataFrame, start_time: datetime, end_time: datetime, interval: str
 ) -> tuple[bool, list[tuple[datetime, datetime]]]:
-    """
-    Verify data completeness and identify any gaps in the time series.
+    """Verify data completeness and identify any gaps in the time series.
 
     This function checks if the provided DataFrame contains all expected data points
     within the given time range at the specified interval. It identifies and returns
@@ -377,8 +374,7 @@ def verify_data_completeness(
 
 
 def standardize_dataframe(df: pd.DataFrame, keep_as_column: bool = True) -> pd.DataFrame:
-    """
-    Standardize a DataFrame for consistent use throughout the system.
+    """Standardize a DataFrame for consistent use throughout the system.
 
     This is a comprehensive function that ensures:
     1. open_time is properly handled (as index, column, or both)
@@ -445,8 +441,7 @@ def standardize_dataframe(df: pd.DataFrame, keep_as_column: bool = True) -> pd.D
 
 
 def merge_dataframes(dfs: list[pd.DataFrame], priority_sources: list[str] | None = None) -> pd.DataFrame:
-    """
-    Merge multiple DataFrames into one, handling overlaps by data source priority.
+    """Merge multiple DataFrames into one, handling overlaps by data source priority.
 
     Args:
         dfs: List of DataFrames to merge
@@ -516,8 +511,7 @@ def merge_dataframes(dfs: list[pd.DataFrame], priority_sources: list[str] | None
 
 
 def convert_to_standardized_formats(df: pd.DataFrame, output_format: str = "default", chart_type: str = "klines") -> pd.DataFrame:
-    """
-    Convert a DataFrame to a standardized format based on the specified output format.
+    """Convert a DataFrame to a standardized format based on the specified output format.
 
     Args:
         df: Input DataFrame to convert
@@ -567,7 +561,7 @@ def convert_to_standardized_formats(df: pd.DataFrame, output_format: str = "defa
     return df
 
 
-def format_dataframe_for_display(df):
+def format_dataframe_for_display(df: pd.DataFrame) -> pd.DataFrame:
     """Format DataFrame for display with better readability.
 
     Args:

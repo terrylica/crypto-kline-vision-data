@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Logger setup utilities.
+"""Logger setup utilities.
 
 This module provides utilities for setting up and configuring loggers.
 """
@@ -29,8 +28,7 @@ def get_module_logger(
     use_rich=None,
     setup_root_logger=None,
 ):
-    """
-    Retrieve or create a logger instance with appropriate configuration.
+    """Retrieve or create a logger instance with appropriate configuration.
 
     Args:
         name (str, optional): Logger name. If None, auto-detected from caller
@@ -79,8 +77,7 @@ def get_module_logger(
 
 
 def setup_rich_handler(console=None):
-    """
-    Set up a RichHandler for rich logging.
+    """Set up a RichHandler for rich logging.
 
     Args:
         console (rich.console.Console, optional): Console to use
@@ -113,8 +110,7 @@ def setup_rich_handler(console=None):
 
 
 def use_rich_logging(enable=True, level=None, setup_root_logger=None):
-    """
-    Enable or disable Rich logging.
+    """Enable or disable Rich logging.
 
     Parameters:
         enable (bool): True to enable Rich logging, False to use standard colorlog.

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Error logger functionality.
+"""Error logger functionality.
 
 This module provides functions for logging errors to a dedicated log file.
 """
@@ -66,8 +65,7 @@ _state = ErrorLoggerState()
 
 
 def configure_error_logger():
-    """
-    Configure the error logger for dedicated error, warning, and critical logging,
+    """Configure the error logger for dedicated error, warning, and critical logging,
     and above events, which can be used for monitoring and troubleshooting.
 
     Returns:

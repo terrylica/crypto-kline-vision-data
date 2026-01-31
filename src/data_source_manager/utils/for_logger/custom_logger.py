@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Custom logger classes.
+"""Custom logger classes.
 
 This module provides custom logger classes for the logger system.
 
@@ -14,8 +13,7 @@ import traceback
 
 
 class CustomLogger(logging.Logger):
-    """
-    Custom logger class that correctly identifies the actual source of log messages.
+    """Custom logger class that correctly identifies the actual source of log messages.
 
     This class overrides the standard findCaller method to properly identify where
     log messages are actually coming from in the application code, rather than showing
@@ -31,8 +29,7 @@ class CustomLogger(logging.Logger):
     """
 
     def findCaller(self, stack_info=False, stacklevel=1):
-        """
-        Find the stack frame of the caller.
+        """Find the stack frame of the caller.
 
         This customizes the stack level search to skip past the LoggerProxy class
         and standard logging infrastructure to find the actual application caller.

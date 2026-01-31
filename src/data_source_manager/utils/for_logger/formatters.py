@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Formatters for the logger system.
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Formatters for the logger system.
 
 This module provides formatters for the logger system to reduce code
 duplication and improve maintainability.
@@ -34,9 +34,8 @@ CUSTOM_FORMAT_WITH_FILENAME = (
 RICH_FORMAT = "%(message)s"
 
 
-def create_colored_formatter(format_string=CUSTOM_FORMAT_WITH_FILENAME):
-    """
-    Create a ColoredFormatter with default colors and format.
+def create_colored_formatter(format_string: str = CUSTOM_FORMAT_WITH_FILENAME) -> ColoredFormatter:
+    """Create a ColoredFormatter with default colors and format.
 
     Args:
         format_string: Format string to use
@@ -77,8 +76,7 @@ class RichMarkupStripper(logging.Filter):
         self.rich_markup_pattern = re.compile(r"\[(.*?)\]")
 
     def filter(self, record):
-        """
-        Strip Rich markup from the log record.
+        """Strip Rich markup from the log record.
 
         Args:
             record: Log record to filter
@@ -110,8 +108,7 @@ class ErrorFilter(logging.Filter):
     """Filter that only allows records with level WARNING or higher."""
 
     def filter(self, record):
-        """
-        Filter log records based on level.
+        """Filter log records based on level.
 
         Args:
             record: Log record to filter

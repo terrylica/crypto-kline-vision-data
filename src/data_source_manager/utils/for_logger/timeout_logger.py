@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Timeout logger functionality.
+"""Timeout logger functionality.
 
 This module provides functions for logging timeout events to a dedicated log file
 and the standard logger.
@@ -57,8 +56,7 @@ _state = TimeoutLoggerState()
 
 
 def configure_timeout_logger():
-    """
-    Configure the timeout logger for dedicated timeout logging,
+    """Configure the timeout logger for dedicated timeout logging,
     which can be used for analyzing performance issues.
 
     Returns:

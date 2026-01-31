@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Logger proxy implementation.
+"""Logger proxy implementation.
 
 This module provides the LoggerProxy class, which is the main interface for the
 logger system, providing automatic module detection and method chaining.
@@ -54,13 +53,10 @@ _console_state = ConsoleState()
 
 
 class LoggerProxy:
-    """
-    Proxy implementation providing automatic module detection and method chaining.
-    """
+    """Proxy implementation providing automatic module detection and method chaining."""
 
     def __init__(self, get_module_logger_fn, setup_root_logger_fn=None, use_rich=None):
-        """
-        Initialize the LoggerProxy.
+        """Initialize the LoggerProxy.
 
         Args:
             get_module_logger_fn (callable): Function to get a module logger
@@ -76,8 +72,7 @@ class LoggerProxy:
             self._setup_root_logger()
 
     def __getattr__(self, name):
-        """
-        Dynamic attribute resolution with runtime module detection.
+        """Dynamic attribute resolution with runtime module detection.
 
         Args:
             name (str): Attribute name
@@ -150,8 +145,7 @@ class LoggerProxy:
         return getattr(tmp_logger, name)
 
     def setup_root(self, level=None, use_rich=None):
-        """
-        Configure the root logger with specified options.
+        """Configure the root logger with specified options.
 
         Parameters:
             level (str, optional): Logging level to set
@@ -165,8 +159,7 @@ class LoggerProxy:
         return self
 
     def setLevel(self, level, configure_root=True):
-        """
-        Set the logging level with method chaining support.
+        """Set the logging level with method chaining support.
 
         Parameters:
             level (str): Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -200,8 +193,7 @@ class LoggerProxy:
         return self
 
     def use_rich(self, enable=True, level=None):
-        """
-        Enable or disable Rich logging with method chaining support.
+        """Enable or disable Rich logging with method chaining support.
 
         Parameters:
             enable (bool): True to enable Rich logging, False to use standard colorlog.
@@ -216,8 +208,7 @@ class LoggerProxy:
         return self
 
     def log_timeout(self, operation, timeout_value, details=None):
-        """
-        Log a timeout event to the centralized timeout log.
+        """Log a timeout event to the centralized timeout log.
 
         This method logs timeout events both to the standard logger and to a dedicated
         timeout log file for easier analysis of performance issues.
@@ -245,8 +236,7 @@ class LoggerProxy:
         return self
 
     def set_timeout_log_file(self, path):
-        """
-        Set the file path for timeout logging with method chaining support.
+        """Set the file path for timeout logging with method chaining support.
 
         Parameters:
             path (str): Path to the log file
@@ -384,8 +374,7 @@ class LoggerProxy:
         return logging.Formatter(pattern)
 
     def should_show_rich_output(self):
-        """
-        Determine if rich Progress and print should be displayed based on log level.
+        """Determine if rich Progress and print should be displayed based on log level.
 
         Returns:
             bool: True if the current log level allows rich output (DEBUG, INFO, WARNING),
@@ -394,8 +383,7 @@ class LoggerProxy:
         return should_show_rich_output()
 
     def print(self, *args, **kwargs):
-        """
-        Print using rich.print only if the current log level allows rich output.
+        """Print using rich.print only if the current log level allows rich output.
 
         NOTE: This method is provided for backward compatibility. For new code,
         prefer using logger.console.print() which provides better rich object
@@ -414,8 +402,7 @@ class LoggerProxy:
             self.console.print(*args, **kwargs)
 
     def progress(self, *args, **kwargs):
-        """
-        Create a rich.progress.Progress instance only if the current log level allows rich output.
+        """Create a rich.progress.Progress instance only if the current log level allows rich output.
 
         This function returns a Progress object when the log level is DEBUG, INFO, or WARNING,
         but returns a no-op context manager when the log level is ERROR or CRITICAL.
@@ -430,8 +417,7 @@ class LoggerProxy:
         return create_rich_progress(*args, **kwargs)
 
     def enable_smart_print(self, enabled=True):
-        """
-        Enable or disable the smart print feature that makes all print statements
+        """Enable or disable the smart print feature that makes all print statements
         respect log level settings.
 
         When enabled, the built-in print function is monkey-patched to use logger.console.print,
@@ -456,8 +442,7 @@ class LoggerProxy:
 
     @property
     def console(self):
-        """
-        Get a rich.console.Console instance for direct rendering of rich objects.
+        """Get a rich.console.Console instance for direct rendering of rich objects.
 
         This property provides access to a shared Console instance that can be used
         for rendering rich objects directly, regardless of log level.

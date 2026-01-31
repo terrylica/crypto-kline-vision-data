@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Session logging utilities.
+"""Session logging utilities.
 
 This module provides utilities for configuring session-specific logging.
 """
@@ -13,8 +12,7 @@ import pendulum
 
 
 def configure_session_logging(session_name, log_level="DEBUG", logger=None):
-    """
-    Configure comprehensive session logging with timestamp-based files.
+    """Configure comprehensive session logging with timestamp-based files.
 
     This function:
     1. Creates necessary log directories

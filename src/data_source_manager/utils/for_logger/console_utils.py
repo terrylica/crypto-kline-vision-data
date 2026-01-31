@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Console utilities for the logger system.
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Console utilities for the logger system.
 
 This module provides console and rich-related utilities for the logger system.
 """
@@ -27,9 +27,8 @@ class NoOpProgress:
         """No-op implementation of update that does nothing."""
 
 
-def should_show_rich_output():
-    """
-    Determine if rich Progress and print should be displayed based on log level.
+def should_show_rich_output() -> bool:
+    """Determine if rich Progress and print should be displayed based on log level.
 
     Returns:
         bool: True if the current log level allows rich output (DEBUG, INFO, WARNING),
@@ -43,9 +42,8 @@ def should_show_rich_output():
     return root_level < logging.ERROR
 
 
-def enable_smart_print(enabled=True, console=None):
-    """
-    Enable or disable the smart print feature that makes all print statements
+def enable_smart_print(enabled: bool = True, console: object | None = None) -> bool:
+    """Enable or disable the smart print feature that makes all print statements
     respect log level settings.
 
     When enabled, the built-in print function is monkey-patched to use console.print,
@@ -109,8 +107,7 @@ def enable_smart_print(enabled=True, console=None):
 
 
 def create_rich_progress(*args, **kwargs):
-    """
-    Create a rich.progress.Progress instance only if the current log level allows rich output.
+    """Create a rich.progress.Progress instance only if the current log level allows rich output.
 
     This function returns a Progress object when the log level is DEBUG, INFO, or WARNING,
     but returns a no-op context manager when the log level is ERROR or CRITICAL.
@@ -136,9 +133,8 @@ def create_rich_progress(*args, **kwargs):
     return NoOpProgress()
 
 
-def get_console(highlight=False):
-    """
-    Get a rich.console.Console instance for direct rendering of rich objects.
+def get_console(highlight: bool = False) -> object:
+    """Get a rich.console.Console instance for direct rendering of rich objects.
 
     Args:
         highlight (bool): Whether to enable syntax highlighting
