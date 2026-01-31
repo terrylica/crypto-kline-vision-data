@@ -16,7 +16,7 @@ Key Features:
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import attr
 
@@ -70,7 +70,7 @@ class DSMConfig:
         default=ChartType.KLINES,
         validator=attr.validators.instance_of(ChartType)
     )
-    cache_dir: Optional[Path] = attr.field(
+    cache_dir: Path | None = attr.field(
         default=None,
         validator=attr.validators.optional(attr.validators.instance_of((str, Path))),
         converter=lambda p: Path(p) if p is not None and not isinstance(p, Path) else p,
@@ -329,7 +329,7 @@ class DSMConfig:
         
         return cls.create(provider, market_type, **dev_defaults)
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary.
         
         Useful for logging, debugging, or serialization.
