@@ -6,6 +6,9 @@ This module provides helper functions for:
 2. Verifying data completeness
 3. Safely handling timezone-aware and naive datetimes
 4. Standardizing timestamp formats
+
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Refactoring: Fix silent failure patterns (BLE001)
 """
 
 from datetime import datetime, timezone
@@ -130,7 +133,7 @@ def safely_reindex_dataframe(
 
         return result_df
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         logger.error(f"Error reindexing DataFrame: {e}")
         return df
 
@@ -164,7 +167,7 @@ def ensure_consistent_timezone(dt: datetime | pd.Timestamp | str | None) -> date
     if isinstance(dt, str):
         try:
             dt = pd.to_datetime(dt)
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.error(f"Error converting string to datetime: {e}")
             # Return a default datetime if conversion fails
             return datetime.now(timezone.utc)
@@ -249,7 +252,7 @@ def _convert_to_datetime(ts: int | float | datetime | pd.Timestamp | str) -> dat
             if isinstance(dt, pd.Timestamp):
                 return dt.to_pydatetime()
             return dt
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.error(f"Error parsing datetime string '{ts}': {e}")
             # Return current time as fallback
             return datetime.now(timezone.utc)
