@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-"""
-DataFrame utilities for consistent handling of pandas DataFrames.
+# polars-exception: Core pandas DataFrame utility functions - provides
+# index/column manipulation, timezone handling, and standardization for pd.DataFrame
+"""DataFrame utilities for consistent handling of pandas DataFrames.
 
 This module centralizes common DataFrame operations to ensure consistent behavior
 across the codebase, particularly for:

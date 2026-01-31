@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# polars-exception: TimestampedDataFrame extends pd.DataFrame directly -
+# this class provides pandas DataFrame with validation enforcement
 """Common DataFrame class types and extensions for the data services.
 
 This module centralizes custom DataFrame types and extensions used throughout
@@ -182,7 +184,7 @@ class TimestampedDataFrame(pd.DataFrame):
                         f"Time difference between first open_time and close_time: {time_diff:.3f}s"
                         f" (open_time=BEGINNING of candle, close_time=END of candle)"
                     )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Error normalizing index: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise

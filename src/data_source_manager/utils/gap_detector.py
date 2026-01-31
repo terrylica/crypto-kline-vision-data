@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-Gap Detector - Robust time series gap detection
+# polars-exception: Gap detection relies on pd.Timedelta arithmetic and
+# pd.Timestamp operations for time series gap analysis
+"""Gap Detector - Robust time series gap detection.
 
 This module provides a clean, streamlined implementation for detecting gaps in time-series data
 based on expected intervals defined in market_constraints.py.
