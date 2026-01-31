@@ -9,6 +9,7 @@ mechanism, which automatically selects the appropriate data source based on avai
 """
 
 import time
+import traceback
 
 import pandas as pd
 import pendulum
@@ -172,7 +173,5 @@ def fetch_data_with_fcp(
         return df
     except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         print(f"[bold red]Error fetching data: {e}[/bold red]")
-        import traceback
-
         traceback.print_exc()
         return pd.DataFrame()

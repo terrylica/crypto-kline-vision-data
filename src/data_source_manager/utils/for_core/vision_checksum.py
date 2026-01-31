@@ -10,6 +10,7 @@ from the Binance Vision API using SHA-256 checksums.
 
 import hashlib
 import re
+import traceback
 from pathlib import Path
 
 from rich import print as rprint
@@ -151,8 +152,6 @@ def extract_checksum_from_file(checksum_path: Path) -> str | None:
 
     except (OSError, UnicodeDecodeError, ValueError) as e:
         logger.error(f"Error extracting checksum from {checksum_path}: {e}")
-        import traceback
-
         logger.debug(f"Extraction error traceback: {traceback.format_exc()}")
         return None
 

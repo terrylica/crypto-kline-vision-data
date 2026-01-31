@@ -7,8 +7,10 @@ This module provides common CLI setup and display functions for DSM Demo scripts
 # Refactoring: Fix silent failure patterns (BLE001)
 """
 
+import traceback
 from enum import Enum
 from pathlib import Path
+from time import perf_counter
 
 from rich import box, print
 from rich.panel import Panel
@@ -233,7 +235,6 @@ def handle_error(error, start_time_perf=None):
         # Sanitize error message to replace non-printable characters
         safe_error_msg = "".join(c if c.isprintable() else f"\\x{ord(c):02x}" for c in error_msg)
         print(f"[bold red]CRITICAL ERROR: {safe_error_msg}[/bold red]")
-        import traceback
 
         # Also sanitize the traceback
         tb_str = traceback.format_exc()
@@ -242,8 +243,6 @@ def handle_error(error, start_time_perf=None):
 
         # Display execution time if start_time_perf is provided
         if start_time_perf:
-            from time import perf_counter
-
             end_time_perf = perf_counter()
             elapsed_time = end_time_perf - start_time_perf
             print(
@@ -257,8 +256,6 @@ def handle_error(error, start_time_perf=None):
     except (OSError, ValueError, TypeError, RuntimeError):
         # Last resort if even error handling fails
         print("An error occurred, but the error handler encountered an exception.")
-        import traceback
-
         traceback.print_exc()
 
 

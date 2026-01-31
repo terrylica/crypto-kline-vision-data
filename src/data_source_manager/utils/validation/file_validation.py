@@ -8,6 +8,7 @@ This module provides validation for file integrity including:
 - Cache file integrity validation
 """
 
+import hashlib
 from datetime import timedelta
 from pathlib import Path
 
@@ -32,8 +33,6 @@ def calculate_checksum(file_path: Path) -> str:
     Returns:
         Hexadecimal string of the SHA-256 checksum
     """
-    import hashlib
-
     hash_sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):

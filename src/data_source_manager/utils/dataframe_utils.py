@@ -15,6 +15,7 @@ across the codebase, particularly for:
 """
 
 import contextlib
+import traceback
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -253,8 +254,6 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
 
     except (ValueError, TypeError, KeyError) as e:
         logger.error(f"Error in ensure_open_time_as_index: {e}")
-        import traceback
-
         logger.error(f"Traceback: {traceback.format_exc()}")
 
         # If all else fails, force a minimal working solution
