@@ -30,7 +30,7 @@ from data_source_manager.utils.for_core.rest_exceptions import (
     NetworkError,
     RateLimitError,
     RestAPIError,
-    TimeoutError,
+    RestTimeoutError,
 )
 from data_source_manager.utils.for_core.rest_metrics import metrics_tracker, track_api_call
 from data_source_manager.utils.loguru_setup import logger
@@ -88,7 +88,7 @@ def fetch_chunk(
         APIError: If the API returns an error code
         RateLimitError: If rate limited by the API
         NetworkError: If a network error occurs
-        TimeoutError: If the request times out
+        RestTimeoutError: If the request times out
         JSONDecodeError: If unable to decode the JSON response
     """
 
@@ -136,7 +136,7 @@ def fetch_chunk(
             raise NetworkError(f"Connection error: {e!s}") from e
         except requests.Timeout as e:
             logger.error(f"Request timeout: {e}")
-            raise TimeoutError(f"Request timed out: {e!s}") from e
+            raise RestTimeoutError(f"Request timed out: {e!s}") from e
         except (requests.RequestException, Exception) as e:
             # Catch any other requests exceptions
             if not isinstance(e, RestAPIError):  # Avoid wrapping our own exceptions

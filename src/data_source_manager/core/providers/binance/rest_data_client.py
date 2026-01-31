@@ -35,7 +35,6 @@ from data_source_manager.utils.for_core.rest_exceptions import (
     NetworkError,
     RateLimitError,
     RestAPIError,
-    TimeoutError,
 )
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import (

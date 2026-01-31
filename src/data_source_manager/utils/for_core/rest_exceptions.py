@@ -82,16 +82,20 @@ class NetworkError(RestAPIError):
         super().__init__(f"NetworkError: {message}")
 
 
-class TimeoutError(RestAPIError):
+class RestTimeoutError(RestAPIError):
     """Exception raised when a REST API request times out."""
 
     def __init__(self, message="REST API request timed out"):
-        """Initialize TimeoutError with error message.
+        """Initialize RestTimeoutError with error message.
 
         Args:
             message: Error description.
         """
-        super().__init__(f"TimeoutError: {message}")
+        super().__init__(f"RestTimeoutError: {message}")
+
+
+# Backwards compatibility alias (deprecated)
+TimeoutError = RestTimeoutError
 
 
 class JSONDecodeError(RestAPIError):
