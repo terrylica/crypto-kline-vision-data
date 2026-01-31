@@ -14,9 +14,11 @@ class NoOpProgress:
     """No-operation progress bar for when rich output is suppressed."""
 
     def __enter__(self):
+        """Enter the context manager, returning self."""
         return self
 
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """Exit the context manager, doing nothing."""
         pass
 
     def add_task(self, *_args, **_kwargs):
