@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Logger setup utilities.
 
 This module provides utilities for setting up and configuring loggers.
@@ -7,6 +8,8 @@ This module provides utilities for setting up and configuring loggers.
 import inspect
 import logging
 import os
+from collections.abc import Callable
+from typing import Any
 
 try:
     from rich.console import Console
@@ -21,22 +24,22 @@ DEFAULT_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 
 def get_module_logger(
-    name=None,
-    level=None,
-    module_loggers=None,
-    setup_root=False,
-    use_rich=None,
-    setup_root_logger=None,
-):
+    name: str | None = None,
+    level: str | None = None,
+    module_loggers: dict[str, logging.Logger] | None = None,
+    setup_root: bool = False,
+    use_rich: bool | None = None,
+    setup_root_logger: Callable[..., Any] | None = None,
+) -> logging.Logger:
     """Retrieve or create a logger instance with appropriate configuration.
 
     Args:
-        name (str, optional): Logger name. If None, auto-detected from caller
-        level (str, optional): Logging level
-        module_loggers (dict): Dictionary to cache module loggers
-        setup_root (bool): Whether to set up the root logger
-        use_rich (bool): Whether to use rich logging
-        setup_root_logger (callable): Function to set up the root logger
+        name: Logger name. If None, auto-detected from caller
+        level: Logging level
+        module_loggers: Dictionary to cache module loggers
+        setup_root: Whether to set up the root logger
+        use_rich: Whether to use rich logging
+        setup_root_logger: Function to set up the root logger
 
     Returns:
         logging.Logger: The requested logger instance
@@ -76,11 +79,11 @@ def get_module_logger(
     return logger_instance
 
 
-def setup_rich_handler(console=None):
+def setup_rich_handler(console: Any = None) -> Any:
     """Set up a RichHandler for rich logging.
 
     Args:
-        console (rich.console.Console, optional): Console to use
+        console: Console to use (rich.console.Console)
 
     Returns:
         RichHandler: Configured RichHandler
@@ -109,13 +112,17 @@ def setup_rich_handler(console=None):
     return handler
 
 
-def use_rich_logging(enable=True, level=None, setup_root_logger=None):
+def use_rich_logging(
+    enable: bool = True,
+    level: str | None = None,
+    setup_root_logger: Callable[..., Any] | None = None,
+) -> bool:
     """Enable or disable Rich logging.
 
     Parameters:
-        enable (bool): True to enable Rich logging, False to use standard colorlog.
-        level (str, optional): Logging level to set when reconfiguring.
-        setup_root_logger (callable): Function to set up the root logger
+        enable: True to enable Rich logging, False to use standard colorlog.
+        level: Logging level to set when reconfiguring.
+        setup_root_logger: Function to set up the root logger
 
     Returns:
         bool: True if Rich logging was enabled, False otherwise.

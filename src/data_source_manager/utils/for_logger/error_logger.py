@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Error logger functionality.
 
 This module provides functions for logging errors to a dedicated log file.
@@ -64,7 +65,7 @@ class ErrorLoggerState:
 _state = ErrorLoggerState()
 
 
-def configure_error_logger():
+def configure_error_logger() -> logging.Logger:
     """Configure the error logger for dedicated error, warning, and critical logging,
     and above events, which can be used for monitoring and troubleshooting.
 
@@ -109,16 +110,15 @@ def configure_error_logger():
     return error_logger
 
 
-def enable_error_logging(error_log_file=None, root_configured=False):
+def enable_error_logging(error_log_file: str | None = None, root_configured: bool = False) -> bool:
     """Enable logging of all errors, warnings, and critical messages to a dedicated file.
 
     This configures a separate logger that captures all WARNING, ERROR, and CRITICAL
     level messages from all modules and writes them to a centralized log file.
 
     Args:
-        error_log_file (str, optional): Path to the error log file.
-                                       If None, uses the default path.
-        root_configured (bool): Whether the root logger is configured
+        error_log_file: Path to the error log file. If None, uses the default path.
+        root_configured: Whether the root logger is configured
 
     Returns:
         bool: True if successful
@@ -164,7 +164,7 @@ def enable_error_logging(error_log_file=None, root_configured=False):
     return True
 
 
-def get_error_log_file():
+def get_error_log_file() -> str:
     """Get the current error log file path.
 
     Returns:
@@ -173,11 +173,11 @@ def get_error_log_file():
     return _state.error_log_file
 
 
-def set_error_log_file(path):
+def set_error_log_file(path: str) -> bool:
     """Set the file path for error logging.
 
     Args:
-        path (str): Path to the log file
+        path: Path to the log file
 
     Returns:
         bool: True if successful
