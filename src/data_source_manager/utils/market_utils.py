@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Market type utility functions."""
+
 from rich import print
 
 from data_source_manager.utils.market_constraints import MarketType

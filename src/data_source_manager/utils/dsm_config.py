@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Configuration management for DSM following industry best practices.
 
 This module provides configuration-driven initialization patterns similar to 
@@ -196,9 +197,9 @@ class DSMConfig:
             >>> config = DSMConfig.from_env(connection_timeout=60)
         """
         # Default values from environment
-        provider_str = os.getenv('DSM_PROVIDER', 'BINANCE')
-        market_type_str = os.getenv('DSM_MARKET_TYPE', 'SPOT')
-        chart_type_str = os.getenv('DSM_CHART_TYPE', 'KLINES')
+        provider_str = os.getenv("DSM_PROVIDER", "BINANCE")
+        market_type_str = os.getenv("DSM_MARKET_TYPE", "SPOT")
+        chart_type_str = os.getenv("DSM_CHART_TYPE", "KLINES")
         
         # Convert string values to enums
         try:
@@ -218,15 +219,15 @@ class DSMConfig:
         
         # Build configuration from environment
         config_dict = {
-            'provider': provider,
-            'market_type': market_type,
-            'chart_type': chart_type,
-            'connection_timeout': int(os.getenv('DSM_CONNECTION_TIMEOUT', '30')),
-            'max_retries': int(os.getenv('DSM_MAX_RETRIES', '3')),
-            'connection_pool_size': int(os.getenv('DSM_CONNECTION_POOL_SIZE', '10')),
-            'log_level': os.getenv('DSM_LOG_LEVEL', 'WARNING').upper(),
-            'use_cache': os.getenv('DSM_USE_CACHE', 'true').lower() == 'true',
-            'cache_dir': os.getenv('DSM_CACHE_DIR'),
+            "provider": provider,
+            "market_type": market_type,
+            "chart_type": chart_type,
+            "connection_timeout": int(os.getenv("DSM_CONNECTION_TIMEOUT", "30")),
+            "max_retries": int(os.getenv("DSM_MAX_RETRIES", "3")),
+            "connection_pool_size": int(os.getenv("DSM_CONNECTION_POOL_SIZE", "10")),
+            "log_level": os.getenv("DSM_LOG_LEVEL", "WARNING").upper(),
+            "use_cache": os.getenv("DSM_USE_CACHE", "true").lower() == "true",
+            "cache_dir": os.getenv("DSM_CACHE_DIR"),
         }
         
         # Apply overrides
@@ -268,14 +269,14 @@ class DSMConfig:
             ... )
         """
         production_defaults = {
-            'connection_timeout': 60,
-            'max_retries': 5,
-            'connection_pool_size': 20,
-            'log_level': 'ERROR',
-            'thread_safe': True,
-            'lazy_init': True,
-            'suppress_http_debug': True,
-            'quiet_mode': False,  # Still want to see errors in production
+            "connection_timeout": 60,
+            "max_retries": 5,
+            "connection_pool_size": 20,
+            "log_level": "ERROR",
+            "thread_safe": True,
+            "lazy_init": True,
+            "suppress_http_debug": True,
+            "quiet_mode": False,  # Still want to see errors in production
         }
         
         # Merge with user overrides
@@ -313,14 +314,14 @@ class DSMConfig:
             ... )
         """
         dev_defaults = {
-            'connection_timeout': 15,
-            'max_retries': 2,
-            'connection_pool_size': 5,
-            'log_level': 'DEBUG',
-            'thread_safe': True,
-            'lazy_init': True,
-            'suppress_http_debug': False,  # Show HTTP details in dev
-            'quiet_mode': False,
+            "connection_timeout": 15,
+            "max_retries": 2,
+            "connection_pool_size": 5,
+            "log_level": "DEBUG",
+            "thread_safe": True,
+            "lazy_init": True,
+            "suppress_http_debug": False,  # Show HTTP details in dev
+            "quiet_mode": False,
         }
         
         # Merge with user overrides
@@ -391,6 +392,6 @@ class DSMConnectionPool:
         """Close all pooled connections."""
         with self._pool_lock:
             for connection in self._pool.values():
-                if hasattr(connection, 'close'):
+                if hasattr(connection, "close"):
                     connection.close()
             self._pool.clear() 

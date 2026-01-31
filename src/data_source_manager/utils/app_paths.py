@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Application paths management.
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Application paths management.
 
 This module provides centralized management of application data directories,
 cache locations, and other filesystem paths using platformdirs for

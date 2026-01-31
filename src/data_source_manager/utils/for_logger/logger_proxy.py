@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """Logger proxy implementation.
 
 This module provides the LoggerProxy class, which is the main interface for the

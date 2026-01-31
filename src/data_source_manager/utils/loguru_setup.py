@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Loguru-based Logging System for Data Source Manager
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""Loguru-based Logging System for Data Source Manager.
 
 This module provides a simple, powerful loguru-based logging system that addresses
 user complaints about log level control in the DSM package.
