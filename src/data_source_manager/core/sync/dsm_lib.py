@@ -254,6 +254,6 @@ def fetch_market_data(
 
         return df, elapsed_time, records_count
 
-    except Exception as e:
+    except (ValueError, RuntimeError, KeyError, OSError) as e:
         logger.error(f"Data fetching failed: {e}")
         raise
