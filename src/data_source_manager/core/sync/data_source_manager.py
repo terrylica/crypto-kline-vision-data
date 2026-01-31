@@ -956,7 +956,7 @@ class DataSourceManager:
                 logger.info(f"[FCP] auto_reindex=False: Data covers {actual_start} to {actual_end} ({len(result_df)} records)")
                 
                 # Check if we have NaN values (which shouldn't happen with auto_reindex=False)
-                nan_count = result_df.isnull().sum().sum()
+                nan_count = result_df.isna().sum().sum()
                 if nan_count > 0:
                     logger.error(f"[FCP] BUG: auto_reindex=False should not create {nan_count} NaN values!")
 

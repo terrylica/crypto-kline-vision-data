@@ -27,8 +27,7 @@ def display_results(
     log_timestamp=None,
     session_name="dsm_demo_cli",
 ):
-    """
-    Display the results of the FCP data retrieval.
+    """Display the results of the FCP data retrieval.
 
     Args:
         df: Pandas DataFrame containing the retrieved data
@@ -86,7 +85,9 @@ def display_results(
             print("[yellow]Warning: Could not find open_time column or index for timeline display[/yellow]")
             return None
 
-        date_groups = df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
+        date_groups = df.pivot_table(
+            index="date", columns="_data_source", aggfunc="size", fill_value=0
+        )
 
         # Display timeline visualization
         timeline_table = Table(title="Sources by Date")
