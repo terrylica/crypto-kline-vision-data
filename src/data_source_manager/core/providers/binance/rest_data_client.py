@@ -199,30 +199,29 @@ class RestDataClient(DataClientInterface):
                 return []
 
             return data
-        except RateLimitError as e:
-            # Handle rate limiting specifically
-            logger.warning(f"Rate limited when fetching chunk for {symbol}: {e}")
-            logger.warning(f"Will retry after {e.retry_after}s")
-            return []
+        except RateLimitError:
+            # Rate limiting should propagate - caller should handle backoff
+            logger.error(f"Rate limited when fetching chunk for {symbol}")
+            raise
         except (HTTPError, APIError) as e:
-            # Handle HTTP and API errors
+            # API errors may be transient - log and return empty for this chunk
             logger.error(f"API error when fetching chunk for {symbol}: {e}")
             return []
         except (NetworkError, TimeoutError) as e:
-            # Handle network and timeout errors
+            # Network errors may be transient - log and return empty for this chunk
             logger.error(f"Network error when fetching chunk for {symbol}: {e}")
             return []
         except JSONDecodeError as e:
-            # Handle JSON decode errors
+            # JSON decode errors indicate corrupted response - log and skip chunk
             logger.error(f"JSON decode error when fetching chunk for {symbol}: {e}")
             return []
         except RestAPIError as e:
-            # Handle any other REST API errors
+            # Other REST API errors - log and return empty for this chunk
             logger.error(f"REST API error when fetching chunk for {symbol}: {e}")
             return []
         except (ValueError, TypeError, KeyError, AttributeError) as e:
-            # Catch data processing errors not covered by specific REST exceptions
-            logger.error(f"Unexpected error fetching chunk data for {symbol}: {e}")
+            # Data processing errors indicate bugs - log with traceback
+            logger.error(f"Data processing error for {symbol}: {e}", exc_info=True)
             return []
 
     def _create_optimized_client(self) -> Any:
@@ -315,8 +314,13 @@ class RestDataClient(DataClientInterface):
                 f"{milliseconds_to_datetime(chunk_end).isoformat()}"
             )
 
-            # Fetch the chunk
-            chunk_data = self._fetch_chunk_data(symbol, interval_enum, chunk_start, chunk_end)
+            # Fetch the chunk - RateLimitError propagates to caller
+            try:
+                chunk_data = self._fetch_chunk_data(symbol, interval_enum, chunk_start, chunk_end)
+            except RateLimitError:
+                # Rate limiting should stop the entire fetch operation
+                logger.error(f"Rate limited at chunk {i + 1}/{len(chunks)} for {symbol}")
+                raise
 
             if chunk_data:
                 all_data.extend(chunk_data)
