@@ -5,15 +5,30 @@ This package provides comprehensive validation for:
 - Symbol formats and intervals
 - DataFrame structure and integrity
 - Cache file validation
+- Data availability checking
 
 The main classes are exported for backward compatibility:
 - DataValidation: Time, date, and symbol validation
 - DataFrameValidator: DataFrame structure validation
 - ValidationError: Custom exception for validation errors
+
+Package structure:
+- time_validation.py: Core time/date validation
+- availability_validation.py: Data availability checking
+- file_validation.py: Checksum and file validation
+- dataframe_validation.py: DataFrame structure validation
 """
 
+from data_source_manager.utils.validation.availability_validation import (
+    is_data_likely_available,
+    validate_data_availability,
+)
 from data_source_manager.utils.validation.dataframe_validation import (
     DataFrameValidator,
+)
+from data_source_manager.utils.validation.file_validation import (
+    calculate_checksum,
+    validate_file_with_checksum,
 )
 from data_source_manager.utils.validation.time_validation import (
     DataValidation,
@@ -36,8 +51,13 @@ __all__ = [
     "OHLCV_COLUMNS",
     "SYMBOL_PATTERN",
     "TICKER_PATTERN",
-    "DataFrameValidator",
     # Classes
+    "DataFrameValidator",
     "DataValidation",
     "ValidationError",
+    # Functions
+    "calculate_checksum",
+    "is_data_likely_available",
+    "validate_data_availability",
+    "validate_file_with_checksum",
 ]
