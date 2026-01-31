@@ -20,6 +20,7 @@ class TimeoutLoggerState:
     _instance = None
 
     def __new__(cls):
+        """Create or return the singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._timeout_log_file = os.environ.get("TIMEOUT_LOG_FILE", DEFAULT_TIMEOUT_LOG_FILE)
@@ -29,6 +30,7 @@ class TimeoutLoggerState:
 
     @property
     def timeout_log_file(self):
+        """Return the timeout log file path."""
         return self._timeout_log_file
 
     @timeout_log_file.setter
@@ -37,6 +39,7 @@ class TimeoutLoggerState:
 
     @property
     def timeout_logger_configured(self):
+        """Return whether timeout logger is configured."""
         return self._timeout_logger_configured
 
     @timeout_logger_configured.setter
@@ -45,6 +48,7 @@ class TimeoutLoggerState:
 
     @property
     def timeout_logger(self):
+        """Return the timeout logger instance."""
         return self._timeout_logger
 
     @timeout_logger.setter

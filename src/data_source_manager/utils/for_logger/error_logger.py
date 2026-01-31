@@ -20,6 +20,7 @@ class ErrorLoggerState:
     _instance = None
 
     def __new__(cls):
+        """Create or return the singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._error_log_file = os.environ.get("ERROR_LOG_FILE", DEFAULT_ERROR_LOG_FILE)
@@ -30,6 +31,7 @@ class ErrorLoggerState:
 
     @property
     def error_log_file(self):
+        """Return the error log file path."""
         return self._error_log_file
 
     @error_log_file.setter
@@ -38,6 +40,7 @@ class ErrorLoggerState:
 
     @property
     def error_logger_configured(self):
+        """Return whether error logger is configured."""
         return self._error_logger_configured
 
     @error_logger_configured.setter
@@ -46,6 +49,7 @@ class ErrorLoggerState:
 
     @property
     def error_logger(self):
+        """Return the error logger instance."""
         return self._error_logger
 
     @error_logger.setter
@@ -54,6 +58,7 @@ class ErrorLoggerState:
 
     @property
     def error_logging_enabled(self):
+        """Return whether error logging is enabled."""
         return self._error_logging_enabled
 
     @error_logging_enabled.setter

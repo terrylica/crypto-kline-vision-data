@@ -35,6 +35,7 @@ class ConsoleState:
     _instance = None
 
     def __new__(cls):
+        """Create or return the singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._console = None
@@ -42,6 +43,7 @@ class ConsoleState:
 
     @property
     def console(self):
+        """Return the console instance."""
         return self._console
 
     @console.setter
