@@ -152,7 +152,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         chart_type: ChartType = ChartType.KLINES,
         base_url: str = "https://data.binance.vision",
         cache_dir: str | Path | None = None,
-    ):
+    ) -> None:
         """Initialize Vision Data Client.
 
         Creates a new client instance configured for the specified symbol,
@@ -236,7 +236,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         """Context manager entry."""
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Context manager exit."""
         # Release resources
         if hasattr(self, "_client") and self._client and hasattr(self._client, "close") and callable(self._client.close):
@@ -622,11 +622,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         start_date = start_time.date()
         end_date = end_time.date()
 
-        date_range = []
-        current_date = start_date
-        while current_date <= end_date:
-            date_range.append(current_date)
-            current_date = current_date + timedelta(days=1)
+        # Generate date range using list comprehension (PERF401 optimization)
+        days_count = (end_date - start_date).days + 1
+        date_range = [start_date + timedelta(days=i) for i in range(days_count)]
 
         logger.info(f"Need to check {len(date_range)} dates for data")
 

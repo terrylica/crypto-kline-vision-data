@@ -135,28 +135,17 @@ def detect_gaps(
     # Extract gaps
     gaps_df = df_sorted[gaps_mask].copy()
 
-    # Prepare gap list
-    gaps = []
-    for _, row in gaps_df.iterrows():
-        start_time = row[time_column]
-        end_time = row["next_time"]
-        duration = row["time_diff"] - expected_interval
-
-        # Calculate missing points (rounded down)
-        missing_points = int((row["time_diff"] / expected_interval) - 1)
-
-        # Check if gap crosses day boundary
-        crosses_day = row["crosses_day_boundary"]
-
-        gaps.append(
-            Gap(
-                start_time=start_time,
-                end_time=end_time,
-                duration=duration,
-                missing_points=missing_points,
-                crosses_day_boundary=crosses_day,
-            )
+    # Prepare gap list using itertuples for performance (avoids Series creation)
+    gaps = [
+        Gap(
+            start_time=getattr(row, time_column),
+            end_time=row.next_time,
+            duration=row.time_diff - expected_interval,
+            missing_points=int((row.time_diff / expected_interval) - 1),
+            crosses_day_boundary=row.crosses_day_boundary,
         )
+        for row in gaps_df.itertuples(index=False)
+    ]
 
     # Compile statistics
     stats = {

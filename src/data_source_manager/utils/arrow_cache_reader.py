@@ -53,7 +53,7 @@ class ArrowCacheReader:
         cache_db_path: str | Path = "./logs/cache_index.db",
         data_provider: DataProvider = DataProvider.BINANCE,
         chart_type: ChartType = ChartType.KLINES,
-    ):
+    ) -> None:
         """Initialize the Arrow Cache Reader.
 
         Args:
@@ -141,14 +141,11 @@ class ArrowCacheReader:
         if isinstance(end_date, datetime):
             end_date = end_date.strftime("%Y-%m-%d")
 
-        # Generate list of all dates in the range
-        all_dates = []
-        current_date = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d")
-
-        while current_date <= end:
-            all_dates.append(current_date.strftime("%Y-%m-%d"))
-            current_date += timedelta(days=1)
+        # Generate list of all dates in the range (PERF401 optimization)
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        days_count = (end_dt - start_dt).days + 1
+        all_dates = [(start_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days_count)]
 
         # Query the database for available dates
         conn = self._get_connection()

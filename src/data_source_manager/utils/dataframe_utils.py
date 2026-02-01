@@ -482,8 +482,8 @@ def merge_dataframes(dfs: list[pd.DataFrame], priority_sources: list[str] | None
         source_priorities = {source: i for i, source in enumerate(priority_sources)}
         default_priority = len(priority_sources)  # Lowest priority for unknown sources
 
-        # Add a priority column for sorting
-        merged["_source_priority"] = merged["_data_source"].apply(lambda source: source_priorities.get(source, default_priority))
+        # Add a priority column for sorting (map is faster than apply for lookups)
+        merged["_source_priority"] = merged["_data_source"].map(source_priorities).fillna(default_priority).astype(int)
 
         # Sort by open_time first, then by source priority
         merged = merged.sort_values(["open_time", "_source_priority"])
