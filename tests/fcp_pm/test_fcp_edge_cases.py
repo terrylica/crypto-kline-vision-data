@@ -25,7 +25,7 @@ Import Before Invent: Patterns imported from test_fcp_pm.py, test_rest_enforceme
 
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -47,14 +47,9 @@ from data_source_manager.utils.market_constraints import (
 
 
 # =============================================================================
-# Test Fixtures (from conftest.py patterns)
+# Test Fixtures
+# Note: utc_now fixture inherited from tests/conftest.py
 # =============================================================================
-
-
-@pytest.fixture
-def utc_now():
-    """Current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
 
 
 @pytest.fixture
