@@ -1,3 +1,35 @@
+## [1.0.1](https://github.com/terrylica/data-source-manager/compare/v1.0.0...v1.0.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **dsm-lib:** replace broad exception with specific types ([35354ff](https://github.com/terrylica/data-source-manager/commit/35354ff71b0c034a202c747cc8d76bff8e48e248))
+* **dsm:** add polars-exception comment and simplify ternary ([64d8272](https://github.com/terrylica/data-source-manager/commit/64d82723399311baab77f0f0db7ea8a5b0bc2f8d))
+* **dsm:** add return type annotations to public methods ([6199e1e](https://github.com/terrylica/data-source-manager/commit/6199e1e4901287f9df42440a42dd814ef435d5da))
+* **examples:** rewrite broken lazy initialization demo and remove redundant example ([bdfebd0](https://github.com/terrylica/data-source-manager/commit/bdfebd025c052d50449228f8c3367916c634cd61))
+* **init:** add type annotation to __getattr__ (ANN001/ANN202) ([a86763b](https://github.com/terrylica/data-source-manager/commit/a86763bed079913b6087638f36e1b75b87f780c9))
+* **logging:** upgrade error logs from DEBUG to WARNING level ([1cc5752](https://github.com/terrylica/data-source-manager/commit/1cc57524eb4b9da808a993f93753f00ca10b4348))
+* **rest-client:** propagate RateLimitError instead of silent failure ([fce8b0f](https://github.com/terrylica/data-source-manager/commit/fce8b0f2b6a2ff917195a214afa8ed399fe1dc4f))
+* **rest-metrics:** use UTC-aware datetime for rate limit tracking ([46e98de](https://github.com/terrylica/data-source-manager/commit/46e98decb5a33a5425ff9b9b0c10fd761c7356cf))
+* **tests:** replace silent failure patterns with explicit errors ([71e3c09](https://github.com/terrylica/data-source-manager/commit/71e3c09eaf0c5b8dedd4c80991bac16e04c522fd))
+* **utils:** add ADR references and modernize type hints ([7b1c146](https://github.com/terrylica/data-source-manager/commit/7b1c146f3d47b78fa8c55f2fce829be095db80cc))
+* **utils:** add polars-exception comments and fix bare except ([7e46ac1](https://github.com/terrylica/data-source-manager/commit/7e46ac1b5af121cd7b224b8b2d2c3dfad780c95c))
+* **utils:** add type hints and ADR references to logger modules ([4e6e9fd](https://github.com/terrylica/data-source-manager/commit/4e6e9fd2fdedab7d8009fd06871b894d777f4baf))
+* **utils:** add type hints and ADR references to logger modules ([98e6921](https://github.com/terrylica/data-source-manager/commit/98e69219c4be0ebc1284e1410bcea32a8616f834))
+* **utils:** add type hints to timeout_logger and session_utils ([3453692](https://github.com/terrylica/data-source-manager/commit/345369202e9533cc85a4f082fe6afeed2079fb39))
+* **utils:** replace broad exceptions with specific ParserError types ([ef5eb0c](https://github.com/terrylica/data-source-manager/commit/ef5eb0cdd2567172616c1b218c9db9aa8431e3fd))
+* **utils:** replace broad exceptions with specific types ([e2fc13b](https://github.com/terrylica/data-source-manager/commit/e2fc13b122cf5c8e461fec3ca12622bd2fb0ede2))
+* **utils:** replace star imports with explicit imports and fix pandas issues ([8e7b25e](https://github.com/terrylica/data-source-manager/commit/8e7b25e3c611f0f72ab285d4d209f1f3e2afbd73))
+* **vision-data-client:** replace broad exceptions with specific types ([0b57825](https://github.com/terrylica/data-source-manager/commit/0b57825f826dc27f1c770b37b89e25adc0f58193))
+
+
+### Performance Improvements
+
+* **checksum:** pre-compile SHA256 regex patterns ([05b7eb5](https://github.com/terrylica/data-source-manager/commit/05b7eb51c0329375b0034ce27405793c055abfed))
+* **regex:** pre-compile interval and SHA256 patterns for performance ([d743a7a](https://github.com/terrylica/data-source-manager/commit/d743a7a1f54a868d3648d0ed47d377dd6af4270d))
+* **utils:** optimize iteration patterns for better performance ([a19967b](https://github.com/terrylica/data-source-manager/commit/a19967b43387fe3b485551c711bbe667adea77e7))
+* **utils:** use list comprehension and extend for efficiency (PERF401/PERF402) ([066102a](https://github.com/terrylica/data-source-manager/commit/066102a62f9cd73f7676315a8214ae44d5901ea4))
+
 # 1.0.0 (2026-01-31)
 
 
