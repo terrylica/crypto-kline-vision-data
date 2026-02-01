@@ -30,10 +30,12 @@ DEBUG=1 uv run -p 3.13 python examples/dsm_logging_demo.py
 
 ## Example Conventions
 
-1. **Always use UTC datetimes**: `datetime.now(timezone.utc)`
-2. **Always close managers**: `manager.close()` or use context managers
-3. **Include helpful comments**: Examples are documentation
-4. **Keep examples self-contained**: Minimal external dependencies
+1. **Use package imports**: `from data_source_manager import ...` (NOT relative imports)
+2. **Always use UTC datetimes**: `datetime.now(timezone.utc)`
+3. **Always close managers**: `manager.close()` or use context managers
+4. **Include helpful comments**: Examples are documentation
+5. **Keep examples self-contained**: Minimal external dependencies
+6. **No duplicate demos**: Check existing examples before creating new ones
 
 ---
 

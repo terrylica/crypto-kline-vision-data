@@ -1,8 +1,48 @@
 # Session Resume Context
 
-Last updated: 2026-01-30
+Last updated: 2026-02-01
 
 ## Recent Work
+
+### DRY Principle Audit & Cleanup (2026-02-01)
+
+**Status**: Complete
+
+**What was done**:
+
+- Comprehensive redundancy audit across src/, tests/, and examples/
+- Deleted 3 redundant example files:
+  - `examples/default_logging_comparison.py` (80% duplicate of dsm_logging_demo.py)
+  - `examples/loguru_demo.py` (80% duplicate of dsm_logging_demo.py)
+  - `examples/dsm_logging_improvement_demo.py` (dead/empty file)
+- Fixed `examples/dsm_lazy_initialization_demo.py`:
+  - Rewrote to use actual DSM APIs (was referencing non-existent DSMManager/DSMConfig)
+  - Fixed division by zero in benchmark function
+  - Fixed incorrect imports from `__init__`
+- Removed duplicate `utc_now` fixture from `test_fcp_edge_cases.py` (already in conftest.py)
+- Performance optimizations (PERF401/PERF402):
+  - `gap_detector.py`: iterrows → itertuples
+  - `vision_data_client.py`: while loop → list comprehension
+  - `arrow_cache_reader.py`: while loop → list comprehension
+  - `dataframe_utils.py`: apply → map for dictionary lookups
+
+**High-Priority Consolidations Identified** (Future Work):
+
+| Issue                   | Impact   | Files                                                 |
+| ----------------------- | -------- | ----------------------------------------------------- |
+| Dual logger systems     | CRITICAL | `loguru_setup.py` + `logger_setup.py` + `for_logger/` |
+| Cache function wrappers | HIGH     | `utils/cache/functions.py` → `validator.py`           |
+| Symbol validation split | HIGH     | 3 implementations across modules                      |
+| OKX `retry_request()`   | HIGH     | Duplicated in 7 test files                            |
+| Exception hierarchy     | MEDIUM   | 14 exceptions across 4 files                          |
+
+**Commits**:
+
+- `bdfebd0` - fix(examples): rewrite broken lazy initialization demo
+- `05091d8` - refactor: remove redundant files and duplicate fixture
+- `a19967b` - perf(utils): optimize iteration patterns for better performance
+
+---
 
 ### GitHub Actions Integration (2026-01-30)
 

@@ -275,6 +275,10 @@ Slash commands in `.claude/commands/`:
 
 ## Recent Lessons Learned
 
+**2026-02-01**: DRY audit identified consolidation opportunities - dual logger systems, cache function wrappers, scattered symbol validation. [RESUME.md](/docs/RESUME.md)
+
+**2026-02-01**: Example files must use `data_source_manager.` prefix imports, not relative imports from `__init__`.
+
 **2026-01-30**: Permission patterns in `.claude/settings.json` - allow/deny rules with gitignore syntax. [Official Docs](https://code.claude.com/docs/en/settings)
 
 **2026-01-30**: Path-specific rules load via `paths:` frontmatter when working with matching files. [Design Spec](/docs/design/2026-01-30-claude-code-infrastructure/spec.md)
