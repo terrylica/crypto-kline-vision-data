@@ -50,6 +50,7 @@ import os
 import sys
 from pathlib import Path
 
+import pendulum
 from loguru import logger as _loguru_logger
 
 # Remove default loguru handler to have full control
@@ -269,11 +270,6 @@ def configure_session_logging(session_name: str, log_level: str = "DEBUG"):
     Returns:
         tuple: (main_log_path, error_log_path, timestamp) for reference
     """
-    import os
-    from pathlib import Path
-
-    import pendulum
-
     # Generate timestamp for consistent filenames
     timestamp = pendulum.now("UTC").format("YYYYMMDD_HHmmss")
 

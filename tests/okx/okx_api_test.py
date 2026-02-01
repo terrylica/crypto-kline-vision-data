@@ -1,69 +1,23 @@
 #!/usr/bin/env python3
-"""
-OKX API endpoint tests.
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""OKX API endpoint tests.
 
 These integration tests verify that the OKX candles and history-candles endpoints
 work correctly for spot and swap instruments across all supported intervals.
 """
 
-import time
 from datetime import datetime, timedelta
 
-import httpx
 import pytest
 
-OKX_API_BASE_URL = "https://www.okx.com/api/v5"
-CANDLES_ENDPOINT = f"{OKX_API_BASE_URL}/market/candles"
-HISTORY_CANDLES_ENDPOINT = f"{OKX_API_BASE_URL}/market/history-candles"
-
-# Test parameters
-SPOT_INSTRUMENT = "BTC-USDT"
-SWAP_INSTRUMENT = "BTC-USD-SWAP"
-INTERVALS = [
-    "1m",
-    "3m",
-    "5m",
-    "15m",
-    "30m",
-    "1H",
-    "2H",
-    "4H",
-    "6H",
-    "12H",
-    "1D",
-    "1W",
-    "1M",
-]
-MAX_RETRIES = 3
-RETRY_DELAY = 1  # seconds
-
-
-def retry_request(url: str, params: dict | None = None, max_retries: int = MAX_RETRIES) -> dict:
-    """
-    Make HTTP request with retry logic.
-
-    Args:
-        url: The API endpoint URL.
-        params: Query parameters for the request.
-        max_retries: Maximum number of retry attempts.
-
-    Returns:
-        JSON response data from the API.
-
-    Raises:
-        httpx.HTTPStatusError: If all retry attempts fail.
-    """
-    for attempt in range(max_retries):
-        try:
-            response = httpx.get(url, params=params, timeout=10.0)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            if attempt < max_retries - 1:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-            else:
-                raise e
-    return {}
+from tests.okx.conftest import (
+    CANDLES_ENDPOINT,
+    HISTORY_CANDLES_ENDPOINT,
+    INTERVALS,
+    SPOT_INSTRUMENT,
+    SWAP_INSTRUMENT,
+    retry_request,
+)
 
 
 @pytest.mark.integration

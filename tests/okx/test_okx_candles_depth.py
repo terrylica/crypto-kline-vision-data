@@ -1,63 +1,21 @@
 #!/usr/bin/env python3
-"""
-OKX candles historical depth tests.
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+"""OKX candles historical depth tests.
 
 These integration tests verify how far back the OKX candles endpoints can
 retrieve data for different intervals.
 """
 
-import time
 from datetime import datetime, timedelta
 
-import httpx
 import pytest
 
-# Constants
-OKX_API_BASE_URL = "https://www.okx.com/api/v5"
-CANDLES_ENDPOINT = f"{OKX_API_BASE_URL}/market/candles"
-HISTORY_ENDPOINT = f"{OKX_API_BASE_URL}/market/history-candles"
-SPOT_INSTRUMENT = "BTC-USDT"
-MAX_RETRIES = 3
-RETRY_DELAY = 1  # seconds
-
-
-def retry_request(url: str, params: dict | None = None, max_retries: int = MAX_RETRIES) -> dict:
-    """
-    Make HTTP request with retry logic.
-
-    Args:
-        url: The API endpoint URL.
-        params: Query parameters for the request.
-        max_retries: Maximum number of retry attempts.
-
-    Returns:
-        Dictionary with status_code and data/error fields.
-    """
-    for attempt in range(max_retries):
-        try:
-            response = httpx.get(url, params=params, timeout=10.0)
-            response.raise_for_status()
-            return {
-                "status_code": response.status_code,
-                "data": response.json(),
-            }
-        except httpx.HTTPStatusError as e:
-            if attempt < max_retries - 1:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-            else:
-                return {
-                    "status_code": e.response.status_code if e.response else -1,
-                    "error": str(e),
-                }
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.RequestError) as e:
-            if attempt < max_retries - 1:
-                time.sleep(RETRY_DELAY * (attempt + 1))
-            else:
-                return {
-                    "status_code": -1,
-                    "error": str(e),
-                }
-    return {"status_code": -1, "error": "Unknown error"}
+from tests.okx.conftest import (
+    CANDLES_ENDPOINT,
+    HISTORY_CANDLES_ENDPOINT as HISTORY_ENDPOINT,
+    SPOT_INSTRUMENT,
+    retry_request_with_status as retry_request,
+)
 
 
 def has_data(endpoint: str, instrument: str, interval: str, timestamp: int) -> tuple[bool, dict]:
