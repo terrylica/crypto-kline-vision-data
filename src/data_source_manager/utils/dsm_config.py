@@ -366,7 +366,7 @@ class DSMConnectionPool:
     issues that can cause hanging.
     """
 
-    def __init__(self, config: DSMConfig):
+    def __init__(self, config: DSMConfig) -> None:
         """Initialize DSMConnectionPool with configuration.
 
         Args:

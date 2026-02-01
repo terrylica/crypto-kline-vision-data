@@ -75,7 +75,7 @@ SIMPLE_FORMAT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function
 class DSMLogger:
     """Simple wrapper around loguru that provides easy configuration and compatibility."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the DSM logger with environment-based configuration."""
         self._current_level = DEFAULT_LOG_LEVEL
         self._log_file = LOG_FILE

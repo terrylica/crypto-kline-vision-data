@@ -54,7 +54,7 @@ class ValidationError(Exception):
 class DataValidation:
     """Centralized data validation utilities for time, dates, and symbols."""
 
-    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None):
+    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None) -> None:
         """Initialize the DataValidation class.
 
         Args:

@@ -89,7 +89,7 @@ class TimestampedDataFrame(pd.DataFrame):
         True
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize a TimestampedDataFrame.
 
         Creates a DataFrame that enforces timestamp requirements and ensures
@@ -227,7 +227,7 @@ class TimestampedDataFrame(pd.DataFrame):
         logger.debug(f"Converted to pandas DataFrame with columns: {list(df.columns)}")
         return df
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         """Override to prevent modification of index.
 
         Warns when attempting to directly modify the 'open_time' column,

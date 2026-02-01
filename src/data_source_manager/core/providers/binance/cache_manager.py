@@ -30,7 +30,7 @@ class UnifiedCacheManager:
     - Cache invalidation
     """
 
-    def __init__(self, cache_dir: Path, create_dirs: bool = True):
+    def __init__(self, cache_dir: Path, create_dirs: bool = True) -> None:
         """Initialize the cache manager.
 
         Args:

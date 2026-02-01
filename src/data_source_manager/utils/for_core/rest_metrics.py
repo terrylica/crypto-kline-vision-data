@@ -24,7 +24,7 @@ class RestMetricsTracker:
     _instance = None
     _lock = threading.Lock()
 
-    def __new__(cls):
+    def __new__(cls) -> "RestMetricsTracker":
         """Create a singleton instance."""
         with cls._lock:
             if cls._instance is None:
@@ -32,7 +32,7 @@ class RestMetricsTracker:
                 cls._instance._initialized = False
             return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize metrics tracking."""
         if self._initialized:
             return

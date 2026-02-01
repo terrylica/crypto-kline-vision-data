@@ -1,0 +1,221 @@
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Hub configuration for data-source-manager
+# See: https://mise.jdx.dev/
+
+[tools]
+python = "3.13"
+
+[env]
+# Project-specific environment variables
+DSM_LOG_LEVEL = "WARNING"
+PYTHONPATH = "{{cwd}}/src"
+
+# =============================================================================
+# TASK DAG - Hub Orchestration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core Commands (Quick Access)
+# -----------------------------------------------------------------------------
+
+[tasks.test]
+description = "Run unit tests"
+run = "uv run -p 3.13 pytest tests/unit/ -v"
+sources = ["src/**/*.py", "tests/unit/**/*.py"]
+
+[tasks."test:all"]
+description = "Run all tests (unit + integration)"
+run = "uv run -p 3.13 pytest tests/ -v"
+sources = ["src/**/*.py", "tests/**/*.py"]
+
+[tasks."test:integration"]
+description = "Run integration tests (requires network)"
+run = "uv run -p 3.13 pytest tests/integration/ -v"
+sources = ["src/**/*.py", "tests/integration/**/*.py"]
+
+[tasks."test:fcp"]
+description = "Run FCP protocol tests"
+run = "uv run -p 3.13 pytest tests/fcp_pm/ -v"
+sources = ["src/**/*.py", "tests/fcp_pm/**/*.py"]
+
+[tasks."test:fcp-edge"]
+description = "Run FCP edge case tests (comprehensive real-world scenarios)"
+run = "uv run -p 3.13 pytest tests/fcp_pm/test_fcp_edge_cases.py -v"
+sources = ["src/**/*.py", "tests/fcp_pm/test_fcp_edge_cases.py"]
+
+[tasks."test:okx"]
+description = "Run OKX-specific tests"
+run = "uv run -p 3.13 pytest tests/okx/ -m okx -v"
+
+[tasks."test:cov"]
+description = "Run tests with coverage report"
+run = "uv run -p 3.13 pytest tests/unit/ --cov=src/data_source_manager --cov-report=term-missing"
+
+# -----------------------------------------------------------------------------
+# Linting & Formatting
+# -----------------------------------------------------------------------------
+
+[tasks.lint]
+description = "Run ruff linter"
+run = "uv run -p 3.13 ruff check src/ tests/"
+sources = ["src/**/*.py", "tests/**/*.py"]
+
+[tasks."lint:fix"]
+description = "Run ruff linter with auto-fix"
+run = "uv run -p 3.13 ruff check --fix src/ tests/"
+
+[tasks.format]
+description = "Format code with ruff"
+run = "uv run -p 3.13 ruff format src/ tests/"
+
+[tasks."format:check"]
+description = "Check code formatting"
+run = "uv run -p 3.13 ruff format --check src/ tests/"
+
+[tasks.typecheck]
+description = "Run type checking with pyright"
+run = "uv run -p 3.13 pyright src/"
+
+# -----------------------------------------------------------------------------
+# Composite Tasks (DAG)
+# -----------------------------------------------------------------------------
+
+[tasks."check:all"]
+description = "Run all checks: lint + format + typecheck"
+depends = ["lint", "format:check"]
+# Note: typecheck disabled by default - enable if pyright is configured
+
+[tasks.quick]
+description = "Quick validation: lint + unit tests + import check"
+run = """
+uv run -p 3.13 ruff check --fix src/ tests/
+uv run -p 3.13 pytest tests/unit/ -q
+uv run -p 3.13 python -c "from data_source_manager import DataSourceManager; print('Import check: OK')"
+"""
+
+[tasks.verify]
+description = "Full verification before commit"
+depends = ["lint:fix", "test", "import:check"]
+
+# -----------------------------------------------------------------------------
+# Import & Validation
+# -----------------------------------------------------------------------------
+
+[tasks."import:check"]
+description = "Verify package imports correctly"
+run = """
+uv run -p 3.13 python -c "
+from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
+from data_source_manager import fetch_market_data, ChartType, DataSource
+print('All imports OK')
+"
+"""
+
+[tasks."fcp:test"]
+description = "Run quick FCP end-to-end test"
+run = "uv run -p 3.13 python examples/quick_start.py"
+
+# -----------------------------------------------------------------------------
+# Claude Code Validation
+# -----------------------------------------------------------------------------
+
+[tasks."claude:validate"]
+description = "Validate Claude Code setup"
+run = """
+echo "Checking Claude Code configuration..."
+test -d .claude && echo "✓ .claude directory exists" || echo "✗ .claude directory missing"
+test -f .claude/settings.json && echo "✓ settings.json exists" || echo "✗ settings.json missing"
+test -d .claude/rules && echo "✓ rules directory exists" || echo "✗ rules directory missing"
+test -d .claude/commands && echo "✓ commands directory exists" || echo "✗ commands directory missing"
+echo ""
+echo "Checking CLAUDE.md files..."
+find . -name "CLAUDE.md" -not -path "./.git/*" | while read f; do echo "✓ $f"; done
+"""
+
+# -----------------------------------------------------------------------------
+# Release Tasks
+# -----------------------------------------------------------------------------
+
+[tasks."release:preflight"]
+description = "Pre-release checks"
+depends = ["check:all", "test"]
+run = """
+echo "Running pre-release checks..."
+git status --porcelain | grep -q . && echo "⚠️  Uncommitted changes detected" || echo "✓ Working directory clean"
+"""
+
+[tasks."release:dry"]
+description = "Dry run semantic-release"
+run = """
+echo "Semantic release dry run..."
+# Note: Requires semantic-release configuration
+# npx semantic-release --dry-run
+echo "Not configured - see docs/adr/2026-01-30-claude-code-infrastructure.md"
+"""
+
+[tasks."release:full"]
+description = "Full semantic-release"
+run = """
+echo "Running semantic-release..."
+# Note: Requires GH_TOKEN in .mise.local.toml
+# npx semantic-release
+echo "Not configured - see docs/adr/2026-01-30-claude-code-infrastructure.md"
+"""
+
+# -----------------------------------------------------------------------------
+# Cache Management
+# -----------------------------------------------------------------------------
+
+[tasks."cache:clear"]
+description = "Clear local DSM cache"
+run = """
+echo "Clearing DSM cache..."
+rm -rf ~/.cache/data_source_manager
+echo "Cache cleared: ~/.cache/data_source_manager"
+"""
+
+[tasks."cache:stats"]
+description = "Show cache statistics"
+run = """
+echo "DSM Cache Statistics:"
+du -sh ~/.cache/data_source_manager 2>/dev/null || echo "No cache found"
+find ~/.cache/data_source_manager -name "*.arrow" 2>/dev/null | wc -l | xargs echo "Arrow files:"
+"""
+
+# -----------------------------------------------------------------------------
+# Development Helpers
+# -----------------------------------------------------------------------------
+
+[tasks.help]
+description = "Show available tasks"
+run = "mise tasks"
+
+[tasks.sync]
+description = "Sync dependencies"
+run = "uv sync --dev"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = """
+rm -rf build/ dist/ *.egg-info/
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+find . -type d -name .ruff_cache -exec rm -rf {} + 2>/dev/null || true
+echo "Cleaned build artifacts"
+"""
+
+# -----------------------------------------------------------------------------
+# Examples & Demos
+# -----------------------------------------------------------------------------
+
+[tasks."demo:quickstart"]
+description = "Run quick start example"
+run = "uv run -p 3.13 python examples/quick_start.py"
+
+[tasks."demo:logging"]
+description = "Run logging demo"
+run = "uv run -p 3.13 python examples/dsm_logging_demo.py"
+
+[tasks."demo:cli"]
+description = "Run DSM CLI demo"
+run = "uv run -p 3.13 python examples/sync/dsm_demo_cli.py"

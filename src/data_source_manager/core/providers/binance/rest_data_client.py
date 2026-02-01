@@ -73,7 +73,7 @@ class RestDataClient(DataClientInterface):
         client=None,
         symbol: str = "BTCUSDT",
         interval: Interval = Interval.MINUTE_1,
-    ):
+    ) -> None:
         """Initialize the REST data client.
 
         Args:
@@ -121,13 +121,13 @@ class RestDataClient(DataClientInterface):
             return f"{self.base_url}/dapi/v1/klines"
         raise ValueError(f"Unsupported market type: {self.market_type}")
 
-    def __enter__(self):
+    def __enter__(self) -> "RestDataClient":
         """Initialize the client session when entering the context."""
         if self._client is None:
             self._client = create_optimized_client()
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Clean up resources when exiting the context."""
         if self._client and hasattr(self._client, "close"):
             self._client.close()

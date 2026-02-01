@@ -49,11 +49,11 @@ def demonstrate_fix():
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(minutes=10)  # 10 minutes = 600 seconds
     
-    print(f"Test Parameters:")
+    print("Test Parameters:")
     print(f"  Symbol: {symbol}")
     print(f"  Interval: {interval.value}")
     print(f"  Time Range: {start_time.strftime('%H:%M:%S')} to {end_time.strftime('%H:%M:%S')}")
-    print(f"  Expected Records: ~600 (10 minutes * 60 seconds)")
+    print("  Expected Records: ~600 (10 minutes * 60 seconds)")
     print()
     
     # Create DSM instance with minimal logging for clean output
@@ -86,8 +86,8 @@ def demonstrate_fix():
             nan_percentage = (nan_count / total_cells) * 100
             
             # Check data quality
-            if 'close' in df_fixed.columns:
-                close_prices = df_fixed['close'].values
+            if "close" in df_fixed.columns:
+                close_prices = df_fixed["close"].values
                 finite_prices = close_prices[np.isfinite(close_prices)]
                 data_quality = len(finite_prices) / len(close_prices) * 100 if len(close_prices) > 0 else 0
             else:
@@ -108,15 +108,15 @@ def demonstrate_fix():
             
             # Show data sample
             if total_records > 0:
-                print(f"\n📋 Sample Data (first 3 records):")
+                print("\n📋 Sample Data (first 3 records):")
                 print(df_fixed.head(3).to_string())
                 
                 # Show time coverage
-                if 'open_time' in df_fixed.columns:
-                    actual_start = df_fixed['open_time'].min()
-                    actual_end = df_fixed['open_time'].max()
+                if "open_time" in df_fixed.columns:
+                    actual_start = df_fixed["open_time"].min()
+                    actual_end = df_fixed["open_time"].max()
                     coverage_seconds = (actual_end - actual_start).total_seconds()
-                    print(f"\n⏰ Time Coverage:")
+                    print("\n⏰ Time Coverage:")
                     print(f"   Actual Range: {actual_start.strftime('%H:%M:%S')} to {actual_end.strftime('%H:%M:%S')}")
                     print(f"   Coverage: {coverage_seconds:.0f} seconds ({coverage_seconds/60:.1f} minutes)")
         else:
@@ -149,7 +149,7 @@ def demonstrate_fix():
             completeness = (total_records_reindexed / expected_records) * 100 if expected_records > 0 else 0
             print(f"✅ Completeness: {completeness:.1f}% ({total_records_reindexed}/{expected_records})")
         
-        print(f"\n📊 COMPARISON SUMMARY")
+        print("\n📊 COMPARISON SUMMARY")
         print("-" * 50)
         print(f"auto_reindex=False: {total_records:4d} records, {nan_count:5d} NaN values")
         print(f"auto_reindex=True:  {total_records_reindexed:4d} records, {nan_count_reindexed:5d} NaN values")
@@ -167,11 +167,10 @@ def demonstrate_fix():
             print("   • Machine learning feature engineering")
             print("   • Statistical analysis without artificial gaps")
             return True
-        else:
-            print("🎯 RESULT: ❌ NEEDS MORE WORK")
-            print("❌ The fix is not completely working yet")
-            print("❌ Please continue debugging the DSM implementation")
-            return False
+        print("🎯 RESULT: ❌ NEEDS MORE WORK")
+        print("❌ The fix is not completely working yet")
+        print("❌ Please continue debugging the DSM implementation")
+        return False
             
     except Exception as e:
         print(f"❌ ERROR during demonstration: {e}")
@@ -211,12 +210,12 @@ def show_signal_processing_example():
         
         dsm.close()
         
-        if df.empty or 'close' not in df.columns:
+        if df.empty or "close" not in df.columns:
             print("❌ No price data available for signal processing example")
             return
         
         # Extract price data
-        prices = df['close'].values
+        prices = df["close"].values
         print(f"📊 Price Data: {len(prices)} points")
         print(f"   Range: ${prices.min():.2f} - ${prices.max():.2f}")
         print(f"   Mean: ${prices.mean():.2f}")
@@ -227,7 +226,7 @@ def show_signal_processing_example():
         print(f"   NaN values: {nan_count} ({nan_count/len(prices)*100:.1f}%)")
         
         # Test basic signal processing operations
-        print(f"\n🔬 Signal Processing Operations:")
+        print("\n🔬 Signal Processing Operations:")
         
         # Calculate returns
         if len(prices) > 1:
@@ -239,7 +238,7 @@ def show_signal_processing_example():
         # Moving average
         if len(prices) >= 10:
             window = min(10, len(prices)//2)
-            moving_avg = np.convolve(prices, np.ones(window)/window, mode='valid')
+            moving_avg = np.convolve(prices, np.ones(window)/window, mode="valid")
             print(f"   ✅ Moving average ({window}-period): {len(moving_avg)} values")
         
         # Test with scipy if available
@@ -252,8 +251,8 @@ def show_signal_processing_example():
         except ImportError:
             print("   ⚠️  scipy not available")
         
-        print(f"\n✅ All operations completed successfully with clean DSM data!")
-        print(f"🎉 No more 'buffer is not finite everywhere' errors!")
+        print("\n✅ All operations completed successfully with clean DSM data!")
+        print("🎉 No more 'buffer is not finite everywhere' errors!")
         
     except Exception as e:
         print(f"❌ Signal processing example failed: {e}")

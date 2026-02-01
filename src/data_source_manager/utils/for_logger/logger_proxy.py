@@ -10,6 +10,7 @@ import inspect
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from data_source_manager.utils.for_logger.console_utils import (
     create_rich_progress,
@@ -34,7 +35,7 @@ class ConsoleState:
 
     _instance = None
 
-    def __new__(cls):
+    def __new__(cls) -> "ConsoleState":
         """Create or return the singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -58,7 +59,7 @@ _console_state = ConsoleState()
 class LoggerProxy:
     """Proxy implementation providing automatic module detection and method chaining."""
 
-    def __init__(self, get_module_logger_fn, setup_root_logger_fn=None, use_rich=None):
+    def __init__(self, get_module_logger_fn, setup_root_logger_fn=None, use_rich=None) -> None:
         """Initialize the LoggerProxy.
 
         Args:
@@ -74,11 +75,11 @@ class LoggerProxy:
         if self._setup_root_logger:
             self._setup_root_logger()
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Dynamic attribute resolution with runtime module detection.
 
         Args:
-            name (str): Attribute name
+            name: Attribute name
 
         Returns:
             callable: Function that delegates to the appropriate logger method

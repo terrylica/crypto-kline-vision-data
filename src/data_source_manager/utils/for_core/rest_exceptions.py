@@ -14,7 +14,7 @@ from data_source_manager.utils.loguru_setup import logger
 class RestAPIError(Exception):
     """Base exception for all REST API related errors."""
 
-    def __init__(self, message="REST API error occurred"):
+    def __init__(self, message="REST API error occurred") -> None:
         """Initialize RestAPIError with an error message.
 
         Args:
@@ -28,7 +28,7 @@ class RestAPIError(Exception):
 class RateLimitError(RestAPIError):
     """Exception raised when rate limited by the REST API."""
 
-    def __init__(self, retry_after=None, message="Rate limited by REST API"):
+    def __init__(self, retry_after=None, message="Rate limited by REST API") -> None:
         """Initialize RateLimitError with retry information.
 
         Args:
@@ -43,7 +43,7 @@ class RateLimitError(RestAPIError):
 class HTTPError(RestAPIError):
     """Exception raised when an HTTP error occurs."""
 
-    def __init__(self, status_code, message=None):
+    def __init__(self, status_code, message=None) -> None:
         """Initialize HTTPError with status code.
 
         Args:
@@ -58,7 +58,7 @@ class HTTPError(RestAPIError):
 class APIError(RestAPIError):
     """Exception raised when the API returns an error code."""
 
-    def __init__(self, code, message=None):
+    def __init__(self, code, message=None) -> None:
         """Initialize APIError with error code.
 
         Args:
@@ -73,7 +73,7 @@ class APIError(RestAPIError):
 class NetworkError(RestAPIError):
     """Exception raised when a network error occurs during REST API requests."""
 
-    def __init__(self, message="Network error during REST API request"):
+    def __init__(self, message="Network error during REST API request") -> None:
         """Initialize NetworkError with error message.
 
         Args:
@@ -85,7 +85,7 @@ class NetworkError(RestAPIError):
 class RestTimeoutError(RestAPIError):
     """Exception raised when a REST API request times out."""
 
-    def __init__(self, message="REST API request timed out"):
+    def __init__(self, message="REST API request timed out") -> None:
         """Initialize RestTimeoutError with error message.
 
         Args:
@@ -101,7 +101,7 @@ TimeoutError = RestTimeoutError
 class JSONDecodeError(RestAPIError):
     """Exception raised when unable to decode JSON response from REST API."""
 
-    def __init__(self, message="Failed to decode JSON response from REST API"):
+    def __init__(self, message="Failed to decode JSON response from REST API") -> None:
         """Initialize JSONDecodeError with error message.
 
         Args:

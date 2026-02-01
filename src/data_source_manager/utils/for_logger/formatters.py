@@ -70,7 +70,7 @@ def create_colored_formatter(format_string: str = CUSTOM_FORMAT_WITH_FILENAME) -
 class RichMarkupStripper(logging.Filter):
     """Filter that strips Rich markup from log messages."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the filter with the Rich markup pattern."""
         super().__init__()
         self.rich_markup_pattern = re.compile(r"\[(.*?)\]")

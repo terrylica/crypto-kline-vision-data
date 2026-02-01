@@ -36,7 +36,7 @@ class BinanceFundingRateClient(DataClientInterface):
         use_cache: bool = True,
         cache_dir: Path | None = None,
         retry_count: int = 5,
-    ):
+    ) -> None:
         """Initialize the Binance funding rate client.
 
         Args:
@@ -86,11 +86,11 @@ class BinanceFundingRateClient(DataClientInterface):
 
         logger.debug(f"Initialized BinanceFundingRateClient for {symbol} with interval {interval}, market type {market_type.name}")
 
-    def __enter__(self):
+    def __enter__(self) -> "BinanceFundingRateClient":
         """Context manager entry."""
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Context manager exit."""
         # Close the HTTP client if it has a close method
         if hasattr(self._client, "close") and callable(self._client.close):

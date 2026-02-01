@@ -32,7 +32,7 @@ from data_source_manager.utils.loguru_setup import logger
 class DataFrameValidator:
     """Validation and standardization for DataFrames."""
 
-    def __init__(self, df: pd.DataFrame | None = None):
+    def __init__(self, df: pd.DataFrame | None = None) -> None:
         """Initialize with a DataFrame to validate.
 
         Args:

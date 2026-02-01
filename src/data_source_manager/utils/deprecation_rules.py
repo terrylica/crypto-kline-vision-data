@@ -151,7 +151,7 @@ class Interval:
     MIN_VALUE: ClassVar[int] = 1
     MAX_VALUE: ClassVar[int] = 1000
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate interval value after initialization."""
         if not isinstance(self.value, int):
             raise IntervalParseError(f"Interval value must be an integer, got {type(self.value)}")

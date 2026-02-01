@@ -53,7 +53,7 @@ class ApiBoundaryValidator:
     if DataFrame contents match what would be returned by the API.
     """
 
-    def __init__(self, market_type: MarketType = MarketType.SPOT):
+    def __init__(self, market_type: MarketType = MarketType.SPOT) -> None:
         """Initialize API Boundary Validator.
 
         Args:
@@ -68,11 +68,11 @@ class ApiBoundaryValidator:
         self.http_client = create_client(timeout=10.0)
         logger.debug(f"Initialized ApiBoundaryValidator for {market_type} market")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "ApiBoundaryValidator":
         """Context manager entry for async with statements."""
         return self
 
-    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Context manager exit for async with statements - ensures client is closed."""
         await self.close()
         logger.debug("Closed ApiBoundaryValidator HTTP client")

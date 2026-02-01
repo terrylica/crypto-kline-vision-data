@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 """
 Quick Start Example for Data Source Manager.
 
@@ -33,7 +34,7 @@ def main() -> None:
     # Fetch data with automatic failover
     df = manager.get_data(
         symbol="BTCUSDT",
-        interval=Interval.H1,
+        interval=Interval.HOUR_1,
         start_time=start_time,
         end_time=end_time,
     )

@@ -49,13 +49,13 @@ def test_auto_reindex_false_fix():
     print(f"Symbol: {symbol}")
     print(f"Interval: {interval.value}")
     print(f"Time Range: {start_time} to {end_time}")
-    print(f"Expected Records: ~900 (15 minutes * 60 seconds)")
+    print("Expected Records: ~900 (15 minutes * 60 seconds)")
     
     # Create DSM instance with debug logging
     dsm = DataSourceManager.create(
         DataProvider.BINANCE, 
         MarketType.SPOT,
-        log_level='INFO',
+        log_level="INFO",
         suppress_http_debug=True
     )
     
@@ -188,7 +188,7 @@ def test_signal_processing_compatibility():
             return False
         
         # Extract price data
-        prices = df['close'].values
+        prices = df["close"].values
         
         # Remove any NaN values
         clean_prices = prices[np.isfinite(prices)]
@@ -204,7 +204,7 @@ def test_signal_processing_compatibility():
         if scipy_available and len(clean_prices) > 100:
             try:
                 # Test Welch's method for power spectral density
-                freqs, psd = scipy.signal.welch(clean_prices, nperseg=min(256, len(clean_prices)//4))
+                freqs, _psd = scipy.signal.welch(clean_prices, nperseg=min(256, len(clean_prices)//4))
                 print(f"✅ scipy.signal.welch: SUCCESS (computed {len(freqs)} frequency bins)")
             except Exception as e:
                 print(f"❌ scipy.signal.welch: FAILED - {e}")

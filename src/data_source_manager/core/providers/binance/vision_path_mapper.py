@@ -52,7 +52,7 @@ class PathComponents:
 class VisionPathMapper:
     """Maps between remote Binance Vision API paths and local cache paths using minimal transformation."""
 
-    def __init__(self, base_cache_dir: str | Path = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache") -> None:
         """Initialize with cache directory."""
         self.base_cache_dir = Path(base_cache_dir)
         self.base_url = "https://data.binance.vision"
@@ -182,7 +182,7 @@ class FSSpecVisionHandler:
     Provides unified access to local and remote data files via fsspec.
     """
 
-    def __init__(self, base_cache_dir: str | Path = "cache"):
+    def __init__(self, base_cache_dir: str | Path = "cache") -> None:
         """Initialize with cache directory."""
         self.path_mapper = VisionPathMapper(base_cache_dir)
         self.base_cache_dir = Path(base_cache_dir)

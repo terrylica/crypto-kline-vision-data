@@ -24,7 +24,7 @@ __all__ = [
 class SafeMemoryMap:
     """Context manager for safe memory map handling."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         """Initialize memory map.
 
         Args:

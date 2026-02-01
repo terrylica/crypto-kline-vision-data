@@ -13,11 +13,11 @@ import sys
 class NoOpProgress:
     """No-operation progress bar for when rich output is suppressed."""
 
-    def __enter__(self):
+    def __enter__(self) -> "NoOpProgress":
         """Enter the context manager, returning self."""
         return self
 
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         """Exit the context manager, doing nothing."""
         pass
 

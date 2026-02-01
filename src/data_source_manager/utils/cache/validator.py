@@ -46,7 +46,7 @@ class CacheValidator:
     MAX_CACHE_AGE = timedelta(days=30)  # Maximum age before revalidation
     METADATA_UPDATE_INTERVAL = timedelta(minutes=5)
 
-    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None):
+    def __init__(self, api_boundary_validator: ApiBoundaryValidator | None = None) -> None:
         """Initialize the CacheValidator with optional ApiBoundaryValidator.
 
         Args:
