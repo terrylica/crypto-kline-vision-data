@@ -42,6 +42,7 @@ from data_source_manager.utils.market_constraints import (
     DataProvider,
     Interval,
     MarketType,
+    get_market_capabilities,
 )
 from data_source_manager.utils.time_utils import (
     align_time_boundaries,
@@ -91,15 +92,9 @@ class RestDataClient(DataClientInterface):
         self._symbol = symbol
         self._interval = interval
 
-        # Set base URL based on market type
-        if market_type == MarketType.SPOT:
-            self.base_url = "https://api.binance.com"
-        elif market_type == MarketType.FUTURES_USDT:
-            self.base_url = "https://fapi.binance.com"
-        elif market_type == MarketType.FUTURES_COIN:
-            self.base_url = "https://dapi.binance.com"
-        else:
-            raise ValueError(f"Unsupported market type: {market_type}")
+        # Get base URL from centralized market capabilities (DRY)
+        capabilities = get_market_capabilities(market_type)
+        self.base_url = capabilities.api_base_url
 
         # Set up proper endpoint based on market type
         self._endpoint = self._get_klines_endpoint()
