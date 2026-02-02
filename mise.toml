@@ -82,8 +82,7 @@ run = "uv run -p 3.13 pyright src/"
 
 [tasks."check:all"]
 description = "Run all checks: lint + format + typecheck"
-depends = ["lint", "format:check"]
-# Note: typecheck disabled by default - enable if pyright is configured
+depends = ["lint", "format:check", "typecheck"]
 
 [tasks.quick]
 description = "Quick validation: lint + unit tests + import check"
