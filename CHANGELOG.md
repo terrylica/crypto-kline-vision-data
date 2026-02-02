@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/terrylica/data-source-manager/compare/v1.0.1...v1.0.2) (2026-02-02)
+
+
+### Bug Fixes
+
+* **types:** resolve pyright type errors (9 errors → 0) ([f4e9123](https://github.com/terrylica/data-source-manager/commit/f4e9123bca02b304664dbc541f0691f4c140b435))
+
 ## [1.0.1](https://github.com/terrylica/data-source-manager/compare/v1.0.0...v1.0.1) (2026-02-01)
 
 
