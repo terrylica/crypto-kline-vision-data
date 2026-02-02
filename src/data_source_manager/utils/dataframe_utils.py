@@ -250,7 +250,7 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
             # Remove duplicates from index
             if df.index.has_duplicates:
                 logger.warning("Removing duplicate indices")
-                df = df[~df.index.duplicated(keep="first")]
+                df = df.loc[~df.index.duplicated(keep="first")]
 
     except (ValueError, TypeError, KeyError) as e:
         logger.error(f"Error in ensure_open_time_as_index: {e}")

@@ -108,8 +108,8 @@ class DataSourceConfig:
     chart_type: ChartType = attr.field(default=ChartType.KLINES, validator=attr.validators.instance_of(ChartType))
     cache_dir: Path | None = attr.field(
         default=None,
-        validator=attr.validators.optional(attr.validators.instance_of((str, Path))),
-        converter=lambda p: Path(p) if p is not None and not isinstance(p, Path) else p,
+        validator=attr.validators.optional(attr.validators.instance_of(Path)),
+        converter=lambda p: Path(p) if p is not None and not isinstance(p, Path) else p,  # type: ignore[arg-type]
     )
     use_cache: bool = attr.field(default=True, validator=attr.validators.instance_of(bool))
     retry_count: int = attr.field(default=5, validator=[attr.validators.instance_of(int), lambda _, __, value: value >= 0])

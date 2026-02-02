@@ -204,7 +204,7 @@ class TimeseriesDataProcessor:
 
         # Remove duplicates from index if any exist
         if df.index.has_duplicates:
-            df = df[~df.index.duplicated(keep="first")]
+            df = df.loc[~df.index.duplicated(keep="first")]
 
         # Ensure all datetimes are timezone-aware UTC
         if isinstance(df.index, pd.DatetimeIndex):

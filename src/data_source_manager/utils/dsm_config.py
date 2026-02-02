@@ -72,8 +72,8 @@ class DSMConfig:
     )
     cache_dir: Path | None = attr.field(
         default=None,
-        validator=attr.validators.optional(attr.validators.instance_of((str, Path))),
-        converter=lambda p: Path(p) if p is not None and not isinstance(p, Path) else p,
+        validator=attr.validators.optional(attr.validators.instance_of(Path)),
+        converter=lambda p: Path(p) if p is not None and not isinstance(p, Path) else p,  # type: ignore[arg-type]
     )
     use_cache: bool = attr.field(
         default=True,

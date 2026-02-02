@@ -64,7 +64,7 @@ def safely_reindex_dataframe(
         end_time = pd.to_datetime(end_time, utc=True)
 
     # Convert interval to string if it's an enum
-    interval_str = interval.value if hasattr(interval, "value") else interval
+    interval_str: str = interval.value if hasattr(interval, "value") else str(interval)
 
     # Determine pandas frequency string based on interval
     freq = None
