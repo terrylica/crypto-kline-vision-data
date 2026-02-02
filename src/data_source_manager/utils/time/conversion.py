@@ -19,13 +19,13 @@ import pandas as pd
 from data_source_manager.utils.config import (
     CANONICAL_CLOSE_TIME,
     CANONICAL_INDEX_NAME,
+    MICROSECOND_DIGITS,
     MILLISECOND_DIGITS,
     TIMESTAMP_PRECISION,
 )
 from data_source_manager.utils.loguru_setup import logger
 
 # Constants for timestamp format detection
-MICROSECOND_DIGITS = 16
 TIMESTAMP_UNIT = "us"  # Default unit for timestamp parsing
 
 # Timestamp unit type
