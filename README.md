@@ -21,15 +21,23 @@ Data Source Manager follows modern Python packaging standards with a clean src-l
 data-source-manager/
 ├── src/
 │   └── data_source_manager/        # Main package namespace
-│       ├── __init__.py             # Public API exports
+│       ├── __init__.py             # Public API exports (lazy loading)
 │       ├── core/                   # Core functionality
-│       │   ├── sync/              # Synchronous data managers
-│       │   └── providers/         # Data provider implementations
-│       └── utils/                 # Utility modules
-├── examples/                      # Usage examples and demos
-├── tests/                        # Test suite
-└── docs/                         # Documentation
+│       │   ├── sync/               # Synchronous data managers
+│       │   │   ├── data_source_manager.py  # Main DSM class with FCP
+│       │   │   ├── dsm_types.py            # DataSource, DataSourceConfig
+│       │   │   └── dsm_lib.py              # High-level fetch functions
+│       │   └── providers/          # Data provider implementations
+│       │       └── binance/        # Binance-specific clients
+│       └── utils/                  # Utility modules
+│           ├── market_constraints.py  # Enums: DataProvider, MarketType, Interval
+│           └── loguru_setup.py        # Logging configuration
+├── examples/                       # Usage examples and demos
+├── tests/                          # Test suite
+└── docs/                           # Documentation
 ```
+
+**Note**: The public API returns pandas DataFrames for compatibility with downstream consumers. Polars is used internally for some performance-critical operations.
 
 ## Installation
 
@@ -84,13 +92,14 @@ The installation process (through either method) automatically registers the CLI
 
 ```python
 from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Create a manager for USDT-margined futures
 manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
 # Fetch recent BTCUSDT data with automatic failover
-end_time = datetime.now()
+# IMPORTANT: Always use UTC timezone-aware datetimes
+end_time = datetime.now(timezone.utc)
 start_time = end_time - timedelta(days=7)
 
 df = manager.get_data(
@@ -102,6 +111,7 @@ df = manager.get_data(
 
 print(f"Loaded {len(df)} bars of BTCUSDT data")
 print(df.head())
+manager.close()  # Always close when done
 ```
 
 ### Failover Control Protocol (FCP)
@@ -185,7 +195,7 @@ The main function for retrieving market data is `fetch_market_data`.
 ### Example 1: Fetching with Specific Date Range
 
 ```python
-from datetime import datetime
+from datetime import datetime, timezone
 from data_source_manager import fetch_market_data, MarketType, DataProvider, Interval, ChartType
 
 # Define parameters
@@ -194,10 +204,11 @@ market_type = MarketType.SPOT
 chart_type = ChartType.KLINES
 symbol = "BTCUSDT"
 interval = Interval.MINUTE_1
-start_time = datetime(2023, 1, 1)
-end_time = datetime(2023, 1, 10)
+# IMPORTANT: Always use UTC timezone-aware datetimes
+start_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
+end_time = datetime(2023, 1, 10, tzinfo=timezone.utc)
 
-# Fetch data
+# Fetch data (returns pandas DataFrame)
 df, elapsed_time, records_count = fetch_market_data(
     provider=provider,
     market_type=market_type,
@@ -386,16 +397,17 @@ logger.info("Status: <green>SUCCESS</green>")
 
 ### Migration from Old Logger
 
-If you're using the old `data_source_manager.utils.logger_setup`, migrate easily:
+The old `data_source_manager.utils.logger_setup` module is deprecated and will emit a deprecation warning. It re-exports from `loguru_setup` for backward compatibility, but you should update your imports:
 
-```bash
-# Automatic migration (recommended)
-python scripts/dev/migrate_to_loguru.py
+```python
+# Old (deprecated):
+from data_source_manager.utils.logger_setup import logger
 
-# Or manually change imports:
-# Old: from data_source_manager.utils.logger_setup import logger
-# New: from data_source_manager.utils.loguru_setup import logger
+# New (recommended):
+from data_source_manager.utils.loguru_setup import logger
 ```
+
+All existing code continues to work without changes, but updating imports is recommended.
 
 ### Demo
 
@@ -430,9 +442,9 @@ DSM_LOG_LEVEL=DEBUG python examples/dsm_logging_demo.py --test-dsm
 
 ## Documentation
 
-- [Migration Guide](docs/howto/loguru_migration.md) - How to migrate to loguru
 - [API Documentation](docs/api/) - Complete API reference
 - [Examples](examples/) - Usage examples and demos
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 ## License
 

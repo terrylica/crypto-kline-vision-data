@@ -1,4 +1,5 @@
-# polars-exception: CacheManager stores/retrieves pandas DataFrames as Arrow files
+# Memory optimization: Uses Polars internally for zero-copy Arrow reads
+# Public API accepts/returns pandas DataFrames for backward compatibility
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
 """Unified cache manager for market data."""
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import polars as pl
 import pyarrow as pa
 import pyarrow.ipc
 
@@ -307,15 +309,19 @@ class UnifiedCacheManager:
             # Log the loading attempt
             logger.debug(f"Loading cache file: {cache_path}")
 
-            # Read the Arrow file
-            with pa.memory_map(str(cache_path), "r") as source:
-                reader = pa.ipc.open_file(source)
-                table = reader.read_all()
-
-            # Convert to pandas DataFrame
-            df = table.to_pandas()
+            # Read the Arrow IPC file using Polars for zero-copy
+            df_pl = pl.read_ipc(cache_path, memory_map=True)
 
             # Basic validation on the returned data
+            if len(df_pl) == 0:
+                logger.error(f"Cache file {cache_path} returned empty DataFrame - Invalidating cache entry")
+                self._mark_cache_invalid(cache_key, "Empty DataFrame")
+                return None
+
+            # Convert to pandas at API boundary
+            df = df_pl.to_pandas()
+
+            # Basic validation on the returned data (redundant check for safety)
             if df.empty:
                 logger.error(f"Cache file {cache_path} returned empty DataFrame - Invalidating cache entry")
                 self._mark_cache_invalid(cache_key, "Empty DataFrame")

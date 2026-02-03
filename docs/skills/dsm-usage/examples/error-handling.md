@@ -22,7 +22,7 @@ start = end - timedelta(days=7)
 try:
     df = manager.get_data(
         symbol="BTCUSDT",
-        interval=Interval.H1,
+        interval=Interval.HOUR_1,
         start_time=start,
         end_time=end
     )
@@ -60,7 +60,7 @@ if not is_valid:
 ```python
 df = manager.get_data(
     symbol="BTCUSDT",
-    interval=Interval.H1,
+    interval=Interval.HOUR_1,
     start_time=start,
     end_time=end
 )
@@ -80,20 +80,17 @@ assert not df.index.has_duplicates, "Duplicate timestamps"
 ## Timeout Handling
 
 ```python
-import httpx
+# DSM uses httpx internally with retry logic
+# The retry_count parameter controls how many times failed requests are retried
 
-# DSM uses httpx internally with configurable timeout
-# If you need custom timeout, create config:
+from data_source_manager import DataSourceManager, DataProvider, MarketType
 
-from data_source_manager.core.sync.data_source_manager import DataSourceConfig
-
-config = DataSourceConfig(
-    provider=DataProvider.BINANCE,
-    market_type=MarketType.FUTURES_USDT,
-    timeout=60.0  # seconds
+# Create manager with higher retry count for unreliable networks
+manager = DataSourceManager.create(
+    DataProvider.BINANCE,
+    MarketType.FUTURES_USDT,
+    retry_count=5  # Number of retry attempts (default is 3)
 )
-
-manager = DataSourceManager.from_config(config)
 ```
 
 ## Retry Pattern
@@ -108,7 +105,7 @@ for attempt in range(MAX_RETRIES):
     try:
         df = manager.get_data(
             symbol="BTCUSDT",
-            interval=Interval.H1,
+            interval=Interval.HOUR_1,
             start_time=start,
             end_time=end
         )

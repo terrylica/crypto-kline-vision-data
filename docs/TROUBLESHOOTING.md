@@ -30,11 +30,14 @@ DSM_LOG_LEVEL=DEBUG uv run -p 3.13 python your_script.py
 **Solutions**:
 
 ```python
-# Check symbol format
+# Check symbol format - raises ValueError with suggestion if invalid
+from data_source_manager import MarketType
 from data_source_manager.utils.market_constraints import validate_symbol_for_market_type
 
-is_valid, suggestion = validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
-# Returns: (False, "BTCUSD_PERP") - wrong format for coin-margined
+try:
+    validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
+except ValueError as e:
+    print(e)  # "Invalid symbol format... Try using 'BTCUSD_PERP' instead."
 
 # Check time range is in past
 from datetime import datetime, timezone
@@ -134,31 +137,46 @@ from data_source_manager import DataSourceManager, DataProvider, MarketType
 
 ## FCP Source Verification
 
-Force specific data source for debugging:
+Force specific data source for debugging by passing `enforce_source` to `get_data()`:
 
 ```python
-from data_source_manager.core.sync.data_source_manager import DataSource
+from datetime import datetime, timedelta, timezone
+from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
+from data_source_manager.core.sync.dsm_types import DataSource
+
+manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+end = datetime.now(timezone.utc)
+start = end - timedelta(days=7)
 
 # Force Vision only (skip cache)
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.FUTURES_USDT,
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.VISION
 )
 
-# Force REST only
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.SPOT,
+# Force REST only (skip cache and Vision)
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.REST
 )
 
-# Force cache only (offline mode)
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.SPOT,
+# Force cache only (offline mode - no API calls)
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.CACHE
 )
+
+manager.close()
 ```
 
 ## Getting Help

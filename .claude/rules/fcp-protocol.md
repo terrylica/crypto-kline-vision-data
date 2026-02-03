@@ -71,14 +71,22 @@ def get_data(symbol, start, end, interval):
 Enable debug logging:
 
 ```python
-import logging
-logging.getLogger("data_source_manager").setLevel(logging.DEBUG)
+import os
+# Set before importing DSM
+os.environ["DSM_LOG_LEVEL"] = "DEBUG"
 
-# Or with structlog
-import structlog
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG)
+from data_source_manager import DataSourceManager, DataProvider, MarketType
+
+# Or configure after creation
+manager = DataSourceManager.create(
+    DataProvider.BINANCE,
+    MarketType.FUTURES_USDT,
+    log_level="DEBUG",
+    suppress_http_debug=False,  # Show detailed HTTP logs
 )
+
+# Or reconfigure at runtime
+manager.reconfigure_logging(log_level="DEBUG")
 ```
 
 Check FCP decisions:
@@ -93,18 +101,24 @@ uv run -p 3.13 python docs/skills/dsm-usage/scripts/diagnose_fcp.py BTCUSDT FUTU
 | Symptom             | Cause                 | Solution                      |
 | ------------------- | --------------------- | ----------------------------- |
 | Always hitting REST | Cache miss            | Check cache path, permissions |
-| Vision 403          | IP not whitelisted    | Use REST fallback             |
+| Vision 403          | Data too recent       | FCP handles automatically     |
 | Slow performance    | Large date range      | Split into chunks             |
 | Stale data          | Cache not invalidated | Clear cache manually          |
 
-## FCP Metrics
+## Tracking Data Sources
 
-Track FCP source distribution:
+The `_data_source` column tracks where each record came from:
 
 ```python
-# Manager exposes metrics after fetch
-stats = manager.get_stats()
-print(f"Cache hits: {stats.cache_hits}")
-print(f"Vision fetches: {stats.vision_fetches}")
-print(f"REST fetches: {stats.rest_fetches}")
+# Enable source tracking (default: True)
+df = manager.get_data(
+    "BTCUSDT", start_time, end_time, Interval.HOUR_1,
+    include_source_info=True
+)
+
+# Check data sources used
+if "_data_source" in df.columns:
+    sources = df["_data_source"].value_counts()
+    print(f"Data sources: {sources.to_dict()}")
+    # Example output: {'CACHE': 100, 'VISION': 50, 'REST': 10}
 ```

@@ -9,16 +9,22 @@ Context for working with data-source-manager documentation.
 ```
 docs/
 ├── adr/                    ← Architecture Decision Records (MADR 4.0)
-├── design/                 ← Implementation specifications (1:1 with ADRs)
-├── skills/                 ← Claude Code progressive disclosure skills
 ├── api/                    ← API reference documentation
+├── cache_diagnostics/      ← Cache debugging and validation
 ├── core_architecture/      ← System architecture and design
+├── data_client_interface/  ← Provider interface specifications
 ├── data_source_manager/    ← DSM class documentation
-├── howto/                  ← Step-by-step guides
 ├── debugging/              ← Debugging techniques
+├── design/                 ← Implementation specifications (1:1 with ADRs)
+├── howto/                  ← Step-by-step guides
+├── optimizations/          ← Performance optimization notes
+├── roadmap/                ← Feature roadmap and planning
+├── skills/                 ← Claude Code progressive disclosure skills
 ├── testing/                ← Test writing guides
-├── INDEX.md                ← Navigation hub
+├── utils/                  ← Utility module documentation
 ├── GLOSSARY.md             ← Domain terminology
+├── INDEX.md                ← Navigation hub
+├── RESUME.md               ← Session resume context
 └── TROUBLESHOOTING.md      ← Common issues and solutions
 ```
 

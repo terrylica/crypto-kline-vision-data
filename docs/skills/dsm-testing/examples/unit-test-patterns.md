@@ -109,7 +109,7 @@ class TestMockedDataSource:
         start = end - timedelta(days=1)
         df = manager.get_data(
             symbol="BTCUSDT",
-            interval=Interval.H1,
+            interval=Interval.HOUR_1,
             start_time=start,
             end_time=end
         )
@@ -134,7 +134,7 @@ class TestErrorHandling:
         with pytest.raises(ValueError):
             manager.get_data(
                 symbol="",  # Empty symbol
-                interval=Interval.H1,
+                interval=Interval.HOUR_1,
                 start_time=datetime.now(timezone.utc) - timedelta(days=1),
                 end_time=datetime.now(timezone.utc)
             )
@@ -147,7 +147,7 @@ class TestErrorHandling:
         with pytest.raises(RateLimitError):
             manager.get_data(
                 symbol="BTCUSDT",
-                interval=Interval.H1,
+                interval=Interval.HOUR_1,
                 start_time=datetime.now(timezone.utc) - timedelta(days=1),
                 end_time=datetime.now(timezone.utc)
             )

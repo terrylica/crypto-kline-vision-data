@@ -622,14 +622,17 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         start_date = start_time.date()
         end_date = end_time.date()
 
-        # Generate date range using list comprehension (PERF401 optimization)
+        # Generate UTC datetime objects directly (single list, no intermediate date_range)
         days_count = (end_date - start_date).days + 1
-        date_range = [start_date + timedelta(days=i) for i in range(days_count)]
+        date_objects = [
+            datetime.combine(start_date + timedelta(days=i), datetime.min.time(), tzinfo=timezone.utc)
+            for i in range(days_count)
+        ]
 
-        logger.info(f"Need to check {len(date_range)} dates for data")
+        logger.info(f"Need to check {len(date_objects)} dates for data")
 
         # Use ThreadPoolExecutor to download files in parallel
-        max_workers = min(MAXIMUM_CONCURRENT_DOWNLOADS, len(date_range))
+        max_workers = min(MAXIMUM_CONCURRENT_DOWNLOADS, len(date_objects))
         downloaded_dfs = []
         warning_messages = []  # Collect warning messages
         checksum_failures = []  # Track checksum failures
@@ -639,9 +642,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         if self._interval_str == "1s" and max_workers > CONCURRENT_DOWNLOADS_LIMIT_1S:
             max_workers = CONCURRENT_DOWNLOADS_LIMIT_1S
             logger.info(f"Limited concurrent downloads to {max_workers} for 1s interval")
-
-        # Create date objects to pass to ThreadPoolExecutor
-        date_objects = [datetime(d.year, d.month, d.day, tzinfo=timezone.utc) for d in date_range]
 
         # Get data files
         if len(date_objects) == 0:
@@ -965,11 +965,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             try:
                 timestamped_df = self._download_data(start_time, end_time)
 
-                # Convert to standard pandas DataFrame
-                df = timestamped_df.to_pandas() if hasattr(timestamped_df, "to_pandas") else pd.DataFrame(timestamped_df)
-
-                # Ensure open_time is properly handled
-                return ensure_open_time_as_column(df)
+                # TimestampedDataFrame already is a pd.DataFrame subclass
+                # No copy needed - just ensure open_time is a column
+                return ensure_open_time_as_column(timestamped_df)
 
             except (httpx.HTTPError, OSError, ValueError, RuntimeError, pd.errors.ParserError) as e:
                 if "Checksum verification failed" in str(e):
@@ -978,9 +976,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     logger.warning("Continuing despite checksum verification issues")
 
                     # Return the data we have, or empty dataframe if none
-                    if "df" in locals() and df is not None and not df.empty:
-                        logger.info(f"Returning {len(df)} rows despite checksum issues")
-                        return df
+                    if "timestamped_df" in locals() and timestamped_df is not None and not timestamped_df.empty:
+                        logger.info(f"Returning {len(timestamped_df)} rows despite checksum issues")
+                        return ensure_open_time_as_column(timestamped_df)
                     logger.critical("No data available due to checksum verification failure")
                     raise RuntimeError(f"VISION API DATA INTEGRITY ERROR: {e!s}") from e
                 logger.error(f"Error in _download_data: {e}")

@@ -63,8 +63,8 @@ Interval.MONTH_1     # 1M
 ```python
 from data_source_manager.utils.market_constraints import Interval
 
-# Get interval in milliseconds
-interval_ms = Interval.HOUR_1.to_milliseconds()  # 3600000
+# Get interval in seconds
+interval_sec = Interval.HOUR_1.to_seconds()  # 3600
 
 # Get string representation for API calls
 interval_str = Interval.HOUR_1.value  # "1h"

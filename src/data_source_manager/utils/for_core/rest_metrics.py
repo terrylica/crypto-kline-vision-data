@@ -55,8 +55,9 @@ class RestMetricsTracker:
         # Track errors by type
         self._errors_by_type = defaultdict(int)
 
-        # Track rate limiting
-        self._rate_limit_windows = []
+        # Track rate limiting (bounded deque prevents unbounded growth)
+        # maxlen=3600 allows up to 1 rate limit per second for 1 hour
+        self._rate_limit_windows: deque[datetime] = deque(maxlen=3600)
 
         # Store the last set of parameters for debugging
         self._last_params = {}
@@ -110,7 +111,9 @@ class RestMetricsTracker:
                     now = datetime.now(timezone.utc)
                     self._rate_limit_windows.append(now)
                     # Clean up old rate limit windows (older than 1 hour)
-                    self._rate_limit_windows = [t for t in self._rate_limit_windows if (now - t).total_seconds() < SECONDS_IN_HOUR]
+                    # Use popleft for O(1) removal instead of list comprehension
+                    while self._rate_limit_windows and (now - self._rate_limit_windows[0]).total_seconds() >= SECONDS_IN_HOUR:
+                        self._rate_limit_windows.popleft()
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current metrics.

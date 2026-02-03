@@ -120,20 +120,18 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
 
             if current_precision == "us" and TIMESTAMP_PRECISION == "ms":
                 # Convert from microseconds to milliseconds (truncate)
-                # Create new DatetimeIndex with millisecond precision
-                new_index = pd.DatetimeIndex(
-                    [pd.Timestamp(ts.timestamp() * 1000, unit="ms", tz=timezone.utc) for ts in result_df.index],
-                    name=result_df.index.name,
-                )
+                # Use numpy array with pd.to_datetime to avoid N Timestamp object allocations
+                timestamps_ms = np.array([int(ts.timestamp() * 1000) for ts in result_df.index], dtype="int64")
+                new_index = pd.to_datetime(timestamps_ms, unit="ms", utc=True)
+                new_index.name = result_df.index.name
                 result_df.index = new_index
 
             elif current_precision == "ms" and TIMESTAMP_PRECISION == "us":
                 # Convert from milliseconds to microseconds (add zeros)
-                # Create new DatetimeIndex with microsecond precision
-                new_index = pd.DatetimeIndex(
-                    [pd.Timestamp(int(ts.timestamp() * 1000000), unit="us", tz=timezone.utc) for ts in result_df.index],
-                    name=result_df.index.name,
-                )
+                # Use numpy array with pd.to_datetime to avoid N Timestamp object allocations
+                timestamps_us = np.array([int(ts.timestamp() * 1000000) for ts in result_df.index], dtype="int64")
+                new_index = pd.to_datetime(timestamps_us, unit="us", utc=True)
+                new_index.name = result_df.index.name
                 result_df.index = new_index
 
     # Process timestamp columns

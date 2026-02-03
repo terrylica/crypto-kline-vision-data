@@ -28,7 +28,7 @@ class TestVisionAPIIntegration:
 
         df = manager.get_data(
             symbol="BTCUSDT",
-            interval=Interval.H1,
+            interval=Interval.HOUR_1,
             start_time=start,
             end_time=end
         )
@@ -77,7 +77,7 @@ class TestMarketTypeIntegration:
 
         df = manager.get_data(
             symbol=symbol,
-            interval=Interval.H1,
+            interval=Interval.HOUR_1,
             start_time=start,
             end_time=end
         )
@@ -107,7 +107,7 @@ class TestFCPFallback:
 
         df = manager.get_data(
             symbol="BTCUSDT",
-            interval=Interval.M1,  # 1-minute for recent data
+            interval=Interval.MINUTE_1,  # 1-minute for recent data
             start_time=start,
             end_time=end
         )
@@ -143,7 +143,7 @@ class TestRateLimitHandling:
             try:
                 df = manager.get_data(
                     symbol=symbol,
-                    interval=Interval.H1,
+                    interval=Interval.HOUR_1,
                     start_time=start,
                     end_time=end
                 )

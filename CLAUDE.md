@@ -55,23 +55,29 @@ src/data_source_manager/
 ├── core/
 │   ├── sync/                  # Synchronous data managers
 │   │   ├── data_source_manager.py   # Main DSM class with FCP
-│   │   └── dsm_lib.py              # High-level fetch functions
+│   │   ├── dsm_types.py             # DataSource, DataSourceConfig
+│   │   └── dsm_lib.py               # High-level fetch functions
 │   └── providers/
 │       └── binance/           # Binance-specific implementations
 │           ├── vision_data_client.py    # Binance Vision API
 │           ├── rest_data_client.py      # REST API fallback
 │           └── cache_manager.py         # Arrow cache
 └── utils/
-    ├── market_constraints.py   # Enums: DataProvider, MarketType, Interval
+    ├── market_constraints.py   # Re-export from market/ subpackage
+    ├── market/                 # Enums and validation (refactored)
+    │   ├── enums.py           # DataProvider, MarketType, Interval, ChartType
+    │   ├── validation.py      # Symbol validation functions
+    │   └── capabilities.py    # Market capabilities
     ├── loguru_setup.py         # Logging configuration
-    └── for_core/              # Internal utilities
+    └── for_core/              # Internal utilities (FCP helpers, exceptions)
 ```
 
 **Key classes**:
 
 - `DataSourceManager` - Main entry point with FCP
-- `DataSourceConfig` - Configuration for DSM instances
-- `DataProvider`, `MarketType`, `Interval` - Core enums
+- `DataSourceConfig` - Configuration for DSM instances (in `dsm_types.py`)
+- `DataSource` - Enum for data source selection (AUTO, REST, VISION, CACHE)
+- `DataProvider`, `MarketType`, `Interval` - Core enums (from `utils/market/`)
 
 ---
 

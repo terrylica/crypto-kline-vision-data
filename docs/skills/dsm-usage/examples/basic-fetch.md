@@ -22,7 +22,7 @@ start = end - timedelta(days=7)
 # Fetch data
 df = manager.get_data(
     symbol="BTCUSDT",
-    interval=Interval.H1,
+    interval=Interval.HOUR_1,
     start_time=start,
     end_time=end
 )
@@ -39,7 +39,7 @@ data = {}
 for symbol in symbols:
     df = manager.get_data(
         symbol=symbol,
-        interval=Interval.H1,
+        interval=Interval.HOUR_1,
         start_time=start,
         end_time=end
     )
@@ -71,7 +71,7 @@ coin_manager = DataSourceManager.create(
 # Note: BTCUSD_PERP, not BTCUSDT
 df = coin_manager.get_data(
     symbol="BTCUSD_PERP",  # Coin-margined format
-    interval=Interval.H1,
+    interval=Interval.HOUR_1,
     start_time=start,
     end_time=end
 )
@@ -83,12 +83,12 @@ df = coin_manager.get_data(
 from data_source_manager import Interval
 
 # Common intervals
-Interval.M1   # 1 minute
-Interval.M5   # 5 minutes
-Interval.M15  # 15 minutes
-Interval.H1   # 1 hour
-Interval.H4   # 4 hours
-Interval.D1   # 1 day
+Interval.MINUTE_1    # 1 minute
+Interval.MINUTE_5    # 5 minutes
+Interval.MINUTE_15   # 15 minutes
+Interval.HOUR_1      # 1 hour
+Interval.HOUR_4      # 4 hours
+Interval.DAY_1       # 1 day
 ```
 
 ## Returned DataFrame Structure

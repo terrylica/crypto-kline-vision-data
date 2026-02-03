@@ -66,9 +66,10 @@ def validate_ohlcv(df):
 For large datasets:
 
 ```python
-# Use Arrow for disk storage
+# Use Arrow for disk storage (pandas)
 df.to_parquet("data.parquet")
 
-# Use mmap for reading
-df = pl.read_parquet("data.parquet", memory_map=True)
+# For reading cached data, DSM uses memory-mapped Arrow files internally
+# Direct parquet reading with pandas:
+df = pd.read_parquet("data.parquet")
 ```

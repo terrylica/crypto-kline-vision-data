@@ -40,29 +40,46 @@ FCP automatically retrieves market data from the best available source:
 
 ## Forcing Data Sources
 
+The `enforce_source` parameter is passed to `get_data()`, not `create()`:
+
 ```python
+from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
 from data_source_manager.core.sync.data_source_manager import DataSource
+from datetime import datetime, timedelta, timezone
+
+manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+end = datetime.now(timezone.utc)
+start = end - timedelta(days=7)
 
 # Force Vision API only (skip cache)
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.FUTURES_USDT,
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.VISION
 )
 
 # Force REST API only
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.SPOT,
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.REST
 )
 
 # Force cache only (offline mode)
-manager = DataSourceManager.create(
-    DataProvider.BINANCE,
-    MarketType.SPOT,
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start,
+    end_time=end,
+    interval=Interval.HOUR_1,
     enforce_source=DataSource.CACHE
 )
+
+manager.close()
 ```
 
 ## Cache Structure

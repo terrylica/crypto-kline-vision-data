@@ -34,6 +34,9 @@ This candle covers: 14:00:00 - 14:59:59 UTC
 ## Conversion Patterns
 
 ```python
+import pandas as pd
+from datetime import datetime, timezone
+
 # Pandas timestamp to datetime
 dt = pd.Timestamp('2024-01-15 14:00:00+00:00').to_pydatetime()
 
@@ -43,6 +46,9 @@ dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
 
 # datetime to Unix milliseconds
 ms = int(dt.timestamp() * 1000)
+
+# Note: DSM uses Polars internally for some cache operations,
+# but the public API always returns pandas DataFrames
 ```
 
 ## DataFrame Index

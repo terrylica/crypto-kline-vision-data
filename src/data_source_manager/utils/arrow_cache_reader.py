@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# polars-exception: ArrowCacheReader returns pandas DataFrames for
-# compatibility with existing consumers that expect pandas
+# Memory optimization: Uses Polars internally for zero-copy Arrow reads
+# Public API returns pandas DataFrames for backward compatibility
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
 """Arrow Cache Reader - Utility for reading from the Arrow Cache database.
@@ -8,6 +8,9 @@
 This module provides a class for interacting with the Arrow Cache SQLite database
 and reading data from the Arrow cache files. It's designed to be used by external
 modules that need to efficiently determine what data is available in the cache.
+
+Internally uses Polars for zero-copy Arrow file reads. Converts to pandas only
+at the API boundary for backward compatibility.
 
 Example usage:
 
@@ -37,10 +40,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import pyarrow as pa
+import polars as pl
 from rich import print
 
 from data_source_manager.utils.config import MAX_PREVIEW_ITEMS, MIN_FILES_FOR_README
+from data_source_manager.utils.dataframe_utils import ensure_open_time_as_index
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
@@ -231,6 +235,30 @@ class ArrowCacheReader:
 
         return result[0] if result else None
 
+    def _read_arrow_file_polars(self, file_path: str | Path) -> pl.DataFrame:
+        """Read an Arrow IPC file using Polars (zero-copy).
+
+        Args:
+            file_path: Path to the Arrow file
+
+        Returns:
+            Polars DataFrame with the data
+
+        Raises:
+            FileNotFoundError: If the arrow file doesn't exist
+        """
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Arrow file not found: {file_path}")
+
+        try:
+            # Polars reads Arrow IPC format with zero-copy
+            df = pl.read_ipc(path, memory_map=True)
+            return df
+        except (OSError, pl.exceptions.ComputeError) as e:
+            logger.error(f"Error reading arrow file {file_path}: {e}")
+            raise
+
     def read_arrow_file(self, file_path: str | Path) -> pd.DataFrame:
         """Read an Arrow file from the cache.
 
@@ -243,28 +271,14 @@ class ArrowCacheReader:
         Raises:
             FileNotFoundError: If the arrow file doesn't exist
         """
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Arrow file not found: {file_path}")
+        # Use Polars internally for zero-copy read
+        df_pl = self._read_arrow_file_polars(file_path)
 
-        try:
-            with pa.OSFile(str(path), "rb") as f:
-                reader = pa.RecordBatchFileReader(f)
-                table = reader.read_all()
+        # Convert to pandas at API boundary
+        df = df_pl.to_pandas()
 
-            df = table.to_pandas()
-
-            # Set index if needed
-            if "open_time" in df.columns:
-                # Ensure timezone aware
-                if df["open_time"].dt.tz is None:
-                    df["open_time"] = df["open_time"].dt.tz_localize("UTC")
-                df = df.set_index("open_time")
-
-            return df
-        except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
-            logger.error(f"Error reading arrow file {file_path}: {e}")
-            raise
+        # Use centralized normalization utility
+        return ensure_open_time_as_index(df)
 
     def read_symbol_data(
         self,
@@ -298,24 +312,39 @@ class ArrowCacheReader:
             f"dates in cache for {symbol} {interval} {market_type.name} ({availability['coverage_percentage']:.1f}% coverage)"
         )
 
-        # Read and combine data
-        dfs = []
+        # Read and combine data using Polars internally
+        polars_dfs: list[pl.DataFrame] = []
         for date in availability["available_dates"]:
             file_path = availability["paths"][date]
             try:
-                df = self.read_arrow_file(file_path)
-                if not df.empty:
-                    dfs.append(df)
-            except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
+                df_pl = self._read_arrow_file_polars(file_path)
+                if len(df_pl) > 0:
+                    polars_dfs.append(df_pl)
+            except (OSError, pl.exceptions.ComputeError) as e:
                 logger.error(f"Error reading file for {date}: {e}")
 
-        if not dfs:
+        if not polars_dfs:
             return pd.DataFrame()
 
-        # Combine data and sort by index
-        combined_df = pd.concat(dfs).sort_index()
-        logger.debug(f"Read {len(combined_df)} records from cache for {symbol} {interval} {market_type.name}")
-        return combined_df
+        # Combine using Polars concat (more efficient than pandas)
+        combined_pl = pl.concat(polars_dfs)
+
+        # Sort by open_time if present
+        if "open_time" in combined_pl.columns:
+            combined_pl = combined_pl.sort("open_time")
+
+        # Convert to pandas at API boundary
+        df = combined_pl.to_pandas()
+
+        # Set index if needed
+        if "open_time" in df.columns:
+            # Ensure timezone aware
+            if df["open_time"].dt.tz is None:
+                df["open_time"] = df["open_time"].dt.tz_localize("UTC")
+            df = df.set_index("open_time")
+
+        logger.debug(f"Read {len(df)} records from cache for {symbol} {interval} {market_type.name}")
+        return df
 
     def get_cache_statistics(self) -> dict[str, Any]:
         """Get statistics about the cache.

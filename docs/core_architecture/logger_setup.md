@@ -1,268 +1,277 @@
-# Logger Setup - Centralized Logging and Output Control
+# Loguru Setup - Centralized Logging for Data Source Manager
 
-The `src/data_source_manager/utils/logger_setup.py` module provides a centralized solution for all logging and console output needs in the application. It features a single import approach that provides powerful capabilities including log level control, rich formatting, and automatic suppression of visual output at higher log levels.
+> **Deprecation Notice**: The old `logger_setup.py` module is deprecated. Use `loguru_setup.py` for all new code. See the [Migration Guide](#migration-from-old-logger_setuppy) for details.
+
+The `src/data_source_manager/utils/loguru_setup.py` module provides a simple, powerful loguru-based logging system that addresses user complaints about log level control in the DSM package. It features environment variable configuration, automatic log rotation, and rich formatting support.
 
 ## Key Features
 
-- **Single Import**: All functionality is accessed through a single `logger` object
-- **Rich Formatting**: Beautiful console output with minimal code
-- **Log Level Awareness**: Automatically suppresses non-essential output at ERROR and CRITICAL levels
-- **Seamless Integration**: Works with both regular logging and rich console output
-- **Smart Print**: Enhances the built-in `print()` function with rich formatting and log level control
-- **Automatic Module Detection**: Dynamically creates and routes logs to module-specific loggers
-- **Hierarchical Control**: Parent scripts can control log levels of all imported modules
+- **Simple Configuration**: Control log level via environment variable or API
+- **Better Performance**: Loguru is faster than Python's standard logging
+- **Auto Rotation**: Built-in log file rotation and compression
+- **Rich Formatting**: Colored output with module/function info
+- **Method Chaining**: Fluent API for configuration
+- **Drop-in Replacement**: Same API as the old logger
 
 ## Basic Usage
 
 ```python
-from data_source_manager.utils.logger_setup import logger
+from data_source_manager.utils.loguru_setup import logger
 
 # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-logger.setLevel("INFO")
+logger.configure_level("INFO")
 
-# Enable smart print (enhances regular print statements)
-logger.enable_smart_print(True)
+# All standard logging calls work
+logger.debug("Debug message")   # Only shown at DEBUG level
+logger.info("Info message")     # Shown at INFO level and below
+logger.warning("Warning")       # Shown at WARNING level and below
+logger.error("Error")           # Always shown
+logger.critical("Critical")     # Always shown
 
-# Regular logging (always respects log level)
-logger.debug("Debug message")  # Only shown at DEBUG level
-logger.info("Info message")    # Shown at INFO level and below
-logger.warning("Warning")      # Shown at WARNING level and below
-logger.error("Error")          # Always shown
-logger.critical("Critical")    # Always shown
-
-# Regular print statements (with smart print enabled)
-# Shown at DEBUG, INFO, WARNING levels; hidden at ERROR, CRITICAL levels
-print("[bold green]This text uses rich formatting[/bold green]")
-print("[blue]Blue text[/blue] with [yellow]yellow highlights[/yellow]")
-
-# Critical messages that should always be visible
-logger.console.print("[bold red]Always visible regardless of log level[/bold red]")
+# Rich formatting with colors
+logger.info("Status: <green>SUCCESS</green>")
+logger.error("Error: <red>FAILED</red>")
 ```
 
-## Smart Print Functionality
+## Environment Variable Control
 
-When `logger.enable_smart_print(True)` is called, the built-in Python `print()` function is monkey-patched to:
+The easiest way to control logging is via environment variables:
 
-1. Use rich formatting capabilities (colors, styles, tables, panels, etc.)
-2. Automatically render rich objects correctly (tables, panels, etc.)
-3. Respect log level (shown for DEBUG, INFO, WARNING; hidden for ERROR, CRITICAL)
+```bash
+# Suppress DSM logs for clean output (feature engineering workflows)
+export DSM_LOG_LEVEL=CRITICAL
 
-This allows existing code with print statements to work with our log level control without modification.
+# Normal development with info-level logging
+export DSM_LOG_LEVEL=INFO
 
-### How It Works
+# Detailed debugging
+export DSM_LOG_LEVEL=DEBUG
 
-```python
-# Before enabling smart print
-print("This always appears regardless of log level")
-print(table)  # May not render rich objects correctly
+# Optional: Log to file with automatic rotation
+export DSM_LOG_FILE=./logs/dsm.log
 
-# After enabling smart print
-logger.enable_smart_print(True)
+# Optional: Disable colored output
+export DSM_DISABLE_COLORS=true
 
-# Now print statements:
-# - Are enhanced with rich formatting
-# - Properly render rich objects
-# - Are suppressed at ERROR and CRITICAL levels
-print("[bold]This text is bold[/bold]")
-print(table)  # Table renders correctly
+# Run your application
+python your_script.py
 ```
 
-## Working with Rich Objects
+### Default Behavior
 
-Smart print automatically handles rich objects correctly:
+When no environment variable is set, the default log level is `ERROR`. This provides quieter operation by default, showing only errors and critical messages.
+
+## DSM Logging Suppression for Feature Engineering
+
+**Problem**: DSM produces extensive logging that clutters console output during feature engineering workflows.
+
+**Solution**: Use `DSM_LOG_LEVEL=CRITICAL` to suppress all non-critical DSM logs:
 
 ```python
-from rich.table import Table
-from rich.panel import Panel
+# Clean feature engineering code - no boilerplate needed!
+import os
+os.environ["DSM_LOG_LEVEL"] = "CRITICAL"
 
-# Create a table
-table = Table(title="Data")
-table.add_column("Name")
-table.add_column("Value")
-table.add_row("Item 1", "100")
-table.add_row("Item 2", "200")
+from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
 
-# Just print it - no extra code needed
-print(table)  # Renders correctly with smart print enabled
+# Create DSM instance - minimal logging
+dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
 
-# Create a panel
-panel = Panel("Important information", title="Notice")
-
-# Just print it - no extra code needed
-print(panel)  # Renders correctly with smart print enabled
+# Fetch data - clean output, only your logs visible
+data = dsm.get_data(
+    symbol="SOLUSDT",
+    start_time=start_time,
+    end_time=end_time,
+    interval=Interval.MINUTE_1,
+)
+# Clean output - no more cluttered DSM logs!
 ```
 
-## Displaying Critical Information
+**Benefits**:
 
-For messages that need to be visible regardless of log level:
+- **No Boilerplate**: Eliminates 15+ lines of logging suppression code
+- **Clean Output**: Professional console output for feature engineering
+- **Easy Control**: Single environment variable controls all DSM logging
+- **Cleaner Default**: Default ERROR level provides quieter operation
+
+## Programmatic Configuration
+
+For more control, use the programmatic API:
 
 ```python
-# These will always be visible, even at ERROR/CRITICAL levels
-logger.console.print("[bold red]Important error details[/bold red]")
-logger.console.print("[yellow]Warning that should never be suppressed[/yellow]")
+from data_source_manager.utils.loguru_setup import logger
+
+# Set log level
+logger.configure_level("DEBUG")
+
+# Enable file logging with automatic rotation
+logger.configure_file("./logs/dsm.log")
+
+# Disable colors (useful for CI/CD or file output)
+logger.disable_colors(True)
+
+# Method chaining
+logger.configure_level("INFO").configure_file("./logs/app.log").info("Logging configured")
 ```
 
-## Logger Proxying and Module-Specific Logging
+### Configuration Methods
 
-The logger uses a sophisticated proxying mechanism that automatically detects which module is calling it and routes log messages to the appropriate module-specific logger. This provides several key benefits:
+| Method                | Description                   | Returns         |
+| --------------------- | ----------------------------- | --------------- |
+| `configure_level()`   | Set log level                 | Self (chaining) |
+| `configure_file()`    | Set log file path             | Self (chaining) |
+| `disable_colors()`    | Enable/disable colored output | Self (chaining) |
+| `setLevel()`          | Compatibility with old logger | Self (chaining) |
+| `getEffectiveLevel()` | Get current log level         | str             |
+| `isEnabledFor()`      | Check if level is enabled     | bool            |
 
-1. **Automatic Module Detection**: No need to create or manage separate loggers for each module
-2. **Proper Source Module Name**: Log messages show the correct module name without any configuration
-3. **Hierarchical Configuration**: Module-specific loggers inherit from the root logger configuration
-4. **Module-Level Customization**: Individual modules can have their own log levels
+## Session Logging
 
-### How Proxying Works
-
-When you call any logging method (`logger.info()`, `logger.debug()`, etc.), the logger automatically:
-
-1. Detects the calling module using runtime introspection
-2. Gets or creates a module-specific logger for that module
-3. Routes the log message through that module-specific logger
-4. Preserves the logger instance for method chaining
-
-This means that logs from different modules will correctly show the source module name:
+For session-specific logging with timestamped files:
 
 ```python
-# In module_a.py
+from data_source_manager.utils.loguru_setup import configure_session_logging
+
+# Creates timestamped log files for a session
+main_log, error_log, timestamp = configure_session_logging(
+    session_name="data_fetch",
+    log_level="DEBUG"
+)
+
+# Logs are written to:
+# - logs/data_fetch_logs/data_fetch_20240115_143022.log (all messages)
+# - logs/error_logs/data_fetch_errors_20240115_143022.log (ERROR/CRITICAL only)
+```
+
+## Log File Features
+
+When file logging is enabled:
+
+- **Automatic Rotation**: Files rotate at 10 MB
+- **Retention**: Logs kept for 1 week
+- **Compression**: Rotated logs are compressed to `.zip`
+- **Error Separation**: Session logging creates separate error-only files
+
+## Rich Formatting
+
+Loguru supports inline markup for colored output:
+
+```python
+# Color tags
+logger.info("Status: <green>SUCCESS</green>")
+logger.warning("Warning: <yellow>CAUTION</yellow>")
+logger.error("Error: <red>FAILED</red>")
+
+# Style tags
+logger.info("<bold>Bold text</bold>")
+logger.info("<italic>Italic text</italic>")
+logger.info("<underline>Underlined</underline>")
+
+# Combinations
+logger.info("<bold><green>Success!</green></bold>")
+```
+
+## Advanced Features
+
+### Context Binding
+
+Add context to log messages:
+
+```python
+# Bind context for subsequent messages
+context_logger = logger.bind(symbol="BTCUSDT", market="FUTURES_USDT")
+context_logger.info("Fetching data")  # Includes bound context
+```
+
+### Exception Logging
+
+Log exceptions with full traceback:
+
+```python
+try:
+    risky_operation()
+except Exception:
+    logger.exception("Operation failed")
+    # Automatically includes traceback
+```
+
+### Logger Options
+
+Fine-tune individual log calls:
+
+```python
+# Skip depth for accurate caller info
+logger.opt(depth=1).info("Message from wrapper")
+
+# Lazy evaluation for expensive operations
+logger.opt(lazy=True).debug("{}", expensive_function)
+```
+
+## Log Format
+
+The default log format includes:
+
+```
+2024-01-15 14:30:22.123 | INFO     | module:function:42 - Message
+```
+
+Components:
+
+- **Timestamp**: `YYYY-MM-DD HH:mm:ss.SSS`
+- **Level**: Padded to 8 characters
+- **Location**: `module:function:line`
+- **Message**: The log message
+
+## Migration from Old logger_setup.py
+
+The old `logger_setup.py` is deprecated. To migrate:
+
+### Automatic Migration
+
+```bash
+# Run the migration script
+python scripts/dev/migrate_to_loguru.py
+```
+
+### Manual Migration
+
+Change your imports:
+
+```python
+# Old (deprecated)
 from data_source_manager.utils.logger_setup import logger
-logger.info("Processing data")  # Shows: INFO module_a: Processing data
 
-# In module_b.py
-from data_source_manager.utils.logger_setup import logger
-logger.info("Handling request")  # Shows: INFO module_b: Handling request
+# New (recommended)
+from data_source_manager.utils.loguru_setup import logger
 ```
 
-### Method Chaining
+### API Differences
 
-The proxying mechanism also supports method chaining for more elegant code:
+| Old API                       | New API                          | Notes                      |
+| ----------------------------- | -------------------------------- | -------------------------- |
+| `logger.setLevel("INFO")`     | `logger.configure_level("INFO")` | `setLevel()` still works   |
+| `logger.enable_smart_print()` | _(removed)_                      | Use `print()` directly     |
+| `logger.show_filename()`      | _(automatic)_                    | Always shows location      |
+| `logger.console.print()`      | `print()` or `logger.info()`     | Use standard print/logging |
 
-```python
-# Multiple log messages in sequence
-logger.info("Operation started").debug("Details...").warning("Issues found")
+### Removed Features
 
-# Configuration and logging
-logger.setLevel("DEBUG").show_filename(True).info("Logging configured")
-```
+The following features from the old logger are not in the new system:
 
-### Module-Specific Log Levels
+1. **Smart Print**: The monkey-patching of `print()` was removed for simplicity. Use `logger.info()` for log-level-aware output or regular `print()` for always-visible output.
 
-While the root logger level applies to all modules by default, you can set different log levels for specific modules:
+2. **Module Proxying**: Loguru handles module detection automatically, so explicit proxying is not needed.
 
-```python
-# In your main application:
-from data_source_manager.utils.logger_setup import logger
-
-# Set the root logger level
-logger.setLevel("WARNING")  # Only WARNING and above shown by default
-
-# In a specific module that needs more detailed logging:
-from data_source_manager.utils.logger_setup import logger
-import logging
-
-# Set a module-specific log level (only affects this module)
-logger.get_logger().setLevel(logging.DEBUG)  # This module will show DEBUG and above
-logger.debug("Detailed debug info")  # This will now be visible
-```
-
-## Hierarchical Logger Control
-
-One of the most powerful features of the logging system is the ability for a parent script to control the logging behavior of all imported modules. This feature, known as **hierarchical logger control**, is built into Python's logging system and enhanced by our logger implementation.
-
-### How Hierarchical Control Works
-
-1. Python organizes loggers in a hierarchy based on their names (using dots as separators)
-2. When you set the log level of a parent logger, it affects all child loggers by default
-3. Our `logger.setLevel()` method configures both the root logger and the specific module logger
-
-This means that the main script or entry point can set the overall logging behavior for the entire application, while still allowing specific modules to override if needed:
-
-```python
-# In your main.py (the entry point of your application)
-from data_source_manager.utils.logger_setup import logger
-
-# Set the global log level for ALL modules
-logger.setLevel("INFO", configure_root=True)  # Default is True
-```
-
-When you do this, several things happen:
-
-1. The root logger's level is set to INFO
-2. All existing module loggers are updated to INFO level
-3. Any new module loggers created will inherit this level
-4. All modules importing and using `logger` will respect this level
-
-This provides centralized control without requiring any special configuration in imported modules.
-
-### Overriding Hierarchical Control
-
-Individual modules can override the inherited log level if needed:
-
-```python
-# In a module that needs different logging behavior
-from data_source_manager.utils.logger_setup import logger
-
-# Override just for this module (doesn't affect other modules)
-logger.setLevel("DEBUG", configure_root=False)  # Don't configure root logger
-```
-
-### Controlling Print Output Across Modules
-
-The hierarchical control extends to smart print functionality as well. When you enable smart print in your main script, all modules that use regular `print()` statements will respect the global log level:
-
-```python
-# In your main.py
-from data_source_manager.utils.logger_setup import logger
-
-# Set global log level
-logger.setLevel("ERROR")
-
-# Enable smart print globally
-logger.enable_smart_print(True)
-
-# Import modules that use print statements
-import module_a  # Uses print() for non-critical output
-import module_b  # Uses print() for non-critical output
-
-# All print statements from module_a and module_b will be suppressed
-# since the global log level is ERROR
-```
-
-This provides a powerful way to control verbosity across your entire application with a single configuration point.
-
-### Best Practice for Main Scripts
-
-For main scripts or entry points in your application:
-
-```python
-from data_source_manager.utils.logger_setup import logger
-
-# Configure global logging at the start
-logger.setLevel("INFO")        # Set global log level
-logger.show_filename(True)     # Show source files in logs
-logger.enable_smart_print(True)  # Enable smart print globally
-
-# Import other modules AFTER configuring logging
-import module_a
-import module_b
-
-# Now all imported modules will respect these settings
-```
-
-This establishes a clear control point for logging behavior across your entire application.
+3. **Hierarchical Control**: Loguru's configuration is global by design, simplifying the control model.
 
 ## Example Program
-
-This example demonstrates the key features:
 
 ```python
 #!/usr/bin/env python3
 import argparse
-from data_source_manager.utils.logger_setup import logger
-from rich.panel import Panel
-from rich.table import Table
+from data_source_manager.utils.loguru_setup import logger
 
 def main():
-    # Parse command line arguments
     parser = argparse.ArgumentParser(description="Demo")
     parser.add_argument(
         "--level",
@@ -272,31 +281,22 @@ def main():
     )
     args = parser.parse_args()
 
-    # Set logging level
-    logger.setLevel(args.level)
+    # Configure logging
+    logger.configure_level(args.level)
 
-    # Enable smart print
-    logger.enable_smart_print(True)
-
-    # Log some messages
+    # Log messages at different levels
+    logger.debug("Detailed debug information")
     logger.info(f"Log level set to: {args.level}")
+    logger.warning("This is a warning")
     logger.error("This error message is always visible")
+    logger.critical("Critical system failure")
 
-    # Regular print with rich formatting (shown at INFO, hidden at ERROR)
-    print("\n[bold green]This text uses rich formatting[/bold green]")
+    # Rich formatting
+    logger.info("Status: <green>SUCCESS</green>")
+    logger.info("Progress: <cyan>50%</cyan> complete")
 
-    # Create and print a rich table
-    table = Table(title="Data Table Example")
-    table.add_column("Name", style="cyan")
-    table.add_column("Value", style="green")
-    table.add_row("Alpha", "100")
-    table.add_row("Beta", "200")
-
-    print("\n[bold]Rich Table Example:[/bold]")
-    print(table)  # Properly renders at INFO, hidden at ERROR
-
-    # Messages that should always be visible
-    logger.console.print("\n[bold red]Important message that's always visible[/bold red]")
+    # Method chaining
+    logger.configure_level("DEBUG").debug("Now showing debug messages")
 
 if __name__ == "__main__":
     main()
@@ -304,64 +304,40 @@ if __name__ == "__main__":
 
 ## Running the Demo
 
-The repository includes a demo script that demonstrates these features:
-
 ```bash
-# Run with INFO level (shows all print statements)
-python examples/logger_demo/simple_print_demo.py --level INFO
+# Run with INFO level
+python examples/loguru_demo.py --level INFO
 
-# Run with ERROR level (hides non-essential print statements)
-python examples/logger_demo/simple_print_demo.py --level ERROR
+# Run with DEBUG level for verbose output
+python examples/loguru_demo.py --level DEBUG
+
+# Run with ERROR level for minimal output
+python examples/loguru_demo.py --level ERROR
+
+# Using environment variable
+DSM_LOG_LEVEL=DEBUG python examples/loguru_demo.py
 ```
 
 ## Best Practices
 
-1. **Single Import**: Always use `from data_source_manager.utils.logger_setup import logger` as the only import
-2. **Enable Smart Print**: Call `logger.enable_smart_print(True)` early in your script
-3. **Log Levels**: Use appropriate log levels for your messages
-   - DEBUG: Detailed debugging information
-   - INFO: General information
-   - WARNING: Warning messages
-   - ERROR: Error messages (always shown)
-   - CRITICAL: Critical errors (always shown)
-4. **Visual Output**:
-   - Use regular `print()` for formatted output that can be suppressed at ERROR level
-   - Use `logger.console.print()` for critical information that should always be visible
-5. **Rich Objects**: Just `print(rich_object)` directly without extra handling
-6. **Hierarchical Control**: Configure logging in main scripts before importing other modules
+1. **Use Environment Variables**: Set `DSM_LOG_LEVEL` for easy control without code changes
+2. **Default to ERROR**: Keep production quiet by default
+3. **Use DEBUG for Development**: Enable verbose logging during development
+4. **Rich Formatting for Readability**: Use color tags for important status messages
+5. **File Logging for Production**: Enable file logging for persistent records
+6. **Method Chaining**: Configure logger fluently for cleaner code
 
 ## Architecture Notes
 
-- The smart print functionality is implemented in the `LoggerProxy` class
-- It uses monkey patching to replace the built-in `print()` function
-- The implementation leverages the `rich` library for formatting
-- A shared console instance is available through `logger.console`
-- Log level control uses Python's standard logging module
-- The proxying system uses runtime introspection through `inspect.currentframe()` to detect calling modules
-- Hierarchical control leverages Python's built-in logger hierarchy to propagate settings
+- Built on [loguru](https://github.com/Delgan/loguru), a modern Python logging library
+- Global singleton pattern via `DSMLogger` class
+- Thread-safe by design (loguru handles thread safety)
+- Automatic exception formatting with backtraces
+- Lazy message formatting for performance
 
-## Working with DSM Demo
+## Related
 
-The smart print functionality has been integrated into the DSM Demo to provide a better user experience:
-
-```python
-# Import only logger
-from data_source_manager.utils.logger_setup import logger
-
-# Enable smart print
-logger.enable_smart_print(True)
-
-# Use regular print for formatted output
-print(f"[bold green]Configuration:[/bold green]")
-print(f"Symbol: {symbol}")
-print(f"Market type: {market_type.name}")
-
-# Use logger.console.print for critical information
-logger.console.print("[bold red]Error: Unable to retrieve data[/bold red]")
-```
-
-This approach simplifies the code while ensuring that:
-
-- Debugging information is shown at lower log levels
-- Only critical errors are shown at ERROR and CRITICAL levels
-- Rich formatting is consistently applied throughout the output
+- [Migration Guide](../howto/loguru_migration.md) - Detailed migration instructions
+- [README.md](/README.md#logging-control) - Overview in main README
+- [examples/loguru_demo.py](/examples/loguru_demo.py) - Demo script
+- [examples/dsm_logging_demo.py](/examples/dsm_logging_demo.py) - DSM-specific logging demo

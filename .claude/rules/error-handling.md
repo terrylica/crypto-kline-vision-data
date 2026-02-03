@@ -11,18 +11,22 @@ Error handling patterns specific to Data Source Manager.
 ## Exception Hierarchy
 
 ```
-DSMError (base)
-├── DataSourceError
-│   ├── DataNotFoundError     # No data available for requested range
-│   ├── RateLimitError        # API rate limit exceeded
-│   └── ConnectionError       # Network connectivity issues
-├── ValidationError
-│   ├── InvalidSymbolError    # Symbol not valid for market type
-│   ├── InvalidIntervalError  # Unsupported interval
-│   └── InvalidTimeRangeError # Start > End, or future dates
-└── CacheError
-    ├── CacheReadError        # Failed to read from cache
-    └── CacheWriteError       # Failed to write to cache
+REST API Exceptions (rest_exceptions.py):
+RestAPIError (base)
+├── RateLimitError        # API rate limit exceeded (429)
+├── HTTPError             # HTTP errors with status code
+├── APIError              # API-specific error codes
+├── NetworkError          # Network connectivity issues
+├── RestTimeoutError      # Request timeout
+└── JSONDecodeError       # JSON parsing failures
+
+Vision API Exceptions (vision_exceptions.py):
+VisionAPIError (base)
+├── DataFreshnessError        # Data too recent for Vision API
+├── ChecksumVerificationError # Checksum validation failed
+└── DownloadFailedError       # File download failed
+
+UnsupportedIntervalError (ValueError)  # Interval not supported by market type
 ```
 
 ## FCP Error Flow
@@ -30,8 +34,8 @@ DSMError (base)
 ```
 Request → Cache → Vision → REST → Error
            │         │        │
-           │         │        └── raise DataSourceError
-           │         └── 403/404 → try REST
+           │         │        └── raise RestAPIError
+           │         └── VisionAPIError → try REST
            └── miss → try Vision
 ```
 
@@ -40,18 +44,23 @@ Request → Cache → Vision → REST → Error
 ### Always Catch Specific Exceptions
 
 ```python
-# ✅ CORRECT
-from data_source_manager.exceptions import DataNotFoundError, RateLimitError
+# ✅ CORRECT - Use actual exception classes
+from data_source_manager.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
+from data_source_manager.utils.for_core.vision_exceptions import VisionAPIError
+import pandas as pd
 
 try:
     df = manager.get_data(symbol="BTCUSDT", ...)
-except DataNotFoundError:
-    logger.warning(f"No data for {symbol} in range")
-    df = pl.DataFrame()  # Empty fallback
-except RateLimitError:
-    logger.warning("Rate limited, backing off...")
-    time.sleep(60)
+except RateLimitError as e:
+    logger.warning(f"Rate limited: {e}, retry after {e.retry_after}s")
+    time.sleep(e.retry_after or 60)
     df = manager.get_data(symbol="BTCUSDT", ...)
+except VisionAPIError:
+    logger.warning("Vision API failed, will use REST fallback")
+    # FCP handles this automatically
+except RestAPIError as e:
+    logger.error(f"REST API error: {e}")
+    df = pd.DataFrame()  # Empty fallback
 
 # ❌ WRONG - Silent failure
 try:
@@ -60,59 +69,75 @@ except:  # Bare except
     pass  # Silent failure - NEVER do this
 ```
 
+### Symbol Validation
+
+```python
+# Validate symbols to get helpful error messages
+from data_source_manager.utils.market_constraints import validate_symbol_for_market_type
+
+try:
+    validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
+except ValueError as e:
+    # Error includes suggestion: "Try using 'BTCUSD_PERP' instead."
+    logger.error(f"Invalid symbol: {e}")
+```
+
 ### Rate Limit Handling
 
 Binance rate limits:
 
-- REST API: 1200 requests/minute (weight varies by endpoint)
+- REST API: 6000 weight per minute (weight varies by endpoint)
 - Vision API: No rate limit (S3 bucket)
 
 ```python
-# FCP automatically retries with backoff
-# For manual handling:
-from data_source_manager.utils.rate_limiter import RateLimiter
+# FCP automatically handles retries
+# For manual rate limit handling:
+from data_source_manager.utils.for_core.rest_exceptions import RateLimitError
 
-limiter = RateLimiter(requests_per_minute=1200)
-await limiter.wait()  # Blocks if rate exceeded
+try:
+    df = manager.get_data(...)
+except RateLimitError as e:
+    wait_time = e.retry_after or 60
+    time.sleep(wait_time)
+    df = manager.get_data(...)  # Retry
 ```
 
 ### Timeout Configuration
 
 ```python
-# ✅ Always specify timeouts for external calls
+# DSM uses configurable retry_count for network operations
 manager = DataSourceManager.create(
     DataProvider.BINANCE,
     MarketType.FUTURES_USDT,
-    timeout=30.0  # seconds
+    retry_count=3,  # Number of retries for failed requests
 )
 
-# httpx default timeout is 5.0 seconds
+# httpx is used internally with appropriate timeouts
 # Vision API calls may take longer for large files
 ```
 
 ## Common Error Scenarios
 
-| Scenario              | Error                 | Recovery                     |
-| --------------------- | --------------------- | ---------------------------- |
-| Invalid symbol        | InvalidSymbolError    | Validate before calling      |
-| No historical data    | DataNotFoundError     | Check symbol listing date    |
-| API down              | ConnectionError       | FCP falls back automatically |
-| Rate limited          | RateLimitError        | Wait and retry               |
-| Future date requested | InvalidTimeRangeError | Use current UTC time         |
+| Scenario              | Error            | Recovery                            |
+| --------------------- | ---------------- | ----------------------------------- |
+| Invalid symbol        | ValueError       | Use validate_symbol_for_market_type |
+| No historical data    | Empty DataFrame  | Check symbol listing date           |
+| Vision API down       | VisionAPIError   | FCP falls back to REST              |
+| REST API rate limited | RateLimitError   | Wait and retry                      |
+| Future date requested | ValueError       | Use current UTC time                |
+| Network timeout       | RestTimeoutError | Increase retry_count                |
 
 ## Logging Errors
 
 ```python
-import structlog
-logger = structlog.get_logger()
+from data_source_manager.utils.loguru_setup import logger
 
 # Include context for debugging
 logger.error(
-    "fetch_failed",
-    symbol=symbol,
-    market_type=market_type.value,
-    interval=interval.value,
-    error=str(e),
-    exc_info=True
+    f"fetch_failed symbol={symbol} market_type={market_type.value} "
+    f"interval={interval.value} error={e}"
 )
+
+# Or use structured logging with loguru
+logger.bind(symbol=symbol, market_type=market_type.value).error(f"Fetch failed: {e}")
 ```

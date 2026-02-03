@@ -21,6 +21,7 @@ import pyarrow as pa
 from data_source_manager.utils.cache.errors import ERROR_TYPES, CacheValidationError
 from data_source_manager.utils.cache.memory_map import SafeMemoryMap
 from data_source_manager.utils.cache.options import AlignmentOptions, ValidationOptions
+from data_source_manager.utils.dataframe_utils import ensure_open_time_as_index
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import Interval
 from data_source_manager.utils.validation import DataFrameValidator
@@ -283,15 +284,8 @@ class CacheValidator:
                     use_threads=True,
                 )
 
-                if "open_time" in df.columns and df.index.name != "open_time":
-                    df = df.set_index("open_time")
-
-                if not isinstance(df.index, pd.DatetimeIndex):
-                    df.index = pd.to_datetime(df.index, utc=True)
-                elif df.index.tz is None:
-                    df.index = df.index.tz_localize("UTC")
-
-                return df
+                # Use centralized normalization utility
+                return ensure_open_time_as_index(df)
         except (OSError, pa.ArrowInvalid, pa.ArrowIOError, ValueError) as e:
             logger.error("Error reading Arrow file %s: %s", file_path, e)
             return None
@@ -307,7 +301,14 @@ class CacheValidator:
         Returns:
             DataFrame or None if read fails
         """
-        return await SafeMemoryMap.safely_read_arrow_file(file_path, columns)
+        # SafeMemoryMap returns Polars DataFrame for zero-copy efficiency
+        df_pl = await SafeMemoryMap.safely_read_arrow_file(file_path, columns)
+        if df_pl is None:
+            return None
+
+        # Convert to pandas at API boundary and normalize
+        df = df_pl.to_pandas()
+        return ensure_open_time_as_index(df)
 
     async def align_cached_data_to_api_boundaries(
         self,

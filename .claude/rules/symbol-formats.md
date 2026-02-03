@@ -35,15 +35,25 @@ df = manager.get_data(symbol="BTCUSD_PERP", ...)
 Always validate symbols before fetching:
 
 ```python
-from data_source_manager.utils.market_constraints import validate_symbol_for_market_type
+from data_source_manager.utils.market_constraints import (
+    validate_symbol_for_market_type,
+    get_market_symbol_format,
+    MarketType,
+)
 
-# Check if symbol matches market type
-is_valid, suggestion = validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
-# Returns: (False, "BTCUSD_PERP")
+# Validate symbol - raises ValueError if invalid
+try:
+    validate_symbol_for_market_type("BTCUSDT", MarketType.FUTURES_COIN)
+except ValueError as e:
+    print(f"Invalid symbol: {e}")
+    # Error message includes suggestion, e.g.:
+    # "Invalid symbol format for FUTURES_COIN market: 'BTCUSDT'.
+    #  FUTURES_COIN symbols should end with '_PERP' for perpetual contracts.
+    #  Try using 'BTCUSD_PERP' instead."
 
-if not is_valid:
-    print(f"Wrong symbol format. Did you mean: {suggestion}")
-    symbol = suggestion  # Use corrected format
+# Or use get_market_symbol_format to auto-convert
+correct_symbol = get_market_symbol_format("BTCUSDT", MarketType.FUTURES_COIN)
+# Returns: "BTCUSD_PERP"
 ```
 
 ## Full Symbol Patterns

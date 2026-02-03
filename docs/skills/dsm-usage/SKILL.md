@@ -51,16 +51,19 @@ manager.close()
 For simpler use cases, use `fetch_market_data`:
 
 ```python
-from data_source_manager import fetch_market_data, MarketType, Interval
+from data_source_manager import fetch_market_data, DataProvider, MarketType, Interval, ChartType
 from datetime import datetime, timedelta, timezone
 
-df = fetch_market_data(
-    symbol="BTCUSDT",
+df, elapsed_time, records_count = fetch_market_data(
+    provider=DataProvider.BINANCE,
     market_type=MarketType.FUTURES_USDT,
+    chart_type=ChartType.KLINES,
+    symbol="BTCUSDT",
     interval=Interval.HOUR_1,
     start_time=datetime.now(timezone.utc) - timedelta(days=30),
     end_time=datetime.now(timezone.utc)
 )
+print(f"Loaded {records_count} bars in {elapsed_time:.2f}s")
 ```
 
 ## Examples

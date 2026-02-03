@@ -9,6 +9,7 @@ Key terminology used in Data Source Manager.
 | **DSM**    | Data Source Manager - the main orchestrator class for market data retrieval                    |
 | **FCP**    | Failover Control Protocol - the priority-based data retrieval strategy (Cache → Vision → REST) |
 | **Klines** | Candlestick/OHLCV data (Open, High, Low, Close, Volume)                                        |
+| **OHLCV**  | Open, High, Low, Close, Volume - standard candlestick data columns                             |
 
 ## Data Sources
 
@@ -18,6 +19,14 @@ Key terminology used in Data Source Manager.
 | **REST API**   | Real-time Binance REST API, rate limited (6000 weight/minute)               |
 | **Cache**      | Local Apache Arrow files for fast repeated access (~1ms)                    |
 
+## Storage Concepts
+
+| Term             | Definition                                                            |
+| ---------------- | --------------------------------------------------------------------- |
+| **Apache Arrow** | Columnar data format used for high-performance cache storage          |
+| **Arrow files**  | `.arrow` files storing cached market data, organized by date          |
+| **MMAP**         | Memory-mapped file I/O for fast cache reads without full file loading |
+
 ## Market Types
 
 | Term             | Definition                                                     |
@@ -25,6 +34,8 @@ Key terminology used in Data Source Manager.
 | **SPOT**         | Spot market - immediate delivery trading                       |
 | **FUTURES_USDT** | USDT-margined perpetual futures (um)                           |
 | **FUTURES_COIN** | Coin-margined perpetual futures (cm), uses `*USD_PERP` symbols |
+| **FUTURES**      | Legacy/generic futures type for backward compatibility         |
+| **OPTIONS**      | Options trading market type                                    |
 
 ## Time Concepts
 
@@ -61,9 +72,11 @@ Key terminology used in Data Source Manager.
 
 ## Architecture
 
-| Term             | Definition                                                    |
-| ---------------- | ------------------------------------------------------------- |
-| **DataProvider** | Enum for exchange sources (BINANCE, OKX)                      |
-| **MarketType**   | Enum for market categories (SPOT, FUTURES_USDT, FUTURES_COIN) |
-| **Interval**     | Enum for candle timeframes                                    |
-| **DataSource**   | Enum for data retrieval sources (CACHE, VISION, REST)         |
+| Term                 | Definition                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| **DataProvider**     | Enum for exchange sources (BINANCE, TRADESTATION, OKX)                             |
+| **MarketType**       | Enum for market categories (SPOT, FUTURES_USDT, FUTURES_COIN, FUTURES, OPTIONS)    |
+| **ChartType**        | Enum for chart data types (KLINES, FUNDING_RATE, OKX_CANDLES, OKX_HISTORY_CANDLES) |
+| **Interval**         | Enum for candle timeframes (1s to 1M)                                              |
+| **DataSource**       | Enum for FCP source selection (AUTO, CACHE, VISION, REST)                          |
+| **DataSourceConfig** | Configuration dataclass for DSM instances                                          |

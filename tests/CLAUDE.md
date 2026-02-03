@@ -18,8 +18,11 @@ uv run -p 3.13 pytest tests/integration/ -v
 # OKX tests
 uv run -p 3.13 pytest tests/okx/ -m okx -v
 
-# All tests with coverage
-uv run -p 3.13 pytest --cov=src/data_source_manager --cov-report=term-missing
+# Unit tests with coverage
+uv run -p 3.13 pytest tests/unit/ --cov=src/data_source_manager --cov-report=term-missing
+
+# FCP edge case tests
+uv run -p 3.13 pytest tests/fcp_pm/test_fcp_edge_cases.py -v
 ```
 
 ---
@@ -32,6 +35,18 @@ uv run -p 3.13 pytest --cov=src/data_source_manager --cov-report=term-missing
 | `integration/` | External API tests        | Yes              |
 | `okx/`         | OKX-specific integration  | Yes              |
 | `fcp_pm/`      | FCP protocol matrix tests | Yes              |
+
+### Unit Test Subdirectories
+
+```
+unit/
+├── core/
+│   ├── providers/binance/   # REST/Vision client tests
+│   └── sync/                # DataSourceManager tests
+├── utils/                   # Utility function tests
+├── test_timestamp_semantics.py
+└── test_dsm_logging_improvements.py
+```
 
 ---
 
@@ -77,17 +92,41 @@ def test_rest_response(mock_get):
 
 **IMPORTANT**: Use fixtures from `tests/conftest.py` - don't duplicate in test files.
 
-| Fixture               | Purpose                                           |
-| --------------------- | ------------------------------------------------- |
-| `utc_now`             | Current UTC time (use this, don't define locally) |
-| `one_week_range`      | (start, end) tuple for 7 days                     |
-| `one_day_range`       | (start, end) tuple for 1 day                      |
-| `sample_ohlcv_data`   | Standard OHLCV test data                          |
-| `mock_vision_handler` | Mock FSSpec Vision API                            |
-| `mock_cache_manager`  | Mock cache manager                                |
-| `mock_all_sources`    | Combined mocks for isolation                      |
-| `sample_symbol`       | "BTCUSDT"                                         |
-| `sample_coin_symbol`  | "BTCUSD_PERP"                                     |
+### Time Fixtures
+
+| Fixture            | Purpose                                           |
+| ------------------ | ------------------------------------------------- |
+| `utc_now`          | Current UTC time (use this, don't define locally) |
+| `one_week_range`   | (start, end) tuple for 7 days                     |
+| `one_day_range`    | (start, end) tuple for 1 day                      |
+| `one_month_range`  | (start, end) tuple for 30 days                    |
+| `historical_range` | Range ending 3 days ago (safe for Vision API)     |
+| `recent_range`     | Last 2 hours (forces REST fallback)               |
+
+### Mock Fixtures
+
+| Fixture               | Purpose                      |
+| --------------------- | ---------------------------- |
+| `mock_vision_handler` | Mock FSSpec Vision API       |
+| `mock_cache_manager`  | Mock cache manager           |
+| `mock_all_sources`    | Combined mocks for isolation |
+
+### Data Fixtures
+
+| Fixture              | Purpose                  |
+| -------------------- | ------------------------ |
+| `sample_ohlcv_data`  | Standard OHLCV test data |
+| `sample_symbol`      | "BTCUSDT"                |
+| `sample_coin_symbol` | "BTCUSD_PERP"            |
+
+### FCP Fixtures (fcp_pm/conftest.py)
+
+| Fixture                | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `fcp_manager_spot`     | DSM for SPOT market with cache enabled   |
+| `fcp_manager_futures`  | DSM for USDT futures with cache enabled  |
+| `fcp_manager_coin`     | DSM for coin-margined with cache enabled |
+| `fcp_manager_no_cache` | DSM with cache disabled for isolation    |
 
 ---
 
@@ -104,18 +143,18 @@ def test_rest_response(mock_get):
 
 Comprehensive edge case tests for Failover Control Protocol. Run with `mise run test:fcp-edge`.
 
-### Test Coverage (14 tests)
+### Test Classes (10 edge case categories)
 
 | Test Class               | Edge Case                   | Key Assertion                             |
 | ------------------------ | --------------------------- | ----------------------------------------- |
 | TestFCPCacheHit          | Cache fastest path          | CACHE >90%, timing <500ms                 |
-| TestFCPVisionOnly        | Historical data             | VISION >50%, completeness >95%            |
+| TestFCPVisionOnly        | Historical data (>7d old)   | VISION >50%, completeness >95%            |
 | TestFCPRestOnly          | Recent data (<1h)           | REST >80%, data age <5min                 |
 | TestFCPHybrid            | 48h boundary crossing       | Multiple sources, completeness >90%       |
 | TestFCPFutureTimestamp   | Future end_time             | Graceful fail OR valid past data          |
 | TestFCPSymbolValidation  | Wrong/correct symbol format | ValueError for wrong, success for correct |
-| TestFCPRateLimitHandling | Rate limit error class      | RateLimitError importable                 |
-| TestFCPIntervalCoverage  | 1m, 1h, 1d intervals        | Min bar count thresholds                  |
+| TestFCPRateLimitHandling | Rate limit error class      | RateLimitError importable (unit test)     |
+| TestFCPIntervalCoverage  | 1m, 1h, 1d intervals        | Min bar count thresholds (parametrized)   |
 | TestFCPEmptyResult       | Invalid symbol              | Non-silent failure (any exception)        |
 | TestFCPCachePartialHit   | Gap filling                 | Monotonic, no duplicates                  |
 

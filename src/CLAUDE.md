@@ -14,30 +14,33 @@ src/data_source_manager/
 ├── core/
 │   ├── sync/
 │   │   ├── data_source_manager.py  # Main DSM class with FCP
+│   │   ├── dsm_types.py            # DataSource, DataSourceConfig
 │   │   └── dsm_lib.py              # High-level functions
-│   ├── providers/
-│   │   └── binance/
-│   │       ├── vision_data_client.py   # Vision API (S3)
-│   │       ├── rest_data_client.py     # REST API
-│   │       └── cache_manager.py        # Arrow cache
-│   └── errors.py            # Exception hierarchy
+│   └── providers/
+│       └── binance/
+│           ├── vision_data_client.py   # Vision API (S3)
+│           ├── rest_data_client.py     # REST API
+│           └── cache_manager.py        # Arrow cache
 └── utils/
     ├── market_constraints.py    # Enums and validation
     ├── loguru_setup.py          # Logging configuration
     └── for_core/                # Internal utilities
+        ├── rest_exceptions.py   # REST API exceptions
+        └── vision_exceptions.py # Vision API exceptions
 ```
 
 ---
 
 ## Key Classes
 
-| Class               | Location                      | Purpose                   |
-| ------------------- | ----------------------------- | ------------------------- |
-| `DataSourceManager` | `core/sync/dsm.py`            | Main entry point with FCP |
-| `DataSourceConfig`  | `core/sync/dsm.py`            | Configuration dataclass   |
-| `DataProvider`      | `utils/market_constraints.py` | Provider enum (BINANCE)   |
-| `MarketType`        | `utils/market_constraints.py` | Market type enum          |
-| `Interval`          | `utils/market_constraints.py` | Timeframe interval enum   |
+| Class               | Location                           | Purpose                   |
+| ------------------- | ---------------------------------- | ------------------------- |
+| `DataSourceManager` | `core/sync/data_source_manager.py` | Main entry point with FCP |
+| `DataSourceConfig`  | `core/sync/dsm_types.py`           | Configuration dataclass   |
+| `DataSource`        | `core/sync/dsm_types.py`           | Data source enum          |
+| `DataProvider`      | `utils/market_constraints.py`      | Provider enum (BINANCE)   |
+| `MarketType`        | `utils/market_constraints.py`      | Market type enum          |
+| `Interval`          | `utils/market_constraints.py`      | Timeframe interval enum   |
 
 ---
 
@@ -54,9 +57,9 @@ The Failover Control Protocol orchestrates data retrieval:
 Key methods:
 
 - `get_data()` - Main entry point, implements FCP
-- `_try_cache()` - Check local Arrow cache
-- `_try_vision()` - Fetch from Binance Vision
-- `_try_rest()` - Fall back to REST API
+- `_get_from_cache()` - Check local Arrow cache
+- `_fetch_from_vision()` - Fetch from Binance Vision
+- `_fetch_from_rest()` - Fall back to REST API
 
 ---
 
@@ -66,13 +69,14 @@ Key methods:
 
 ```python
 # CORRECT: Specific exceptions
-from data_source_manager.core.errors import DataSourceError, RateLimitError
+from data_source_manager.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
+from data_source_manager.utils.for_core.vision_exceptions import VisionAPIError
 
 try:
     df = manager.get_data(...)
 except RateLimitError:
     logger.warning("Rate limited, retrying...")
-except DataSourceError as e:
+except (RestAPIError, VisionAPIError) as e:
     logger.error(f"Data fetch failed: {e}")
     raise
 ```

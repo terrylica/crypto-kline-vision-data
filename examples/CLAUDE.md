@@ -13,18 +13,20 @@ Context-specific instructions for working with DSM examples.
 uv run -p 3.13 python examples/quick_start.py
 
 # Run with debug logging
-DEBUG=1 uv run -p 3.13 python examples/dsm_logging_demo.py
+DSM_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/dsm_logging_demo.py
 ```
 
 ---
 
 ## Directory Structure
 
-| Directory     | Purpose                         |
-| ------------- | ------------------------------- |
-| `sync/`       | Synchronous CLI demos           |
-| `lib_module/` | Library usage patterns          |
-| `tutorials/`  | Step-by-step learning materials |
+| Directory     | Purpose                |
+| ------------- | ---------------------- |
+| `sync/`       | Synchronous CLI demos  |
+| `lib_module/` | Library usage patterns |
+| Root files    | Quick start and demos  |
+
+**Root-level examples**: `quick_start.py`, `dsm_logging_demo.py`, `dsm_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`
 
 ---
 
@@ -59,14 +61,14 @@ manager.close()
 ### With Error Handling
 
 ```python
-from data_source_manager.core.errors import DataSourceError, RateLimitError
+from data_source_manager.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
 
 try:
     df = manager.get_data(symbol, start, end, interval)
 except RateLimitError:
     print("Rate limited - wait and retry")
-except DataSourceError as e:
-    print(f"Data source error: {e}")
+except RestAPIError as e:
+    print(f"REST API error: {e}")
 finally:
     manager.close()
 ```

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-# polars-exception: Time range utilities work with pandas DataFrames and timestamps
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
+# Note: This file uses pandas due to tight integration with standardize_columns
+# and FCP merge logic. Full Polars migration would require broader changes.
 """Utility functions for DataSourceManager time range and data segment operations."""
 
 from datetime import datetime, timedelta
@@ -191,16 +192,18 @@ def identify_missing_segments(
     )
     logger.debug(f"Gap detector found {stats['total_gaps']} gaps")
 
-    missing_segments: list[tuple[datetime, datetime]] = []
-    for gap in gaps:
-        start = gap.start_time + timedelta(seconds=interval.to_seconds())
-        end = gap.end_time
-        missing_segments.append((start, end))
+    # Pre-calculate interval offset once (avoids N timedelta allocations)
+    interval_offset = timedelta(seconds=interval.to_seconds())
+
+    # Build missing segments from gaps
+    missing_segments: list[tuple[datetime, datetime]] = [
+        (gap.start_time + interval_offset, gap.end_time) for gap in gaps
+    ]
 
     if min_time > start_time:
         missing_segments.insert(0, (start_time, min_time))
     if max_time < end_time:
-        boundary_end = max_time + timedelta(seconds=interval.to_seconds())
+        boundary_end = max_time + interval_offset
         if boundary_end < end_time:
             missing_segments.append((boundary_end, end_time))
 
