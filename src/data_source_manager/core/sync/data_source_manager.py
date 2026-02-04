@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import polars as pl
 
 from data_source_manager.core.providers.binance.cache_manager import UnifiedCacheManager
 from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
@@ -87,6 +88,10 @@ __all__ = [
     "DataSourceConfig",
     "DataSourceManager",
 ]
+
+# Supported providers - other providers in DataProvider enum are NOT yet implemented
+# CRITICAL: This prevents silent failures where OKX/TradeStation would silently use Binance
+SUPPORTED_PROVIDERS: frozenset[DataProvider] = frozenset({DataProvider.BINANCE})
 
 
 class DataSourceManager:
@@ -320,6 +325,16 @@ class DataSourceManager:
         # Provider is now mandatory
         if provider is None:
             raise ValueError("Data provider must be specified")
+
+        # CRITICAL: Validate provider is supported to prevent silent failures
+        # Previously, passing OKX or TradeStation would silently use Binance clients
+        if provider not in SUPPORTED_PROVIDERS:
+            supported_names = sorted(p.name for p in SUPPORTED_PROVIDERS)
+            raise ValueError(
+                f"Provider '{provider.name}' is not supported. "
+                f"Supported providers: {supported_names}. "
+                f"OKX and TradeStation support is planned but not yet implemented."
+            )
 
         # Use the configured default market type if none provided
         if market_type is None:
@@ -708,7 +723,8 @@ class DataSourceManager:
         include_source_info: bool = True,
         enforce_source: DataSource = DataSource.AUTO,
         auto_reindex: bool = True,
-    ) -> pd.DataFrame:
+        return_polars: bool = False,
+    ) -> pd.DataFrame | pl.DataFrame:
         """Retrieve market data for a symbol within a specified time range.
 
         This method implements the Failover Control Protocol (FCP) to ensure robust
@@ -736,9 +752,13 @@ class DataSourceManager:
             auto_reindex: Whether to automatically reindex to create complete time series.
                          When True (default), missing timestamps are filled with NaN.
                          When False, only returns available data without artificial padding.
+            return_polars: Whether to return a Polars DataFrame instead of Pandas.
+                         When True, returns pl.DataFrame for better performance.
+                         When False (default), returns pd.DataFrame for backward compatibility.
 
         Returns:
-            DataFrame containing the requested market data with columns:
+            pd.DataFrame or pl.DataFrame (based on return_polars parameter) containing
+            the requested market data with columns:
             - open_time: Opening time of the interval
             - open, high, low, close: OHLC price data
             - volume: Trading volume
@@ -772,6 +792,13 @@ class DataSourceManager:
             >>> if "_data_source" in df.columns:
             ...     sources = df["_data_source"].unique()
             ...     print(f"Data sources used: {sources}")
+            >>>
+            >>> # Return Polars DataFrame for better performance
+            >>> df_polars = manager.get_data(
+            ...     "BTCUSDT", start_time, end_time, Interval.MINUTE_1,
+            ...     return_polars=True
+            ... )
+            >>> print(type(df_polars))  # <class 'polars.dataframe.frame.DataFrame'>
 
         Note:
             When the current time is close to end_time, Vision API data may not be
@@ -960,6 +987,17 @@ class DataSourceManager:
                     logger.error(f"[FCP] BUG: auto_reindex=False should not create {nan_count} NaN values!")
 
             logger.info(f"[FCP] Successfully retrieved {len(result_df)} records for {symbol}")
+
+            # Convert to Polars if requested
+            if return_polars:
+                # Convert pandas DataFrame to Polars DataFrame
+                # Reset index to include open_time as a column before conversion
+                if result_df.index.name == "open_time":
+                    result_df = result_df.reset_index()
+                result_pl = pl.from_pandas(result_df)
+                logger.debug(f"[FCP] Converted to Polars DataFrame with {len(result_pl)} rows")
+                return result_pl
+
             return result_df
 
         except (

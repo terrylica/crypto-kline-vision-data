@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import polars as pl
 import pytest
 
 from data_source_manager import DataProvider, DataSourceManager, Interval, MarketType
@@ -517,4 +518,175 @@ class TestInputValidation:
         assert manager is not None
         assert manager.provider == DataProvider.BINANCE
         assert manager.market_type == MarketType.SPOT
+        manager.close()
+
+
+class TestReturnPolarsParameter:
+    """Tests for return_polars parameter behavior."""
+
+    @patch("data_source_manager.core.sync.data_source_manager.verify_final_data")
+    @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_return_polars_false_returns_pandas(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_cache_step,
+        mock_vision_step,
+        mock_rest_step,
+        mock_verify,
+        sample_ohlcv_df,
+        historical_time_range,
+    ):
+        """return_polars=False (default) should return pandas DataFrame."""
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+        mock_cache_step.return_value = (sample_ohlcv_df, [])
+        mock_verify.return_value = sample_ohlcv_df
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        # Act
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=start_time,
+            end_time=end_time,
+            interval=Interval.HOUR_1,
+            return_polars=False,
+        )
+
+        # Assert
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) > 0
+        manager.close()
+
+    @patch("data_source_manager.core.sync.data_source_manager.verify_final_data")
+    @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_return_polars_true_returns_polars(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_cache_step,
+        mock_vision_step,
+        mock_rest_step,
+        mock_verify,
+        sample_ohlcv_df,
+        historical_time_range,
+    ):
+        """return_polars=True should return polars DataFrame."""
+
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+        mock_cache_step.return_value = (sample_ohlcv_df, [])
+        mock_verify.return_value = sample_ohlcv_df
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        # Act
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=start_time,
+            end_time=end_time,
+            interval=Interval.HOUR_1,
+            return_polars=True,
+        )
+
+        # Assert
+        assert isinstance(df, pl.DataFrame)
+        assert len(df) > 0
+        manager.close()
+
+    @patch("data_source_manager.core.sync.data_source_manager.verify_final_data")
+    @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_polars_df_contains_open_time_column(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_cache_step,
+        mock_vision_step,
+        mock_rest_step,
+        mock_verify,
+        sample_ohlcv_df,
+        historical_time_range,
+    ):
+        """Polars DataFrame should have open_time as column (not index)."""
+
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+        mock_cache_step.return_value = (sample_ohlcv_df, [])
+        mock_verify.return_value = sample_ohlcv_df
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        # Act
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=start_time,
+            end_time=end_time,
+            interval=Interval.HOUR_1,
+            return_polars=True,
+        )
+
+        # Assert - Polars doesn't have index, open_time should be a column
+        assert isinstance(df, pl.DataFrame)
+        assert "open_time" in df.columns
+        expected_cols = ["open_time", "open", "high", "low", "close", "volume"]
+        for col in expected_cols:
+            assert col in df.columns
+        manager.close()
+
+    @patch("data_source_manager.core.sync.data_source_manager.verify_final_data")
+    @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_default_returns_pandas(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_cache_step,
+        mock_vision_step,
+        mock_rest_step,
+        mock_verify,
+        sample_ohlcv_df,
+        historical_time_range,
+    ):
+        """Omitting return_polars should default to pandas DataFrame."""
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+        mock_cache_step.return_value = (sample_ohlcv_df, [])
+        mock_verify.return_value = sample_ohlcv_df
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        # Act - Do not pass return_polars parameter
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=start_time,
+            end_time=end_time,
+            interval=Interval.HOUR_1,
+        )
+
+        # Assert - Should be pandas by default
+        assert isinstance(df, pd.DataFrame)
         manager.close()
