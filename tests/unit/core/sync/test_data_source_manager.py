@@ -690,3 +690,141 @@ class TestReturnPolarsParameter:
         # Assert - Should be pandas by default
         assert isinstance(df, pd.DataFrame)
         manager.close()
+
+
+# =============================================================================
+# Funding Rate Routing Tests
+# =============================================================================
+
+
+class TestFundingRateRouting:
+    """Tests for ChartType.FUNDING_RATE routing to _fetch_funding_rate()."""
+
+    @patch("data_source_manager.core.sync.data_source_manager.BinanceFundingRateClient")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_funding_rate_routes_to_dedicated_method(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_funding_client,
+        historical_time_range,
+    ):
+        """get_data with ChartType.FUNDING_RATE should route to _fetch_funding_rate."""
+        from data_source_manager.utils.market_constraints import ChartType
+
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+
+        # Mock funding rate client
+        mock_client_instance = MagicMock()
+        mock_client_instance.fetch.return_value = pd.DataFrame({
+            "symbol": ["BTCUSDT"] * 3,
+            "funding_time": [start_time + timedelta(hours=i * 8) for i in range(3)],
+            "funding_rate": [0.0001, 0.0002, 0.00015],
+        })
+        mock_funding_client.return_value = mock_client_instance
+
+        manager = DataSourceManager.create(
+            DataProvider.BINANCE,
+            MarketType.FUTURES_USDT,
+        )
+
+        # Act
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=start_time,
+            end_time=end_time,
+            interval=Interval.HOUR_8,
+            chart_type=ChartType.FUNDING_RATE,
+        )
+
+        # Assert - BinanceFundingRateClient should have been called
+        assert mock_funding_client.called
+        assert mock_client_instance.fetch.called
+        assert len(df) == 3
+        manager.close()
+
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_funding_rate_invalid_market_type_raises_error(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        historical_time_range,
+    ):
+        """Funding rate with SPOT market should raise ValueError."""
+        from data_source_manager.utils.market_constraints import ChartType
+
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+
+        manager = DataSourceManager.create(
+            DataProvider.BINANCE,
+            MarketType.SPOT,  # Invalid for funding rate
+        )
+
+        # Act & Assert
+        with pytest.raises(ValueError) as exc_info:
+            manager.get_data(
+                symbol="BTCUSDT",
+                start_time=start_time,
+                end_time=end_time,
+                interval=Interval.HOUR_8,
+                chart_type=ChartType.FUNDING_RATE,
+            )
+
+        assert "funding rate" in str(exc_info.value).lower()
+        manager.close()
+
+    @patch("data_source_manager.core.sync.data_source_manager.verify_final_data")
+    @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
+    @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
+    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
+    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+    def test_klines_does_not_call_funding_rate(
+        self,
+        mock_cache_mgr,
+        mock_vision_handler,
+        mock_cache_step,
+        mock_vision_step,
+        mock_rest_step,
+        mock_verify,
+        sample_ohlcv_df,
+        historical_time_range,
+    ):
+        """get_data with ChartType.KLINES should NOT call _fetch_funding_rate."""
+        from data_source_manager.utils.market_constraints import ChartType
+
+        # Arrange
+        start_time, end_time = historical_time_range
+        mock_cache_mgr.return_value = MagicMock()
+        mock_vision_handler.return_value = MagicMock()
+        mock_cache_step.return_value = (sample_ohlcv_df, [])
+        mock_verify.return_value = sample_ohlcv_df
+
+        manager = DataSourceManager.create(
+            DataProvider.BINANCE,
+            MarketType.FUTURES_USDT,
+        )
+
+        # Act
+        with patch.object(manager, "_fetch_funding_rate") as mock_fetch_fr:
+            df = manager.get_data(
+                symbol="BTCUSDT",
+                start_time=start_time,
+                end_time=end_time,
+                interval=Interval.HOUR_1,
+                chart_type=ChartType.KLINES,
+            )
+
+            # Assert - _fetch_funding_rate should NOT have been called
+            assert not mock_fetch_fr.called
+
+        assert len(df) > 0
+        manager.close()

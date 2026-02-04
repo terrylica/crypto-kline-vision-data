@@ -887,6 +887,17 @@ class DataSourceManager:
         if chart_type is None:
             chart_type = self.chart_type
 
+        # Route to funding rate handler if chart_type is FUNDING_RATE
+        # This uses a separate data path since funding rates have different structure
+        if chart_type == ChartType.FUNDING_RATE:
+            return self._fetch_funding_rate(
+                symbol=symbol,
+                start_time=start_time,
+                end_time=end_time,
+                interval=interval,
+                return_polars=return_polars,
+            )
+
         try:
             # Validate interval against market type
             validate_interval(self.market_type, interval)

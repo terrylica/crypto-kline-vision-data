@@ -838,16 +838,16 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             filtered_df["original_timestamp"] = filtered_df["open_time"]
 
         # Create TimestampedDataFrame based on available columns
+        # MEMORY OPTIMIZATION: set_index() already returns a new DataFrame,
+        # no need for explicit copy() before it. See: /tmp/memory_audit_findings.md
         if "open_time_us" not in filtered_df.columns and "open_time" in filtered_df.columns:
-            df_for_index = filtered_df.copy()
-            df_for_index = df_for_index.set_index("open_time")
-            return TimestampedDataFrame(df_for_index)
+            df_indexed = filtered_df.set_index("open_time")
+            return TimestampedDataFrame(df_indexed)
         if "open_time_us" in filtered_df.columns:
-            df_for_index = filtered_df.copy()
-            if "open_time" in df_for_index.columns:
-                df_for_index = df_for_index.drop(columns=["open_time"])
-            df_for_index = df_for_index.set_index("open_time_us")
-            return TimestampedDataFrame(df_for_index)
+            # drop() also returns a new DataFrame, no copy needed
+            df_for_index = filtered_df.drop(columns=["open_time"]) if "open_time" in filtered_df.columns else filtered_df
+            df_indexed = df_for_index.set_index("open_time_us")
+            return TimestampedDataFrame(df_indexed)
         if filtered_df.empty:
             return self.create_empty_dataframe()
 

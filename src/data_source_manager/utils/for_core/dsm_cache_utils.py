@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-# polars-exception: Cache utilities read/write pandas DataFrames from Arrow files
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
+# Memory optimization: Polars LazyFrame for predicate pushdown (2026-02-04)
 """Cache utilities for DataSourceManager.
 
 Provides provider-agnostic cache path generation and cache I/O operations.
+Uses Polars LazyFrame for memory-efficient file reading with predicate pushdown.
 """
 
 from datetime import date, datetime
@@ -12,6 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 import pendulum
+import polars as pl
 
 from data_source_manager.core.providers.binance.vision_path_mapper import (
     FSSpecVisionHandler,
@@ -159,8 +161,10 @@ def get_from_cache(
     current_date = pendulum.instance(start_time).start_of("day")
     end_date = pendulum.instance(end_time).start_of("day")
 
-    # Prepare result DataFrame
-    result_df = pd.DataFrame()
+    # MEMORY OPTIMIZATION: Collect DataFrames in list, single concat at end
+    # This avoids O(n²) memory allocation from repeated pd.concat() calls
+    # See: /tmp/memory_audit_findings.md - Priority 1 fix
+    daily_dfs: list[pd.DataFrame] = []
 
     # Track which days we were able to load from cache
     loaded_days = []
@@ -181,24 +185,35 @@ def get_from_cache(
             if fs_handler.exists(cache_path):
                 logger.info(f"Loading from cache: {cache_path}")
 
-                # In real implementation, load from Arrow file
+                # MEMORY OPTIMIZATION: Use Polars LazyFrame with predicate pushdown
+                # This filters at read time instead of loading entire file then filtering.
+                # See: /tmp/memory_audit_findings.md - lazy evaluation optimization
                 try:
-                    daily_df = pd.read_parquet(cache_path)
-                    if not daily_df.empty:
-                        logger.info(f"Loaded {len(daily_df)} records from cache for {current_date.format('YYYY-MM-DD')}")
+                    # Scan parquet lazily, apply filter, then collect only matching rows
+                    lf = pl.scan_parquet(cache_path)
+
+                    # Apply time range filter with predicate pushdown
+                    # Note: Polars datetime comparison requires proper type handling
+                    filtered_lf = lf.filter(
+                        (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
+                    )
+
+                    # Collect filtered data and convert to pandas for API compatibility
+                    daily_pl = filtered_lf.collect()
+
+                    if len(daily_pl) > 0:
+                        logger.info(f"Loaded {len(daily_pl)} records from cache for {current_date.format('YYYY-MM-DD')}")
                         loaded_days.append(current_date.date())
 
-                        # Filter to the requested time range before merging
-                        daily_df = daily_df[(daily_df["open_time"] >= start_time) & (daily_df["open_time"] <= end_time)]
-
-                        # Add source information
+                        # Convert to pandas and add source information
+                        daily_df = daily_pl.to_pandas()
                         daily_df["_data_source"] = "CACHE"
 
-                        # Append to result
-                        result_df = pd.concat([result_df, daily_df])
+                        # Collect for batch concat (memory efficient)
+                        daily_dfs.append(daily_df)
                     else:
-                        logger.warning(f"Cache file exists but is empty: {cache_path}")
-                except (OSError, pd.errors.ParserError, ValueError, KeyError) as e:
+                        logger.warning(f"Cache file exists but no data in requested range: {cache_path}")
+                except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
                     logger.error(f"Error loading cache file {cache_path}: {e}")
             else:
                 logger.info(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
@@ -207,6 +222,9 @@ def get_from_cache(
 
         # Move to next day
         current_date = current_date.add(days=1)
+
+    # Single concat at end - O(n) instead of O(n²)
+    result_df = pd.concat(daily_dfs, ignore_index=True) if daily_dfs else pd.DataFrame()
 
     # Calculate missing time ranges using proper gap detection
     missing_ranges = []

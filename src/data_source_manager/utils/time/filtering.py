@@ -26,6 +26,8 @@ def filter_dataframe_by_time(
     start_time: datetime,
     end_time: datetime,
     time_column: str = "open_time",
+    *,
+    copy: bool = False,
 ) -> pd.DataFrame:
     """Filter a DataFrame by time range with robust handling of different timestamp formats.
 
@@ -42,6 +44,9 @@ def filter_dataframe_by_time(
         start_time: Start of time range (inclusive)
         end_time: End of time range (inclusive)
         time_column: Name of timestamp column to filter by (defaults to "open_time")
+        copy: If True, return a copy of the filtered data. If False (default),
+              return a view for memory efficiency. Set to True only if you need
+              to modify the result without affecting the original.
 
     Returns:
         pd.DataFrame: Filtered DataFrame containing only rows within the specified time range
@@ -72,7 +77,9 @@ def filter_dataframe_by_time(
         filtering for better performance when available.
     """
     if df.empty:
-        return df.copy()
+        # MEMORY OPTIMIZATION: Empty DataFrame has no data to copy
+        # Return as-is unless explicit copy requested
+        return df.copy() if copy else df
 
     # Ensure times are timezone-aware
     start_time = enforce_utc_timezone(start_time)
@@ -104,21 +111,28 @@ def filter_dataframe_by_time(
                 f"Filtering on index reset as column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}"
             )
 
-            filtered_df = df_with_column[(df_with_column[time_column] >= start_time) & (df_with_column[time_column] <= end_time)].copy()
+            # MEMORY OPTIMIZATION: Boolean indexing returns view, copy only if requested
+            filtered_df = df_with_column[(df_with_column[time_column] >= start_time) & (df_with_column[time_column] <= end_time)]
+            if copy:
+                filtered_df = filtered_df.copy()
 
             # Set index back
             if not filtered_df.empty:
                 filtered_df = filtered_df.set_index(time_column)
         else:
             logger.warning(f"Time column '{time_column}' not found in DataFrame")
-            return df.copy()
+            # MEMORY OPTIMIZATION: Return as-is unless explicit copy requested
+            return df.copy() if copy else df
     else:
         # Filter dataframe using the time column, preserving exact timestamps
         # IMPORTANT: Use >= for start_time and <= for end_time to include timestamps
         # exactly at the interval boundaries
         logger.debug(f"Filtering on column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}")
 
-        filtered_df = df[(df[time_column] >= start_time) & (df[time_column] <= end_time)].copy()
+        # MEMORY OPTIMIZATION: Boolean indexing returns view, copy only if requested
+        filtered_df = df[(df[time_column] >= start_time) & (df[time_column] <= end_time)]
+        if copy:
+            filtered_df = filtered_df.copy()
 
     # Reset index if it's not already the time column
     if filtered_df.index.name != time_column:

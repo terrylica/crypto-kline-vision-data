@@ -238,9 +238,10 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
 
     if len(dfs) == 1:
         logger.debug("Only one DataFrame to merge, standardizing and returning")
-        # Ensure consistent formatting even for single DataFrame
-        result = dfs[0].copy()
-        return standardize_columns(result)
+        # MEMORY OPTIMIZATION: No defensive copy needed - standardize_columns
+        # operates on the DataFrame and callers don't expect original preservation.
+        # See: /tmp/memory_audit_findings.md - Priority 1 fix
+        return standardize_columns(dfs[0])
 
     # Log information about DataFrames to be merged
     logger.debug(f"Merging {len(dfs)} DataFrames")

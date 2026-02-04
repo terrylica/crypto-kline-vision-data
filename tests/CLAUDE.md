@@ -35,6 +35,7 @@ uv run -p 3.13 pytest tests/fcp_pm/test_fcp_edge_cases.py -v
 | `integration/` | External API tests        | Yes              |
 | `okx/`         | OKX-specific integration  | Yes              |
 | `fcp_pm/`      | FCP protocol matrix tests | Yes              |
+| `stress/`      | Memory & fault tolerance  | Yes              |
 
 ### Unit Test Subdirectories
 
@@ -188,8 +189,37 @@ if "CACHE" in analysis["sources"]:
 
 ---
 
+## Stress Test Suite (tests/stress/)
+
+Memory efficiency and fault tolerance tests. Run with `mise run test:stress` or `pytest tests/stress/ -v -m stress`.
+
+### Test Classes
+
+| Test File              | Class                    | Focus                      |
+| ---------------------- | ------------------------ | -------------------------- |
+| `test_memory_pressure` | TestLargeHistoricalFetch | Large data fetch bounds    |
+| `test_memory_pressure` | TestPolarsVsPandasMemory | Output format comparison   |
+| `test_memory_pressure` | TestMixedSourceMerge     | FCP merge efficiency       |
+| `test_object_churn`    | TestSequentialFetches    | Sequential fetch stability |
+| `test_object_churn`    | TestResourceCleanup      | Resource release           |
+| `test_fault_tolerance` | TestEmptyResults         | Empty/missing data         |
+| `test_fault_tolerance` | TestErrorRecovery        | Error recovery patterns    |
+| `test_fault_tolerance` | TestSymbolValidation     | Symbol format validation   |
+
+### Stress Fixtures (stress/conftest.py)
+
+| Fixture          | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `memory_tracker` | tracemalloc context manager with peak_mb |
+| `test_symbols`   | 10 common trading symbols                |
+| `stress_range`   | 7-day historical range                   |
+| `long_range`     | 30-day range for pressure tests          |
+
+---
+
 ## Related
 
 - @docs/skills/dsm-testing/SKILL.md - Full testing guide
 - @conftest.py - Shared fixtures
 - @tests/fcp_pm/test_fcp_edge_cases.py - FCP edge case tests
+- @tests/stress/ - Memory and fault tolerance stress tests
