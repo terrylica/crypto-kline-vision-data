@@ -253,8 +253,7 @@ class ArrowCacheReader:
 
         try:
             # Polars reads Arrow IPC format with zero-copy
-            df = pl.read_ipc(path, memory_map=True)
-            return df
+            return pl.read_ipc(path, memory_map=True)
         except (OSError, pl.exceptions.ComputeError) as e:
             logger.error(f"Error reading arrow file {file_path}: {e}")
             raise

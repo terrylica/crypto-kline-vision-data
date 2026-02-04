@@ -2,9 +2,12 @@
 # polars-exception: Cache utilities read/write pandas DataFrames from Arrow files
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Fix silent failure patterns (BLE001)
-"""Cache utilities for DataSourceManager."""
+"""Cache utilities for DataSourceManager.
 
-from datetime import datetime
+Provides provider-agnostic cache path generation and cache I/O operations.
+"""
+
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +18,106 @@ from data_source_manager.core.providers.binance.vision_path_mapper import (
 )
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
+
+
+# =============================================================================
+# Provider-Agnostic Cache Path Generation
+# =============================================================================
+
+
+def get_cache_path(
+    provider: DataProvider,
+    market_type: MarketType,
+    symbol: str,
+    interval: Interval,
+    cache_date: date,
+    cache_root: Path,
+    chart_type: ChartType = ChartType.KLINES,
+) -> Path:
+    """Generate provider-agnostic cache path.
+
+    This function creates a consistent cache path structure that works
+    for any data provider (Binance, OKX, TradeStation, etc.).
+
+    Args:
+        provider: Data provider (e.g., BINANCE, OKX)
+        market_type: Market type (e.g., SPOT, FUTURES_USDT)
+        symbol: Trading symbol (e.g., "BTCUSDT")
+        interval: Time interval (e.g., Interval.HOUR_1)
+        cache_date: Date for the cache file
+        cache_root: Root cache directory
+        chart_type: Type of chart data (e.g., KLINES, FUNDING_RATE)
+
+    Returns:
+        Path to the cache file
+
+    Example:
+        >>> from pathlib import Path
+        >>> from datetime import date
+        >>> from data_source_manager import DataProvider, MarketType, Interval, ChartType
+        >>>
+        >>> path = get_cache_path(
+        ...     provider=DataProvider.BINANCE,
+        ...     market_type=MarketType.FUTURES_USDT,
+        ...     symbol="BTCUSDT",
+        ...     interval=Interval.HOUR_1,
+        ...     cache_date=date(2024, 1, 15),
+        ...     cache_root=Path("~/.cache/dsm"),
+        ... )
+        >>> # Returns: ~/.cache/dsm/binance/futures_usdt/klines/daily/BTCUSDT/1h/2024-01-15.arrow
+    """
+    # Normalize values for path construction
+    # Note: DataProvider uses int values, so use .name for string representation
+    provider_dir = provider.name.lower()
+    market_dir = market_type.name.lower()
+    chart_dir = chart_type.name.lower()
+    interval_str = interval.value
+
+    # Construct path components
+    return (
+        cache_root
+        / provider_dir
+        / market_dir
+        / chart_dir
+        / "daily"
+        / symbol.upper()
+        / interval_str
+        / f"{cache_date.isoformat()}.arrow"
+    )
+
+
+def get_cache_dir_for_symbol(
+    provider: DataProvider,
+    market_type: MarketType,
+    symbol: str,
+    interval: Interval,
+    cache_root: Path,
+    chart_type: ChartType = ChartType.KLINES,
+) -> Path:
+    """Get the cache directory for a symbol/interval combination.
+
+    Args:
+        provider: Data provider
+        market_type: Market type
+        symbol: Trading symbol
+        interval: Time interval
+        cache_root: Root cache directory
+        chart_type: Type of chart data
+
+    Returns:
+        Path to the cache directory (without date)
+    """
+    provider_dir = provider.name.lower()
+    market_dir = market_type.name.lower()
+    chart_dir = chart_type.name.lower()
+    interval_str = interval.value
+
+    return cache_root / provider_dir / market_dir / chart_dir / "daily" / symbol.upper() / interval_str
+
+
+# =============================================================================
+# Cache I/O Operations
+# =============================================================================
 
 
 def get_from_cache(

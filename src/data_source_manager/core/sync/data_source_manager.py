@@ -42,6 +42,7 @@ from typing import Any
 import pandas as pd
 import polars as pl
 
+from data_source_manager.core.providers.binance.binance_funding_rate_client import BinanceFundingRateClient
 from data_source_manager.core.providers.binance.cache_manager import UnifiedCacheManager
 from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
 from data_source_manager.core.providers.binance.vision_data_client import VisionDataClient
@@ -712,6 +713,79 @@ class DataSourceManager:
             rest_client=self.rest_client,
             chart_type=self.chart_type,
         )
+
+    def _fetch_funding_rate(
+        self,
+        symbol: str,
+        start_time: datetime,
+        end_time: datetime,
+        interval: Interval = Interval.HOUR_8,
+        return_polars: bool = False,
+    ) -> pd.DataFrame | pl.DataFrame:
+        """Fetch funding rate data using the BinanceFundingRateClient.
+
+        This method handles funding rate data retrieval separately from the main
+        FCP flow since funding rate data has different structure and sources.
+
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            start_time: Start time for data retrieval (UTC)
+            end_time: End time for data retrieval (UTC)
+            interval: Funding rate interval (default: HOUR_8, standard for Binance)
+            return_polars: Whether to return a Polars DataFrame
+
+        Returns:
+            DataFrame with funding rate data containing columns:
+            - symbol: Trading pair symbol
+            - funding_time: Timestamp of the funding rate
+            - funding_rate: The funding rate value
+            - interval: The interval string
+
+        Raises:
+            ValueError: If market type doesn't support funding rates
+        """
+        # Validate market type - funding rates only available for futures
+        if self.market_type not in (MarketType.FUTURES_USDT, MarketType.FUTURES_COIN):
+            raise ValueError(
+                f"Funding rate data is only available for futures markets. "
+                f"Current market type: {self.market_type.name}. "
+                f"Use FUTURES_USDT or FUTURES_COIN instead."
+            )
+
+        logger.info(f"[FCP] Fetching funding rate for {symbol} from {start_time} to {end_time}")
+
+        # Create funding rate client
+        funding_client = BinanceFundingRateClient(
+            symbol=symbol,
+            interval=interval,
+            market_type=self.market_type,
+            use_cache=self.use_cache,
+            cache_dir=self.cache_dir,
+            retry_count=self.retry_count,
+        )
+
+        try:
+            # Fetch funding rate data
+            result_df = funding_client.fetch(
+                symbol=symbol,
+                interval=interval.value,
+                start_time=start_time,
+                end_time=end_time,
+            )
+
+            logger.info(f"[FCP] Retrieved {len(result_df)} funding rate records for {symbol}")
+
+            # Convert to Polars if requested
+            if return_polars and not result_df.empty:
+                result_pl = pl.from_pandas(result_df)
+                logger.debug(f"[FCP] Converted funding rate to Polars DataFrame with {len(result_pl)} rows")
+                return result_pl
+
+            return result_df
+
+        finally:
+            # Ensure client is closed
+            funding_client.close()
 
     def get_data(
         self,

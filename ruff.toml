@@ -34,6 +34,8 @@ ignore = [ # https://docs.astral.sh/ruff/rules/ for quick reference of rule code
     # Chinese characters related rules
     "RUF001",    # Ambiguous unicode character - Allow when context is clear https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-string/
     "RUF002",    # Ambiguous unicode character - Allow when context is clear https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-docstring/
+    # Lazy imports in factory methods for circular import prevention
+    "PLC0415",   # import should be at top-level - Allow lazy imports in factory methods https://docs.astral.sh/ruff/rules/import-outside-top-level/
 ]
 
 # Allow autofix for all enabled rules

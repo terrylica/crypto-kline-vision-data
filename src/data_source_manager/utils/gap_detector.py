@@ -175,8 +175,7 @@ def detect_gaps(
     for gap in gaps:
         if gap.crosses_day_boundary:
             day_boundary_gaps += 1
-        if gap.duration_ms > max_gap_duration_ms:
-            max_gap_duration_ms = gap.duration_ms
+        max_gap_duration_ms = max(max_gap_duration_ms, gap.duration_ms)
 
     stats = {
         "total_gaps": len(gaps),

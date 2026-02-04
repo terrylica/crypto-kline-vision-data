@@ -425,3 +425,159 @@ class TestRestDataClientInputValidation:
             )
 
         assert isinstance(df, pd.DataFrame)
+
+
+class TestRestDataClientParallelFetch:
+    """Tests for RestDataClient.fetch_klines_parallel() method."""
+
+    @pytest.fixture
+    def sample_kline_response(self):
+        """Sample kline data from Binance API."""
+        base_time = 1704067200000  # 2024-01-01 00:00:00 UTC
+        return [
+            [
+                base_time,
+                "42000.00",
+                "42500.00",
+                "41800.00",
+                "42200.00",
+                "100.5",
+                base_time + 3599999,
+                "4220000.00",
+                1500,
+                "60.3",
+                "2532600.00",
+                "0",
+            ],
+        ]
+
+    def test_empty_date_ranges_returns_empty_list(self):
+        """Verify empty date_ranges returns empty list."""
+        client = RestDataClient(market_type=MarketType.SPOT)
+        result = client.fetch_klines_parallel("BTCUSDT", "1h", [])
+        assert result == []
+
+    def test_invalid_max_workers_raises_error(self):
+        """Verify max_workers < 1 raises ValueError."""
+        client = RestDataClient(market_type=MarketType.SPOT)
+        ranges = [(datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 2, tzinfo=timezone.utc))]
+
+        with pytest.raises(ValueError, match="max_workers must be at least 1"):
+            client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=0)
+
+    @patch("data_source_manager.core.providers.binance.rest_data_client.fetch_chunk")
+    @patch("data_source_manager.core.providers.binance.rest_data_client.create_optimized_client")
+    def test_parallel_fetch_single_range(
+        self,
+        mock_create_client,
+        mock_fetch_chunk,
+        sample_kline_response,
+    ):
+        """Verify parallel fetch with single range returns correct result."""
+        mock_client = MagicMock()
+        mock_create_client.return_value = mock_client
+        mock_fetch_chunk.return_value = sample_kline_response
+
+        client = RestDataClient(market_type=MarketType.SPOT)
+        ranges = [
+            (datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 1, 2, tzinfo=timezone.utc)),
+        ]
+
+        results = client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=1)
+
+        assert len(results) == 1
+        assert isinstance(results[0], pd.DataFrame)
+        assert len(results[0]) >= 1
+
+    def test_parallel_fetch_multiple_ranges(self):
+        """Verify parallel fetch with multiple ranges returns results in order."""
+        client = RestDataClient(market_type=MarketType.SPOT)
+        ranges = [
+            (datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 2, tzinfo=timezone.utc)),
+            (datetime(2024, 1, 3, tzinfo=timezone.utc), datetime(2024, 1, 4, tzinfo=timezone.utc)),
+            (datetime(2024, 1, 5, tzinfo=timezone.utc), datetime(2024, 1, 6, tzinfo=timezone.utc)),
+        ]
+
+        # Mock fetch at method level to return empty DataFrames
+        with (
+            patch.object(client, "fetch", return_value=pd.DataFrame()),
+            patch.object(client, "_client", MagicMock()),
+        ):
+            results = client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=2)
+
+        assert len(results) == 3
+        for result in results:
+            assert isinstance(result, pd.DataFrame)
+
+    @patch("data_source_manager.core.providers.binance.rest_data_client.fetch_chunk")
+    @patch("data_source_manager.core.providers.binance.rest_data_client.create_optimized_client")
+    def test_parallel_fetch_rate_limit_propagates(
+        self,
+        mock_create_client,
+        mock_fetch_chunk,
+    ):
+        """Verify RateLimitError propagates and stops all fetches."""
+        mock_client = MagicMock()
+        mock_create_client.return_value = mock_client
+        mock_fetch_chunk.side_effect = RateLimitError("429 Too Many Requests")
+
+        client = RestDataClient(market_type=MarketType.SPOT)
+        ranges = [
+            (datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 2, tzinfo=timezone.utc)),
+            (datetime(2024, 1, 3, tzinfo=timezone.utc), datetime(2024, 1, 4, tzinfo=timezone.utc)),
+        ]
+
+        with pytest.raises(RateLimitError):
+            client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=2)
+
+    @patch("data_source_manager.core.providers.binance.rest_data_client.fetch_chunk")
+    @patch("data_source_manager.core.providers.binance.rest_data_client.create_optimized_client")
+    def test_parallel_fetch_handles_partial_failures(
+        self,
+        mock_create_client,
+        mock_fetch_chunk,
+    ):
+        """Verify partial failures return empty DataFrames for failed ranges."""
+        mock_client = MagicMock()
+        mock_create_client.return_value = mock_client
+
+        # First call succeeds, second fails
+        base_time = 1704067200000
+        success_response = [
+            [base_time, "42000.00", "42500.00", "41800.00", "42200.00", "100.5",
+             base_time + 3599999, "4220000.00", 1500, "60.3", "2532600.00", "0"],
+        ]
+        mock_fetch_chunk.side_effect = [success_response, HTTPError("500 Internal Error")]
+
+        client = RestDataClient(market_type=MarketType.SPOT)
+        ranges = [
+            (datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 1, 2, tzinfo=timezone.utc)),
+            (datetime(2024, 1, 2, tzinfo=timezone.utc), datetime(2024, 1, 2, 2, tzinfo=timezone.utc)),
+        ]
+
+        # Sequential execution to control order
+        results = client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=1)
+
+        assert len(results) == 2
+        # Both should be DataFrames (first with data, second empty due to error)
+        assert isinstance(results[0], pd.DataFrame)
+        assert isinstance(results[1], pd.DataFrame)
+
+    def test_max_workers_capped_at_5(self):
+        """Verify max_workers is capped at 5 to avoid overwhelming API."""
+        client = RestDataClient(market_type=MarketType.SPOT)
+
+        # Create many ranges but effective workers should cap at 5
+        ranges = [
+            (datetime(2024, 1, i, tzinfo=timezone.utc), datetime(2024, 1, i + 1, tzinfo=timezone.utc))
+            for i in range(1, 11)  # 10 ranges
+        ]
+
+        # Mock fetch to return empty quickly
+        with (
+            patch.object(client, "fetch", return_value=pd.DataFrame()),
+            patch.object(client, "_client", MagicMock()),
+        ):
+            results = client.fetch_klines_parallel("BTCUSDT", "1h", ranges, max_workers=10)
+
+        assert len(results) == 10

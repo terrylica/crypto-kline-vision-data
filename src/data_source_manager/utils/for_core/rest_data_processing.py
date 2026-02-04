@@ -96,7 +96,7 @@ def _process_kline_data_polars(raw_data: list[list]) -> pl.DataFrame:
     ]
 
     # Create Polars DataFrame - all processing in a single expression chain
-    df = (
+    return (
         pl.DataFrame(raw_data, schema=columns, orient="row")
         .drop("ignore")
         .with_columns([
@@ -123,7 +123,6 @@ def _process_kline_data_polars(raw_data: list[list]) -> pl.DataFrame:
         })
     )
 
-    return df
 
 
 def process_kline_data(raw_data: list[list]) -> pd.DataFrame:

@@ -8,6 +8,9 @@ DataSourceManager, extracted for better modularity.
 # Refactoring: Extract from data_source_manager.py (1182 lines) for modularity
 """
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from enum import Enum, auto
 from pathlib import Path
 from typing import TypeVar
@@ -15,6 +18,9 @@ from typing import TypeVar
 import attr
 
 from data_source_manager.utils.market_constraints import ChartType, DataProvider, MarketType
+
+# Default HTTP timeout in seconds
+DEFAULT_HTTP_TIMEOUT = 30.0
 
 __all__ = [
     "DataSource",
@@ -54,7 +60,7 @@ class DataSourceConfig:
     Attributes:
         market_type: Market type (SPOT, FUTURES_USDT, FUTURES_COIN).
             Mandatory parameter that determines which market data to retrieve.
-        provider: Data provider (BINANCE).
+        provider: Data provider (BINANCE, OKX).
             Mandatory parameter that determines which data provider to use.
         chart_type: Chart type (KLINES, FUNDING_RATE).
             Default is KLINES (candlestick data).
@@ -70,6 +76,12 @@ class DataSourceConfig:
             Default is True. Set to False to see detailed HTTP request/response logs.
         quiet_mode: Whether to suppress all non-error logging.
             Default is False. Set to True for completely silent operation except for errors.
+        http_timeout: HTTP request timeout in seconds.
+            Default is 30.0. Increase for slow networks or large requests.
+        vision_enabled: Whether Vision API is enabled.
+            Default is True. Set to False to skip Vision API (e.g., for OKX which has no Vision).
+        fcp_priority: FCP data source priority order.
+            Default is [CACHE, VISION, REST]. Customize for different fallback behavior.
 
     Example:
         >>> from data_source_manager import DataProvider, MarketType, ChartType
@@ -122,6 +134,16 @@ class DataSourceConfig:
     )
     suppress_http_debug: bool = attr.field(default=True, validator=attr.validators.instance_of(bool))
     quiet_mode: bool = attr.field(default=False, validator=attr.validators.instance_of(bool))
+
+    # HTTP and FCP configuration parameters
+    http_timeout: float = attr.field(
+        default=DEFAULT_HTTP_TIMEOUT,
+        validator=[attr.validators.instance_of((int, float)), lambda _, __, value: value > 0],
+    )
+    vision_enabled: bool = attr.field(default=True, validator=attr.validators.instance_of(bool))
+    fcp_priority: Sequence[DataSource] = attr.field(
+        factory=lambda: [DataSource.CACHE, DataSource.VISION, DataSource.REST],
+    )
 
     @classmethod
     def create(cls: type[T], provider: DataProvider, market_type: MarketType, **kwargs) -> T:

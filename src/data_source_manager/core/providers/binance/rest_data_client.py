@@ -4,6 +4,7 @@
 # Refactoring: Fix silent failure patterns (BLE001)
 """Client for fetching market data from REST APIs with synchronous implementation."""
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
@@ -174,7 +175,6 @@ class RestDataClient(DataClientInterface):
         Returns:
             List of kline data
         """
-        # Set up parameters for the request
         params = {
             "symbol": symbol,
             "interval": interval.value,
@@ -183,39 +183,21 @@ class RestDataClient(DataClientInterface):
             "limit": self.CHUNK_SIZE,
         }
 
-        # Get the appropriate endpoint based on market type
-        endpoint = self._endpoint
-
-        # Fetch the chunk
         try:
-            data = self._fetch_chunk(endpoint, params, self.retry_count)
+            data = self._fetch_chunk(self._endpoint, params, self.retry_count)
             if not data:
                 logger.debug(f"No data returned for {symbol} in range {start_ms} to {end_ms}")
                 return []
-
             return data
         except RateLimitError:
-            # Rate limiting should propagate - caller should handle backoff
             logger.error(f"Rate limited when fetching chunk for {symbol}")
             raise
-        except (HTTPError, APIError) as e:
-            # API errors may be transient - log and return empty for this chunk
-            logger.error(f"API error when fetching chunk for {symbol}: {e}")
-            return []
-        except (NetworkError, TimeoutError) as e:
-            # Network errors may be transient - log and return empty for this chunk
-            logger.error(f"Network error when fetching chunk for {symbol}: {e}")
-            return []
-        except JSONDecodeError as e:
-            # JSON decode errors indicate corrupted response - log and skip chunk
-            logger.error(f"JSON decode error when fetching chunk for {symbol}: {e}")
-            return []
-        except RestAPIError as e:
-            # Other REST API errors - log and return empty for this chunk
-            logger.error(f"REST API error when fetching chunk for {symbol}: {e}")
+        except (HTTPError, APIError, NetworkError, TimeoutError, JSONDecodeError, RestAPIError) as e:
+            # All transient API/network errors - log and return empty for this chunk
+            logger.error(f"Error fetching chunk for {symbol}: {type(e).__name__}: {e}")
             return []
         except (ValueError, TypeError, KeyError, AttributeError) as e:
-            # Data processing errors indicate bugs - log with traceback
+            # Data processing errors - log with traceback
             logger.error(f"Data processing error for {symbol}: {e}", exc_info=True)
             return []
 
@@ -410,3 +392,125 @@ class RestDataClient(DataClientInterface):
         """
         validator = DataFrameValidator(df)
         return validator.validate_klines_data()
+
+    def _fetch_single_range_safe(
+        self,
+        symbol: str,
+        interval: str | Interval,
+        index: int,
+        start: datetime,
+        end: datetime,
+    ) -> tuple[int, pd.DataFrame]:
+        """Fetch a single date range with error handling (for parallel use).
+
+        Args:
+            symbol: Trading pair symbol
+            interval: Time interval
+            index: Index to preserve order
+            start: Start datetime
+            end: End datetime
+
+        Returns:
+            Tuple of (index, DataFrame)
+
+        Raises:
+            RateLimitError: Propagated to stop all parallel fetches
+        """
+        try:
+            return (index, self.fetch(symbol, interval, start, end))
+        except RateLimitError:
+            raise
+        except (HTTPError, APIError, NetworkError, JSONDecodeError, RestAPIError) as e:
+            logger.error(f"API error fetching range {index} ({start} to {end}): {e}")
+            return (index, create_empty_dataframe())
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.error(f"Data error fetching range {index} ({start} to {end}): {e}")
+            return (index, create_empty_dataframe())
+
+    def _collect_parallel_results(
+        self,
+        futures: dict,
+        date_ranges: list,
+    ) -> tuple[dict[int, pd.DataFrame], dict[int, Exception]]:
+        """Collect results from parallel fetch futures.
+
+        Args:
+            futures: Dict mapping futures to their indices
+            date_ranges: Original date ranges list
+
+        Returns:
+            Tuple of (results dict, errors dict)
+
+        Raises:
+            RateLimitError: If any fetch is rate limited
+        """
+        results: dict[int, pd.DataFrame] = {}
+        errors: dict[int, Exception] = {}
+
+        for future in as_completed(futures):
+            try:
+                index, df = future.result()
+                results[index] = df
+                logger.debug(f"Completed range {index + 1}/{len(date_ranges)}: {len(df)} rows")
+            except RateLimitError:
+                for f in futures:
+                    f.cancel()
+                raise
+            except (HTTPError, APIError, NetworkError, JSONDecodeError, RestAPIError) as e:
+                index = futures[future]
+                errors[index] = e
+                results[index] = create_empty_dataframe()
+                logger.error(f"API error in range {index}: {e}")
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
+                index = futures[future]
+                errors[index] = e
+                results[index] = create_empty_dataframe()
+                logger.error(f"Data error in range {index}: {e}")
+
+        return results, errors
+
+    def fetch_klines_parallel(
+        self,
+        symbol: str,
+        interval: str | Interval,
+        date_ranges: list[tuple[datetime, datetime]],
+        max_workers: int = 3,
+    ) -> list[pd.DataFrame]:
+        """Fetch multiple date ranges in parallel for improved performance.
+
+        Args:
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval string (e.g., "1h") or Interval enum
+            date_ranges: List of (start_time, end_time) tuples (timezone-aware datetimes)
+            max_workers: Maximum concurrent fetch operations (default 3 to avoid rate limits)
+
+        Returns:
+            List of DataFrames, one per date range (in same order as input)
+
+        Raises:
+            RateLimitError: If rate limit is exceeded
+            ValueError: If parameters are invalid
+        """
+        if not date_ranges:
+            logger.warning("Empty date_ranges provided to fetch_klines_parallel")
+            return []
+        if max_workers < 1:
+            raise ValueError("max_workers must be at least 1")
+
+        effective_workers = min(max_workers, len(date_ranges), 5)
+        logger.info(f"Fetching {len(date_ranges)} ranges in parallel (workers={effective_workers}) for {symbol}")
+
+        if self._client is None:
+            self._client = create_optimized_client()
+
+        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+            futures = {
+                executor.submit(self._fetch_single_range_safe, symbol, interval, i, start, end): i
+                for i, (start, end) in enumerate(date_ranges)
+            }
+            results, errors = self._collect_parallel_results(futures, date_ranges)
+
+        total_rows = sum(len(df) for df in results.values())
+        logger.info(f"Parallel fetch complete: {len(results)} ranges, {total_rows} rows, {len(errors)} errors")
+
+        return [results[i] for i in range(len(date_ranges))]
