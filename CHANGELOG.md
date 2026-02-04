@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/terrylica/data-source-manager/compare/v1.2.0...v1.3.0) (2026-02-04)
+
+
+### Features
+
+* **dsm:** complete feature phases 4-5 with OKX provider and parallel fetching ([d83dd16](https://github.com/terrylica/data-source-manager/commit/d83dd16f9fb2f93ff4a2a20c992608c6cd82a2e0))
+
 # [1.2.0](https://github.com/terrylica/data-source-manager/compare/v1.1.0...v1.2.0) (2026-02-04)
 
 
