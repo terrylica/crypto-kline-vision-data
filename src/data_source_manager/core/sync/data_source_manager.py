@@ -34,7 +34,6 @@ Example:
     ... )
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -42,11 +41,8 @@ from typing import Any
 import pandas as pd
 import polars as pl
 
+from data_source_manager.core.providers import ProviderClients, get_provider_clients, get_supported_providers
 from data_source_manager.core.providers.binance.binance_funding_rate_client import BinanceFundingRateClient
-from data_source_manager.core.providers.binance.cache_manager import UnifiedCacheManager
-from data_source_manager.core.providers.binance.rest_data_client import RestDataClient
-from data_source_manager.core.providers.binance.vision_data_client import VisionDataClient
-from data_source_manager.core.providers.binance.vision_path_mapper import FSSpecVisionHandler
 from data_source_manager.core.sync.dsm_types import DataSource, DataSourceConfig
 from data_source_manager.utils.app_paths import get_cache_dir
 from data_source_manager.utils.config import (
@@ -58,7 +54,6 @@ from data_source_manager.utils.config import (
     create_empty_dataframe,
 )
 from data_source_manager.utils.for_core.dsm_api_utils import (
-    create_client_if_needed,
     fetch_from_rest,
     fetch_from_vision,
 )
@@ -90,9 +85,10 @@ __all__ = [
     "DataSourceManager",
 ]
 
-# Supported providers - other providers in DataProvider enum are NOT yet implemented
-# CRITICAL: This prevents silent failures where OKX/TradeStation would silently use Binance
-SUPPORTED_PROVIDERS: frozenset[DataProvider] = frozenset({DataProvider.BINANCE})
+# Supported providers - dynamically determined from the provider registry
+# CRITICAL: This prevents silent failures where unsupported providers would silently fail
+# The factory pattern in core.providers registers supported providers
+SUPPORTED_PROVIDERS: frozenset[DataProvider] = get_supported_providers()
 
 
 class DataSourceManager:
@@ -424,29 +420,31 @@ class DataSourceManager:
             # Use platform-specific cache directory from app_paths
             self.cache_dir = get_cache_dir() / "data"
 
-        # Initialize FSSpecVisionHandler for cache operations
-        self.fs_handler = None
-        if self.use_cache:
-            try:
-                self.fs_handler = FSSpecVisionHandler(base_cache_dir=self.cache_dir)
-                logger.info(f"Initialized FSSpecVisionHandler with cache_dir={self.cache_dir}")
-            except (OSError, ImportError, ValueError) as e:
-                logger.error(f"Failed to initialize FSSpecVisionHandler: {e}")
-                logger.warning("Continuing without cache")
-                self.use_cache = False
+        # Initialize provider clients using the factory pattern
+        # This addresses the "Silent Provider Failure" bug where OKX/TradeStation
+        # would silently use Binance clients. Now the factory ensures correct
+        # provider-specific clients are created.
+        try:
+            self._provider_clients: ProviderClients = get_provider_clients(
+                provider=self.provider,
+                market_type=self.market_type,
+                cache_dir=self.cache_dir,
+                retry_count=self.retry_count,
+            )
+            logger.info(f"Initialized provider clients for {self.provider.name}")
+        except ValueError as e:
+            # Re-raise with context - this should not happen if create() validated
+            raise ValueError(f"Failed to initialize provider clients: {e}") from e
 
-        # Legacy cache manager (kept for backward compatibility but not used for new code paths)
-        self.cache_manager = None
-        if self.use_cache:
-            try:
-                self.cache_manager = UnifiedCacheManager(cache_dir=self.cache_dir)
-                logger.debug("Legacy cache manager initialized (for backward compatibility)")
-            except (OSError, json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Failed to initialize legacy cache manager: {e}")
+        # Extract clients for backward compatibility with existing code paths
+        self.fs_handler = self._provider_clients.vision  # Vision API client (None for OKX)
+        self.cache_manager = self._provider_clients.cache  # Cache manager
+        self.rest_client = self._provider_clients.rest  # REST API client
+        self.vision_client = self._provider_clients.vision  # Alias for vision client
 
-        # Initialize API clients
-        self.rest_client = None
-        self.vision_client = None
+        # Log cache status
+        if self.use_cache and self.cache_manager is not None:
+            logger.debug("Cache manager initialized via factory pattern")
 
     def _configure_logging(self) -> None:
         """Configure logging levels based on user preferences.
@@ -648,16 +646,11 @@ class DataSourceManager:
             (defined by VISION_DATA_DELAY_HOURS, usually 48 hours). For recent data,
             the FCP will fall back to the REST API.
         """
-        # Create or reconfigure Vision client if needed
-        self.vision_client = create_client_if_needed(
-            client=self.vision_client,
-            client_class=VisionDataClient,
-            symbol=symbol,
-            interval=interval.value,
-            market_type=self.market_type,
-            chart_type=self.chart_type,
-            cache_dir=self.cache_dir,
-        )
+        # Vision client is initialized via factory pattern in __init__
+        # For providers without Vision API (e.g., OKX), vision_client will be None
+        if self.vision_client is None:
+            logger.debug(f"Provider {self.provider.name} does not have Vision API, returning empty DataFrame")
+            return create_empty_dataframe()
 
         # Call the extracted utility function
         return fetch_from_vision(
@@ -696,14 +689,7 @@ class DataSourceManager:
             smaller requests (defined by REST_CHUNK_SIZE and REST_MAX_CHUNKS)
             to avoid timeouts and improve reliability.
         """
-        # Create REST client if not already created
-        self.rest_client = create_client_if_needed(
-            client=self.rest_client,
-            client_class=RestDataClient,
-            market_type=self.market_type,
-            retry_count=self.retry_count,
-        )
-
+        # REST client is initialized via factory pattern in __init__
         # Call the extracted utility function
         return fetch_from_rest(
             symbol=symbol,

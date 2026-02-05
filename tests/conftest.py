@@ -87,40 +87,65 @@ def recent_range(utc_now):
 
 
 @pytest.fixture
-def mock_vision_handler():
-    """Mock FSSpecVisionHandler for offline tests.
+def mock_provider_clients():
+    """Mock get_provider_clients factory for offline tests.
+
+    Creates mock ProviderClients with mock vision, rest, and cache clients.
+    Use this fixture for testing DSM initialization with factory pattern.
+    """
+    from data_source_manager import DataProvider, MarketType
+    from data_source_manager.core.providers import ProviderClients
+
+    def _create_mock_clients(provider=DataProvider.BINANCE, market_type=MarketType.SPOT):
+        mock_vision = MagicMock()
+        mock_vision.fetch_data.return_value = pd.DataFrame()
+        mock_rest = MagicMock()
+        mock_cache = MagicMock()
+        mock_cache.read.return_value = None  # Cache miss by default
+        return ProviderClients(
+            vision=mock_vision,
+            rest=mock_rest,
+            cache=mock_cache,
+            provider=provider,
+            market_type=market_type,
+        )
+
+    with patch("data_source_manager.core.sync.data_source_manager.get_provider_clients") as mock:
+        mock.side_effect = lambda provider, market_type, **kwargs: _create_mock_clients(
+            provider, market_type
+        )
+        yield mock
+
+
+@pytest.fixture
+def mock_vision_handler(mock_provider_clients):
+    """Mock FSSpecVisionHandler for offline tests (via factory pattern).
 
     Returns data via .fetch_data() method as empty DataFrame by default.
     """
-    with patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler") as mock:
-        handler_instance = MagicMock()
-        handler_instance.fetch_data.return_value = pd.DataFrame()
-        mock.return_value = handler_instance
-        yield mock
+    # The vision client is now accessed via the factory pattern
+    yield mock_provider_clients
 
 
 @pytest.fixture
-def mock_cache_manager():
-    """Mock UnifiedCacheManager for offline tests.
+def mock_cache_manager(mock_provider_clients):
+    """Mock UnifiedCacheManager for offline tests (via factory pattern).
 
     Returns None (cache miss) by default.
     """
-    with patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager") as mock:
-        cache_instance = MagicMock()
-        cache_instance.read.return_value = None  # Cache miss
-        mock.return_value = cache_instance
-        yield mock
+    # The cache client is now accessed via the factory pattern
+    yield mock_provider_clients
 
 
 @pytest.fixture
-def mock_all_sources(mock_vision_handler, mock_cache_manager):
+def mock_all_sources(mock_provider_clients):
     """Combined mock for complete isolation from external services.
 
     Use this when you need full isolation for unit tests.
+    Now uses the factory pattern instead of direct mocks.
     """
     return {
-        "vision": mock_vision_handler,
-        "cache": mock_cache_manager,
+        "factory": mock_provider_clients,
     }
 
 

@@ -56,15 +56,27 @@ def historical_time_range():
 # =============================================================================
 
 
-@patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-@patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
+@patch("data_source_manager.core.sync.data_source_manager.get_provider_clients")
 class TestDataSourceManagerInitialization:
     """Tests for DataSourceManager initialization."""
 
-    def test_create_manager_spot(self, mock_cache, mock_vision):
+    def _create_mock_clients(self, provider=DataProvider.BINANCE, market_type=MarketType.SPOT):
+        """Helper to create mock ProviderClients."""
+        from data_source_manager.core.providers import ProviderClients
+
+        return ProviderClients(
+            vision=MagicMock(),
+            rest=MagicMock(),
+            cache=MagicMock(),
+            provider=provider,
+            market_type=market_type,
+        )
+
+    def test_create_manager_spot(self, mock_get_clients):
         """Verify manager creation for spot market."""
-        mock_cache.return_value = MagicMock()
-        mock_vision.return_value = MagicMock()
+        mock_get_clients.return_value = self._create_mock_clients(
+            DataProvider.BINANCE, MarketType.SPOT
+        )
 
         manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
 
@@ -73,10 +85,11 @@ class TestDataSourceManagerInitialization:
         assert manager.provider == DataProvider.BINANCE
         manager.close()
 
-    def test_create_manager_futures_usdt(self, mock_cache, mock_vision):
+    def test_create_manager_futures_usdt(self, mock_get_clients):
         """Verify manager creation for USDT-margined futures."""
-        mock_cache.return_value = MagicMock()
-        mock_vision.return_value = MagicMock()
+        mock_get_clients.return_value = self._create_mock_clients(
+            DataProvider.BINANCE, MarketType.FUTURES_USDT
+        )
 
         manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
@@ -84,10 +97,11 @@ class TestDataSourceManagerInitialization:
         assert manager.market_type == MarketType.FUTURES_USDT
         manager.close()
 
-    def test_create_manager_futures_coin(self, mock_cache, mock_vision):
+    def test_create_manager_futures_coin(self, mock_get_clients):
         """Verify manager creation for coin-margined futures."""
-        mock_cache.return_value = MagicMock()
-        mock_vision.return_value = MagicMock()
+        mock_get_clients.return_value = self._create_mock_clients(
+            DataProvider.BINANCE, MarketType.FUTURES_COIN
+        )
 
         manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_COIN)
 
@@ -95,8 +109,10 @@ class TestDataSourceManagerInitialization:
         assert manager.market_type == MarketType.FUTURES_COIN
         manager.close()
 
-    def test_create_manager_with_cache_disabled(self, mock_cache, mock_vision):
+    def test_create_manager_with_cache_disabled(self, mock_get_clients):
         """Verify manager creation with cache disabled."""
+        mock_get_clients.return_value = self._create_mock_clients()
+
         manager = DataSourceManager.create(
             DataProvider.BINANCE,
             MarketType.SPOT,
@@ -120,12 +136,8 @@ class TestFCPCacheHit:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_cache_hit_returns_data_without_api_calls(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -136,8 +148,6 @@ class TestFCPCacheHit:
         """Cache hit should return data without calling Vision or REST APIs."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # Cache returns complete data with no missing ranges
         mock_cache_step.return_value = (sample_ohlcv_df, [])
@@ -169,12 +179,8 @@ class TestFCPVisionFallback:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_vision_fallback_on_cache_miss(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -185,8 +191,6 @@ class TestFCPVisionFallback:
         """Cache miss should trigger Vision API call."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # Cache miss - returns empty df with missing ranges
         mock_cache_step.return_value = (pd.DataFrame(), [(start_time, end_time)])
@@ -219,12 +223,8 @@ class TestFCPRestFallback:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_rest_fallback_on_vision_miss(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -235,8 +235,6 @@ class TestFCPRestFallback:
         """Vision miss should trigger REST API call."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # Cache miss
         mock_cache_step.return_value = (pd.DataFrame(), [(start_time, end_time)])
@@ -267,12 +265,8 @@ class TestFCPRestFallback:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_complete_fcp_chain(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -283,8 +277,6 @@ class TestFCPRestFallback:
         """Test complete FCP chain: Cache miss -> Vision miss -> REST success."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # All sources fail except REST
         mock_cache_step.return_value = (pd.DataFrame(), [(start_time, end_time)])
@@ -316,12 +308,8 @@ class TestFCPErrorPropagation:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_rate_limit_error_propagates(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -330,8 +318,6 @@ class TestFCPErrorPropagation:
         """RateLimitError from REST should propagate to caller (wrapped in RuntimeError)."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # Cache and Vision miss
         mock_cache_step.return_value = (pd.DataFrame(), [(start_time, end_time)])
@@ -362,12 +348,8 @@ class TestAutoReindexBehavior:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_auto_reindex_true_creates_complete_series(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -378,8 +360,6 @@ class TestAutoReindexBehavior:
         """auto_reindex=True should create complete time series."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = None
 
@@ -403,12 +383,8 @@ class TestAutoReindexBehavior:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_auto_reindex_false_returns_only_available_data(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -419,8 +395,6 @@ class TestAutoReindexBehavior:
         """auto_reindex=False should return only available data without NaN padding."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = None
 
@@ -447,12 +421,8 @@ class TestEmptyResultHandling:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_all_sources_empty_raises_error(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -461,8 +431,6 @@ class TestEmptyResultHandling:
         """When all sources return empty, should raise RuntimeError."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # All sources return empty
         mock_cache_step.return_value = (pd.DataFrame(), [(start_time, end_time)])
@@ -486,13 +454,8 @@ class TestEmptyResultHandling:
 class TestInputValidation:
     """Tests for input validation."""
 
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_invalid_time_range_raises_error(self, mock_cache, mock_vision):
+    def test_invalid_time_range_raises_error(self):
         """start_time >= end_time should raise RuntimeError (wrapping ValueError)."""
-        mock_cache.return_value = MagicMock()
-        mock_vision.return_value = MagicMock()
-
         manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
         now = datetime.now(timezone.utc)
 
@@ -507,13 +470,8 @@ class TestInputValidation:
 
         manager.close()
 
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_manager_creation_succeeds(self, mock_cache, mock_vision):
+    def test_manager_creation_succeeds(self):
         """Manager creation should succeed with valid parameters."""
-        mock_cache.return_value = MagicMock()
-        mock_vision.return_value = MagicMock()
-
         manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
         assert manager is not None
         assert manager.provider == DataProvider.BINANCE
@@ -528,12 +486,8 @@ class TestReturnPolarsParameter:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_return_polars_false_returns_pandas(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -544,8 +498,6 @@ class TestReturnPolarsParameter:
         """return_polars=False (default) should return pandas DataFrame."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = sample_ohlcv_df
 
@@ -569,12 +521,8 @@ class TestReturnPolarsParameter:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_return_polars_true_returns_polars(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -586,8 +534,6 @@ class TestReturnPolarsParameter:
 
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = sample_ohlcv_df
 
@@ -611,12 +557,8 @@ class TestReturnPolarsParameter:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_polars_df_contains_open_time_column(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -628,8 +570,6 @@ class TestReturnPolarsParameter:
 
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = sample_ohlcv_df
 
@@ -656,12 +596,8 @@ class TestReturnPolarsParameter:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_default_returns_pandas(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -672,8 +608,6 @@ class TestReturnPolarsParameter:
         """Omitting return_polars should default to pandas DataFrame."""
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = sample_ohlcv_df
 
@@ -701,12 +635,8 @@ class TestFundingRateRouting:
     """Tests for ChartType.FUNDING_RATE routing to _fetch_funding_rate()."""
 
     @patch("data_source_manager.core.sync.data_source_manager.BinanceFundingRateClient")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_funding_rate_routes_to_dedicated_method(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_funding_client,
         historical_time_range,
     ):
@@ -715,8 +645,6 @@ class TestFundingRateRouting:
 
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         # Mock funding rate client
         mock_client_instance = MagicMock()
@@ -747,12 +675,8 @@ class TestFundingRateRouting:
         assert len(df) == 3
         manager.close()
 
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_funding_rate_invalid_market_type_raises_error(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         historical_time_range,
     ):
         """Funding rate with SPOT market should raise ValueError."""
@@ -760,8 +684,6 @@ class TestFundingRateRouting:
 
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
 
         manager = DataSourceManager.create(
             DataProvider.BINANCE,
@@ -785,12 +707,8 @@ class TestFundingRateRouting:
     @patch("data_source_manager.core.sync.data_source_manager.process_rest_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_vision_step")
     @patch("data_source_manager.core.sync.data_source_manager.process_cache_step")
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
     def test_klines_does_not_call_funding_rate(
         self,
-        mock_cache_mgr,
-        mock_vision_handler,
         mock_cache_step,
         mock_vision_step,
         mock_rest_step,
@@ -803,8 +721,6 @@ class TestFundingRateRouting:
 
         # Arrange
         start_time, end_time = historical_time_range
-        mock_cache_mgr.return_value = MagicMock()
-        mock_vision_handler.return_value = MagicMock()
         mock_cache_step.return_value = (sample_ohlcv_df, [])
         mock_verify.return_value = sample_ohlcv_df
 

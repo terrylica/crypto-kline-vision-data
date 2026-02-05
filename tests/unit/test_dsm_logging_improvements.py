@@ -72,61 +72,73 @@ class TestDataSourceConfig:
 
 class TestDataSourceManagerLogging:
     """Test DataSourceManager logging functionality."""
-    
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_default_logging_configuration(self, mock_cache, mock_handler):
+
+    @patch("data_source_manager.core.sync.data_source_manager.get_provider_clients")
+    def test_default_logging_configuration(self, mock_get_clients):
         """Test that DataSourceManager configures logging correctly by default."""
-        # Mock the handlers to avoid actual initialization
-        mock_handler.return_value = MagicMock()
-        mock_cache.return_value = MagicMock()
-        
+        # Mock the factory
+        from data_source_manager.core.providers import ProviderClients
+
+        mock_get_clients.return_value = ProviderClients(
+            vision=MagicMock(),
+            rest=MagicMock(),
+            cache=MagicMock(),
+            provider=DataProvider.BINANCE,
+            market_type=MarketType.SPOT,
+        )
+
         with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             mock_httpx_logger = MagicMock()
-            
+
             def get_logger_side_effect(name):
                 if name == "httpcore":
                     return mock_httpcore_logger
                 if name == "httpx":
                     return mock_httpx_logger
                 return MagicMock()
-            
+
             mock_get_logger.side_effect = get_logger_side_effect
-            
+
             # Create DSM with default settings
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE,
                 market_type=MarketType.SPOT
             )
-            
+
             # Verify HTTP loggers were configured to suppress debug
             mock_httpcore_logger.setLevel.assert_called_with(logging.WARNING)
             mock_httpx_logger.setLevel.assert_called_with(logging.WARNING)
-            
+
             dsm.close()
-    
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_debug_logging_configuration(self, mock_cache, mock_handler):
+
+    @patch("data_source_manager.core.sync.data_source_manager.get_provider_clients")
+    def test_debug_logging_configuration(self, mock_get_clients):
         """Test that debug mode enables HTTP logging."""
-        # Mock the handlers to avoid actual initialization
-        mock_handler.return_value = MagicMock()
-        mock_cache.return_value = MagicMock()
-        
+        # Mock the factory
+        from data_source_manager.core.providers import ProviderClients
+
+        mock_get_clients.return_value = ProviderClients(
+            vision=MagicMock(),
+            rest=MagicMock(),
+            cache=MagicMock(),
+            provider=DataProvider.BINANCE,
+            market_type=MarketType.SPOT,
+        )
+
         with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
             mock_httpx_logger = MagicMock()
-            
+
             def get_logger_side_effect(name):
                 if name == "httpcore":
                     return mock_httpcore_logger
                 if name == "httpx":
                     return mock_httpx_logger
                 return MagicMock()
-            
+
             mock_get_logger.side_effect = get_logger_side_effect
-            
+
             # Create DSM with debug logging
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE,
@@ -134,51 +146,57 @@ class TestDataSourceManagerLogging:
                 log_level="DEBUG",
                 suppress_http_debug=False
             )
-            
+
             # Verify HTTP loggers were configured for debug
             mock_httpcore_logger.setLevel.assert_called_with(logging.DEBUG)
             mock_httpx_logger.setLevel.assert_called_with(logging.DEBUG)
-            
+
             dsm.close()
-    
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_dynamic_reconfiguration(self, mock_cache, mock_handler):
+
+    @patch("data_source_manager.core.sync.data_source_manager.get_provider_clients")
+    def test_dynamic_reconfiguration(self, mock_get_clients):
         """Test dynamic logging reconfiguration."""
-        # Mock the handlers to avoid actual initialization
-        mock_handler.return_value = MagicMock()
-        mock_cache.return_value = MagicMock()
-        
+        # Mock the factory
+        from data_source_manager.core.providers import ProviderClients
+
+        mock_get_clients.return_value = ProviderClients(
+            vision=MagicMock(),
+            rest=MagicMock(),
+            cache=MagicMock(),
+            provider=DataProvider.BINANCE,
+            market_type=MarketType.SPOT,
+        )
+
         with patch("logging.getLogger") as mock_get_logger:
             mock_httpcore_logger = MagicMock()
-            
+
             def get_logger_side_effect(name):
                 if name == "httpcore":
                     return mock_httpcore_logger
                 return MagicMock()
-            
+
             mock_get_logger.side_effect = get_logger_side_effect
-            
+
             # Create DSM with default settings
             dsm = DataSourceManager(
                 provider=DataProvider.BINANCE,
                 market_type=MarketType.SPOT
             )
-            
+
             # Verify initial configuration
             assert dsm.log_level == "WARNING"
             assert dsm.suppress_http_debug is True
-            
+
             # Reconfigure to debug mode
             dsm.reconfigure_logging(log_level="DEBUG", suppress_http_debug=False)
-            
+
             # Verify configuration changed
             assert dsm.log_level == "DEBUG"
             assert dsm.suppress_http_debug is False
-            
+
             # Verify HTTP logger was reconfigured
             mock_httpcore_logger.setLevel.assert_called_with(logging.DEBUG)
-            
+
             dsm.close()
 
 
@@ -266,7 +284,7 @@ class TestCleanLoggingUtilities:
 
 class TestBackwardCompatibility:
     """Test that existing code continues to work."""
-    
+
     def test_create_method_backward_compatibility(self):
         """Test that the create method still works with old parameters."""
         # This should work without any logging parameters
@@ -276,20 +294,26 @@ class TestBackwardCompatibility:
             use_cache=True,
             retry_count=3
         )
-        
+
         # Should use default logging values
         assert config.log_level == "WARNING"
         assert config.suppress_http_debug is True
         assert config.quiet_mode is False
-    
-    @patch("data_source_manager.core.sync.data_source_manager.FSSpecVisionHandler")
-    @patch("data_source_manager.core.sync.data_source_manager.UnifiedCacheManager")
-    def test_old_init_signature(self, mock_cache, mock_handler):
+
+    @patch("data_source_manager.core.sync.data_source_manager.get_provider_clients")
+    def test_old_init_signature(self, mock_get_clients):
         """Test that old __init__ signature still works."""
-        # Mock the handlers to avoid actual initialization
-        mock_handler.return_value = MagicMock()
-        mock_cache.return_value = MagicMock()
-        
+        # Mock the factory
+        from data_source_manager.core.providers import ProviderClients
+
+        mock_get_clients.return_value = ProviderClients(
+            vision=MagicMock(),
+            rest=MagicMock(),
+            cache=MagicMock(),
+            provider=DataProvider.BINANCE,
+            market_type=MarketType.SPOT,
+        )
+
         with patch("logging.getLogger"):
             # This should work with old-style parameters
             dsm = DataSourceManager(
@@ -298,12 +322,12 @@ class TestBackwardCompatibility:
                 use_cache=True,
                 retry_count=3
             )
-            
+
             # Should use default logging values
             assert dsm.log_level == "WARNING"
             assert dsm.suppress_http_debug is True
             assert dsm.quiet_mode is False
-            
+
             dsm.close()
 
 
