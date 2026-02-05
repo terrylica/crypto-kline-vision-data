@@ -1,3 +1,16 @@
+## [2.0.2](https://github.com/terrylica/data-source-manager/compare/v2.0.1...v2.0.2) (2026-02-05)
+
+
+### Bug Fixes
+
+* **cache:** change scan_ipc to scan_parquet for cache reads ([552eef3](https://github.com/terrylica/data-source-manager/commit/552eef3c19916b053c143a902ed3385903715ca8)), closes [#103](https://github.com/terrylica/data-source-manager/issues/103)
+* **polars:** add schema standardization for cache file merging ([f7c355b](https://github.com/terrylica/data-source-manager/commit/f7c355b98dfd528a6793fa75121881f939c23723)), closes [#104](https://github.com/terrylica/data-source-manager/issues/104)
+
+
+### Performance Improvements
+
+* **polars:** complete Phase 2-3 memory efficiency refactoring ([16fadd8](https://github.com/terrylica/data-source-manager/commit/16fadd8746c7a02a87ee4dd1ce78ac750123fa0f)), closes [#11](https://github.com/terrylica/data-source-manager/issues/11)
+
 ## [2.0.1](https://github.com/terrylica/data-source-manager/compare/v2.0.0...v2.0.1) (2026-02-05)
 
 
