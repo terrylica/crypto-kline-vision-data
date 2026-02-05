@@ -8,6 +8,7 @@ echo ""
 
 mise run release:version
 mise run release:verify
+mise run release:pypi
 
 echo ""
-echo "✓ Release complete!"
+echo "✓ Release complete (including PyPI publish)!"
