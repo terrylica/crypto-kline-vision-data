@@ -161,6 +161,10 @@ echo "Running semantic-release..."
 echo "Not configured - see docs/adr/2026-01-30-claude-code-infrastructure.md"
 """
 
+[tasks."release:pypi"]
+description = "Publish package to PyPI (requires 1Password)"
+run = "./scripts/publish-to-pypi.sh"
+
 # -----------------------------------------------------------------------------
 # Cache Management
 # -----------------------------------------------------------------------------
