@@ -50,7 +50,14 @@ class TestDsmCacheUtils(unittest.TestCase):
         import tempfile
         from pathlib import Path
 
+        # Import cache utilities with correct package prefix
+        from data_source_manager.utils.for_core.dsm_cache_utils import get_from_cache, save_to_cache
+
         test_cache_dir = Path(tempfile.mkdtemp())
+
+        # Initialize feature flag tracking before try block to avoid UnboundLocalError
+        original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
+
         try:
             # Create test data for two days
             # Day 1: 50% complete but has all records for the requested time range
@@ -105,14 +112,7 @@ class TestDsmCacheUtils(unittest.TestCase):
 
             day2_df = pd.DataFrame(day2_records)
 
-            # Initialize FSSpecVisionHandler for cache operations
-
-            # Import and initialize but don't use (commenting out unused variable)
-            # fs_handler = FSSpecVisionHandler(base_cache_dir=test_cache_dir)
-
             # Save the test data to cache files
-            from utils.for_core.dsm_cache_utils import save_to_cache
-
             # Save day1 data to cache
             save_to_cache(
                 df=day1_df,
@@ -136,11 +136,7 @@ class TestDsmCacheUtils(unittest.TestCase):
             )
 
             # Make sure the feature flag is enabled for this test
-            original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
             FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = True
-
-            # Import the actual get_from_cache function
-            from utils.for_core.dsm_cache_utils import get_from_cache
 
             # Request data from 13th 15:35 to 14th 15:30 (our test case)
             # Day 1 should have all records needed for 15:35-23:55
@@ -458,8 +454,8 @@ class TestDsmCacheOptimization(unittest.TestCase):
 
             # Verify the result contains data from both sources
             self.assertTrue("_data_source" in df.columns, "Missing data source column")
-            self.assertTrue("CACHE" in df["_data_source"].values, "Missing cache data")
-            self.assertTrue("REST" in df["_data_source"].values, "Missing REST data")
+            self.assertTrue("CACHE" in df["_data_source"].to_numpy(), "Missing cache data")
+            self.assertTrue("REST" in df["_data_source"].to_numpy(), "Missing REST data")
 
 
 if __name__ == "__main__":

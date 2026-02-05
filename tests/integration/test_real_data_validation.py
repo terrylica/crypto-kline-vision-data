@@ -33,13 +33,18 @@ def expected_columns():
 
 @pytest.fixture
 def expected_dtypes():
-    """Expected column data types."""
+    """Expected column data types.
+
+    Note: volume may be int64 or float64 depending on market type and data source.
+    FUTURES_COIN specifically returns int64 volume from the API.
+    """
     return {
         "open": "float64",
         "high": "float64",
         "low": "float64",
         "close": "float64",
-        "volume": "float64",
+        # volume can be int64 or float64 depending on market type
+        "volume": ("float64", "int64"),
     }
 
 
@@ -86,10 +91,18 @@ class TestDataFrameStructure:
 
         # Dtype checks
         for col, expected_dtype in expected_dtypes.items():
-            assert str(df[col].dtype) == expected_dtype, (
-                f"Dtype mismatch for {col} in {market_type}: "
-                f"got {df[col].dtype}, expected {expected_dtype}"
-            )
+            actual_dtype = str(df[col].dtype)
+            # Handle single dtype or tuple of acceptable dtypes
+            if isinstance(expected_dtype, tuple):
+                assert actual_dtype in expected_dtype, (
+                    f"Dtype mismatch for {col} in {market_type}: "
+                    f"got {actual_dtype}, expected one of {expected_dtype}"
+                )
+            else:
+                assert actual_dtype == expected_dtype, (
+                    f"Dtype mismatch for {col} in {market_type}: "
+                    f"got {actual_dtype}, expected {expected_dtype}"
+                )
 
     @pytest.mark.parametrize(
         "market_type,symbol",
@@ -484,6 +497,9 @@ class TestEdgeCases:
         ancient_start = datetime(2010, 1, 1, tzinfo=timezone.utc)
         ancient_end = datetime(2010, 1, 2, tzinfo=timezone.utc)
 
+        # Import DataNotAvailableError for fail-loud behavior (GitHub Issue #10)
+        from data_source_manager.utils.for_core.vision_exceptions import DataNotAvailableError
+
         try:
             df = manager.get_data(
                 symbol="BTCUSDT",
@@ -493,8 +509,9 @@ class TestEdgeCases:
             )
             # Should return empty if it doesn't raise
             assert df is None or len(df) == 0
-        except (RuntimeError, ValueError):
+        except (RuntimeError, ValueError, DataNotAvailableError):
             # Also acceptable - explicit error for invalid dates
+            # DataNotAvailableError is expected for fail-loud behavior (GitHub Issue #10)
             pass
         finally:
             manager.close()
@@ -526,9 +543,13 @@ class TestProviderValidation:
     """Tests for provider-specific behavior."""
 
     def test_unsupported_provider_raises_error(self):
-        """Unsupported providers should raise clear error."""
+        """Unsupported providers should raise clear error.
+
+        Note: OKX is now supported, so we test with TRADESTATION which is
+        defined in the enum but not yet implemented.
+        """
         with pytest.raises(ValueError) as exc_info:
-            DataSourceManager.create(DataProvider.OKX, MarketType.SPOT)
+            DataSourceManager.create(DataProvider.TRADESTATION, MarketType.SPOT)
 
         error_msg = str(exc_info.value).lower()
         assert "not supported" in error_msg

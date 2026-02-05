@@ -740,8 +740,10 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         logger.info(f"Downloaded {len(downloaded_dfs)} daily files")
 
-        # Concatenate all dataframes
-        concatenated_df = pd.concat(downloaded_dfs, ignore_index=True)
+        # Concatenate all dataframes efficiently
+        # Use copy=False to avoid unnecessary memory copies (zero-copy where possible)
+        # Pre-sorted DataFrames in downloaded_dfs means we can sort=False for faster concat
+        concatenated_df = pd.concat(downloaded_dfs, ignore_index=True, copy=False, sort=False)
 
         # If the dataframe is empty, return early
         if concatenated_df.empty:
@@ -784,18 +786,31 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             gaps = []
         else:
             try:
-                df_for_gap_detection = filtered_df.copy()
-
-                # Ensure open_time is present and is a datetime type
-                if "open_time" not in df_for_gap_detection.columns and isinstance(df_for_gap_detection.index, pd.DatetimeIndex):
-                    df_for_gap_detection["open_time"] = df_for_gap_detection.index
-                elif "open_time" in df_for_gap_detection.columns and not pd.api.types.is_datetime64_any_dtype(
-                    df_for_gap_detection["open_time"]
+                # Use filtered_df directly if no modifications needed (avoid copy)
+                # Only copy if we need to modify the DataFrame
+                needs_modification = False
+                if "open_time" not in filtered_df.columns and isinstance(filtered_df.index, pd.DatetimeIndex):
+                    needs_modification = True
+                elif "open_time" in filtered_df.columns and not pd.api.types.is_datetime64_any_dtype(
+                    filtered_df["open_time"]
                 ):
-                    try:
-                        df_for_gap_detection["open_time"] = pd.to_datetime(df_for_gap_detection["open_time"], unit="ms", utc=True)
-                    except (ValueError, TypeError, pd.errors.ParserError) as e:
-                        logger.warning(f"Failed to convert open_time to datetime: {e}")
+                    needs_modification = True
+
+                if needs_modification:
+                    df_for_gap_detection = filtered_df.copy()
+                    # Ensure open_time is present and is a datetime type
+                    if "open_time" not in df_for_gap_detection.columns and isinstance(df_for_gap_detection.index, pd.DatetimeIndex):
+                        df_for_gap_detection["open_time"] = df_for_gap_detection.index
+                    elif "open_time" in df_for_gap_detection.columns and not pd.api.types.is_datetime64_any_dtype(
+                        df_for_gap_detection["open_time"]
+                    ):
+                        try:
+                            df_for_gap_detection["open_time"] = pd.to_datetime(df_for_gap_detection["open_time"], unit="ms", utc=True)
+                        except (ValueError, TypeError, pd.errors.ParserError) as e:
+                            logger.warning(f"Failed to convert open_time to datetime: {e}")
+                else:
+                    # No modification needed - use filtered_df directly (zero-copy)
+                    df_for_gap_detection = filtered_df
 
                 # Check if we have a valid time column now
                 if "open_time" in df_for_gap_detection.columns:

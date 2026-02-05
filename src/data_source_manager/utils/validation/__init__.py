@@ -19,6 +19,14 @@ Package structure:
 - dataframe_validation.py: DataFrame structure validation
 """
 
+from data_source_manager.utils.validation.availability_data import (
+    FuturesAvailabilityWarning,
+    SymbolAvailability,
+    check_futures_counterpart_availability,
+    get_earliest_date,
+    get_symbol_availability,
+    is_symbol_available_at,
+)
 from data_source_manager.utils.validation.availability_validation import (
     is_data_likely_available,
     validate_data_availability,
@@ -54,10 +62,16 @@ __all__ = [
     # Classes
     "DataFrameValidator",
     "DataValidation",
+    "FuturesAvailabilityWarning",
+    "SymbolAvailability",
     "ValidationError",
     # Functions
     "calculate_checksum",
+    "check_futures_counterpart_availability",
+    "get_earliest_date",
+    "get_symbol_availability",
     "is_data_likely_available",
+    "is_symbol_available_at",
     "validate_data_availability",
     "validate_file_with_checksum",
 ]

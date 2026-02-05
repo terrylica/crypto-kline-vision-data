@@ -103,10 +103,13 @@ def fill_boundary_gaps_with_rest(
 
         # If we have gap data, merge it with the original data
         if len(gap_dfs) > 1:  # More than just the original df
-            # Concatenate all dataframes and remove duplicates
-            merged_df = pd.concat(gap_dfs, ignore_index=True)
-            merged_df = merged_df.drop_duplicates(subset=["open_time"], keep="first")
-            return merged_df.sort_values("open_time").reset_index(drop=True)
+            # Concatenate all dataframes efficiently (copy=False, sort=False)
+            merged_df = pd.concat(gap_dfs, ignore_index=True, copy=False, sort=False)
+            # Use inplace operations to avoid additional allocations
+            merged_df.drop_duplicates(subset=["open_time"], keep="first", inplace=True)
+            merged_df.sort_values("open_time", inplace=True)
+            merged_df.reset_index(drop=True, inplace=True)
+            return merged_df
 
         # If we didn't add any gap data, return the original
         return df

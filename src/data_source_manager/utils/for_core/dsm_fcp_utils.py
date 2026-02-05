@@ -122,12 +122,11 @@ def process_vision_step(
     """
     logger.info("[FCP] STEP 2: Checking Vision API for missing data")
 
-    # Process each missing range
-    vision_ranges_to_fetch = missing_ranges.copy()  # All ranges will be processed by Vision API
+    # Process each missing range (no copy needed - list is only iterated, not modified)
     remaining_ranges = []
 
-    for range_idx, (miss_start, miss_end) in enumerate(vision_ranges_to_fetch):
-        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{len(vision_ranges_to_fetch)}: {miss_start} to {miss_end}")
+    for range_idx, (miss_start, miss_end) in enumerate(missing_ranges):
+        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{len(missing_ranges)}: {miss_start} to {miss_end}")
 
         range_df = fetch_from_vision_func(symbol, miss_start, miss_end, interval)
 
@@ -322,8 +321,17 @@ def handle_error(e: Exception) -> None:
         e: Exception to handle
 
     Raises:
-        RuntimeError: Always re-raises with sanitized error message
+        DataNotAvailableError: Re-raised directly for fail-loud behavior (GitHub Issue #10)
+        RuntimeError: For other errors, re-raises with sanitized error message
     """
+    # Import here to avoid circular imports
+    from data_source_manager.utils.for_core.vision_exceptions import DataNotAvailableError
+
+    # DataNotAvailableError should be re-raised directly for fail-loud behavior
+    # This allows callers to catch and handle this specific exception
+    if isinstance(e, DataNotAvailableError):
+        raise e
+
     safe_error_message = ""
     try:
         # Sanitize error message to prevent binary data from causing rich formatting issues

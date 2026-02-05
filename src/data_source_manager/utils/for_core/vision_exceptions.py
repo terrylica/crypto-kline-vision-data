@@ -73,3 +73,40 @@ class DownloadFailedError(VisionAPIError):
             message: Error description.
         """
         super().__init__(f"DownloadFailedError: {message}")
+
+
+class DataNotAvailableError(VisionAPIError):
+    """Raised when data is unavailable before symbol listing date.
+
+    This is a FAIL-LOUD exception that provides detailed context for forensics:
+    - symbol: The requested trading symbol
+    - market_type: The market type (SPOT, FUTURES_USDT, FUTURES_COIN)
+    - requested_start: When the user requested data from
+    - earliest_available: When data actually becomes available
+    """
+
+    def __init__(
+        self,
+        symbol: str,
+        market_type: str,
+        requested_start: object,
+        earliest_available: object,
+    ) -> None:
+        """Initialize DataNotAvailableError with detailed context.
+
+        Args:
+            symbol: The requested trading symbol (e.g., 'BTCUSDT').
+            market_type: The market type name (e.g., 'FUTURES_USDT').
+            requested_start: The start datetime requested by user (datetime object).
+            earliest_available: The earliest datetime data is available (datetime object).
+        """
+        self.symbol = symbol
+        self.market_type = market_type
+        self.requested_start = requested_start
+        self.earliest_available = earliest_available
+        message = (
+            f"FAIL-LOUD: Data not available for {symbol} on {market_type}. "
+            f"Requested: {requested_start.isoformat()}, "
+            f"Earliest: {earliest_available.isoformat()}"
+        )
+        super().__init__(message)

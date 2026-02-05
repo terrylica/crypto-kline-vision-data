@@ -150,8 +150,8 @@ def detect_gaps(
         boundary_mask & (df_sorted["time_diff"] > day_boundary_threshold_value)
     )
 
-    # Extract gaps
-    gaps_df = df_sorted[gaps_mask].copy()
+    # Extract gaps (boolean indexing already returns a copy, no need for .copy())
+    gaps_df = df_sorted[gaps_mask]
 
     # Pre-calculate expected interval in milliseconds
     expected_interval_ms = int(expected_interval.total_seconds() * 1000)

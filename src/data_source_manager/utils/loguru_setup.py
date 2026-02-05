@@ -224,6 +224,84 @@ class DSMLogger:
         """Configure logger options."""
         return _loguru_logger.opt(**kwargs)
 
+    def generate_trace_id(self) -> str:
+        """Generate a short trace_id for request correlation.
+
+        Returns:
+            8-character hex string for trace correlation.
+        """
+        import uuid
+
+        return str(uuid.uuid4())[:8]
+
+    def configure_ndjson(self, log_file: str | Path) -> "DSMLogger":
+        """Configure NDJSON audit logging for forensics-grade trails.
+
+        This adds a dedicated NDJSON handler for structured audit events.
+        Events logged through bind() with trace_id, symbol, etc. will be
+        serialized to NDJSON format for machine parsing.
+
+        Args:
+            log_file: Path to NDJSON log file (typically .ndjson extension).
+
+        Returns:
+            Self for method chaining.
+        """
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        _loguru_logger.add(
+            str(log_path),
+            level="DEBUG",  # Capture all events for audit
+            format="{message}",  # NDJSON handles its own formatting
+            serialize=True,  # Enable JSON serialization
+            rotation="50 MB",
+            retention="4 weeks",
+            compression="gz",
+        )
+
+        self.info(f"NDJSON audit logging configured: {log_path}")
+        return self
+
+
+def ndjson_serializer(record: dict) -> str:
+    """Serialize a log record to NDJSON format for audit trails.
+
+    This function extracts relevant fields from a loguru record and
+    formats them as a single-line JSON object for forensics analysis.
+
+    Args:
+        record: Loguru record dictionary.
+
+    Returns:
+        JSON string (single line, no trailing newline).
+    """
+    import json
+
+    # Extract extra context from record
+    extra = record.get("extra", {})
+
+    audit_event = {
+        "timestamp": record["time"].strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "level": record["level"].name,
+        "logger": record["name"],
+        "function": record["function"],
+        "line": record["line"],
+        "message": record["message"],
+        "trace_id": extra.get("trace_id", ""),
+        "symbol": extra.get("symbol", ""),
+        "market_type": extra.get("market_type", ""),
+        "interval": extra.get("interval", ""),
+        "event_type": extra.get("event_type", "log"),
+        "duration_ms": extra.get("duration_ms"),
+        "record_count": extra.get("record_count"),
+    }
+
+    # Remove None values for cleaner output
+    audit_event = {k: v for k, v in audit_event.items() if v is not None and v != ""}
+
+    return json.dumps(audit_event, default=str)
+
 
 # Create the global logger instance
 logger = DSMLogger()

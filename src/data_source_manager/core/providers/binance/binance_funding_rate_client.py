@@ -173,6 +173,7 @@ class BinanceFundingRateClient(DataClientInterface):
                         # Check if dtype is compatible
                         if not pd.api.types.is_dtype_equal(df[col].dtype, dtype):
                             # Try to convert and check for data loss
+                            # Cache .to_numpy() result to avoid double conversion
                             original_values = df[col].dropna().to_numpy()
                             if len(original_values) > 0:
                                 try:
@@ -181,11 +182,13 @@ class BinanceFundingRateClient(DataClientInterface):
                                     if (
                                         pd.api.types.is_numeric_dtype(df[col])
                                         and pd.api.types.is_numeric_dtype(converted)
-                                        and not (converted.dropna().to_numpy() == original_values).all()
                                     ):
-                                        dtype_errors.append(
-                                            f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
-                                        )
+                                        # Reuse original_values instead of calling .to_numpy() again
+                                        converted_values = converted.dropna().to_numpy()
+                                        if not (converted_values == original_values).all():
+                                            dtype_errors.append(
+                                                f"Column {col} values would lose precision if converted from {df[col].dtype} to {dtype}"
+                                            )
 
                                 except (ValueError, TypeError) as e:
                                     dtype_errors.append(f"Column {col} cannot be converted from {df[col].dtype} to {dtype}: {e}")

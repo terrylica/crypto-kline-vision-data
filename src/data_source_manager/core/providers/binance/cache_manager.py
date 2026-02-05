@@ -41,6 +41,7 @@ class UnifiedCacheManager:
         """
         self.cache_dir = Path(cache_dir)
         self.metadata: dict[str, dict[str, Any]] = {}
+        self._metadata_dirty = False  # Track if metadata needs saving
 
         # Create directories if needed
         if create_dirs:
@@ -79,8 +80,17 @@ class UnifiedCacheManager:
             logger.debug("No metadata file found, starting fresh")
             self.metadata = {}
 
-    def _save_metadata(self) -> None:
-        """Save metadata to file."""
+    def _save_metadata(self, force: bool = False) -> None:
+        """Save metadata to file.
+
+        Args:
+            force: If True, save even if metadata hasn't changed
+        """
+        # Skip save if not dirty and not forced
+        if not self._metadata_dirty and not force:
+            logger.debug("_save_metadata skipped (no changes)")
+            return
+
         logger.debug(f"_save_metadata starting with {len(self.metadata)} entries")
         try:
             metadata_path = self._get_metadata_path()
@@ -142,6 +152,9 @@ class UnifiedCacheManager:
                 file_size_after = metadata_path.stat().st_size
                 logger.debug(f"Final metadata file size: {file_size_after} bytes (change: {file_size_after - file_size_before} bytes)")
 
+            # Reset dirty flag after successful save
+            self._metadata_dirty = False
+
         except OSError as e:
             logger.error(f"Error saving metadata: {e}")
             return
@@ -168,19 +181,18 @@ class UnifiedCacheManager:
         Returns:
             Standardized cache key
         """
-        # Ensure all components are properly formatted
+        # Ensure all components are properly formatted (normalize once, reuse)
         symbol = symbol.upper()
         provider = provider.upper()
         chart_type = chart_type.upper()
-        market_type = market_type.lower()
-        interval = str(interval).lower()
+        market_type = market_type.upper()  # Normalize to uppercase for key consistency
+        interval = str(interval).upper()   # Normalize to uppercase for key consistency
 
         # Format date to YYYYMMDD format
         date_str = date.strftime("%Y%m%d")
 
-        # Convert components to uppercase for consistency in key
-        # Use underscore as delimiter
-        return f"{provider.upper()}_{chart_type.upper()}_{market_type.upper()}_{symbol.upper()}_{interval.upper()}_{date_str}"
+        # Use underscore as delimiter (all components already normalized)
+        return f"{provider}_{chart_type}_{market_type}_{symbol}_{interval}_{date_str}"
 
     def _get_cache_path(self, cache_key: str) -> Path:
         """Get the file path for a cache entry.
@@ -327,10 +339,11 @@ class UnifiedCacheManager:
                 self._mark_cache_invalid(cache_key, "Empty DataFrame")
                 return None
 
-            # Update last access time in metadata
+            # Update last access time in metadata (mark dirty but don't save immediately)
+            # Deferring saves reduces I/O overhead - metadata saved when cache is written to
             if cache_key in self.metadata:
                 self.metadata[cache_key]["last_accessed"] = datetime.now(timezone.utc).isoformat()
-                self._save_metadata()
+                self._metadata_dirty = True
 
             logger.debug(f"Successfully loaded {len(df)} rows from {cache_path}")
             return df
@@ -424,9 +437,10 @@ class UnifiedCacheManager:
             # Update metadata
             metadata_entry["file_size_bytes"] = cache_path.stat().st_size
             self.metadata[cache_key] = metadata_entry
+            self._metadata_dirty = True
 
-            # Save metadata
-            self._save_metadata()
+            # Save metadata (force save on cache write operations)
+            self._save_metadata(force=True)
 
             logger.debug(f"Successfully cached {len(df)} rows to {cache_path} ({metadata_entry['file_size_bytes'] / 1024 / 1024:.2f} MB)")
             return True
@@ -451,4 +465,6 @@ class UnifiedCacheManager:
             cache_path = self._get_cache_path(cache_key)
             logger.error(f"Cache entry invalidated - Key: {cache_key}, Path: {cache_path}, Reason: {reason}")
 
-            self._save_metadata()
+            # Force save on cache invalidation (important for data integrity)
+            self._metadata_dirty = True
+            self._save_metadata(force=True)

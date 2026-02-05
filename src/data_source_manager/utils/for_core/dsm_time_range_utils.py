@@ -278,9 +278,9 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
             for source, count in source_counts.items():
                 logger.debug(f"DataFrame {i} contains {count} records from source={source}")
 
-    # Concatenate all DataFrames
+    # Concatenate all DataFrames efficiently (copy=False avoids unnecessary copies)
     logger.debug(f"Concatenating {len(dfs)} DataFrames")
-    merged = pd.concat(dfs, ignore_index=True)
+    merged = pd.concat(dfs, ignore_index=True, copy=False, sort=False)
 
     # Set source priority for resolving duplicates (higher number = higher priority)
     # IMPORTANT: This priority order is critical for the FCP mechanism:
@@ -313,24 +313,27 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
         merged["_source_priority"] = 0
 
     # Sort by open_time and source priority (high priority last to keep in drop_duplicates)
+    # Use inplace=True to avoid additional allocation
     logger.debug("Sorting merged DataFrame by open_time and source priority")
-    merged = merged.sort_values(["open_time", "_source_priority"])
+    merged.sort_values(["open_time", "_source_priority"], inplace=True)
 
     # Remove duplicates, keeping the highest priority source for each timestamp
+    # Use inplace=True to avoid additional allocation
     if "open_time" in merged.columns:
         before_count = len(merged)
-        merged = merged.drop_duplicates(subset=["open_time"], keep="last")
+        merged.drop_duplicates(subset=["open_time"], keep="last", inplace=True)
         after_count = len(merged)
 
         if before_count > after_count:
             logger.debug(f"Removed {before_count - after_count} duplicate timestamps, keeping highest priority source")
 
-    # Remove the temporary source priority column
+    # Remove the temporary source priority column (inplace)
     if "_source_priority" in merged.columns:
-        merged = merged.drop(columns=["_source_priority"])
+        merged.drop(columns=["_source_priority"], inplace=True)
 
-    # Sort by open_time to ensure chronological order
-    merged = merged.sort_values("open_time").reset_index(drop=True)
+    # Final sort and reset index (combine into single operation)
+    merged.sort_values("open_time", inplace=True)
+    merged.reset_index(drop=True, inplace=True)
 
     # Final standardization to ensure consistency across all columns
     merged = standardize_columns(merged)

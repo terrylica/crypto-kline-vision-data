@@ -886,6 +886,17 @@ class DataSourceManager:
             # Validate interval against market type
             validate_interval(self.market_type, interval)
 
+            # Generate trace_id for request correlation (GitHub Issue #10 - structured logging)
+            trace_id = logger.generate_trace_id()
+            bound_logger = logger.bind(
+                trace_id=trace_id,
+                symbol=symbol.upper(),
+                market_type=self.market_type.name,
+                interval=interval.value,
+                event_type="fcp_request",
+            )
+            bound_logger.info(f"[FCP] Starting data retrieval trace_id={trace_id}")
+
             logger.debug(
                 f"[FCP] get_data called with use_cache={self.use_cache}, auto_reindex={auto_reindex} for "
                 f"symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
@@ -898,6 +909,43 @@ class DataSourceManager:
 
             # Normalize symbol to upper case
             symbol = symbol.upper()
+
+            # FAIL-LOUD: Validate symbol availability before any API calls (GitHub Issue #10)
+            from data_source_manager.utils.for_core.vision_exceptions import DataNotAvailableError
+            from data_source_manager.utils.validation.availability_data import (
+                check_futures_counterpart_availability,
+                is_symbol_available_at,
+            )
+
+            is_available, earliest_date = is_symbol_available_at(self.market_type, symbol, start_time)
+            if not is_available and earliest_date is not None:
+                raise DataNotAvailableError(
+                    symbol=symbol,
+                    market_type=self.market_type.name,
+                    requested_start=start_time,
+                    earliest_available=earliest_date,
+                )
+
+            # CROSS-MARKET WARNING: Check futures counterpart availability (for SPOT requests)
+            futures_warning = check_futures_counterpart_availability(self.market_type, symbol, start_time)
+            if futures_warning:
+                # Console warning (loud) - stderr for visibility
+                import sys
+
+                print(
+                    f"\n\u26a0\ufe0f  FUTURES COUNTERPART WARNING: {futures_warning.message}\n",
+                    file=sys.stderr,
+                )
+                # Log for telemetry
+                logger.warning(
+                    f"[FCP] Futures counterpart unavailable: {futures_warning.message}",
+                    extra={
+                        "event_type": "futures_counterpart_unavailable",
+                        "futures_market": futures_warning.futures_market,
+                        "futures_earliest": futures_warning.earliest_date.isoformat(),
+                        "requested_start": start_time.isoformat(),
+                    },
+                )
 
             # Log key parameters
             logger.info(f"Retrieving {interval.value} data for {symbol} from {start_time} to {end_time}")

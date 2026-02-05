@@ -4,6 +4,9 @@ Tests that verify graceful handling of edge cases:
 - Empty results
 - Invalid symbols
 - Error recovery without memory leaks
+
+GitHub Issue #10: Data availability validation with fail-loud behavior
+GitHub Issue #11: Memory efficiency refactoring
 """
 
 import contextlib
@@ -33,8 +36,11 @@ class TestEmptyResults:
         tracemalloc.start()
         tracemalloc.get_traced_memory()[0]
 
-        # Expect error or empty result - use contextlib.suppress for expected errors
-        with contextlib.suppress(RuntimeError, ValueError, RetryError):
+        # Expect DataNotAvailableError (fail-loud behavior) or other errors
+        # DataNotAvailableError is raised when requesting data before symbol listing date
+        from data_source_manager.utils.for_core.vision_exceptions import DataNotAvailableError
+
+        with contextlib.suppress(RuntimeError, ValueError, RetryError, DataNotAvailableError):
             df = manager.get_data("BTCUSDT", ancient_start, ancient_end, Interval.DAY_1)
             # If we get here, result should be empty
             assert df is None or len(df) == 0, "Expected empty result for ancient dates"
