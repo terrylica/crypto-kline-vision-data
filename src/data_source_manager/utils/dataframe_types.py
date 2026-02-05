@@ -218,8 +218,10 @@ class TimestampedDataFrame(pd.DataFrame):
         # Import here to avoid circular imports
         from data_source_manager.utils.dataframe_utils import ensure_open_time_as_column
 
-        # Create a copy to avoid modifying the original
-        df = pd.DataFrame(self.copy())
+        # MEMORY OPTIMIZATION: pd.DataFrame() constructor already copies data when passed a DataFrame
+        # No need for explicit .copy() which would create a redundant second copy
+        # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
+        df = pd.DataFrame(self)
 
         # Use the centralized utility to ensure open_time is properly handled as a column
         df = ensure_open_time_as_column(df)

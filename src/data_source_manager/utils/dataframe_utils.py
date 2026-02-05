@@ -490,17 +490,21 @@ def convert_to_standardized_formats(df: pd.DataFrame, output_format: str = "defa
     return df
 
 
-def format_dataframe_for_display(df: pd.DataFrame) -> pd.DataFrame:
+def format_dataframe_for_display(df: pd.DataFrame, *, copy: bool = True) -> pd.DataFrame:
     """Format DataFrame for display with better readability.
 
     Args:
         df: DataFrame to format
+        copy: If True (default), make a copy before modifying. Set to False when
+              caller passes a temporary DataFrame (e.g., from .head() or filtering)
+              that doesn't need preservation.
 
     Returns:
         Formatted DataFrame
     """
-    # Make a copy to avoid modifying the original
-    display_df = df.copy()
+    # MEMORY OPTIMIZATION: Allow callers to skip copy for temporary DataFrames
+    # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
+    display_df = df.copy() if copy else df
 
     # Format timestamp columns for better readability
     datetime_cols = display_df.select_dtypes(include=["datetime64"]).columns

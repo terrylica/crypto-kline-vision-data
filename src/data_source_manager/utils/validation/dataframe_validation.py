@@ -154,12 +154,20 @@ class DataFrameValidator:
             return False, str(e)
 
     @staticmethod
-    def format_dataframe(df: pd.DataFrame, output_dtypes: dict[str, str] | None = None) -> pd.DataFrame:
+    def format_dataframe(
+        df: pd.DataFrame,
+        output_dtypes: dict[str, str] | None = None,
+        *,
+        copy: bool = True,
+    ) -> pd.DataFrame:
         """Format DataFrame to ensure consistent structure.
 
         Args:
             df: Input DataFrame
             output_dtypes: Dictionary mapping column names to dtypes
+            copy: If True (default), make a copy of the DataFrame before modifying.
+                  Set to False to modify in-place for memory efficiency when caller
+                  doesn't need the original preserved.
 
         Returns:
             Formatted DataFrame
@@ -177,8 +185,10 @@ class DataFrameValidator:
             empty_df.index = pd.DatetimeIndex([], name=CANONICAL_INDEX_NAME, tz=timezone.utc)
             return empty_df
 
-        logger.debug(f"Copying DataFrame with shape {df.shape}")
-        formatted_df = df.copy()
+        # MEMORY OPTIMIZATION: Optionally skip copy when caller doesn't need original preserved
+        # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
+        logger.debug(f"Processing DataFrame with shape {df.shape} (copy={copy})")
+        formatted_df = df.copy() if copy else df
 
         logger.debug(f"Index type check: {type(formatted_df.index).__name__}")
         if not isinstance(formatted_df.index, pd.DatetimeIndex):

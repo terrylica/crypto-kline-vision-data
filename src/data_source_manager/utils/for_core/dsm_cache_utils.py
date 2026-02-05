@@ -187,10 +187,12 @@ def get_from_cache(
 
                 # MEMORY OPTIMIZATION: Use Polars LazyFrame with predicate pushdown
                 # This filters at read time instead of loading entire file then filtering.
-                # See: /tmp/memory_audit_findings.md - lazy evaluation optimization
+                # Cache files are Arrow IPC format (.arrow), NOT Parquet.
+                # scan_ipc enables lazy evaluation with predicate pushdown.
+                # Source: https://docs.pola.rs/api/python/stable/reference/api/polars.scan_ipc.html
                 try:
-                    # Scan parquet lazily, apply filter, then collect only matching rows
-                    lf = pl.scan_parquet(cache_path)
+                    # Scan Arrow IPC lazily, apply filter, then collect only matching rows
+                    lf = pl.scan_ipc(cache_path)
 
                     # Apply time range filter with predicate pushdown
                     # Note: Polars datetime comparison requires proper type handling
@@ -198,8 +200,9 @@ def get_from_cache(
                         (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
                     )
 
-                    # Collect filtered data and convert to pandas for API compatibility
-                    daily_pl = filtered_lf.collect()
+                    # Collect filtered data using streaming engine for better memory efficiency
+                    # Source: https://pola.rs/posts/polars-in-aggregate-dec25/ (3-7x faster, less memory)
+                    daily_pl = filtered_lf.collect(engine="streaming")
 
                     if len(daily_pl) > 0:
                         logger.info(f"Loaded {len(daily_pl)} records from cache for {current_date.format('YYYY-MM-DD')}")

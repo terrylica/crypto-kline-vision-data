@@ -103,8 +103,11 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
         logger.debug("Empty DataFrame in standardize_timestamp_precision")
         return df
 
-    # Make a copy to avoid modifying the original
-    result_df = df.copy()
+    # MEMORY OPTIMIZATION: Operate directly on input DataFrame
+    # All known callers reassign the result: df = standardize_timestamp_precision(df)
+    # The caller's original reference is overwritten, so copy is unnecessary.
+    # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
+    result_df = df
 
     # Process DatetimeIndex if present
     if isinstance(result_df.index, pd.DatetimeIndex):

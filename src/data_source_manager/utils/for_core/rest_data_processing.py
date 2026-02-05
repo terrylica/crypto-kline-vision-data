@@ -157,7 +157,12 @@ def create_empty_dataframe() -> pd.DataFrame:
     """
     # Create an empty DataFrame with the right columns and types
     df = pd.DataFrame(columns=REST_OUTPUT_COLUMNS)
-    for col, dtype in OUTPUT_DTYPES.items():
-        if col in df.columns:
-            df[col] = df[col].astype(dtype)
+
+    # MEMORY OPTIMIZATION: Batch dtype assignment instead of per-column loop
+    # Filter OUTPUT_DTYPES to only columns present in df (avoids KeyError)
+    # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
+    dtypes_to_apply = {col: dtype for col, dtype in OUTPUT_DTYPES.items() if col in df.columns}
+    if dtypes_to_apply:
+        df = df.astype(dtypes_to_apply)
+
     return df
