@@ -123,19 +123,27 @@ class TestHistoricalDepthFromNow:
 @pytest.mark.integration
 @pytest.mark.okx
 class TestCandlesEndpointRecentWindow:
-    """Tests for the candles endpoint recent data window."""
+    """Tests for the candles endpoint recent data window.
+
+    NOTE: OKX /market/candles endpoint has a LIMITED recent data window.
+    It only provides approximately 12 hours of 1m data (up to 300 records).
+    For older data, use /market/history-candles endpoint.
+    """
 
     @pytest.mark.parametrize(
         "hours_ago",
-        [1, 3, 6, 12, 24, 48],
+        [1, 3, 6, 12],  # Only test up to 12 hours (candles endpoint limit)
     )
     def test_candles_recent_hours_available(self, hours_ago: int) -> None:
         """
         Verify the candles endpoint has recent hourly data available.
 
+        NOTE: The /market/candles endpoint only provides ~12 hours of 1m data
+        (up to 300 records). For older data, use /market/history-candles.
+
         Validates:
         - API returns code "0" (success)
-        - Data is available for recent hours
+        - Data is available for recent hours (up to 12h)
         """
         test_time = datetime.now() - timedelta(hours=hours_ago)
         test_timestamp = int(test_time.timestamp() * 1000)
