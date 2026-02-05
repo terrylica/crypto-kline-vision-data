@@ -181,8 +181,11 @@ def get_cache_lazyframes(
                 logger.debug(f"Found cache file: {cache_path}")
 
                 try:
-                    # Scan Arrow IPC lazily with time filter (predicate pushdown)
-                    lf = pl.scan_ipc(cache_path).filter(
+                    # Scan Parquet lazily with time filter (predicate pushdown)
+                    # Note: Cache files use .arrow extension but are written as Parquet
+                    # format by save_to_cache() for better compression. scan_parquet()
+                    # supports predicate pushdown to row groups for efficient reads.
+                    lf = pl.scan_parquet(cache_path).filter(
                         (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
                     ).with_columns(pl.lit("CACHE").alias("_data_source"))
 
