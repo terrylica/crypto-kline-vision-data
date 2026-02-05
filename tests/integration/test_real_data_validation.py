@@ -276,6 +276,143 @@ class TestCrossSourceConsistency:
             rtol=1e-10,
         )
 
+    def test_multiple_symbols_consistent_structure(self):
+        """Different symbols should return consistent DataFrame structure."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+        dataframes = {}
+
+        for symbol in symbols:
+            df = manager.get_data(
+                symbol=symbol,
+                start_time=VALIDATION_START,
+                end_time=VALIDATION_END,
+                interval=Interval.HOUR_1,
+            )
+            dataframes[symbol] = df
+
+        manager.close()
+
+        # All should have same structure
+        for symbol, df in dataframes.items():
+            assert df.index.name == "open_time", f"{symbol} has wrong index name"
+            assert "open" in df.columns, f"{symbol} missing 'open' column"
+            assert "close" in df.columns, f"{symbol} missing 'close' column"
+            assert len(df) > 0, f"{symbol} returned no data"
+
+
+# =============================================================================
+# Cross-Market Consistency Tests
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestCrossMarketConsistency:
+    """Tests for consistency across different market types."""
+
+    def test_spot_vs_futures_price_correlation(self):
+        """SPOT and FUTURES_USDT prices should be highly correlated (>0.99).
+
+        Same underlying asset (BTC) on different markets should have
+        near-identical prices.
+        """
+        spot_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+        futures_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        df_spot = spot_manager.get_data(
+            symbol="BTCUSDT",
+            start_time=VALIDATION_START,
+            end_time=VALIDATION_END,
+            interval=Interval.HOUR_1,
+        )
+
+        df_futures = futures_manager.get_data(
+            symbol="BTCUSDT",
+            start_time=VALIDATION_START,
+            end_time=VALIDATION_END,
+            interval=Interval.HOUR_1,
+        )
+
+        spot_manager.close()
+        futures_manager.close()
+
+        # Align by timestamp
+        common_idx = df_spot.index.intersection(df_futures.index)
+        assert len(common_idx) > 100, f"Insufficient overlap: {len(common_idx)} rows"
+
+        spot_close = df_spot.loc[common_idx, "close"]
+        futures_close = df_futures.loc[common_idx, "close"]
+
+        # Correlation should be > 0.99 for same underlying
+        correlation = spot_close.corr(futures_close)
+        assert correlation > 0.99, f"SPOT/FUTURES correlation too low: {correlation:.4f}"
+
+    def test_spot_vs_futures_price_difference_bounded(self):
+        """SPOT and FUTURES_USDT price difference should be small (<2%).
+
+        Basis (futures premium/discount) is typically small for liquid markets.
+        """
+        spot_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
+        futures_manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        df_spot = spot_manager.get_data(
+            symbol="BTCUSDT",
+            start_time=VALIDATION_START,
+            end_time=VALIDATION_END,
+            interval=Interval.HOUR_1,
+        )
+
+        df_futures = futures_manager.get_data(
+            symbol="BTCUSDT",
+            start_time=VALIDATION_START,
+            end_time=VALIDATION_END,
+            interval=Interval.HOUR_1,
+        )
+
+        spot_manager.close()
+        futures_manager.close()
+
+        # Align by timestamp
+        common_idx = df_spot.index.intersection(df_futures.index)
+
+        spot_close = df_spot.loc[common_idx, "close"]
+        futures_close = df_futures.loc[common_idx, "close"]
+
+        # Calculate percentage difference
+        pct_diff = abs((futures_close - spot_close) / spot_close * 100)
+
+        # Average difference should be < 2%
+        avg_diff = pct_diff.mean()
+        assert avg_diff < 2.0, f"Average SPOT/FUTURES difference too large: {avg_diff:.2f}%"
+
+        # Maximum difference should be < 5% (extreme cases)
+        max_diff = pct_diff.max()
+        assert max_diff < 5.0, f"Max SPOT/FUTURES difference too large: {max_diff:.2f}%"
+
+    def test_all_market_types_return_data(self):
+        """All supported market types should return valid data."""
+        market_configs = [
+            (MarketType.SPOT, "BTCUSDT"),
+            (MarketType.FUTURES_USDT, "BTCUSDT"),
+            (MarketType.FUTURES_COIN, "BTCUSD_PERP"),
+        ]
+
+        for market_type, symbol in market_configs:
+            manager = DataSourceManager.create(DataProvider.BINANCE, market_type)
+
+            df = manager.get_data(
+                symbol=symbol,
+                start_time=VALIDATION_START,
+                end_time=VALIDATION_END,
+                interval=Interval.HOUR_1,
+            )
+
+            manager.close()
+
+            assert len(df) > 0, f"{market_type.name} with {symbol} returned no data"
+            assert df.index.is_monotonic_increasing, f"{market_type.name} timestamps not monotonic"
+
 
 # =============================================================================
 # Interval Validation Tests

@@ -26,7 +26,6 @@ def fetch_from_vision(
     chart_type: ChartType,
     use_cache: bool,
     save_to_cache_func=None,
-    fs_handler=None,
 ) -> pd.DataFrame:
     """Fetch data from the Vision API.
 
@@ -39,7 +38,6 @@ def fetch_from_vision(
         chart_type: Type of chart data
         use_cache: Whether to use caching
         save_to_cache_func: Function to save data to cache
-        fs_handler: FSSpecVisionHandler instance (optional)
 
     Returns:
         DataFrame with data from Vision API filtered to the requested time range
@@ -70,12 +68,6 @@ def fetch_from_vision(
         vision_end = aligned_end.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         logger.debug(f"[FCP] Expanding Vision API request to full days: {vision_start} to {vision_end}")
-
-        # If we have an FSSpecVisionHandler, use it for direct path mapping
-        if fs_handler is not None:
-            logger.debug("Using FSSpecVisionHandler for consistency in path mapping")
-            # This indicates we can directly use the fs_handler for path operations
-            # Note: The actual implementation would handle the Vision API downloads
 
         # Vision API has date-based files, fetch with chunking
         df = vision_client.fetch(

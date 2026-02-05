@@ -276,8 +276,8 @@ class BinanceProviderFactory:
         from data_source_manager.core.providers.binance.rest_data_client import (
             RestDataClient,
         )
-        from data_source_manager.core.providers.binance.vision_path_mapper import (
-            FSSpecVisionHandler,
+        from data_source_manager.core.providers.binance.vision_data_client import (
+            VisionDataClient,
         )
         from data_source_manager.utils.app_paths import get_cache_dir
 
@@ -285,8 +285,14 @@ class BinanceProviderFactory:
         if cache_dir is None:
             cache_dir = get_cache_dir() / "data"
 
-        # Create Vision handler (Binance Vision API on AWS S3)
-        vision_client = FSSpecVisionHandler(base_cache_dir=cache_dir)
+        # Create Vision client (Binance Vision API on AWS S3)
+        # VisionDataClient is initialized with defaults; symbol/interval are passed per fetch() call
+        vision_client = VisionDataClient(
+            symbol="BTCUSDT",  # Default, overridden per fetch() call
+            interval="1h",  # Default, overridden per fetch() call
+            market_type=market_type,
+            cache_dir=cache_dir,
+        )
 
         # Create REST client
         rest_client = RestDataClient(

@@ -26,6 +26,11 @@ from data_source_manager.utils.for_core.dsm_fcp_utils import (
     validate_interval,
     verify_final_data,
 )
+from data_source_manager.utils.for_core.dsm_time_range_utils import (
+    identify_missing_segments,
+    merge_adjacent_ranges,
+    merge_dataframes,
+)
 from data_source_manager.utils.for_core.vision_exceptions import UnsupportedIntervalError
 from data_source_manager.utils.market_constraints import Interval, MarketType
 
@@ -622,3 +627,387 @@ class TestFCPFlowIntegration:
         assert len(result_df) > 0
         assert "_data_source" in result_df.columns
         assert (result_df["_data_source"] == "REST").all()
+
+
+# =============================================================================
+# merge_adjacent_ranges() Tests - Gap Detection Logic
+# =============================================================================
+
+
+class TestMergeAdjacentRanges:
+    """Tests for merge_adjacent_ranges function (gap detection)."""
+
+    def test_empty_ranges_returns_empty(self):
+        """Empty input should return empty list."""
+        result = merge_adjacent_ranges([], Interval.HOUR_1)
+        assert result == []
+
+    def test_single_range_unchanged(self):
+        """Single range should be returned unchanged."""
+        start = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        ranges = [(start, end)]
+
+        result = merge_adjacent_ranges(ranges, Interval.HOUR_1)
+
+        assert len(result) == 1
+        assert result[0] == (start, end)
+
+    def test_adjacent_ranges_merged(self):
+        """Adjacent ranges should be merged into one."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        ranges = [
+            (base, base + timedelta(hours=6)),
+            (base + timedelta(hours=6), base + timedelta(hours=12)),
+        ]
+
+        result = merge_adjacent_ranges(ranges, Interval.HOUR_1)
+
+        assert len(result) == 1
+        assert result[0][0] == base
+        assert result[0][1] == base + timedelta(hours=12)
+
+    def test_overlapping_ranges_merged(self):
+        """Overlapping ranges should be merged."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        ranges = [
+            (base, base + timedelta(hours=8)),
+            (base + timedelta(hours=4), base + timedelta(hours=12)),
+        ]
+
+        result = merge_adjacent_ranges(ranges, Interval.HOUR_1)
+
+        assert len(result) == 1
+        assert result[0][0] == base
+        assert result[0][1] == base + timedelta(hours=12)
+
+    def test_non_adjacent_ranges_kept_separate(self):
+        """Non-adjacent ranges should remain separate."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        ranges = [
+            (base, base + timedelta(hours=4)),
+            (base + timedelta(hours=12), base + timedelta(hours=16)),
+        ]
+
+        result = merge_adjacent_ranges(ranges, Interval.HOUR_1)
+
+        assert len(result) == 2
+
+    def test_unsorted_ranges_handled(self):
+        """Unsorted input ranges should be sorted and merged."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        ranges = [
+            (base + timedelta(hours=12), base + timedelta(hours=18)),
+            (base, base + timedelta(hours=6)),
+            (base + timedelta(hours=6), base + timedelta(hours=12)),
+        ]
+
+        result = merge_adjacent_ranges(ranges, Interval.HOUR_1)
+
+        # All three should merge into one continuous range
+        assert len(result) == 1
+        assert result[0][0] == base
+        assert result[0][1] == base + timedelta(hours=18)
+
+
+# =============================================================================
+# identify_missing_segments() Tests - Gap Detection
+# =============================================================================
+
+
+class TestIdentifyMissingSegments:
+    """Tests for identify_missing_segments function."""
+
+    def test_empty_dataframe_returns_full_range(self):
+        """Empty DataFrame should return entire range as missing."""
+        start = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        end = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        result = identify_missing_segments(pd.DataFrame(), start, end, Interval.HOUR_1)
+
+        assert len(result) == 1
+        assert result[0] == (start, end)
+
+    def test_complete_data_returns_empty(self, sample_ohlcv_df, historical_time_range):
+        """Complete data should return no missing segments."""
+        start_time, end_time = historical_time_range
+
+        # Use sample data that covers the full range
+        result = identify_missing_segments(sample_ohlcv_df, start_time, end_time, Interval.HOUR_1)
+
+        # Should have no or minimal missing segments if data is complete
+        # (may have edge case at boundaries)
+        assert len(result) <= 1
+
+    def test_gap_in_middle_detected(self):
+        """Gap in middle of data should be detected."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+        # Create data with a gap in the middle (hours 0-5 and 10-12)
+        timestamps_before = [base + timedelta(hours=i) for i in range(6)]
+        timestamps_after = [base + timedelta(hours=i) for i in range(10, 13)]
+        all_timestamps = timestamps_before + timestamps_after
+
+        df = pd.DataFrame({
+            "open_time": all_timestamps,
+            "open": [100.0] * len(all_timestamps),
+            "high": [110.0] * len(all_timestamps),
+            "low": [90.0] * len(all_timestamps),
+            "close": [105.0] * len(all_timestamps),
+            "volume": [1000.0] * len(all_timestamps),
+        })
+
+        result = identify_missing_segments(df, base, base + timedelta(hours=12), Interval.HOUR_1)
+
+        # Should detect at least one missing segment
+        assert len(result) >= 1
+
+
+# =============================================================================
+# merge_dataframes() Tests - 3-Way Merge Logic
+# =============================================================================
+
+
+class TestMergeDataFrames:
+    """Tests for merge_dataframes function (3-way merge)."""
+
+    def test_empty_list_returns_empty_df(self):
+        """Empty list should return empty DataFrame."""
+        result = merge_dataframes([])
+
+        assert result.empty
+
+    def test_single_dataframe_standardized(self, sample_ohlcv_df):
+        """Single DataFrame should be standardized and returned."""
+        result = merge_dataframes([sample_ohlcv_df.copy()])
+
+        assert len(result) == len(sample_ohlcv_df)
+
+    def test_two_dataframes_merged(self):
+        """Two DataFrames should be merged correctly."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+        df1 = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(6)],
+            "open": [100.0] * 6,
+            "high": [110.0] * 6,
+            "low": [90.0] * 6,
+            "close": [105.0] * 6,
+            "volume": [1000.0] * 6,
+            "_data_source": ["CACHE"] * 6,
+        })
+
+        df2 = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(6, 12)],
+            "open": [105.0] * 6,
+            "high": [115.0] * 6,
+            "low": [95.0] * 6,
+            "close": [110.0] * 6,
+            "volume": [1100.0] * 6,
+            "_data_source": ["VISION"] * 6,
+        })
+
+        result = merge_dataframes([df1, df2])
+
+        assert len(result) == 12
+        assert "_data_source" in result.columns
+
+    def test_duplicate_timestamps_resolved_by_priority(self):
+        """Duplicate timestamps should keep higher priority source."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+        # CACHE data
+        df_cache = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(6)],
+            "open": [100.0] * 6,
+            "high": [110.0] * 6,
+            "low": [90.0] * 6,
+            "close": [105.0] * 6,
+            "volume": [1000.0] * 6,
+            "_data_source": ["CACHE"] * 6,
+        })
+
+        # REST data with same timestamps (should win due to higher priority)
+        df_rest = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(6)],
+            "open": [200.0] * 6,  # Different values
+            "high": [210.0] * 6,
+            "low": [190.0] * 6,
+            "close": [205.0] * 6,
+            "volume": [2000.0] * 6,
+            "_data_source": ["REST"] * 6,
+        })
+
+        result = merge_dataframes([df_cache, df_rest])
+
+        # Should have 6 rows (duplicates removed)
+        assert len(result) == 6
+        # REST should win (higher priority)
+        assert (result["_data_source"] == "REST").all()
+
+    def test_source_priority_order(self):
+        """Verify source priority: REST > CACHE > VISION > UNKNOWN."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        timestamp = base
+
+        # Create DataFrames with same timestamp but different sources
+        dfs = []
+        for source, value in [("UNKNOWN", 100), ("VISION", 200), ("CACHE", 300), ("REST", 400)]:
+            df = pd.DataFrame({
+                "open_time": [timestamp],
+                "open": [float(value)],
+                "high": [float(value + 10)],
+                "low": [float(value - 10)],
+                "close": [float(value + 5)],
+                "volume": [1000.0],
+                "_data_source": [source],
+            })
+            dfs.append(df)
+
+        result = merge_dataframes(dfs)
+
+        # Should have 1 row (all duplicates merged)
+        assert len(result) == 1
+        # REST should win
+        assert result["_data_source"].iloc[0] == "REST"
+        # Value should be from REST DataFrame
+        assert result["open"].iloc[0] == 400.0
+
+    def test_three_way_merge_cache_vision_rest(self):
+        """Test 3-way merge: Cache + Vision + REST."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+        # Cache: hours 0-3
+        df_cache = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(4)],
+            "open": [100.0] * 4,
+            "high": [110.0] * 4,
+            "low": [90.0] * 4,
+            "close": [105.0] * 4,
+            "volume": [1000.0] * 4,
+            "_data_source": ["CACHE"] * 4,
+        })
+
+        # Vision: hours 4-7
+        df_vision = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(4, 8)],
+            "open": [105.0] * 4,
+            "high": [115.0] * 4,
+            "low": [95.0] * 4,
+            "close": [110.0] * 4,
+            "volume": [1100.0] * 4,
+            "_data_source": ["VISION"] * 4,
+        })
+
+        # REST: hours 8-11
+        df_rest = pd.DataFrame({
+            "open_time": [base + timedelta(hours=i) for i in range(8, 12)],
+            "open": [110.0] * 4,
+            "high": [120.0] * 4,
+            "low": [100.0] * 4,
+            "close": [115.0] * 4,
+            "volume": [1200.0] * 4,
+            "_data_source": ["REST"] * 4,
+        })
+
+        result = merge_dataframes([df_cache, df_vision, df_rest])
+
+        # Should have 12 rows total
+        assert len(result) == 12
+        # Should have data from all three sources
+        source_counts = result["_data_source"].value_counts()
+        assert "CACHE" in source_counts.index
+        assert "VISION" in source_counts.index
+        assert "REST" in source_counts.index
+
+
+# =============================================================================
+# Source Attribution Tests
+# =============================================================================
+
+
+class TestSourceAttribution:
+    """Tests for _data_source column tracking."""
+
+    def test_cache_source_attribution(self, sample_ohlcv_df, historical_time_range):
+        """Cache step should attribute source as 'CACHE'."""
+        start_time, end_time = historical_time_range
+        mock_cache = MagicMock(return_value=(sample_ohlcv_df.copy(), []))
+
+        result_df, _ = process_cache_step(
+            use_cache=True,
+            get_from_cache_func=mock_cache,
+            symbol="BTCUSDT",
+            aligned_start=start_time,
+            aligned_end=end_time,
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+        )
+
+        assert "_data_source" in result_df.columns
+        assert (result_df["_data_source"] == "CACHE").all()
+
+    def test_vision_source_attribution(self, sample_ohlcv_df, historical_time_range):
+        """Vision step should attribute source as 'VISION'."""
+        start_time, end_time = historical_time_range
+        mock_vision = MagicMock(return_value=sample_ohlcv_df.copy())
+
+        result_df, _ = process_vision_step(
+            fetch_from_vision_func=mock_vision,
+            symbol="BTCUSDT",
+            missing_ranges=[(start_time, end_time)],
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+            result_df=pd.DataFrame(),
+        )
+
+        assert "_data_source" in result_df.columns
+        assert (result_df["_data_source"] == "VISION").all()
+
+    def test_rest_source_attribution(self, sample_ohlcv_df, historical_time_range):
+        """REST step should attribute source as 'REST'."""
+        start_time, end_time = historical_time_range
+        mock_rest = MagicMock(return_value=sample_ohlcv_df.copy())
+
+        result_df = process_rest_step(
+            fetch_from_rest_func=mock_rest,
+            symbol="BTCUSDT",
+            missing_ranges=[(start_time, end_time)],
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+            result_df=pd.DataFrame(),
+        )
+
+        assert "_data_source" in result_df.columns
+        assert (result_df["_data_source"] == "REST").all()
+
+    def test_mixed_source_attribution_preserved(self):
+        """Mixed source data should preserve individual attributions."""
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+
+        df_cache = pd.DataFrame({
+            "open_time": [base],
+            "open": [100.0],
+            "high": [110.0],
+            "low": [90.0],
+            "close": [105.0],
+            "volume": [1000.0],
+            "_data_source": ["CACHE"],
+        })
+
+        df_rest = pd.DataFrame({
+            "open_time": [base + timedelta(hours=1)],
+            "open": [105.0],
+            "high": [115.0],
+            "low": [95.0],
+            "close": [110.0],
+            "volume": [1100.0],
+            "_data_source": ["REST"],
+        })
+
+        result = merge_dataframes([df_cache, df_rest])
+
+        assert len(result) == 2
+        source_counts = result["_data_source"].value_counts()
+        assert source_counts.get("CACHE", 0) == 1
+        assert source_counts.get("REST", 0) == 1

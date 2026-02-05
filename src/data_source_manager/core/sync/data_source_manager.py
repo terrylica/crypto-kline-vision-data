@@ -437,10 +437,9 @@ class DataSourceManager:
             raise ValueError(f"Failed to initialize provider clients: {e}") from e
 
         # Extract clients for backward compatibility with existing code paths
-        self.fs_handler = self._provider_clients.vision  # Vision API client (None for OKX)
         self.cache_manager = self._provider_clients.cache  # Cache manager
         self.rest_client = self._provider_clients.rest  # REST API client
-        self.vision_client = self._provider_clients.vision  # Alias for vision client
+        self.vision_client = self._provider_clients.vision  # Vision API client (None for OKX)
 
         # Log cache status
         if self.use_cache and self.cache_manager is not None:
@@ -558,7 +557,7 @@ class DataSourceManager:
 
         logger.info(f"Checking cache for {symbol} from {start_time} to {end_time}")
 
-        # Use the new cache utils implementation with FSSpecVisionHandler
+        # Use cache utils for Arrow file operations
         return get_from_cache(
             symbol=symbol,
             start_time=start_time,
@@ -611,7 +610,7 @@ class DataSourceManager:
         if source:
             logger.debug(f"Data source for cache: {source}")
 
-        # Use the new cache utils implementation with FSSpecVisionHandler
+        # Use cache utils for Arrow file operations
         save_to_cache(
             df=df,
             symbol=symbol,
@@ -662,7 +661,6 @@ class DataSourceManager:
             chart_type=self.chart_type,
             use_cache=self.use_cache,
             save_to_cache_func=self._save_to_cache if self.use_cache else None,
-            fs_handler=self.fs_handler,
         )
 
     def _fetch_from_rest(self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval) -> pd.DataFrame:
