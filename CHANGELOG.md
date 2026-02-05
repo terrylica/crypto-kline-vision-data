@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/terrylica/data-source-manager/compare/v2.0.0...v2.0.1) (2026-02-05)
+
+
+### Performance Improvements
+
+* **memory:** phase 0-1 memory efficiency optimizations ([e3a2b11](https://github.com/terrylica/data-source-manager/commit/e3a2b114e7ae4cf7ecf26e1f6b003d42118719ef)), closes [#13](https://github.com/terrylica/data-source-manager/issues/13) [#11](https://github.com/terrylica/data-source-manager/issues/11)
+
 # [2.0.0](https://github.com/terrylica/data-source-manager/compare/v1.6.0...v2.0.0) (2026-02-05)
 
 
