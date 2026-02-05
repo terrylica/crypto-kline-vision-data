@@ -426,6 +426,52 @@ DSM_LOG_LEVEL=DEBUG python examples/dsm_logging_demo.py --test-dsm
 - **🎨 Rich Formatting**: Beautiful colored output with module/function info
 - **🔧 Same API**: All existing logging calls work unchanged
 
+## Feature Flags
+
+DSM supports optional feature flags for advanced memory optimization.
+
+### Polars Pipeline (Internal Optimization)
+
+Enable internal Polars LazyFrame processing for 15-20% memory improvement:
+
+```bash
+export DSM_USE_POLARS_PIPELINE=true
+```
+
+This enables the PolarsDataPipeline for FCP merge operations, using lazy evaluation and streaming collection internally while maintaining pandas DataFrame output at the API boundary.
+
+### Zero-Copy Polars Output
+
+When combined with `return_polars=True`, skip pandas conversion entirely for additional 10-15% memory savings:
+
+```bash
+export DSM_USE_POLARS_OUTPUT=true
+```
+
+```python
+from data_source_manager import DataSourceManager, DataProvider, MarketType, Interval
+
+manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+# Returns pl.DataFrame directly (zero-copy when both flags enabled)
+df = manager.get_data(
+    symbol="BTCUSDT",
+    start_time=start_time,
+    end_time=end_time,
+    interval=Interval.HOUR_1,
+    return_polars=True
+)
+```
+
+### Feature Flag Summary
+
+| Flag                  | Environment Variable      | Effect                     |
+| --------------------- | ------------------------- | -------------------------- |
+| `USE_POLARS_PIPELINE` | `DSM_USE_POLARS_PIPELINE` | Internal Polars processing |
+| `USE_POLARS_OUTPUT`   | `DSM_USE_POLARS_OUTPUT`   | Zero-copy Polars output    |
+
+Both flags default to `False` for backward compatibility. Set to `true`, `1`, or `yes` to enable.
+
 ## Documentation
 
 - [API Documentation](docs/api/) - Complete API reference
