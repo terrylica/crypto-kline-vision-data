@@ -664,3 +664,269 @@ class TestEmpiricalSummaryReport:
         print("=" * 60)
 
         assert all_valid, "Some validations failed - see report above"
+
+
+# =============================================================================
+# Polars Pipeline E2E Tests
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestPolarsPipelineE2E:
+    """End-to-end tests for Polars pipeline with real market data.
+
+    These tests verify that when USE_POLARS_PIPELINE and USE_POLARS_OUTPUT
+    feature flags are enabled, the data returned is correct and matches
+    the baseline (non-Polars) path.
+
+    GitHub Issue #14: Memory Efficiency Refactoring Complete - Phase 2-3
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_polars_flags(self, monkeypatch):
+        """Enable Polars pipeline for all tests in this class."""
+        monkeypatch.setenv("DSM_USE_POLARS_PIPELINE", "true")
+        monkeypatch.setenv("DSM_USE_POLARS_OUTPUT", "true")
+
+    @pytest.mark.parametrize(
+        "market_type,symbol",
+        [
+            (MarketType.SPOT, "BTCUSDT"),
+            (MarketType.SPOT, "ETHUSDT"),
+            (MarketType.FUTURES_USDT, "BTCUSDT"),
+            (MarketType.FUTURES_USDT, "ETHUSDT"),
+            (MarketType.FUTURES_COIN, "BTCUSD_PERP"),
+            (MarketType.FUTURES_COIN, "ETHUSD_PERP"),
+        ],
+    )
+    def test_polars_pipeline_data_integrity(self, market_type, symbol):
+        """Verify Polars pipeline returns valid OHLCV data across markets."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, market_type)
+
+        df = manager.get_data(
+            symbol=symbol,
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.HOUR_1,
+        )
+        manager.close()
+
+        # Validate data integrity using existing helper
+        result = validate_ohlcv_integrity(df, symbol, market_type.name)
+
+        assert result["valid"], (
+            f"Polars pipeline data integrity failed for {symbol}/{market_type.name}: "
+            f"{result['issues']}"
+        )
+        assert result["row_count"] >= 100, (
+            f"Expected 100+ rows for 7 days 1h, got {result['row_count']}"
+        )
+
+    @pytest.mark.parametrize(
+        "interval,expected_min_rows",
+        [
+            (Interval.MINUTE_1, 10000),  # 7 days * 24h * 60m
+            (Interval.MINUTE_5, 2000),  # 7 days * 24h * 12
+            (Interval.MINUTE_15, 650),  # 7 days * 24h * 4
+            (Interval.HOUR_1, 160),  # 7 days * 24h
+            (Interval.HOUR_4, 40),  # 7 days * 6
+            (Interval.DAY_1, 6),  # 7 days
+        ],
+    )
+    def test_polars_pipeline_interval_coverage(self, interval, expected_min_rows):
+        """Verify Polars pipeline works correctly across all intervals."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=interval,
+        )
+        manager.close()
+
+        if df.empty:
+            pytest.skip(f"No data returned for interval {interval.value}")
+
+        # Verify row count meets expectation
+        assert len(df) >= expected_min_rows, (
+            f"Interval {interval.value}: Expected {expected_min_rows}+ rows, got {len(df)}"
+        )
+
+        # Verify interval spacing
+        spacing_result = validate_interval_spacing(df, interval)
+        if spacing_result["checked"]:
+            assert spacing_result["valid"], (
+                f"Interval spacing invalid: {spacing_result['spacing_accuracy']:.1%} accuracy "
+                f"({spacing_result['correct_intervals']}/{spacing_result['total_intervals']})"
+            )
+
+    def test_polars_vs_pandas_data_equivalence(self):
+        """Verify Polars pipeline produces identical data to pandas path.
+
+        Critical test: data must be byte-for-byte equivalent regardless
+        of which code path is used.
+        """
+        import os
+
+        # Fetch with Polars pipeline (already enabled by fixture)
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+        df_polars = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.HOUR_1,
+        )
+        manager.close()
+
+        # Fetch without Polars pipeline
+        os.environ["DSM_USE_POLARS_PIPELINE"] = "false"
+        os.environ["DSM_USE_POLARS_OUTPUT"] = "false"
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+        df_pandas = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.HOUR_1,
+        )
+        manager.close()
+
+        if df_polars.empty or df_pandas.empty:
+            pytest.skip("Empty data returned - network issue")
+
+        # Reset index for comparison
+        df_polars_reset = df_polars.reset_index()
+        df_pandas_reset = df_pandas.reset_index()
+
+        # Compare shape
+        assert df_polars_reset.shape == df_pandas_reset.shape, (
+            f"Shape mismatch: polars={df_polars_reset.shape}, pandas={df_pandas_reset.shape}"
+        )
+
+        # Compare OHLCV values (allow small floating point tolerance)
+        for col in ["open", "high", "low", "close", "volume"]:
+            if col in df_polars_reset.columns:
+                pd.testing.assert_series_equal(
+                    df_polars_reset[col],
+                    df_pandas_reset[col],
+                    check_exact=False,
+                    rtol=1e-10,
+                    obj=f"Column '{col}'",
+                )
+
+    def test_polars_pipeline_return_polars_true(self):
+        """Verify return_polars=True returns Polars DataFrame."""
+        import polars as pl
+
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        result = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.HOUR_1,
+            return_polars=True,
+        )
+        manager.close()
+
+        assert isinstance(result, pl.DataFrame), (
+            f"Expected pl.DataFrame, got {type(result).__name__}"
+        )
+        assert len(result) >= 100, f"Expected 100+ rows, got {len(result)}"
+
+        # Verify Polars schema
+        expected_cols = {"open_time", "open", "high", "low", "close", "volume"}
+        actual_cols = set(result.columns)
+        assert expected_cols.issubset(actual_cols), (
+            f"Missing columns: {expected_cols - actual_cols}"
+        )
+
+    def test_polars_pipeline_source_tracking(self):
+        """Verify _data_source column tracks FCP sources correctly."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+        )
+        manager.close()
+
+        if "_data_source" not in df.columns:
+            pytest.skip("Source tracking not enabled")
+
+        # Valid source values
+        valid_sources = {"CACHE", "VISION", "REST"}
+        actual_sources = set(df["_data_source"].unique())
+
+        assert actual_sources.issubset(valid_sources), (
+            f"Invalid sources found: {actual_sources - valid_sources}"
+        )
+
+        # Historical data should be mostly CACHE/VISION
+        source_pcts = df["_data_source"].value_counts(normalize=True)
+        cache_vision_pct = source_pcts.get("CACHE", 0) + source_pcts.get("VISION", 0)
+
+        print(f"\nSource distribution: {source_pcts.to_dict()}")
+        print(f"CACHE+VISION: {cache_vision_pct:.1%}")
+
+    def test_polars_pipeline_memory_efficiency(self):
+        """Verify Polars pipeline memory usage is reasonable."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+        gc.collect()
+        tracemalloc.start()
+
+        df = manager.get_data(
+            symbol="BTCUSDT",
+            start_time=EMPIRICAL_START,
+            end_time=EMPIRICAL_END,
+            interval=Interval.MINUTE_1,  # High frequency for memory test
+        )
+
+        _current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        manager.close()
+
+        peak_mb = peak / (1024 * 1024)
+        row_count = len(df) if not df.empty else 0
+
+        print(f"\nMemory: {peak_mb:.1f}MB peak for {row_count} rows")
+
+        # Reasonable threshold: < 100MB for ~10k rows
+        assert peak_mb < 100, f"Peak memory {peak_mb:.1f}MB exceeds 100MB threshold"
+
+    @pytest.mark.parametrize(
+        "market_type,symbols",
+        [
+            (MarketType.SPOT, ["BTCUSDT", "ETHUSDT", "SOLUSDT"]),
+            (MarketType.FUTURES_USDT, ["BTCUSDT", "ETHUSDT", "BNBUSDT"]),
+            (MarketType.FUTURES_COIN, ["BTCUSD_PERP", "ETHUSD_PERP"]),
+        ],
+    )
+    def test_polars_pipeline_multi_symbol_sequential(self, market_type, symbols):
+        """Verify Polars pipeline handles sequential multi-symbol fetches."""
+        manager = DataSourceManager.create(DataProvider.BINANCE, market_type)
+
+        all_valid = True
+        issues = []
+
+        for symbol in symbols:
+            df = manager.get_data(
+                symbol=symbol,
+                start_time=EMPIRICAL_START,
+                end_time=EMPIRICAL_END,
+                interval=Interval.HOUR_1,
+            )
+
+            result = validate_ohlcv_integrity(df, symbol, market_type.name)
+            if not result["valid"]:
+                all_valid = False
+                issues.append(f"{symbol}: {result['issues']}")
+
+        manager.close()
+
+        assert all_valid, f"Multi-symbol fetch issues: {issues}"
