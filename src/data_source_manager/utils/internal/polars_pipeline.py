@@ -117,15 +117,63 @@ class PolarsDataPipeline:
         """Check if pipeline has no data sources."""
         return len(self._lazy_frames) == 0
 
+    def _standardize_schema(self, lf: pl.LazyFrame) -> pl.LazyFrame:
+        """Standardize LazyFrame schema to canonical OHLCV types.
+
+        Cache files may have inconsistent schemas due to different write paths:
+        - open_time: Datetime(Nanoseconds) vs Datetime(Milliseconds)
+        - volume: Int64 vs Float64
+        - Extra columns in some files
+
+        This method ensures all LazyFrames have consistent types before concat.
+
+        Args:
+            lf: LazyFrame to standardize
+
+        Returns:
+            LazyFrame with standardized schema
+        """
+        schema = lf.collect_schema()
+
+        # Cast timestamp columns to consistent resolution (Microseconds UTC)
+        time_cols = ["open_time", "close_time"]
+        casts = []
+
+        for col in time_cols:
+            if col in schema:
+                # Cast to Datetime with microseconds and UTC timezone
+                casts.append(
+                    pl.col(col).cast(pl.Datetime("us", "UTC")).alias(col)
+                )
+
+        # Cast numeric columns to Float64 for consistency
+        numeric_cols = ["open", "high", "low", "close", "volume",
+                       "quote_volume", "quote_asset_volume",
+                       "taker_buy_volume", "taker_buy_quote_volume"]
+
+        for col in numeric_cols:
+            if col in schema:
+                casts.append(pl.col(col).cast(pl.Float64).alias(col))
+
+        # Cast count to Int64
+        if "count" in schema:
+            casts.append(pl.col("count").cast(pl.Int64).alias("count"))
+
+        if casts:
+            lf = lf.with_columns(casts)
+
+        return lf
+
     def _merge_with_priority(self) -> pl.LazyFrame:
         """Merge all sources with REST > CACHE > VISION priority resolution.
 
         This implements the same logic as merge_dataframes() but using Polars:
-        1. Concatenate all LazyFrames
-        2. Add priority column based on _data_source
-        3. Sort by [open_time, _priority] ascending
-        4. Keep last occurrence (highest priority) using unique(keep="last")
-        5. Drop priority column
+        1. Standardize schemas across all LazyFrames
+        2. Concatenate all LazyFrames
+        3. Add priority column based on _data_source
+        4. Sort by [open_time, _priority] ascending
+        5. Keep last occurrence (highest priority) using unique(keep="last")
+        6. Drop priority column
 
         Returns:
             Merged LazyFrame with duplicates resolved by priority.
@@ -136,12 +184,15 @@ class PolarsDataPipeline:
 
         if len(self._lazy_frames) == 1:
             logger.debug("Single source in pipeline, returning directly")
-            return self._lazy_frames[0]
+            return self._standardize_schema(self._lazy_frames[0])
 
         logger.debug(f"Merging {len(self._lazy_frames)} sources with priority resolution")
 
-        # Concatenate all LazyFrames
-        combined = pl.concat(self._lazy_frames, how="diagonal")
+        # Standardize schemas before concat to avoid type mismatches
+        standardized = [self._standardize_schema(lf) for lf in self._lazy_frames]
+
+        # Concatenate all LazyFrames (diagonal handles missing columns)
+        combined = pl.concat(standardized, how="diagonal")
 
         # Add priority column and resolve duplicates
         return (
