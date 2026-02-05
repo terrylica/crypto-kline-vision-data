@@ -164,6 +164,11 @@ class PolarsDataPipeline:
         if "__index_level_0__" in schema:
             casts.append(pl.col("__index_level_0__").cast(pl.Int64).alias("__index_level_0__"))
 
+        # Cast original_timestamp to String for consistency
+        # Some sources may have Null, others String
+        if "original_timestamp" in schema:
+            casts.append(pl.col("original_timestamp").cast(pl.String).alias("original_timestamp"))
+
         if casts:
             lf = lf.with_columns(casts)
 
