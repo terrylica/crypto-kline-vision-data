@@ -1,8 +1,49 @@
 # Session Resume Context
 
-Last updated: 2026-02-01
+Last updated: 2026-02-05
 
 ## Recent Work
+
+### Dead Code Elimination (2026-02-05)
+
+**Status**: Complete
+
+**GitHub Issue**: [#12 - Dead Code Elimination](https://github.com/terrylica/data-source-manager/issues/12)
+
+**Investigation**: 12-agent audit using PMD CPD, Semgrep, Vulture, and Ruff
+
+**Total LOC Removed**: ~1,880 lines
+
+**What was done**:
+
+1. **Critical Bug Fix** (`dataframe_utils.py`):
+   - Fixed unreachable else block after try-except with early return (lines 172-253)
+   - Vulture 100% confidence finding - recovery code never executed
+
+2. **Dead Logger Infrastructure Deleted** (`utils/for_logger/` - 9 files, 1,413 LOC):
+   - `logger_proxy.py`, `timeout_logger.py`, `error_logger.py`, `console_utils.py`
+   - `logger_setup_utils.py`, `formatters.py`, `custom_logger.py`, `session_utils.py`
+   - Zero external imports verified via grep
+
+3. **Unused Config Class Deleted** (`utils/dsm_config.py` - 351 LOC):
+   - Never imported, never tested, never exported
+   - `DataSourceConfig` in `dsm_types.py` is canonical
+
+4. **DateTime Parsing Consolidated**:
+   - Deleted `utils/for_demo/dsm_datetime_parser.py` (108 LOC duplicate)
+   - Updated import in `dsm_validation_utils.py` to use canonical `dsm_date_range_utils.py`
+
+5. **Deprecated Modules Deleted**:
+   - `utils/logger_setup.py` (51 LOC) - zero code consumers, deprecated re-export
+   - Updated docs: README.md, logger_setup.md, loguru_migration.md
+
+6. **Deprecated Functions Removed**:
+   - `TimeoutError` alias from `rest_exceptions.py`
+   - `create_legacy_client()` from `client_factory.py` + all re-exports
+
+**Validation**: All 169 unit tests pass, ruff clean, import verification OK
+
+---
 
 ### DRY Principle Audit & Cleanup (2026-02-01)
 
@@ -26,15 +67,13 @@ Last updated: 2026-02-01
   - `arrow_cache_reader.py`: while loop → list comprehension
   - `dataframe_utils.py`: apply → map for dictionary lookups
 
-**High-Priority Consolidations Identified** (Future Work):
+**Remaining Consolidations** (Lower Priority):
 
-| Issue                   | Impact   | Files                                                 |
-| ----------------------- | -------- | ----------------------------------------------------- |
-| Dual logger systems     | CRITICAL | `loguru_setup.py` + `logger_setup.py` + `for_logger/` |
-| Cache function wrappers | HIGH     | `utils/cache/functions.py` → `validator.py`           |
-| Symbol validation split | HIGH     | 3 implementations across modules                      |
-| OKX `retry_request()`   | HIGH     | Duplicated in 7 test files                            |
-| Exception hierarchy     | MEDIUM   | 14 exceptions across 4 files                          |
+| Issue                 | Impact | Files                                      |
+| --------------------- | ------ | ------------------------------------------ |
+| API boundary dup      | LOW    | `api_boundary_validator.py` lines 155, 561 |
+| OKX `retry_request()` | LOW    | Duplicated in 7 test files                 |
+| Exception hierarchy   | LOW    | 14 exceptions across 4 files (keep as-is)  |
 
 **Commits**:
 

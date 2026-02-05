@@ -94,10 +94,6 @@ class RestTimeoutError(RestAPIError):
         super().__init__(f"RestTimeoutError: {message}")
 
 
-# Backwards compatibility alias (deprecated)
-TimeoutError = RestTimeoutError
-
-
 class JSONDecodeError(RestAPIError):
     """Exception raised when unable to decode JSON response from REST API."""
 

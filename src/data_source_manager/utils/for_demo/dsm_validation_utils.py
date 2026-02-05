@@ -11,7 +11,7 @@ import pendulum
 from rich.console import Console
 
 from data_source_manager.core.sync.data_source_manager import DataSourceManager
-from data_source_manager.utils.for_demo.dsm_datetime_parser import parse_datetime
+from data_source_manager.utils.for_core.dsm_date_range_utils import parse_datetime_string as parse_datetime
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import (
     Interval,

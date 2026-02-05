@@ -20,7 +20,6 @@ __all__ = [
     "Client",
     "create_client",
     "create_httpx_client",
-    "create_legacy_client",
     "safely_close_client",
 ]
 
@@ -118,36 +117,6 @@ def create_client(
     except ImportError as e:
         logger.error("httpx is not available. Please install httpx: pip install httpx>=0.24.0")
         raise ImportError("httpx is required but not available. Install with: pip install httpx>=0.24.0") from e
-
-
-def create_legacy_client(
-    timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
-    max_connections: int = 50,
-    headers: dict[str, str] | None = None,
-    **kwargs: Any,
-) -> Any:
-    """Deprecated function that now creates an httpx client instead.
-
-    This function is maintained for backwards compatibility only. All code should
-    use create_httpx_client or create_client directly.
-
-    Args:
-        timeout: Total timeout in seconds
-        max_connections: Maximum number of connections
-        headers: Optional custom headers
-        **kwargs: Additional client configuration options
-
-    Returns:
-        httpx.Client configured with the provided settings
-    """
-    logger.warning("create_legacy_client is deprecated. Please update your code to use create_httpx_client or create_client directly.")
-
-    # Remove legacy-specific parameters
-    if "impersonate" in kwargs:
-        logger.warning("Parameter 'impersonate' is not supported by httpx and will be ignored")
-        kwargs.pop("impersonate")
-
-    return create_httpx_client(timeout=timeout, max_connections=max_connections, headers=headers, **kwargs)
 
 
 def safely_close_client(client: Any) -> None:

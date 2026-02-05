@@ -395,20 +395,6 @@ logger.configure_file("./logs/dsm.log")
 logger.info("Status: <green>SUCCESS</green>")
 ```
 
-### Migration from Old Logger
-
-The old `data_source_manager.utils.logger_setup` module is deprecated and will emit a deprecation warning. It re-exports from `loguru_setup` for backward compatibility, but you should update your imports:
-
-```python
-# Old (deprecated):
-from data_source_manager.utils.logger_setup import logger
-
-# New (recommended):
-from data_source_manager.utils.loguru_setup import logger
-```
-
-All existing code continues to work without changes, but updating imports is recommended.
-
 ### Demo
 
 Try the logging demos to see the benefits:

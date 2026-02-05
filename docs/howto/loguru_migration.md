@@ -1,10 +1,10 @@
-# Migrating to Loguru Logger
+# Loguru Logger Usage
 
-The DSM package now supports loguru for better log level control and improved logging experience. This guide helps you migrate from the old `data_source_manager.utils.logger_setup` to the new `data_source_manager.utils.loguru_setup`.
+The DSM package uses loguru for logging. This provides better log level control and improved logging experience.
 
 ## Why Loguru?
 
-Users complained about difficulty controlling log levels with the old logging system. Loguru provides:
+Loguru provides:
 
 - **Simple log level control**: Just set `DSM_LOG_LEVEL=DEBUG`
 - **Better performance**: More efficient than Python's standard logging
@@ -12,35 +12,12 @@ Users complained about difficulty controlling log levels with the old logging sy
 - **Rich formatting**: Beautiful colored output with module/function info
 - **Easy configuration**: Environment variables or simple API calls
 
-## Quick Migration
-
-### Option 1: Automatic Migration (Recommended)
-
-Run the migration script to automatically update all imports:
-
-```bash
-# Dry run to see what would change
-python scripts/dev/migrate_to_loguru.py --dry-run
-
-# Migrate all files (creates backups)
-python scripts/dev/migrate_to_loguru.py
-
-# Migrate specific directory
-python scripts/dev/migrate_to_loguru.py --path core/
-```
-
-### Option 2: Manual Migration
-
-Simply change your import statement:
+## Basic Usage
 
 ```python
-# Old import
-from data_source_manager.utils.logger_setup import logger
-
-# New import
 from data_source_manager.utils.loguru_setup import logger
 
-# All existing logging calls work unchanged!
+# Standard logging calls
 logger.debug("Debug message")
 logger.info("Info message")
 logger.warning("Warning message")

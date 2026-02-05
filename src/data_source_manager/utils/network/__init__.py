@@ -20,7 +20,6 @@ from data_source_manager.utils.network.client_factory import (
     Client,
     create_client,
     create_httpx_client,
-    create_legacy_client,
     safely_close_client,
 )
 from data_source_manager.utils.network.download import (
@@ -48,7 +47,6 @@ __all__ = [
     "VisionDownloadManager",
     "create_client",
     "create_httpx_client",
-    "create_legacy_client",
     # Download handling
     "download_files_concurrently",
     # API utilities

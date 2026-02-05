@@ -141,7 +141,7 @@ def main(
     # Convert shorthand log levels to full names
     level = resolve_log_level(log_level.value)
 
-    # Set up session logging (delegated to logger_setup.py)
+    # Set up session logging (delegated to loguru_setup.py)
     main_log, error_log, log_timestamp = configure_session_logging("dsm_demo_cli", level)
 
     logger.info(f"Current time: {pendulum.now().isoformat()}")

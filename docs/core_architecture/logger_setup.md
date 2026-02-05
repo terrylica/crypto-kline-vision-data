@@ -1,7 +1,5 @@
 # Loguru Setup - Centralized Logging for Data Source Manager
 
-> **Deprecation Notice**: The old `logger_setup.py` module is deprecated. Use `loguru_setup.py` for all new code. See the [Migration Guide](#migration-from-old-logger_setuppy) for details.
-
 The `src/data_source_manager/utils/loguru_setup.py` module provides a simple, powerful loguru-based logging system that addresses user complaints about log level control in the DSM package. It features environment variable configuration, automatic log rotation, and rich formatting support.
 
 ## Key Features
@@ -221,48 +219,6 @@ Components:
 - **Level**: Padded to 8 characters
 - **Location**: `module:function:line`
 - **Message**: The log message
-
-## Migration from Old logger_setup.py
-
-The old `logger_setup.py` is deprecated. To migrate:
-
-### Automatic Migration
-
-```bash
-# Run the migration script
-python scripts/dev/migrate_to_loguru.py
-```
-
-### Manual Migration
-
-Change your imports:
-
-```python
-# Old (deprecated)
-from data_source_manager.utils.logger_setup import logger
-
-# New (recommended)
-from data_source_manager.utils.loguru_setup import logger
-```
-
-### API Differences
-
-| Old API                       | New API                          | Notes                      |
-| ----------------------------- | -------------------------------- | -------------------------- |
-| `logger.setLevel("INFO")`     | `logger.configure_level("INFO")` | `setLevel()` still works   |
-| `logger.enable_smart_print()` | _(removed)_                      | Use `print()` directly     |
-| `logger.show_filename()`      | _(automatic)_                    | Always shows location      |
-| `logger.console.print()`      | `print()` or `logger.info()`     | Use standard print/logging |
-
-### Removed Features
-
-The following features from the old logger are not in the new system:
-
-1. **Smart Print**: The monkey-patching of `print()` was removed for simplicity. Use `logger.info()` for log-level-aware output or regular `print()` for always-visible output.
-
-2. **Module Proxying**: Loguru handles module detection automatically, so explicit proxying is not needed.
-
-3. **Hierarchical Control**: Loguru's configuration is global by design, simplifying the control model.
 
 ## Example Program
 
