@@ -25,7 +25,6 @@ from data_source_manager.utils.for_core.rest_client_utils import (
     validate_request_params,
 )
 from data_source_manager.utils.for_core.rest_data_processing import (
-    REST_OUTPUT_COLUMNS,
     create_empty_dataframe,
     process_kline_data,
 )
@@ -52,9 +51,6 @@ from data_source_manager.utils.time_utils import (
     milliseconds_to_datetime,
 )
 from data_source_manager.utils.validation import DataFrameValidator
-
-# Define the column names as a constant since they aren't in config.py
-OUTPUT_COLUMNS = REST_OUTPUT_COLUMNS
 
 
 class RestDataClient(DataClientInterface):
@@ -200,14 +196,6 @@ class RestDataClient(DataClientInterface):
             # Data processing errors - log with traceback
             logger.error(f"Data processing error for {symbol}: {e}", exc_info=True)
             return []
-
-    def _create_optimized_client(self) -> Any:
-        """Create an optimized HTTP client for REST API requests.
-
-        Returns:
-            HTTP client instance optimized for performance
-        """
-        return create_optimized_client()
 
     def _calculate_chunks(self, start_ms: int, end_ms: int, interval: Interval) -> list[tuple[int, int]]:
         """Calculate chunk boundaries for a time range.

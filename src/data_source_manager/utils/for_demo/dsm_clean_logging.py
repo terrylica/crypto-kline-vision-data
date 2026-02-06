@@ -195,32 +195,24 @@ def get_debug_market_data(
             dsm.close()
 
 
-def suppress_http_logging() -> None:
-    """Suppress HTTP logging globally for all loggers.
+def suppress_http_logging(suppress: bool = True) -> None:
+    """Control HTTP library logging globally.
 
-    This function can be called at the module level to suppress HTTP
-    logging for the entire session, providing a simple workaround
-    until users migrate to the new DSM logging parameters.
+    Sets logging level for httpcore, httpx, urllib3, and requests loggers.
+    Used by both DSM's internal _configure_logging() and as a standalone
+    utility for users who want clean output.
 
-    This is the exact workaround mentioned in the user's report.
+    Args:
+        suppress: If True, set to WARNING (quiet). If False, set to DEBUG (verbose).
 
     Example:
         >>> from data_source_manager.utils.for_demo.dsm_clean_logging import suppress_http_logging
-        >>> from core.sync.data_source_manager import DataSourceManager
-        >>> from data_source_manager import DataProvider, MarketType
-        >>>
-        >>> # Apply global HTTP logging suppression
-        >>> suppress_http_logging()
-        >>>
-        >>> # Now all DSM usage will have clean output
-        >>> dsm = DataSourceManager.create(DataProvider.BINANCE, MarketType.SPOT)
-        >>> # ... use dsm normally with clean output
+        >>> suppress_http_logging()  # Suppress HTTP noise
+        >>> suppress_http_logging(False)  # Enable HTTP debugging
     """
-    # Suppress noisy HTTP logging globally
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("requests").setLevel(logging.WARNING)
+    level = logging.WARNING if suppress else logging.DEBUG
+    for logger_name in ("httpcore", "httpx", "urllib3", "requests"):
+        logging.getLogger(logger_name).setLevel(level)
 
 
 def configure_clean_logging(log_level: str = "WARNING") -> None:

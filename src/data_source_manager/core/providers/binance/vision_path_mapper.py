@@ -155,25 +155,6 @@ class VisionPathMapper:
             file_extension=file_extension,
         )
 
-    def create_path_from_params(
-        self,
-        symbol: str,
-        interval: str | Interval,
-        date: str | pendulum.DateTime,
-        market_type: MarketType,
-        chart_type: ChartType = ChartType.KLINES,
-        exchange: str = "binance",
-    ) -> Path:
-        """Generate a local path directly from parameters."""
-        components = self.create_components_from_params(
-            symbol=symbol,
-            interval=interval,
-            date=date,
-            market_type=market_type,
-            chart_type=chart_type,
-            exchange=exchange,
-        )
-        return self.get_local_path(components)
 
 
 class FSSpecVisionHandler:
@@ -226,21 +207,3 @@ class FSSpecVisionHandler:
         )
         return self.get_local_path(components)
 
-    def get_remote_url_for_data(
-        self,
-        symbol: str,
-        interval: str | Interval,
-        date: str | pendulum.DateTime,
-        market_type: MarketType,
-        chart_type: ChartType = ChartType.KLINES,
-    ) -> str:
-        """Get the remote URL for the given data parameters."""
-        components = self.path_mapper.create_components_from_params(
-            symbol=symbol,
-            interval=interval,
-            date=date,
-            market_type=market_type,
-            chart_type=chart_type,
-            file_extension=".zip",
-        )
-        return self.get_remote_url(components)

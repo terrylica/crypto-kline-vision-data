@@ -283,17 +283,3 @@ class PolarsDataPipeline:
                 )
 
         return pd_df
-
-    def sink_to_ipc(self, path: str) -> None:
-        """Sink merged data directly to IPC file without memory materialization.
-
-        For very large results, this avoids holding the entire result in memory.
-        Uses Polars sink_ipc() for streaming writes.
-
-        Args:
-            path: Path to write the IPC (Arrow) file.
-        """
-        logger.debug(f"Sinking merged data to {path}")
-        lf = self._merge_with_priority()
-        lf.sink_ipc(path)
-        logger.debug(f"Successfully wrote merged data to {path}")

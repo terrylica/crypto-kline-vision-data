@@ -221,40 +221,6 @@ class DataSourceManager:
         return start_datetime, end_datetime
 
     @classmethod
-    def get_output_format(cls, chart_type: ChartType = ChartType.KLINES) -> dict[str, str]:
-        """Get the standardized output format specification.
-
-        Returns the column definitions and data types for the specified chart type.
-        This ensures consistent DataFrame structure regardless of data source.
-
-        Args:
-            chart_type: Type of chart data (KLINES or FUNDING_RATE)
-
-        Returns:
-            dict: Dictionary mapping column names to their pandas dtypes
-
-        Note:
-            The returned format ensures:
-            - Index is always pd.DatetimeIndex in UTC timezone
-            - All timestamps are aligned to interval boundaries
-            - Empty DataFrames maintain this structure
-
-        Example:
-            >>> # Get format for klines data
-            >>> format_spec = DataSourceManager.get_output_format(ChartType.KLINES)
-            >>> print(list(format_spec.keys())[:5])  # First 5 column names
-            ['open', 'high', 'low', 'close', 'volume']
-
-            >>> # Get format for funding rate data
-            >>> fr_format = DataSourceManager.get_output_format(ChartType.FUNDING_RATE)
-            >>> print('funding_rate' in fr_format)
-            True
-        """
-        if chart_type == ChartType.FUNDING_RATE:
-            return cls.FUNDING_RATE_DTYPES.copy()
-        return cls.OUTPUT_DTYPES.copy()
-
-    @classmethod
     def create(
         cls,
         provider: DataProvider | None = None,
@@ -353,29 +319,6 @@ class DataSourceManager:
             quiet_mode=config.quiet_mode,
         )
 
-    @classmethod
-    def configure_defaults(cls, market_type: MarketType) -> None:
-        """Configure default market type for all DataSourceManager instances.
-
-        This class method allows you to set a global default market type that will
-        be used when no market_type is provided to the create() method.
-
-        Args:
-            market_type: Default market type to use for all future instances
-
-        Example:
-            >>> # Configure FUTURES_USDT as the default market type
-            >>> from core.sync.data_source_manager import DataSourceManager
-            >>> from data_source_manager.utils.market_constraints import MarketType
-            >>>
-            >>> DataSourceManager.configure_defaults(MarketType.FUTURES_USDT)
-            >>>
-            >>> # Create a manager using the configured default
-            >>> manager = DataSourceManager.create(DataProvider.BINANCE)  # Uses FUTURES_USDT
-        """
-        cls.DEFAULT_MARKET_TYPE = market_type
-        logger.info(f"Configured default market type: {market_type.name}")
-
     def __init__(
         self,
         provider: DataProvider = DataProvider.BINANCE,
@@ -455,8 +398,6 @@ class DataSourceManager:
         2. Allow users to control DSM log levels
         3. Provide quiet mode for feature engineering workflows
         """
-        import logging
-
         # Configure DSM's own logging level
         # In quiet mode, only show errors and critical messages
         effective_level = "ERROR" if self.quiet_mode else self.log_level
@@ -464,20 +405,10 @@ class DataSourceManager:
         # Configure the main DSM logger
         logger.configure_level(effective_level)
 
-        # Configure HTTP library logging
-        if self.suppress_http_debug:
-            # Suppress noisy HTTP debugging by default
-            # This addresses the main user complaint about log clutter
-            logging.getLogger("httpcore").setLevel(logging.WARNING)
-            logging.getLogger("httpx").setLevel(logging.WARNING)
-            logging.getLogger("urllib3").setLevel(logging.WARNING)
-            logging.getLogger("requests").setLevel(logging.WARNING)
-        else:
-            # User wants to see HTTP debugging (for troubleshooting)
-            logging.getLogger("httpcore").setLevel(logging.DEBUG)
-            logging.getLogger("httpx").setLevel(logging.DEBUG)
-            logging.getLogger("urllib3").setLevel(logging.DEBUG)
-            logging.getLogger("requests").setLevel(logging.DEBUG)
+        # Configure HTTP library logging via shared SSoT
+        from data_source_manager.utils.for_demo.dsm_clean_logging import suppress_http_logging
+
+        suppress_http_logging(suppress=self.suppress_http_debug)
 
         # Log the configuration for debugging
         if not self.quiet_mode:
