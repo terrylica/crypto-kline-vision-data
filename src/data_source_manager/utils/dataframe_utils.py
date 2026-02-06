@@ -29,6 +29,20 @@ from data_source_manager.utils.config import (
 from data_source_manager.utils.loguru_setup import logger
 
 
+def _create_synthetic_timestamps(count: int) -> list[datetime]:
+    """Create synthetic minute-interval UTC timestamps for fallback indexing.
+
+    Args:
+        count: Number of timestamps to generate.
+
+    Returns:
+        List of UTC-aware datetime objects spaced 1 minute apart.
+    """
+    now = datetime.now(timezone.utc)
+    base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    return [base_time + timedelta(minutes=i) for i in range(count)]
+
+
 def ensure_open_time_as_column(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure that open_time exists as a column in the DataFrame.
 
@@ -204,11 +218,7 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 # Last resort - try to create an open_time column based on row number
                 logger.warning("Creating synthetic open_time based on row number")
-                now = datetime.now(timezone.utc)
-                base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-
-                # Create evenly spaced timestamps - Using minute intervals
-                df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
+                df[CANONICAL_INDEX_NAME] = _create_synthetic_timestamps(len(df))
                 df = df.set_index(CANONICAL_INDEX_NAME)
 
                 logger.warning("Created synthetic timestamps. This is a fallback and may not represent real data timestamps.")
@@ -225,9 +235,7 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
                 # Create a new DatetimeIndex if conversion fails
                 old_index = df.index.copy()
                 df = df.reset_index()
-                now = datetime.now(timezone.utc)
-                base_time = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-                df[CANONICAL_INDEX_NAME] = [base_time + timedelta(minutes=i) for i in range(len(df))]
+                df[CANONICAL_INDEX_NAME] = _create_synthetic_timestamps(len(df))
                 # Add the old index as a column with a different name for reference
                 df["original_index"] = old_index
                 df = df.set_index(CANONICAL_INDEX_NAME)
