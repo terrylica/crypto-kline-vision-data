@@ -74,8 +74,8 @@ def parse_datetime_string(dt_str: str | None) -> DateTime | None:
 
 
 def calculate_date_range(
-    start_time: str | DateTime | None = None,
-    end_time: str | DateTime | None = None,
+    start_time: str | datetime | DateTime | None = None,
+    end_time: str | datetime | DateTime | None = None,
     days: int = 3,
     interval: Interval | None = None,
 ) -> tuple[DateTime, DateTime]:
@@ -116,6 +116,12 @@ def calculate_date_range(
         start_time = parse_datetime_string(start_time)
     if isinstance(end_time, str):
         end_time = parse_datetime_string(end_time)
+
+    # Convert plain datetime objects to pendulum DateTime
+    if start_time is not None and not isinstance(start_time, DateTime):
+        start_time = pendulum.instance(start_time, tz="UTC")
+    if end_time is not None and not isinstance(end_time, DateTime):
+        end_time = pendulum.instance(end_time, tz="UTC")
 
     # Calculate date range based on provided parameters
     if start_time and end_time:
