@@ -48,8 +48,6 @@ dev = [ # development dependencies using latest versions
 ]
 # Command-line scripts defined here
 [project.scripts]
-dsm-demo-cli = "examples.sync.dsm_demo_cli:app"
-dsm-demo-module = "examples.lib_module.dsm_demo_module:main"
 recmove = "scripts.dev.refactor_move:app"
 
 # Using src-layout with proper package structure
