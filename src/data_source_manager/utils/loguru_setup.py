@@ -46,6 +46,7 @@ Migration from utils.logger_setup:
     All existing code continues to work without changes.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -323,6 +324,21 @@ def configure_session_logging(session_name: str, log_level: str = "DEBUG"):
     logger.debug(f"Error log: {error_log_path}")
 
     return str(main_log_path), str(error_log_path), timestamp
+
+
+def suppress_http_logging(suppress: bool = True) -> None:
+    """Control HTTP library logging globally.
+
+    Sets logging level for httpcore, httpx, urllib3, and requests loggers.
+    Used by DSM's internal _configure_logging() and as a standalone
+    utility for users who want clean output.
+
+    Args:
+        suppress: If True, set to WARNING (quiet). If False, set to DEBUG (verbose).
+    """
+    level = logging.WARNING if suppress else logging.DEBUG
+    for logger_name in ("httpcore", "httpx", "urllib3", "requests"):
+        logging.getLogger(logger_name).setLevel(level)
 
 
 # Example usage and testing

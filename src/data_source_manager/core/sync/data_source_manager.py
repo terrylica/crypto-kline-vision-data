@@ -406,7 +406,7 @@ class DataSourceManager:
         logger.configure_level(effective_level)
 
         # Configure HTTP library logging via shared SSoT
-        from data_source_manager.utils.for_demo.dsm_clean_logging import suppress_http_logging
+        from data_source_manager.utils.loguru_setup import suppress_http_logging
 
         suppress_http_logging(suppress=self.suppress_http_debug)
 
