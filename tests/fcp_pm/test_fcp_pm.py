@@ -18,7 +18,7 @@ from rich.table import Table
 from data_source_manager.core.sync.data_source_manager import DataSource, DataSourceManager
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
-from utils_for_debug.data_integrity import analyze_data_integrity
+from tests.utils.data_integrity import analyze_data_integrity
 
 # Set log level to DEBUG to see detailed logging
 logger.setLevel("DEBUG")
