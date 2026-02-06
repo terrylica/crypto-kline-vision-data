@@ -1,8 +1,51 @@
 # Session Resume Context
 
-Last updated: 2026-02-05
+Last updated: 2026-02-06
 
 ## Recent Work
+
+### Dead Code Removal + Clone Consolidation (2026-02-06)
+
+**Status**: Complete
+
+**Total LOC Removed**: ~500 net lines (199 insertions, 699 deletions across 6 commits)
+
+**Tools Used**: vulture (dead code), PMD CPD (code clones), Semgrep (patterns)
+
+**Phase 1 - Dead Code Removal** (7 items, ~355 lines deleted):
+
+| File                     | Removed                                                                    | LOC |
+| ------------------------ | -------------------------------------------------------------------------- | --- |
+| `rest_data_client.py`    | `OUTPUT_COLUMNS` alias, `_create_optimized_client()`                       | 12  |
+| `vision_path_mapper.py`  | `create_path_from_params()`                                                | 37  |
+| `data_source_manager.py` | `get_output_format()`, `configure_defaults()` stubs                        | 69  |
+| `gap_detector.py`        | `format_gaps_for_display()`, `detect_gaps_in_range()`, `get_gap_summary()` | 147 |
+| `polars_pipeline.py`     | `sink_to_ipc()` (speculative)                                              | 14  |
+| `loguru_setup.py`        | `configure_ndjson()`, `ndjson_serializer()` (premature)                    | 68  |
+
+**Phase 2 - Clone Consolidation** (7 items, ~145 lines net reduced):
+
+| Clone                               | Fix                                               | File                        |
+| ----------------------------------- | ------------------------------------------------- | --------------------------- |
+| API response parsing (122 tokens)   | Extract `_parse_api_response_boundaries()`        | `api_boundary_validator.py` |
+| Magic byte detection (92 tokens)    | Extract `_scan_cache_file()`                      | `dsm_cache_utils.py`        |
+| Vision error logging (90+86 tokens) | Extract `_log_critical_error_with_traceback()`    | `dsm_api_utils.py`          |
+| OKX intervals (79 tokens)           | Extract `_OKX_SUPPORTED_INTERVALS` constant       | `capabilities.py`           |
+| Synthetic timestamps (59 tokens)    | Extract `_create_synthetic_timestamps()`          | `dataframe_utils.py`        |
+| HTTP debug suppression (52 tokens)  | Consolidate to `suppress_http_logging()` SSoT     | `dsm_clean_logging.py`      |
+| FUTURES capabilities (51 tokens)    | Extract `_BINANCE_FAPI_BACKUP_ENDPOINTS` constant | `capabilities.py`           |
+
+**Skipped Clones** (structural, non-actionable): `@overload` signatures (2), import blocks (1), `__all__` re-exports (1)
+
+**Post-Cleanup Scan Results**:
+
+- vulture (80% confidence): **0 dead code items** detected
+- PMD CPD (50+ tokens): **4 structural clones** remaining (all non-actionable)
+- Unit tests: **242 passed**, 21 skipped
+
+**Commits**: `450c4a5`..`b51cb16` (6 commits on main)
+
+---
 
 ### Dead Code Elimination (2026-02-05)
 
