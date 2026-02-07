@@ -541,13 +541,14 @@ class TestRestDataClientParallelFetch:
         mock_client = MagicMock()
         mock_create_client.return_value = mock_client
 
-        # First call succeeds, second fails
+        # First call succeeds, second call fails
         base_time = 1704067200000
         success_response = [
             [base_time, "42000.00", "42500.00", "41800.00", "42200.00", "100.5",
              base_time + 3599999, "4220000.00", 1500, "60.3", "2532600.00", "0"],
         ]
-        mock_fetch_chunk.side_effect = [success_response, HTTPError("500 Internal Error")]
+        error = HTTPError("500 Internal Error")
+        mock_fetch_chunk.side_effect = [success_response, error]
 
         client = RestDataClient(market_type=MarketType.SPOT)
         ranges = [

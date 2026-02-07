@@ -27,6 +27,7 @@ from data_source_manager.utils.config import (
     HTTP_ERROR_CODE_THRESHOLD,
     HTTP_OK,
 )
+from data_source_manager.utils.for_core.rest_exceptions import RateLimitError
 from data_source_manager.utils.loguru_setup import logger
 from data_source_manager.utils.network.client_factory import create_client, safely_close_client
 
@@ -100,13 +101,13 @@ def make_api_request(
 
     status_code = response.status_code
 
-    # Special handling for rate limiting
+    # Special handling for rate limiting — raise RateLimitError without sleeping.
+    # Previously this did time.sleep(retry_after) + raise TimeoutError, causing a
+    # double-wait when tenacity also waited before its retry. (GitHub Issue #18, P2.3)
     if status_code in (418, 429):
-        retry_after = int(response.headers.get("retry-after", 1))
-        logger.warning(f"Rate limited by API (HTTP {status_code}). Waiting {retry_after}s before continuing")
-        time.sleep(retry_after)
-        # Re-raise to trigger tenacity retry
-        raise TimeoutError(f"Rate limited (HTTP {status_code})")
+        retry_after = int(response.headers.get("retry-after", 60))
+        logger.warning(f"Rate limited by API (HTTP {status_code}). Retry after {retry_after}s")
+        raise RateLimitError(retry_after=retry_after)
 
     if raise_for_status and status_code >= HTTP_ERROR_CODE_THRESHOLD:
         raise Exception(f"HTTP error: {status_code} - {response.text}")
