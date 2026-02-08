@@ -19,8 +19,8 @@ from typing import NamedTuple
 
 import polars as pl
 
-# Set environment variables BEFORE importing DSM
-os.environ["DSM_LOG_LEVEL"] = "ERROR"  # Suppress logs during benchmarks
+# Set environment variables BEFORE importing CKVD
+os.environ["CKVD_LOG_LEVEL"] = "ERROR"  # Suppress logs during benchmarks
 
 
 class BenchmarkResult(NamedTuple):
@@ -345,7 +345,7 @@ def main():
     print(format_results(results))
 
     # Save results to file
-    output_file = "/Users/terryli/eon/data-source-manager/tmp/benchmark_streaming_results.txt"
+    output_file = "/Users/terryli/eon/crypto-kline-vision-data/tmp/benchmark_streaming_results.txt"
     with open(output_file, "w") as f:
         f.write(format_results(results))
         f.write(f"\n\nBenchmark completed at: {datetime.now(timezone.utc).isoformat()}\n")

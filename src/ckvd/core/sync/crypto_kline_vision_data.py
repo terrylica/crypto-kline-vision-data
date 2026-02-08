@@ -81,9 +81,9 @@ from ckvd.utils.time_utils import align_time_boundaries
 
 # Re-export for backward compatibility
 __all__ = [
-    "DataSource",
     "CKVDConfig",
     "CryptoKlineVisionData",
+    "DataSource",
 ]
 
 # Supported providers - dynamically determined from the provider registry

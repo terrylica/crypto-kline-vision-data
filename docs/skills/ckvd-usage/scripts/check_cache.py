@@ -3,7 +3,7 @@
 Check cache status for a symbol.
 
 Usage:
-    uv run -p 3.13 python docs/skills/dsm-usage/scripts/check_cache.py BTCUSDT FUTURES_USDT 1h
+    uv run -p 3.13 python docs/skills/ckvd-usage/scripts/check_cache.py BTCUSDT FUTURES_USDT 1h
 """
 
 import sys
@@ -23,7 +23,7 @@ def main() -> None:
     market_type = sys.argv[2].lower()
     interval = sys.argv[3] if len(sys.argv) > 3 else "1h"
 
-    cache_base = Path(user_cache_dir("data_source_manager"))
+    cache_base = Path(user_cache_dir("ckvd"))
     cache_path = cache_base / "binance" / market_type / "klines" / "daily" / symbol / interval
 
     print(f"Cache path: {cache_path}")

@@ -2,7 +2,7 @@
 """Performance benchmark: Streaming vs In-Memory Engine with REAL data.
 
 This script tests the Polars `.collect(engine='streaming')` vs `.collect()` (in-memory)
-using actual DSM data fetches to show real-world performance differences.
+using actual CKVD data fetches to show real-world performance differences.
 
 KEY INSIGHT:
 - Both paths still use FCP (Cache → Vision → REST) for data retrieval
@@ -19,8 +19,8 @@ import tracemalloc
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
-# Set environment variables BEFORE importing DSM
-os.environ["DSM_LOG_LEVEL"] = "ERROR"
+# Set environment variables BEFORE importing CKVD
+os.environ["CKVD_LOG_LEVEL"] = "ERROR"
 
 
 class BenchmarkResult(NamedTuple):
@@ -38,18 +38,18 @@ def run_dsm_benchmark(
     use_streaming: bool,
     scenario_name: str,
 ) -> BenchmarkResult:
-    """Run benchmark using full DSM data fetch.
+    """Run benchmark using full CKVD data fetch.
 
     This tests the complete FCP flow with streaming or in-memory collect.
     """
     # Set streaming preference via environment variable
-    os.environ["DSM_USE_POLARS_STREAMING"] = str(use_streaming).lower()
+    os.environ["CKVD_USE_POLARS_STREAMING"] = str(use_streaming).lower()
 
     # Reload config to pick up env var
-    from data_source_manager.utils import config
+    from ckvd.utils import config
     importlib.reload(config)
 
-    from data_source_manager import DataProvider, DataSourceManager, Interval, MarketType
+    from ckvd import DataProvider, CryptoKlineVisionData, Interval, MarketType
 
     gc.collect()
 
@@ -62,7 +62,7 @@ def run_dsm_benchmark(
     start = time.perf_counter()
 
     # Create manager with Polars pipeline enabled
-    manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
     # Fetch data - internally uses PolarsDataPipeline with streaming or not
     df = manager.get_data(
@@ -261,8 +261,8 @@ def main():
     print(output1)
     all_output.append(output1)
 
-    # Part 2: Real DSM data fetch
-    print("\n\n[PART 2] Real DSM Data Fetch - Full FCP Flow")
+    # Part 2: Real CKVD data fetch
+    print("\n\n[PART 2] Real CKVD Data Fetch - Full FCP Flow")
     print("-" * 60)
 
     dsm_results = []
@@ -283,12 +283,12 @@ def main():
         print(f"  In-Memory: {inmem.rows:,} rows, {inmem.time_seconds * 1000:.2f}ms, {inmem.peak_memory_mb:.2f}MB")
         print(f"  Streaming: {stream.rows:,} rows, {stream.time_seconds * 1000:.2f}ms, {stream.peak_memory_mb:.2f}MB")
 
-    output2 = format_results(dsm_results, "PART 2: Real DSM Data - Full FCP Flow with Streaming")
+    output2 = format_results(dsm_results, "PART 2: Real CKVD Data - Full FCP Flow with Streaming")
     print(output2)
     all_output.append(output2)
 
     # Save all results
-    output_file = "/Users/terryli/eon/data-source-manager/tmp/benchmark_streaming_complete.txt"
+    output_file = "/Users/terryli/eon/crypto-kline-vision-data/tmp/benchmark_streaming_complete.txt"
     with open(output_file, "w") as f:
         f.write("\n\n".join(all_output))
         f.write(f"\n\nBenchmark completed at: {datetime.now(timezone.utc).isoformat()}\n")

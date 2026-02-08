@@ -18,8 +18,8 @@ import tracemalloc
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
-# Set environment variables BEFORE importing DSM
-os.environ["DSM_LOG_LEVEL"] = "ERROR"  # Suppress logs during benchmarks
+# Set environment variables BEFORE importing CKVD
+os.environ["CKVD_LOG_LEVEL"] = "ERROR"  # Suppress logs during benchmarks
 
 
 class BenchmarkResult(NamedTuple):
@@ -56,18 +56,18 @@ def run_benchmark(
     gc.collect()
 
     # Set feature flag
-    os.environ["DSM_USE_POLARS_PIPELINE"] = str(use_polars_pipeline).lower()
+    os.environ["CKVD_USE_POLARS_PIPELINE"] = str(use_polars_pipeline).lower()
 
     # Start memory tracking
     tracemalloc.start()
 
     # Import fresh to pick up env var
     # Note: We need to reload the config module to pick up env var changes
-    from data_source_manager.utils import config
+    from ckvd.utils import config
 
     importlib.reload(config)
 
-    from data_source_manager import DataProvider, DataSourceManager, Interval, MarketType
+    from ckvd import DataProvider, CryptoKlineVisionData, Interval, MarketType
 
     # Map interval string to enum
     interval_map = {
@@ -87,7 +87,7 @@ def run_benchmark(
     # Run benchmark
     start = time.perf_counter()
 
-    manager = DataSourceManager.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
     df = manager.get_data(
         symbol=symbol,
         start_time=start_time,
@@ -224,7 +224,7 @@ def main():
     print(format_results(results))
 
     # Save results to file
-    output_file = "/Users/terryli/eon/data-source-manager/tmp/benchmark_results.txt"
+    output_file = "/Users/terryli/eon/crypto-kline-vision-data/tmp/benchmark_results.txt"
     with open(output_file, "w") as f:
         f.write(format_results(results))
         f.write(f"\n\nBenchmark completed at: {datetime.now(timezone.utc).isoformat()}\n")

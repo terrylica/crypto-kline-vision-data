@@ -22,11 +22,11 @@ This file tracks the progress of implementing Python package principles in the C
 
 ### CLI Tools
 
-- [x] `examples/sync/dsm_demo_cli.py` - Enhanced CLI documentation with examples and better docstrings
+- [x] `examples/sync/ckvd_demo_cli.py` - Enhanced CLI documentation with examples and better docstrings
 
 ### Example Modules
 
-- [x] `examples/lib_module/dsm_demo_module.py` - Enhanced with comprehensive module and function documentation, including examples
+- [x] `examples/lib_module/ckvd_demo_module.py` - Enhanced with comprehensive module and function documentation, including examples
 
 ## Modules to Complete
 

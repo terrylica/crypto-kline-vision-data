@@ -23,8 +23,8 @@ from ckvd.utils.market_constraints import ChartType, DataProvider, MarketType
 DEFAULT_HTTP_TIMEOUT = 30.0
 
 __all__ = [
-    "DataSource",
     "CKVDConfig",
+    "DataSource",
 ]
 
 

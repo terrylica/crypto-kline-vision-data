@@ -2,8 +2,8 @@
 """Check cache directory health and statistics.
 
 Usage:
-    uv run -p 3.13 python docs/skills/dsm-fcp-monitor/scripts/cache_health.py
-    uv run -p 3.13 python docs/skills/dsm-fcp-monitor/scripts/cache_health.py --verbose
+    uv run -p 3.13 python docs/skills/ckvd-fcp-monitor/scripts/cache_health.py
+    uv run -p 3.13 python docs/skills/ckvd-fcp-monitor/scripts/cache_health.py --verbose
 """
 
 import argparse
@@ -13,7 +13,7 @@ from pathlib import Path
 
 def get_cache_base() -> Path:
     """Get the cache base directory."""
-    return Path.home() / ".cache" / "data_source_manager"
+    return Path.home() / ".cache" / "ckvd"
 
 
 def format_size(size_bytes: int) -> str:
@@ -57,7 +57,7 @@ def check_directory_health(path: Path, verbose: bool = False) -> dict:
 
 def main() -> None:
     """Check cache health."""
-    parser = argparse.ArgumentParser(description="Check DSM cache health")
+    parser = argparse.ArgumentParser(description="Check CKVD cache health")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
     args = parser.parse_args()
 

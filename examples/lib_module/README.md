@@ -15,7 +15,7 @@ This module demonstrates the programmatic use of `src/ckvd/core/sync/ckvd_lib.py
 
 ```bash
 # Run the demo
-./examples/lib_module/dsm_demo_module.py
+./examples/lib_module/ckvd_demo_module.py
 ```
 
 ## Example Code
@@ -58,4 +58,4 @@ df, elapsed_time, records = fetch_market_data(
 
 ## Related Tools
 
-This module complements the CLI tool (`examples/sync/dsm_demo_cli.py`) by providing a programmatic interface for the same functionality.
+This module complements the CLI tool (`examples/sync/ckvd_demo_cli.py`) by providing a programmatic interface for the same functionality.

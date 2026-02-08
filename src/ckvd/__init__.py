@@ -36,7 +36,7 @@ The FCP automatically handles:
 All with automatic retry, data validation, and gap detection.
 """
 
-__version__ = "0.2.0"
+__version__ = "4.0.0"
 __author__ = "EonLabs"
 __email__ = "terry@eonlabs.com"
 

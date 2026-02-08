@@ -3,13 +3,13 @@
 Validate symbol format for a given market type.
 
 Usage:
-    uv run -p 3.13 python docs/skills/dsm-usage/scripts/validate_symbol.py BTCUSDT FUTURES_COIN
+    uv run -p 3.13 python docs/skills/ckvd-usage/scripts/validate_symbol.py BTCUSDT FUTURES_COIN
 """
 
 import sys
 
-from data_source_manager import MarketType
-from data_source_manager.utils.market_constraints import validate_symbol_for_market_type
+from ckvd import MarketType
+from ckvd.utils.market_constraints import validate_symbol_for_market_type
 
 
 def main() -> None:

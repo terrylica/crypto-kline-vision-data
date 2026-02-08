@@ -17,8 +17,8 @@ Start by prioritizing modules for documentation enhancement:
    - `src/ckvd/utils/dataframe_types.py` (defines data types)
 
 3. **Example Modules**: Modules that demonstrate usage
-   - `examples/sync/dsm_demo_cli.py`
-   - `examples/lib_module/dsm_demo_module.py`
+   - `examples/sync/ckvd_demo_cli.py`
+   - `examples/lib_module/ckvd_demo_module.py`
 
 ### 2. Update Package-Level Documentation
 

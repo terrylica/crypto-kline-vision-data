@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Setup configuration for data-source-manager."""
+"""Setup configuration for crypto-kline-vision-data."""
 
 from setuptools import setup
 

@@ -28,7 +28,7 @@ ckvd-demo-cli [OPTIONS]
 - **`-r, --retries INTEGER`**: Maximum number of retry attempts [default: 3]
 - **`-nc, --no-cache`**: Disable caching (cache is enabled by default)
 - **`-cc, --clear-cache`**: Clear the cache directory before running
-- **`-gd, --gen-doc`**: Generate Markdown documentation from Typer help into docs/dsm_demo_cli/ directory
+- **`-gd, --gen-doc`**: Generate Markdown documentation from Typer help into docs/ckvd_demo_cli/ directory
 - **`-glc, --gen-lint-config`**: Generate markdown linting configuration files along with documentation (only used with --gen-doc)
 - **`-l, --log-level [D|I|W|E|C]`**: Set the log level (default: I). D, I, W, E, C [default: I]
 - **`--help`**: Show this message and exit.

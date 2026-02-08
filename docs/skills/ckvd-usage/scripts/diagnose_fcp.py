@@ -2,8 +2,8 @@
 """Diagnose FCP (Failover Control Protocol) behavior for a symbol.
 
 Usage:
-    uv run -p 3.13 python docs/skills/dsm-usage/scripts/diagnose_fcp.py BTCUSDT FUTURES_USDT 1h
-    uv run -p 3.13 python docs/skills/dsm-usage/scripts/diagnose_fcp.py ETHUSDT SPOT 1h --days 7
+    uv run -p 3.13 python docs/skills/ckvd-usage/scripts/diagnose_fcp.py BTCUSDT FUTURES_USDT 1h
+    uv run -p 3.13 python docs/skills/ckvd-usage/scripts/diagnose_fcp.py ETHUSDT SPOT 1h --days 7
 """
 
 import argparse
@@ -14,7 +14,7 @@ from pathlib import Path
 # Enable debug logging before imports
 logging.basicConfig(level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
 
-from data_source_manager import DataProvider, DataSourceManager, Interval, MarketType
+from ckvd import DataProvider, CryptoKlineVisionData, Interval, MarketType
 
 
 def get_market_type(name: str) -> MarketType:
@@ -42,7 +42,7 @@ def get_interval(name: str) -> Interval:
 
 def check_cache_status(symbol: str, market_type: MarketType, interval: Interval) -> None:
     """Check local cache for symbol data."""
-    cache_base = Path.home() / ".cache" / "data_source_manager" / "binance"
+    cache_base = Path.home() / ".cache" / "ckvd" / "binance"
     market_path = cache_base / market_type.value / "klines" / "daily" / symbol / interval.value
 
     print(f"\n📂 Cache Path: {market_path}")
@@ -78,7 +78,7 @@ def diagnose_fetch(symbol: str, market_type: MarketType, interval: Interval, day
 
     # Create manager and fetch
     print("\n📡 Fetching data...")
-    manager = DataSourceManager.create(DataProvider.BINANCE, market_type)
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, market_type)
 
     try:
         df = manager.get_data(

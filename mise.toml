@@ -226,4 +226,4 @@ run = "uv run -p 3.13 python examples/dsm_logging_demo.py"
 
 [tasks."demo:cli"]
 description = "Run CKVD CLI demo"
-run = "uv run -p 3.13 python examples/sync/dsm_demo_cli.py"
+run = "uv run -p 3.13 python examples/sync/ckvd_demo_cli.py"

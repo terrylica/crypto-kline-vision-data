@@ -20,7 +20,7 @@ The FCP mechanism consists of three integrated phases that collectively ensure t
    - **Purpose:** Supplement missing data segments identified after cache retrieval.
    - **Daily Pack Caching (Core Business Logic):**
      - **Requirement:** Vision data is delivered in daily packs. Irrespective of whether a request specifies a start time at the beginning, middle, or end of the day, once a Vision data file for a specific day is downloaded, the **entire day's data must be cached**.
-     - **Rationale:** This requirement is embedded at the core business logic level and not delegated to peripheral modules like `dsm_demo_cli.py` It guarantees that processing a Vision file yields a complete dataset for that day. (The flagged-enabled `--help` or `-g` content of `dsm_demo_cli.py` is centrally written in `utils/for_demo/dsm_help_content.py` as the single source of truth.)
+     - **Rationale:** This requirement is embedded at the core business logic level and not delegated to peripheral modules like `ckvd_demo_cli.py` It guarantees that processing a Vision file yields a complete dataset for that day. (The flagged-enabled `--help` or `-g` content of `ckvd_demo_cli.py` is centrally written in `utils/for_demo/ckvd_help_content.py` as the single source of truth.)
    - **Process:** The system identifies missing time segments after cache retrieval and performs targeted queries to the Vision API.
    - **Merge:** Retrieved Vision data is merged *iteratively* with the available cache data—using `open_time` as the alignment index and enforcing a 1-minute granularity.
    
