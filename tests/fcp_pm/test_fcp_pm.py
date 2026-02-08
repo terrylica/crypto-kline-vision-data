@@ -99,9 +99,7 @@ def test_fcp_mechanism():
         actual_records = len(df)
         completeness = (actual_records / expected_records) * 100
 
-        print(
-            f"\n[bold green]Successfully retrieved {actual_records} records in {elapsed_time:.2f} seconds[/bold green]"
-        )
+        print(f"\n[bold green]Successfully retrieved {actual_records} records in {elapsed_time:.2f} seconds[/bold green]")
         print(f"Expected records: {expected_records}")
         print(f"Completeness: {completeness:.2f}%")
 
@@ -113,12 +111,8 @@ def test_fcp_mechanism():
         try:
             expected_count = integrity_result.get("expected_count", expected_records)
             actual_count = integrity_result.get("actual_count", actual_records)
-            missing_count = integrity_result.get(
-                "missing_count", expected_records - actual_records
-            )
-            missing_percentage = integrity_result.get(
-                "missing_percentage", 100 - completeness
-            )
+            missing_count = integrity_result.get("missing_count", expected_records - actual_records)
+            missing_percentage = integrity_result.get("missing_percentage", 100 - completeness)
 
             print(f"Expected records: {expected_count}")
             print(f"Actual records: {actual_count}")
@@ -127,16 +121,12 @@ def test_fcp_mechanism():
             # Fallback to our own calculations if integrity_result has issues
             print(f"Expected records: {expected_records}")
             print(f"Actual records: {actual_records}")
-            print(
-                f"Missing records: {expected_records - actual_records} ({100 - completeness:.2f}%)"
-            )
+            print(f"Missing records: {expected_records - actual_records} ({100 - completeness:.2f}%)")
             logger.warning(f"Error processing integrity results: {e}")
 
         # Verify source information
         if "_data_source" not in df.columns:
-            print(
-                "[bold red]Error: Source information not included in the result[/bold red]"
-            )
+            print("[bold red]Error: Source information not included in the result[/bold red]")
             raise AssertionError("Source information not included in the result")
 
         # Check source breakdown
@@ -160,9 +150,7 @@ def test_fcp_mechanism():
 
         # Show timeline of data sources
         df["date"] = pd.to_datetime(df["open_time"]).dt.date
-        date_groups = (
-            df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
-        )
+        date_groups = df.groupby("date")["_data_source"].value_counts().unstack(fill_value=0)
 
         timeline_table = Table(title="Sources by Date")
         timeline_table.add_column("Date", style="cyan")
@@ -189,33 +177,19 @@ def test_fcp_mechanism():
             source_df = df[df["_data_source"] == source].head(2)
             if not source_df.empty:
                 print(f"\n[bold green]Records from {source} source:[/bold green]")
-                print(
-                    source_df[
-                        ["open_time", "open", "high", "low", "close", "_data_source"]
-                    ].head(2)
-                )
+                print(source_df[["open_time", "open", "high", "low", "close", "_data_source"]].head(2))
 
         # Check if data from both Vision API and REST API was merged
         has_vision_data = "VISION" in source_counts
         has_rest_data = "REST" in source_counts
 
         if has_vision_data and has_rest_data:
-            print(
-                "\n[bold green]✓ SUCCESS: FCP mechanism worked correctly[/bold green]"
-            )
-            print(
-                "The system retrieved data from Vision API and used REST API to fill in missing segments."
-            )
+            print("\n[bold green]✓ SUCCESS: FCP mechanism worked correctly[/bold green]")
+            print("The system retrieved data from Vision API and used REST API to fill in missing segments.")
             assert True
-        elif (
-            has_vision_data and actual_records >= expected_records * 0.95
-        ):  # Allow for minor missing data
-            print(
-                "\n[bold yellow]⚠ PARTIAL SUCCESS: Complete data from Vision API[/bold yellow]"
-            )
-            print(
-                "Vision API returned complete data, so REST API fallback wasn't needed."
-            )
+        elif has_vision_data and actual_records >= expected_records * 0.95:  # Allow for minor missing data
+            print("\n[bold yellow]⚠ PARTIAL SUCCESS: Complete data from Vision API[/bold yellow]")
+            print("Vision API returned complete data, so REST API fallback wasn't needed.")
             assert True
         else:
             print("\n[bold red]✗ FAILURE: FCP mechanism failed[/bold red]")

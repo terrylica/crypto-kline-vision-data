@@ -162,13 +162,7 @@ class TestDsmCacheUtils(unittest.TestCase):
 
             # 2. Verify we got a complete dataset back
             # The number of 5-min intervals between 2025-04-13 15:35 and 2025-04-14 15:30
-            expected_intervals = (
-                int(
-                    (self.end_time - self.start_time).total_seconds()
-                    / self.interval.to_seconds()
-                )
-                + 1
-            )
+            expected_intervals = int((self.end_time - self.start_time).total_seconds() / self.interval.to_seconds()) + 1
             self.assertEqual(
                 len(df),
                 expected_intervals,
@@ -213,9 +207,7 @@ class TestDsmCacheOptimization(unittest.TestCase):
         self.end_time = pendulum.datetime(2025, 4, 14, 15, 30, 0, tz="UTC")
 
         # Save the original feature flag settings
-        self.original_flag_value = FEATURE_FLAGS.get(
-            "OPTIMIZE_CACHE_PARTIAL_DAYS", True
-        )
+        self.original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
 
     def tearDown(self):
         """Clean up after tests."""
@@ -286,20 +278,12 @@ class TestDsmCacheOptimization(unittest.TestCase):
 
         # Create a CKVD instance with patched methods
         with (
-            patch.object(
-                CryptoKlineVisionData, "_get_from_cache", return_value=(complete_df, [])
-            ),
-            patch.object(
-                CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get
-            ),
-            patch.object(
-                CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get
-            ),
+            patch.object(CryptoKlineVisionData, "_get_from_cache", return_value=(complete_df, [])),
+            patch.object(CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get),
+            patch.object(CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get),
         ):
             # Initialize CKVD directly
-            ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE, cache_dir=self.cache_dir
-            )
+            ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, cache_dir=self.cache_dir)
 
             # Get data for the time range
             df = ckvd.get_data(
@@ -312,9 +296,7 @@ class TestDsmCacheOptimization(unittest.TestCase):
             )
 
             # Verify no API calls were made
-            self.assertFalse(
-                api_called["vision"], "Vision API should not have been called"
-            )
+            self.assertFalse(api_called["vision"], "Vision API should not have been called")
             self.assertFalse(api_called["rest"], "REST API should not have been called")
 
             # Verify we got the expected number of records
@@ -327,9 +309,7 @@ class TestDsmCacheOptimization(unittest.TestCase):
             )
 
             # Verify all records are from cache
-            self.assertTrue(
-                all(df["_data_source"] == "CACHE"), "All records should be from cache"
-            )
+            self.assertTrue(all(df["_data_source"] == "CACHE"), "All records should be from cache")
 
     def test_optimization_disabled(self):
         """Test with optimization disabled - should make API calls for incomplete days."""
@@ -427,17 +407,11 @@ class TestDsmCacheOptimization(unittest.TestCase):
                 "_get_from_cache",
                 return_value=(incomplete_df, missing_ranges),
             ),
-            patch.object(
-                CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get
-            ),
-            patch.object(
-                CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get
-            ),
+            patch.object(CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get),
+            patch.object(CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get),
         ):
             # Initialize CKVD directly
-            ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE, cache_dir=self.cache_dir
-            )
+            ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, cache_dir=self.cache_dir)
 
             # Get data for the time range
             df = ckvd.get_data(

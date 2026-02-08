@@ -121,9 +121,7 @@ class CryptoKlineVisionDataExample:
                     result_df["open_time"] = pd.to_datetime(result_df["open_time"])
 
                 # Apply time filter
-                mask = (result_df["open_time"] >= start_time) & (
-                    result_df["open_time"] <= end_time
-                )
+                mask = (result_df["open_time"] >= start_time) & (result_df["open_time"] <= end_time)
                 result_df = result_df[mask]
             except Exception as e:
                 logger.error(f"Error filtering DataFrame: {e}")
@@ -160,9 +158,7 @@ def demo_all_market_types(
 
     # Run for each market type
     for market in markets:
-        console.print(
-            f"[bold magenta]Processing {market['name']} Market[/bold magenta]"
-        )
+        console.print(f"[bold magenta]Processing {market['name']} Market[/bold magenta]")
 
         # Create CKVD for this market
         ckvd = CryptoKlineVisionDataExample(
@@ -244,17 +240,13 @@ def demo_all_market_types(
 
 
 def main(
-    market_type: str = typer.Option(
-        "spot", "--market-type", "-m", help="Market type (spot, um, cm)"
-    ),
+    market_type: str = typer.Option("spot", "--market-type", "-m", help="Market type (spot, um, cm)"),
     symbol: str = typer.Option("BTCUSDT", "--symbol", "-s", help="Trading symbol"),
     interval: str = typer.Option("1m", "--interval", "-i", help="Time interval"),
     days: int = typer.Option(3, "--days", "-d", help="Number of days to retrieve"),
     cache_dir: str = typer.Option("cache", "--cache-dir", "-c", help="Cache directory"),
     use_cache: bool = typer.Option(True, "--use-cache", help="Whether to use caching"),
-    all_markets: bool = typer.Option(
-        False, "--all-markets", "-a", help="Demo all market types"
-    ),
+    all_markets: bool = typer.Option(False, "--all-markets", "-a", help="Demo all market types"),
 ):
     """Demonstrates using the VisionPathMapper with a simplified CryptoKlineVisionData."""
     if all_markets:
@@ -271,23 +263,17 @@ def main(
         market_enum = MarketType.SPOT
         if symbol == "BTCUSD":
             symbol = "BTCUSDT"
-            console.print(
-                f"[yellow]Auto-corrected symbol to {symbol} for Spot market[/yellow]"
-            )
+            console.print(f"[yellow]Auto-corrected symbol to {symbol} for Spot market[/yellow]")
     elif market_type.lower() in ["um", "futures_usdt"]:
         market_enum = MarketType.FUTURES_USDT
         if symbol == "BTCUSD":
             symbol = "BTCUSDT"
-            console.print(
-                f"[yellow]Auto-corrected symbol to {symbol} for UM market[/yellow]"
-            )
+            console.print(f"[yellow]Auto-corrected symbol to {symbol} for UM market[/yellow]")
     elif market_type.lower() in ["cm", "futures_coin"]:
         market_enum = MarketType.FUTURES_COIN
         if symbol == "BTCUSDT":
             symbol = "BTCUSD_PERP"
-            console.print(
-                f"[yellow]Auto-corrected symbol to {symbol} for CM market[/yellow]"
-            )
+            console.print(f"[yellow]Auto-corrected symbol to {symbol} for CM market[/yellow]")
     else:
         console.print(f"[bold red]Invalid market type: {market_type}[/bold red]")
         return

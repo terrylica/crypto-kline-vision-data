@@ -140,9 +140,7 @@ class TestAddSource:
 
     def test_add_source_preserves_existing_data_source(self, sample_polars_df):
         """add_source() should not overwrite existing _data_source."""
-        df_with_source = sample_polars_df.with_columns(
-            pl.lit("EXISTING").alias("_data_source")
-        )
+        df_with_source = sample_polars_df.with_columns(pl.lit("EXISTING").alias("_data_source"))
         pipeline = PolarsDataPipeline()
 
         pipeline.add_source(df_with_source, "NEW")
@@ -155,11 +153,7 @@ class TestAddSource:
         """add_source() should support method chaining."""
         pipeline = PolarsDataPipeline()
 
-        result = (
-            pipeline.add_source(sample_polars_df, "CACHE")
-            .add_source(sample_polars_df, "VISION")
-            .add_source(sample_polars_df, "REST")
-        )
+        result = pipeline.add_source(sample_polars_df, "CACHE").add_source(sample_polars_df, "VISION").add_source(sample_polars_df, "REST")
 
         assert result is pipeline
         assert len(pipeline._lazy_frames) == 3
@@ -396,9 +390,7 @@ class TestSchemaStandardization:
                 "close": [105.0],
                 "volume": [1000.0],
             }
-        ).with_columns(
-            pl.col("open_time").cast(pl.Datetime("ns", "UTC"))
-        )
+        ).with_columns(pl.col("open_time").cast(pl.Datetime("ns", "UTC")))
 
         pipeline.add_source(df, "CACHE")
         result = pipeline.collect_polars()

@@ -88,9 +88,7 @@ def get_system_info() -> dict[str, Any]:
 
 
 class BenchmarkRunner:
-    def __init__(
-        self, symbol: str, interval: str, date_str: str, market_type: str = "spot"
-    ):
+    def __init__(self, symbol: str, interval: str, date_str: str, market_type: str = "spot"):
         """Initialize benchmark runner with parameters."""
         import pendulum
 
@@ -158,9 +156,7 @@ class BenchmarkRunner:
         # Get file size
         self.file_size = Path(self.zip_path).stat().st_size
 
-        logger.info(
-            f"Downloaded file to {self.zip_path} ({self.file_size / 1024:.2f} KB)"
-        )
+        logger.info(f"Downloaded file to {self.zip_path} ({self.file_size / 1024:.2f} KB)")
         return self.zip_path
 
     def download_checksum(self) -> str:
@@ -183,9 +179,7 @@ class BenchmarkRunner:
         # Download the file
         response = self.client.get(url)
         if response.status_code != HTTP_OK:
-            raise Exception(
-                f"HTTP error {response.status_code} while downloading checksum"
-            )
+            raise Exception(f"HTTP error {response.status_code} while downloading checksum")
 
         # Save to temporary file
         checksum_content = response.content.decode("utf-8").strip()
@@ -235,11 +229,7 @@ class BenchmarkRunner:
                             "csv_file_compressed_size_bytes": info.compress_size,
                             "csv_file_uncompressed_size_bytes": info.file_size,
                             "csv_file_compression_ratio": round(
-                                (
-                                    info.file_size / info.compress_size
-                                    if info.compress_size
-                                    else 1
-                                ),
+                                (info.file_size / info.compress_size if info.compress_size else 1),
                                 2,
                             ),
                         }
@@ -254,9 +244,7 @@ class BenchmarkRunner:
         # Force garbage collection before test
         gc.collect()
 
-        start_memory = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
-        )
+        start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
         start_time = time.perf_counter()
 
         try:
@@ -289,9 +277,7 @@ class BenchmarkRunner:
                                 first_lines.append(line)
                             except StopIteration:
                                 break
-                        has_header = any(
-                            "high" in line.lower() for line in first_lines[:1]
-                        )
+                        has_header = any("high" in line.lower() for line in first_lines[:1])
 
                     # Read CSV based on whether headers were detected
                     if has_header:
@@ -320,9 +306,7 @@ class BenchmarkRunner:
         elapsed = time.perf_counter() - start_time
 
         # Measure memory usage
-        end_memory = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
-        )
+        end_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
         memory_diff = end_memory - start_memory if measure_memory else 0
 
         return {
@@ -336,9 +320,7 @@ class BenchmarkRunner:
         # Force garbage collection before test
         gc.collect()
 
-        start_memory = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
-        )
+        start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
         start_time = time.perf_counter()
 
         try:
@@ -400,9 +382,7 @@ class BenchmarkRunner:
         elapsed = time.perf_counter() - start_time
 
         # Measure memory usage
-        end_memory = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
-        )
+        end_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
         memory_diff = end_memory - start_memory if measure_memory else 0
 
         return {
@@ -424,12 +404,8 @@ def run_benchmark_case(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run a single benchmark case with the given parameters."""
     print("[bold cyan]Running benchmark case[/bold cyan]")
-    print(
-        f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}"
-    )
-    print(
-        f"Runs: {runs}, Warmup runs: {warmup_runs}, Validate checksum: {validate_checksum}"
-    )
+    print(f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}")
+    print(f"Runs: {runs}, Warmup runs: {warmup_runs}, Validate checksum: {validate_checksum}")
 
     # Initialize results list to store benchmark metrics
     results = []
@@ -449,12 +425,8 @@ def run_benchmark_case(
             # Get checksum once at the beginning if needed
             if validate_checksum:
                 expected_checksum = runner.download_checksum()
-                print(
-                    "\n[yellow]Downloaded and verified checksum for all test runs[/yellow]"
-                )
-                checksum_valid = runner.verify_checksum(
-                    runner.zip_path, expected_checksum
-                )
+                print("\n[yellow]Downloaded and verified checksum for all test runs[/yellow]")
+                checksum_valid = runner.verify_checksum(runner.zip_path, expected_checksum)
                 if not checksum_valid:
                     raise ValueError("ZIP file checksum validation failed")
 
@@ -469,25 +441,17 @@ def run_benchmark_case(
                         # Force garbage collection before test
                         gc.collect()
 
-                        start_memory = (
-                            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                            if measure_memory
-                            else 0
-                        )
+                        start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
                         start_time = time.perf_counter()
 
                         try:
                             # Validate checksum (using pre-downloaded value)
-                            checksum_valid = runner.verify_checksum(
-                                runner.zip_path, expected_checksum
-                            )
+                            checksum_valid = runner.verify_checksum(runner.zip_path, expected_checksum)
                             if not checksum_valid:
                                 raise ValueError("ZIP file checksum validation failed")
 
                             with zipfile.ZipFile(runner.zip_path, "r") as zip_ref:
-                                csv_files = [
-                                    f for f in zip_ref.namelist() if f.endswith(".csv")
-                                ]
+                                csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
                                 if not csv_files:
                                     raise Exception("No CSV file found in ZIP")
 
@@ -505,10 +469,7 @@ def run_benchmark_case(
                                                 first_lines.append(line)
                                             except StopIteration:
                                                 break
-                                        has_header = any(
-                                            "high" in line.lower()
-                                            for line in first_lines[:1]
-                                        )
+                                        has_header = any("high" in line.lower() for line in first_lines[:1])
 
                                     if has_header:
                                         df = pd.read_csv(csv_path, header=0)
@@ -527,20 +488,14 @@ def run_benchmark_case(
                                             "taker_buy_quote_volume",
                                             "ignore",
                                         ]
-                                        df = pd.read_csv(
-                                            csv_path, header=None, names=columns
-                                        )
+                                        df = pd.read_csv(csv_path, header=None, names=columns)
                         except Exception as e:
                             logger.error(f"Error in original method: {e}")
                             raise
 
                         elapsed = time.perf_counter() - start_time
 
-                        end_memory = (
-                            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                            if measure_memory
-                            else 0
-                        )
+                        end_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
                         memory_diff = end_memory - start_memory if measure_memory else 0
 
                         return {
@@ -553,33 +508,23 @@ def run_benchmark_case(
                         # Force garbage collection before test
                         gc.collect()
 
-                        start_memory = (
-                            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                            if measure_memory
-                            else 0
-                        )
+                        start_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
                         start_time = time.perf_counter()
 
                         try:
                             # Validate checksum (using pre-downloaded value)
-                            checksum_valid = runner.verify_checksum(
-                                runner.zip_path, expected_checksum
-                            )
+                            checksum_valid = runner.verify_checksum(runner.zip_path, expected_checksum)
                             if not checksum_valid:
                                 raise ValueError("ZIP file checksum validation failed")
 
                             with zipfile.ZipFile(runner.zip_path, "r") as zip_ref:
-                                csv_files = [
-                                    f for f in zip_ref.namelist() if f.endswith(".csv")
-                                ]
+                                csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
                                 if not csv_files:
                                     raise Exception("No CSV file found in ZIP")
 
                                 csv_file = csv_files[0]
 
-                            with fsspec.open(
-                                f"zip://{csv_file}::{runner.zip_path}", "rt"
-                            ) as f:
+                            with fsspec.open(f"zip://{csv_file}::{runner.zip_path}", "rt") as f:
                                 preview_lines = []
                                 for _ in range(3):
                                     line = f.readline()
@@ -589,9 +534,7 @@ def run_benchmark_case(
 
                                 f.seek(0)
 
-                                has_header = any(
-                                    "high" in line.lower() for line in preview_lines[:1]
-                                )
+                                has_header = any("high" in line.lower() for line in preview_lines[:1])
 
                                 if has_header:
                                     df = pd.read_csv(f, header=0)
@@ -617,11 +560,7 @@ def run_benchmark_case(
 
                         elapsed = time.perf_counter() - start_time
 
-                        end_memory = (
-                            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-                            if measure_memory
-                            else 0
-                        )
+                        end_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss if measure_memory else 0
                         memory_diff = end_memory - start_memory if measure_memory else 0
 
                         return {
@@ -655,9 +594,7 @@ def run_benchmark_case(
                     if validate_checksum:
                         result = method_original_warmed(measure_memory=measure_memory)
                     else:
-                        result = runner.method_original(
-                            measure_memory=measure_memory, validate_checksum=False
-                        )
+                        result = runner.method_original(measure_memory=measure_memory, validate_checksum=False)
 
                     original_times.append(result["time"])
                     if measure_memory:
@@ -676,9 +613,7 @@ def run_benchmark_case(
                     if validate_checksum:
                         result = method_fsspec_warmed(measure_memory=measure_memory)
                     else:
-                        result = runner.method_fsspec(
-                            measure_memory=measure_memory, validate_checksum=False
-                        )
+                        result = runner.method_fsspec(measure_memory=measure_memory, validate_checksum=False)
 
                     fsspec_times.append(result["time"])
                     if measure_memory:
@@ -693,37 +628,17 @@ def run_benchmark_case(
             try:
                 # Time stats
                 original_stats = {
-                    "avg": (
-                        statistics.mean(original_times)
-                        if original_times
-                        else float("nan")
-                    ),
-                    "median": (
-                        statistics.median(original_times)
-                        if original_times
-                        else float("nan")
-                    ),
-                    "stdev": (
-                        statistics.stdev(original_times)
-                        if len(original_times) > 1
-                        else 0
-                    ),
+                    "avg": (statistics.mean(original_times) if original_times else float("nan")),
+                    "median": (statistics.median(original_times) if original_times else float("nan")),
+                    "stdev": (statistics.stdev(original_times) if len(original_times) > 1 else 0),
                     "min": min(original_times) if original_times else float("nan"),
                     "max": max(original_times) if original_times else float("nan"),
                 }
 
                 fsspec_stats = {
-                    "avg": (
-                        statistics.mean(fsspec_times) if fsspec_times else float("nan")
-                    ),
-                    "median": (
-                        statistics.median(fsspec_times)
-                        if fsspec_times
-                        else float("nan")
-                    ),
-                    "stdev": (
-                        statistics.stdev(fsspec_times) if len(fsspec_times) > 1 else 0
-                    ),
+                    "avg": (statistics.mean(fsspec_times) if fsspec_times else float("nan")),
+                    "median": (statistics.median(fsspec_times) if fsspec_times else float("nan")),
+                    "stdev": (statistics.stdev(fsspec_times) if len(fsspec_times) > 1 else 0),
                     "min": min(fsspec_times) if fsspec_times else float("nan"),
                     "max": max(fsspec_times) if fsspec_times else float("nan"),
                 }
@@ -732,65 +647,29 @@ def run_benchmark_case(
                 if measure_memory:
                     original_stats.update(
                         {
-                            "memory_avg": (
-                                statistics.mean(original_memory)
-                                if original_memory
-                                else float("nan")
-                            ),
-                            "memory_median": (
-                                statistics.median(original_memory)
-                                if original_memory
-                                else float("nan")
-                            ),
-                            "memory_min": (
-                                min(original_memory)
-                                if original_memory
-                                else float("nan")
-                            ),
-                            "memory_max": (
-                                max(original_memory)
-                                if original_memory
-                                else float("nan")
-                            ),
+                            "memory_avg": (statistics.mean(original_memory) if original_memory else float("nan")),
+                            "memory_median": (statistics.median(original_memory) if original_memory else float("nan")),
+                            "memory_min": (min(original_memory) if original_memory else float("nan")),
+                            "memory_max": (max(original_memory) if original_memory else float("nan")),
                         }
                     )
 
                     fsspec_stats.update(
                         {
-                            "memory_avg": (
-                                statistics.mean(fsspec_memory)
-                                if fsspec_memory
-                                else float("nan")
-                            ),
-                            "memory_median": (
-                                statistics.median(fsspec_memory)
-                                if fsspec_memory
-                                else float("nan")
-                            ),
-                            "memory_min": (
-                                min(fsspec_memory) if fsspec_memory else float("nan")
-                            ),
-                            "memory_max": (
-                                max(fsspec_memory) if fsspec_memory else float("nan")
-                            ),
+                            "memory_avg": (statistics.mean(fsspec_memory) if fsspec_memory else float("nan")),
+                            "memory_median": (statistics.median(fsspec_memory) if fsspec_memory else float("nan")),
+                            "memory_min": (min(fsspec_memory) if fsspec_memory else float("nan")),
+                            "memory_max": (max(fsspec_memory) if fsspec_memory else float("nan")),
                         }
                     )
 
                 # Determine which method is faster
                 if original_stats["median"] < fsspec_stats["median"]:
                     faster = "Original"
-                    speedup = (
-                        fsspec_stats["median"] / original_stats["median"]
-                        if original_stats["median"] > 0
-                        else float("nan")
-                    )
+                    speedup = fsspec_stats["median"] / original_stats["median"] if original_stats["median"] > 0 else float("nan")
                 else:
                     faster = "fsspec"
-                    speedup = (
-                        original_stats["median"] / fsspec_stats["median"]
-                        if fsspec_stats["median"] > 0
-                        else float("nan")
-                    )
+                    speedup = original_stats["median"] / fsspec_stats["median"] if fsspec_stats["median"] > 0 else float("nan")
 
                 # Print detailed results
                 console = Console()
@@ -850,9 +729,7 @@ def run_benchmark_case(
                 # Print conclusion
                 if not math.isnan(speedup):
                     color = "green" if faster == "fsspec" else "red"
-                    print(
-                        f"[{color}]{faster} method was {'faster' if speedup > 1 else 'slower'} by {speedup:.2f}x[/{color}]"
-                    )
+                    print(f"[{color}]{faster} method was {'faster' if speedup > 1 else 'slower'} by {speedup:.2f}x[/{color}]")
                 else:
                     print("[yellow]Could not determine clear winner[/yellow]")
 
@@ -903,21 +780,11 @@ def run_benchmark_case(
 
 @app.command()
 def benchmark_all(
-    runs: int = typer.Option(
-        15, "--runs", "-r", help="Number of benchmark runs to perform"
-    ),
-    warmup_runs: int = typer.Option(
-        3, "--warmup", "-w", help="Number of warmup runs to perform"
-    ),
-    output: str | None = typer.Option(
-        None, "--output", "-o", help="Output JSON file for detailed results"
-    ),
-    measure_memory: bool = typer.Option(
-        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
-    ),
-    validate_checksum: bool = typer.Option(
-        False, "--checksum", "-c", help="Validate checksum during benchmark"
-    ),
+    runs: int = typer.Option(15, "--runs", "-r", help="Number of benchmark runs to perform"),
+    warmup_runs: int = typer.Option(3, "--warmup", "-w", help="Number of warmup runs to perform"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output JSON file for detailed results"),
+    measure_memory: bool = typer.Option(False, "--memory", "-M", help="Measure memory usage (may affect timing results)"),
+    validate_checksum: bool = typer.Option(False, "--checksum", "-c", help="Validate checksum during benchmark"),
 ):
     """Run comprehensive benchmarks across multiple configurations."""
 
@@ -1010,17 +877,9 @@ def benchmark_all(
                     "market_type": config["market_type"],
                     "file_size_kb": file_stats.get("zip_file_size_kb", "N/A"),
                     "rows": stats["row_count"],
-                    "original_median": round(
-                        stats["original"]["median"] * 1000, 2
-                    ),  # Convert to ms
-                    "fsspec_median": round(
-                        stats["fsspec"]["median"] * 1000, 2
-                    ),  # Convert to ms
-                    "speedup": (
-                        round(stats["speedup"], 2)
-                        if not math.isnan(stats["speedup"])
-                        else "N/A"
-                    ),
+                    "original_median": round(stats["original"]["median"] * 1000, 2),  # Convert to ms
+                    "fsspec_median": round(stats["fsspec"]["median"] * 1000, 2),  # Convert to ms
+                    "speedup": (round(stats["speedup"], 2) if not math.isnan(stats["speedup"]) else "N/A"),
                     "winner": stats["faster"],
                 }
             )
@@ -1058,11 +917,7 @@ def benchmark_all(
                 str(row["rows"]),
                 str(row["original_median"]),
                 str(row["fsspec_median"]),
-                (
-                    f"[{color}]{row['speedup']}x[/{color}]"
-                    if row["speedup"] != "N/A"
-                    else "N/A"
-                ),
+                (f"[{color}]{row['speedup']}x[/{color}]" if row["speedup"] != "N/A" else "N/A"),
                 f"[{color}]{row['winner']}[/{color}]",
             )
 
@@ -1092,9 +947,7 @@ def benchmark_all(
 
         print("\n[bold]Overall Conclusion:[/bold]")
         print(f"  fsspec was faster in {fsspec_wins} of {len(summary_data)} test cases")
-        print(
-            f"  Original method was faster in {original_wins} of {len(summary_data)} test cases"
-        )
+        print(f"  Original method was faster in {original_wins} of {len(summary_data)} test cases")
 
         # Calculate average speedup
         speedups = [row["speedup"] for row in summary_data if row["speedup"] != "N/A"]
@@ -1105,28 +958,14 @@ def benchmark_all(
 
 @app.command()
 def benchmark(
-    symbol: str = typer.Option(
-        "BTCUSDT", "--symbol", "-s", help="Symbol to download data for"
-    ),
+    symbol: str = typer.Option("BTCUSDT", "--symbol", "-s", help="Symbol to download data for"),
     interval: str = typer.Option("1m", "--interval", "-i", help="Kline interval"),
-    date: str = typer.Option(
-        "2023-12-01", "--date", "-d", help="Date in YYYY-MM-DD format"
-    ),
-    market_type: str = typer.Option(
-        "spot", "--market", "-m", help="Market type (spot, um, cm)"
-    ),
-    runs: int = typer.Option(
-        15, "--runs", "-r", help="Number of benchmark runs to perform"
-    ),
-    warmup_runs: int = typer.Option(
-        3, "--warmup", "-w", help="Number of warmup runs to perform"
-    ),
-    measure_memory: bool = typer.Option(
-        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
-    ),
-    validate_checksum: bool = typer.Option(
-        False, "--checksum", "-c", help="Validate checksum during benchmark"
-    ),
+    date: str = typer.Option("2023-12-01", "--date", "-d", help="Date in YYYY-MM-DD format"),
+    market_type: str = typer.Option("spot", "--market", "-m", help="Market type (spot, um, cm)"),
+    runs: int = typer.Option(15, "--runs", "-r", help="Number of benchmark runs to perform"),
+    warmup_runs: int = typer.Option(3, "--warmup", "-w", help="Number of warmup runs to perform"),
+    measure_memory: bool = typer.Option(False, "--memory", "-M", help="Measure memory usage (may affect timing results)"),
+    validate_checksum: bool = typer.Option(False, "--checksum", "-c", help="Validate checksum during benchmark"),
 ):
     """Run benchmark for a single configuration."""
 
@@ -1148,44 +987,26 @@ def benchmark(
             faster = stats["faster"]
             speedup = stats["speedup"]
             color = "green" if faster == "fsspec" else "red"
-            print(
-                f"  [{color}]{faster} method was {'faster' if speedup > 1 else 'slower'} by {speedup:.2f}x[/{color}]"
-            )
+            print(f"  [{color}]{faster} method was {'faster' if speedup > 1 else 'slower'} by {speedup:.2f}x[/{color}]")
         else:
             print("  [yellow]Could not determine clear winner[/yellow]")
 
 
 @app.command()
 def benchmark_checksum(
-    symbol: str = typer.Option(
-        "BTCUSDT", "--symbol", "-s", help="Symbol to download data for"
-    ),
+    symbol: str = typer.Option("BTCUSDT", "--symbol", "-s", help="Symbol to download data for"),
     interval: str = typer.Option("1m", "--interval", "-i", help="Kline interval"),
-    date: str = typer.Option(
-        "2023-12-01", "--date", "-d", help="Date in YYYY-MM-DD format"
-    ),
-    market_type: str = typer.Option(
-        "spot", "--market", "-m", help="Market type (spot, um, cm)"
-    ),
-    runs: int = typer.Option(
-        15, "--runs", "-r", help="Number of benchmark runs to perform"
-    ),
-    warmup_runs: int = typer.Option(
-        3, "--warmup", "-w", help="Number of warmup runs to perform"
-    ),
-    measure_memory: bool = typer.Option(
-        False, "--memory", "-M", help="Measure memory usage (may affect timing results)"
-    ),
-    output: str | None = typer.Option(
-        None, "--output", "-o", help="Output JSON file for detailed results"
-    ),
+    date: str = typer.Option("2023-12-01", "--date", "-d", help="Date in YYYY-MM-DD format"),
+    market_type: str = typer.Option("spot", "--market", "-m", help="Market type (spot, um, cm)"),
+    runs: int = typer.Option(15, "--runs", "-r", help="Number of benchmark runs to perform"),
+    warmup_runs: int = typer.Option(3, "--warmup", "-w", help="Number of warmup runs to perform"),
+    measure_memory: bool = typer.Option(False, "--memory", "-M", help="Measure memory usage (may affect timing results)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output JSON file for detailed results"),
 ):
     """Run benchmark with and without checksum validation for direct comparison."""
 
     print("[bold]Benchmarking with and without checksum validation[/bold]")
-    print(
-        f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}"
-    )
+    print(f"Symbol: {symbol}, Interval: {interval}, Date: {date}, Market: {market_type}")
 
     # Run benchmark without checksum
     print("\n[bold cyan]Running benchmark WITHOUT checksum validation:[/bold cyan]")
@@ -1225,9 +1046,7 @@ def benchmark_checksum(
         comparison_table.add_column("Overhead", justify="right")
 
         # Original method comparison
-        orig_without = (
-            result_without_checksum["stats"]["original"]["median"] * 1000
-        )  # ms
+        orig_without = result_without_checksum["stats"]["original"]["median"] * 1000  # ms
         orig_with = result_with_checksum["stats"]["original"]["median"] * 1000  # ms
         orig_overhead = (orig_with - orig_without) / orig_without * 100
 
@@ -1239,9 +1058,7 @@ def benchmark_checksum(
         )
 
         # fsspec method comparison
-        fsspec_without = (
-            result_without_checksum["stats"]["fsspec"]["median"] * 1000
-        )  # ms
+        fsspec_without = result_without_checksum["stats"]["fsspec"]["median"] * 1000  # ms
         fsspec_with = result_with_checksum["stats"]["fsspec"]["median"] * 1000  # ms
         fsspec_overhead = (fsspec_with - fsspec_without) / fsspec_without * 100
 
@@ -1274,13 +1091,9 @@ def benchmark_checksum(
         print(f"  fsspec method overhead: {fsspec_overhead:.1f}%")
 
         if orig_overhead < fsspec_overhead:
-            print(
-                "  [green]Original method has less checksum validation overhead[/green]"
-            )
+            print("  [green]Original method has less checksum validation overhead[/green]")
         else:
-            print(
-                "  [green]fsspec method has less checksum validation overhead[/green]"
-            )
+            print("  [green]fsspec method has less checksum validation overhead[/green]")
 
         # Save results if requested
         if output:
@@ -1303,18 +1116,14 @@ def benchmark_checksum(
                 "comparison": {
                     "original_overhead_percent": orig_overhead,
                     "fsspec_overhead_percent": fsspec_overhead,
-                    "better_for_checksums": (
-                        "original" if orig_overhead < fsspec_overhead else "fsspec"
-                    ),
+                    "better_for_checksums": ("original" if orig_overhead < fsspec_overhead else "fsspec"),
                 },
             }
 
             with open(output_path, "w") as f:
                 json.dump(output_data, f, indent=2)
 
-            print(
-                f"\n[bold green]Comparison results saved to {output_path}[/bold green]"
-            )
+            print(f"\n[bold green]Comparison results saved to {output_path}[/bold green]")
 
 
 if __name__ == "__main__":

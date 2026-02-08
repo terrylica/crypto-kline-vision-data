@@ -47,6 +47,7 @@ def run_dsm_benchmark(
 
     # Reload config to pick up env var
     from ckvd.utils import config
+
     importlib.reload(config)
 
     from ckvd import DataProvider, CryptoKlineVisionData, Interval, MarketType
@@ -124,10 +125,12 @@ def run_synthetic_polars_benchmark(
 
         # Apply typical FCP merge operations
         lf = lf.filter(pl.col("volume") > 500)
-        lf = lf.with_columns([
-            (pl.col("high") - pl.col("low")).alias("range"),
-            ((pl.col("close") - pl.col("open")) / pl.col("open") * 100).alias("pct_change"),
-        ])
+        lf = lf.with_columns(
+            [
+                (pl.col("high") - pl.col("low")).alias("range"),
+                ((pl.col("close") - pl.col("open")) / pl.col("open") * 100).alias("pct_change"),
+            ]
+        )
         lf = lf.sort("open_time")
 
         tracemalloc.start()
@@ -179,10 +182,7 @@ def format_results(results: list[BenchmarkResult], title: str) -> str:
 
     for _scenario_name, runs in scenarios.items():
         for r in runs:
-            lines.append(
-                f"{r.scenario:<25} {r.engine:<12} {r.rows:>12,} "
-                f"{r.time_seconds * 1000:>12.2f} {r.peak_memory_mb:>14.2f}"
-            )
+            lines.append(f"{r.scenario:<25} {r.engine:<12} {r.rows:>12,} {r.time_seconds * 1000:>12.2f} {r.peak_memory_mb:>14.2f}")
         lines.append("-" * 100)
 
     # Summary
@@ -195,13 +195,15 @@ def format_results(results: list[BenchmarkResult], title: str) -> str:
         avg_inmem_mem = sum(r.peak_memory_mb for r in inmemory) / len(inmemory)
         avg_stream_mem = sum(r.peak_memory_mb for r in streaming) / len(streaming)
 
-        lines.extend([
-            "",
-            "SUMMARY",
-            "-" * 50,
-            f"Avg Time   - In-Memory: {avg_inmem_time * 1000:.2f}ms, Streaming: {avg_stream_time * 1000:.2f}ms",
-            f"Avg Memory - In-Memory: {avg_inmem_mem:.2f}MB, Streaming: {avg_stream_mem:.2f}MB",
-        ])
+        lines.extend(
+            [
+                "",
+                "SUMMARY",
+                "-" * 50,
+                f"Avg Time   - In-Memory: {avg_inmem_time * 1000:.2f}ms, Streaming: {avg_stream_time * 1000:.2f}ms",
+                f"Avg Memory - In-Memory: {avg_inmem_mem:.2f}MB, Streaming: {avg_stream_mem:.2f}MB",
+            ]
+        )
 
         if avg_stream_time > 0 and avg_inmem_time > 0:
             if avg_stream_time < avg_inmem_time:

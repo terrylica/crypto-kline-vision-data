@@ -40,12 +40,7 @@ class TestTimestampSemantics(unittest.TestCase):
                         99.0,
                         100.5,
                         10.0,
-                        int(
-                            (
-                                start_time + timedelta(seconds=interval_seconds - 0.001)
-                            ).timestamp()
-                            * 1000000
-                        ),
+                        int((start_time + timedelta(seconds=interval_seconds - 0.001)).timestamp() * 1000000),
                         1000.0,
                         10,
                         5.0,
@@ -60,13 +55,7 @@ class TestTimestampSemantics(unittest.TestCase):
                         100.0,
                         101.0,
                         20.0,
-                        int(
-                            (
-                                second_timestamp
-                                + timedelta(seconds=interval_seconds - 0.001)
-                            ).timestamp()
-                            * 1000000
-                        ),
+                        int((second_timestamp + timedelta(seconds=interval_seconds - 0.001)).timestamp() * 1000000),
                         2000.0,
                         20,
                         10.0,
@@ -174,9 +163,7 @@ class TestTimestampSemantics(unittest.TestCase):
             first_candle_start,
             second_candle_start + timedelta(seconds=59.999999),
         )
-        self.assertEqual(
-            len(filtered_df), 2, "Time filtering should include both candles"
-        )
+        self.assertEqual(len(filtered_df), 2, "Time filtering should include both candles")
 
 
 if __name__ == "__main__":

@@ -213,9 +213,7 @@ class TestLazyFrameOperations:
         start = base_time
         end = base_time + timedelta(hours=11)
 
-        filtered = lf.filter(
-            (pl.col("open_time") >= start) & (pl.col("open_time") <= end)
-        ).collect()
+        filtered = lf.filter((pl.col("open_time") >= start) & (pl.col("open_time") <= end)).collect()
 
         assert len(filtered) == 12  # Hours 0-11 inclusive
 
@@ -251,9 +249,7 @@ class TestLazyFrameOperations:
         priority_map = {"VISION": 1, "REST": 3}
 
         result = (
-            combined.with_columns(
-                pl.col("_data_source").replace(priority_map).alias("_priority")
-            )
+            combined.with_columns(pl.col("_data_source").replace(priority_map).alias("_priority"))
             .sort(["open_time", "_priority"])
             .unique(subset=["open_time"], keep="last")
             .drop("_priority")
@@ -382,6 +378,4 @@ class TestPolarsToAndFromPandas:
 
         assert "_data_source" in pd_df_roundtrip.columns
         assert (pd_df_roundtrip["_data_source"] == "VISION").all()
-        pd.testing.assert_series_equal(
-            pd_df["open"], pd_df_roundtrip["open"], check_names=False
-        )
+        pd.testing.assert_series_equal(pd_df["open"], pd_df_roundtrip["open"], check_names=False)

@@ -129,10 +129,7 @@ def _convert_interval_to_okx(interval: Interval) -> str:
         ValueError: If interval is not supported by OKX
     """
     if interval not in OKX_INTERVAL_MAP:
-        raise ValueError(
-            f"Interval {interval.value} is not supported by OKX. "
-            f"Supported intervals: {list(OKX_INTERVAL_MAP.keys())}"
-        )
+        raise ValueError(f"Interval {interval.value} is not supported by OKX. Supported intervals: {list(OKX_INTERVAL_MAP.keys())}")
     return OKX_INTERVAL_MAP[interval]
 
 
@@ -384,8 +381,11 @@ class OKXRestClient(DataClientInterface):
         for _ in range(max_iterations):
             try:
                 candles = self._fetch_candles(
-                    okx_symbol, okx_interval,
-                    after_ms=start_ms, before_ms=current_before, use_history=use_history,
+                    okx_symbol,
+                    okx_interval,
+                    after_ms=start_ms,
+                    before_ms=current_before,
+                    use_history=use_history,
                 )
                 if not candles:
                     if use_history:
@@ -441,10 +441,7 @@ class OKXRestClient(DataClientInterface):
         start_ms = datetime_to_milliseconds(start_time)
         end_ms = datetime_to_milliseconds(end_time)
 
-        logger.info(
-            f"Fetching OKX {okx_interval} data for {okx_symbol} "
-            f"from {start_time.isoformat()} to {end_time.isoformat()}"
-        )
+        logger.info(f"Fetching OKX {okx_interval} data for {okx_symbol} from {start_time.isoformat()} to {end_time.isoformat()}")
 
         all_data = self._fetch_paginated(okx_symbol, okx_interval, start_ms, end_ms)
 

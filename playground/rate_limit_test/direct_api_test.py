@@ -73,14 +73,10 @@ class DirectApiTester:
 
         # Check if we would exceed rate limits
         if self.current_weight > self.max_weight_per_minute:
-            logger.warning(
-                f"Weight limit exceeded: {self.current_weight}/{self.max_weight_per_minute}"
-            )
+            logger.warning(f"Weight limit exceeded: {self.current_weight}/{self.max_weight_per_minute}")
 
         if self.current_requests > self.max_requests_per_minute:
-            logger.warning(
-                f"Request count limit exceeded: {self.current_requests}/{self.max_requests_per_minute}"
-            )
+            logger.warning(f"Request count limit exceeded: {self.current_requests}/{self.max_requests_per_minute}")
 
     def get_average_weight_per_minute(self) -> float:
         """Calculate the average weight per minute.
@@ -106,9 +102,7 @@ class DirectApiTester:
             "avg_weight_per_minute": self.get_average_weight_per_minute(),
         }
 
-    def simulate_request(
-        self, endpoint: str, params: dict | None = None, weight: int = 1
-    ) -> dict:
+    def simulate_request(self, endpoint: str, params: dict | None = None, weight: int = 1) -> dict:
         """Simulate an API request and record it.
 
         Args:
@@ -197,9 +191,7 @@ async def run_test(symbols, duration=30, limit=1000):
     failed_requests = 0
     initial_weight = None
 
-    console.print(
-        f"[bold green]Starting direct API test with {len(symbols)} symbols[/bold green]"
-    )
+    console.print(f"[bold green]Starting direct API test with {len(symbols)} symbols[/bold green]")
     console.print(f"Test duration: {duration} seconds")
     console.print(f"Data points per request: {limit}")
     console.print(f"Expected weight per request: {tracker.max_weight_per_minute}")
@@ -208,9 +200,7 @@ async def run_test(symbols, duration=30, limit=1000):
     # Save test output details to file
     output_dir = Path(__file__).parent / "results"
     output_dir.mkdir(exist_ok=True)
-    output_file = (
-        output_dir / f"direct_api_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    )
+    output_file = output_dir / f"direct_api_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
     test_results = {
         "start_time": datetime.now().isoformat(),
@@ -310,9 +300,7 @@ async def run_test(symbols, duration=30, limit=1000):
         )
         console.print(f"Initial weight: {initial_weight or 0}")
         console.print(f"Net weight increase: {net_weight}")
-        console.print(
-            f"Weight per request: {net_weight / total_requests if total_requests > 0 else 0:.2f}"
-        )
+        console.print(f"Weight per request: {net_weight / total_requests if total_requests > 0 else 0:.2f}")
         console.print(f"Total requests: {stats['current_requests']}")
 
         # Save final results to file
@@ -345,18 +333,14 @@ async def main():
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test direct API calls to Binance")
-    parser.add_argument(
-        "--duration", type=int, default=30, help="Test duration in seconds"
-    )
+    parser.add_argument("--duration", type=int, default=30, help="Test duration in seconds")
     parser.add_argument(
         "--limit",
         type=int,
         default=1000,
         help="Number of data points to fetch per symbol",
     )
-    parser.add_argument(
-        "--symbols", type=int, default=50, help="Number of symbols to test"
-    )
+    parser.add_argument("--symbols", type=int, default=50, help="Number of symbols to test")
 
     # If no args provided, use sys.argv
     if len(sys.argv) > 1:

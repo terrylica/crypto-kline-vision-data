@@ -19,49 +19,34 @@ from ckvd.utils.market_constraints import DataProvider, MarketType
 
 class TestCKVDConfig:
     """Test the enhanced CKVDConfig with logging parameters."""
-    
+
     def test_default_logging_config(self):
         """Test that default logging configuration is correct."""
-        config = CKVDConfig(
-            market_type=MarketType.SPOT,
-            provider=DataProvider.BINANCE
-        )
-        
+        config = CKVDConfig(market_type=MarketType.SPOT, provider=DataProvider.BINANCE)
+
         assert config.log_level == "WARNING"
         assert config.suppress_http_debug is True
         assert config.quiet_mode is False
-    
+
     def test_custom_logging_config(self):
         """Test custom logging configuration."""
         config = CKVDConfig(
-            market_type=MarketType.SPOT,
-            provider=DataProvider.BINANCE,
-            log_level="DEBUG",
-            suppress_http_debug=False,
-            quiet_mode=True
+            market_type=MarketType.SPOT, provider=DataProvider.BINANCE, log_level="DEBUG", suppress_http_debug=False, quiet_mode=True
         )
-        
+
         assert config.log_level == "DEBUG"
         assert config.suppress_http_debug is False
         assert config.quiet_mode is True
-    
+
     def test_log_level_validation(self):
         """Test that invalid log levels are rejected."""
         with pytest.raises(ValueError):
-            CKVDConfig(
-                market_type=MarketType.SPOT,
-                provider=DataProvider.BINANCE,
-                log_level="INVALID"
-            )
-    
+            CKVDConfig(market_type=MarketType.SPOT, provider=DataProvider.BINANCE, log_level="INVALID")
+
     def test_log_level_case_conversion(self):
         """Test that log levels are converted to uppercase."""
-        config = CKVDConfig(
-            market_type=MarketType.SPOT,
-            provider=DataProvider.BINANCE,
-            log_level="debug"
-        )
-        
+        config = CKVDConfig(market_type=MarketType.SPOT, provider=DataProvider.BINANCE, log_level="debug")
+
         assert config.log_level == "DEBUG"
 
 
@@ -96,10 +81,7 @@ class TestCryptoKlineVisionDataLogging:
             mock_get_logger.side_effect = get_logger_side_effect
 
             # Create CKVD with default settings
-            ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE,
-                market_type=MarketType.SPOT
-            )
+            ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, market_type=MarketType.SPOT)
 
             # Verify HTTP loggers were configured to suppress debug
             mock_httpcore_logger.setLevel.assert_called_with(logging.WARNING)
@@ -136,10 +118,7 @@ class TestCryptoKlineVisionDataLogging:
 
             # Create CKVD with debug logging
             ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE,
-                market_type=MarketType.SPOT,
-                log_level="DEBUG",
-                suppress_http_debug=False
+                provider=DataProvider.BINANCE, market_type=MarketType.SPOT, log_level="DEBUG", suppress_http_debug=False
             )
 
             # Verify HTTP loggers were configured for debug
@@ -173,10 +152,7 @@ class TestCryptoKlineVisionDataLogging:
             mock_get_logger.side_effect = get_logger_side_effect
 
             # Create CKVD with default settings
-            ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE,
-                market_type=MarketType.SPOT
-            )
+            ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, market_type=MarketType.SPOT)
 
             # Verify initial configuration
             assert ckvd.log_level == "WARNING"
@@ -227,12 +203,7 @@ class TestBackwardCompatibility:
     def test_create_method_backward_compatibility(self):
         """Test that the create method still works with old parameters."""
         # This should work without any logging parameters
-        config = CKVDConfig.create(
-            DataProvider.BINANCE,
-            MarketType.SPOT,
-            use_cache=True,
-            retry_count=3
-        )
+        config = CKVDConfig.create(DataProvider.BINANCE, MarketType.SPOT, use_cache=True, retry_count=3)
 
         # Should use default logging values
         assert config.log_level == "WARNING"
@@ -255,12 +226,7 @@ class TestBackwardCompatibility:
 
         with patch("logging.getLogger"):
             # This should work with old-style parameters
-            ckvd = CryptoKlineVisionData(
-                provider=DataProvider.BINANCE,
-                market_type=MarketType.SPOT,
-                use_cache=True,
-                retry_count=3
-            )
+            ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, market_type=MarketType.SPOT, use_cache=True, retry_count=3)
 
             # Should use default logging values
             assert ckvd.log_level == "WARNING"

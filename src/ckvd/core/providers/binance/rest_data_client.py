@@ -279,10 +279,7 @@ class RestDataClient(DataClientInterface):
             try:
                 chunk_data = self._fetch_chunk_data(symbol, interval_enum, chunk_start, chunk_end)
             except RateLimitError as e:
-                logger.warning(
-                    f"Rate limited at chunk {i + 1}/{len(chunks)} for {symbol}, "
-                    f"returning {len(all_data)} partial records"
-                )
+                logger.warning(f"Rate limited at chunk {i + 1}/{len(chunks)} for {symbol}, returning {len(all_data)} partial records")
                 rate_limited = True
                 _rate_limit_error = e
                 break
@@ -320,8 +317,7 @@ class RestDataClient(DataClientInterface):
         # Log success stats
         logger.info(
             f"Successfully retrieved {len(filtered_df)} records for {symbol} "
-            f"(from {stats['successful_chunks']}/{stats['total_chunks']} chunks)"
-            + (" [PARTIAL - rate limited]" if rate_limited else "")
+            f"(from {stats['successful_chunks']}/{stats['total_chunks']} chunks)" + (" [PARTIAL - rate limited]" if rate_limited else "")
         )
 
         # Log REST metrics (for troubleshooting and monitoring)

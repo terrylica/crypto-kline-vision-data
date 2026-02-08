@@ -38,9 +38,7 @@ class PathComponents:
     @property
     def safe_symbol(self) -> str:
         """Handle symbol naming based on market type."""
-        if self.market_type == MarketType.FUTURES_COIN and not self.symbol.endswith(
-            "_PERP"
-        ):
+        if self.market_type == MarketType.FUTURES_COIN and not self.symbol.endswith("_PERP"):
             return f"{self.symbol}_PERP"
         return self.symbol
 
@@ -66,11 +64,7 @@ class VisionPathMapper:
     def get_remote_url(self, components: PathComponents) -> str:
         """Generate remote URL from components."""
         market_path = self._get_market_path(components.market_type)
-        file_ext = (
-            ".zip.CHECKSUM"
-            if components.file_extension.endswith(".CHECKSUM")
-            else ".zip"
-        )
+        file_ext = ".zip.CHECKSUM" if components.file_extension.endswith(".CHECKSUM") else ".zip"
         filename = f"{components.safe_symbol}-{components.interval}-{components.date_str}{file_ext}"
 
         url = f"{self.base_url}/data/{market_path}/daily/klines/{components.safe_symbol}/{components.interval}/{filename}"
@@ -161,9 +155,7 @@ class FSSpecVisionHandler:
         self.path_mapper = VisionPathMapper(base_cache_dir)
         self.base_cache_dir = Path(base_cache_dir)
 
-    def get_fs_and_path(
-        self, url_or_path: str | Path
-    ) -> tuple[fsspec.AbstractFileSystem, str]:
+    def get_fs_and_path(self, url_or_path: str | Path) -> tuple[fsspec.AbstractFileSystem, str]:
         """Get the appropriate filesystem and path using fsspec's automatic detection."""
         return fsspec.core.url_to_fs(str(url_or_path))
 
@@ -226,9 +218,7 @@ class FSSpecVisionHandler:
                 # 3. Convert to Arrow format
                 # For demo, just creating placeholder
                 with fsspec.open(local_path, "wb") as target:
-                    target.write(
-                        source.read() if hasattr(source, "read") else b"placeholder"
-                    )
+                    target.write(source.read() if hasattr(source, "read") else b"placeholder")
 
             logger.info(f"Downloaded and processed data to {local_path}")
             return local_path
@@ -284,15 +274,9 @@ class FSSpecVisionHandler:
 def main(
     symbol: str = typer.Option("BTCUSDT", "-s", "--symbol", help="Trading symbol"),
     interval: str = typer.Option("1m", "-i", "--interval", help="Time interval"),
-    date_str: str = typer.Option(
-        "2025-04-16", "-d", "--date", help="Date in YYYY-MM-DD format"
-    ),
-    market_type: str = typer.Option(
-        "spot", "-m", "--market-type", help="Market type (spot, um, cm)"
-    ),
-    base_cache_dir: str = typer.Option(
-        "cache", "-c", "--cache-dir", help="Base cache directory"
-    ),
+    date_str: str = typer.Option("2025-04-16", "-d", "--date", help="Date in YYYY-MM-DD format"),
+    market_type: str = typer.Option("spot", "-m", "--market-type", help="Market type (spot, um, cm)"),
+    base_cache_dir: str = typer.Option("cache", "-c", "--cache-dir", help="Base cache directory"),
 ):
     """Test the Vision Path Mapper."""
     print("[bold green]Testing VisionPathMapper[/bold green]")

@@ -87,10 +87,12 @@ def run_benchmark(
 
         # Apply some typical operations
         lf = lf.filter(pl.col("volume") > 500)
-        lf = lf.with_columns([
-            (pl.col("high") - pl.col("low")).alias("range"),
-            ((pl.col("close") - pl.col("open")) / pl.col("open") * 100).alias("pct_change"),
-        ])
+        lf = lf.with_columns(
+            [
+                (pl.col("high") - pl.col("low")).alias("range"),
+                ((pl.col("close") - pl.col("open")) / pl.col("open") * 100).alias("pct_change"),
+            ]
+        )
         lf = lf.sort("open_time")
 
         # Start memory tracking
@@ -153,14 +155,16 @@ def run_ipc_file_benchmark(
     gc.collect()
 
     # Create temp IPC file
-    df = pl.DataFrame({
-        "open_time": [datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i) for i in range(num_rows)],
-        "open": [42000.0 + (i % 100) for i in range(num_rows)],
-        "high": [42100.0 + (i % 100) for i in range(num_rows)],
-        "low": [41900.0 + (i % 100) for i in range(num_rows)],
-        "close": [42050.0 + (i % 100) for i in range(num_rows)],
-        "volume": [1000.0 + (i % 500) for i in range(num_rows)],
-    })
+    df = pl.DataFrame(
+        {
+            "open_time": [datetime(2024, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i) for i in range(num_rows)],
+            "open": [42000.0 + (i % 100) for i in range(num_rows)],
+            "high": [42100.0 + (i % 100) for i in range(num_rows)],
+            "low": [41900.0 + (i % 100) for i in range(num_rows)],
+            "close": [42050.0 + (i % 100) for i in range(num_rows)],
+            "volume": [1000.0 + (i % 500) for i in range(num_rows)],
+        }
+    )
 
     with tempfile.NamedTemporaryFile(suffix=".arrow", delete=False) as f:
         temp_path = Path(f.name)
@@ -267,7 +271,7 @@ def format_results(results: list[BenchmarkResult]) -> str:
             lines.append(f"Overall Speedup: {avg_inmemory_time / avg_streaming_time:.2f}x")
 
         if avg_inmemory_mem > 0:
-            mem_diff = ((avg_inmemory_mem - avg_streaming_mem) / avg_inmemory_mem * 100)
+            mem_diff = (avg_inmemory_mem - avg_streaming_mem) / avg_inmemory_mem * 100
             lines.append(f"Memory Difference: {mem_diff:.1f}%")
 
     return "\n".join(lines)
@@ -306,7 +310,9 @@ def main():
         print("  - Streaming engine...")
         streaming_result = run_benchmark(num_rows, True, scenario_name)
         results.append(streaming_result)
-        print(f"    {streaming_result.rows:,} rows in {streaming_result.time_seconds * 1000:.2f}ms, {streaming_result.peak_memory_mb:.2f}MB")
+        print(
+            f"    {streaming_result.rows:,} rows in {streaming_result.time_seconds * 1000:.2f}ms, {streaming_result.peak_memory_mb:.2f}MB"
+        )
 
     # Part 2: Real cache read benchmarks
     print("\n" + "=" * 70)
@@ -325,19 +331,23 @@ def main():
 
         # In-memory engine
         print("  - In-Memory engine...")
-        inmemory_result = run_cache_read_benchmark(days, False, scenario_name)
+        inmemory_result = run_ipc_file_benchmark(days, False, scenario_name)
         if inmemory_result:
             results.append(inmemory_result)
-            print(f"    {inmemory_result.rows:,} rows in {inmemory_result.time_seconds * 1000:.2f}ms, {inmemory_result.peak_memory_mb:.2f}MB")
+            print(
+                f"    {inmemory_result.rows:,} rows in {inmemory_result.time_seconds * 1000:.2f}ms, {inmemory_result.peak_memory_mb:.2f}MB"
+            )
         else:
             print("    Cache not available")
 
         # Streaming engine
         print("  - Streaming engine...")
-        streaming_result = run_cache_read_benchmark(days, True, scenario_name)
+        streaming_result = run_ipc_file_benchmark(days, True, scenario_name)
         if streaming_result:
             results.append(streaming_result)
-            print(f"    {streaming_result.rows:,} rows in {streaming_result.time_seconds * 1000:.2f}ms, {streaming_result.peak_memory_mb:.2f}MB")
+            time_ms = streaming_result.time_seconds * 1000
+            mem_mb = streaming_result.peak_memory_mb
+            print(f"    {streaming_result.rows:,} rows in {time_ms:.2f}ms, {mem_mb:.2f}MB")
         else:
             print("    Cache not available")
 

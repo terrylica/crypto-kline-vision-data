@@ -54,12 +54,8 @@ def run_automated_download_example():
 
     # Show example of how to run continuously
     logger.info("\nTo run the downloader continuously, you can use:")
-    logger.info(
-        "python -m scripts.funding_rate_downloader.automate_funding_rate_download --symbols BTCUSDT ETHUSDT --interval 60"
-    )
-    logger.info(
-        "This would download funding rate data every 60 minutes for BTCUSDT and ETHUSDT"
-    )
+    logger.info("python -m scripts.funding_rate_downloader.automate_funding_rate_download --symbols BTCUSDT ETHUSDT --interval 60")
+    logger.info("This would download funding rate data every 60 minutes for BTCUSDT and ETHUSDT")
 
 
 if __name__ == "__main__":

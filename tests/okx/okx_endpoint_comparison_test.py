@@ -103,9 +103,7 @@ class TestLatencyFreshness:
         history_timestamp = int(history_data["data"][0][0])
 
         # Candles should have same or more recent data
-        assert candles_timestamp >= history_timestamp, (
-            f"Candles ({candles_timestamp}) should be >= history ({history_timestamp})"
-        )
+        assert candles_timestamp >= history_timestamp, f"Candles ({candles_timestamp}) should be >= history ({history_timestamp})"
 
 
 @pytest.mark.integration
@@ -198,9 +196,7 @@ class TestTimestampHandling:
         # All returned timestamps should be < test_timestamp
         for candle in before_data.get("data", []):
             candle_ts = int(candle[0])
-            assert candle_ts < test_timestamp, (
-                f"Timestamp {candle_ts} should be < {test_timestamp}"
-            )
+            assert candle_ts < test_timestamp, f"Timestamp {candle_ts} should be < {test_timestamp}"
 
     def test_after_parameter_behavior(self) -> None:
         """
@@ -226,9 +222,7 @@ class TestTimestampHandling:
         # All returned timestamps should be > test_timestamp
         for candle in after_data.get("data", []):
             candle_ts = int(candle[0])
-            assert candle_ts > test_timestamp, (
-                f"Timestamp {candle_ts} should be > {test_timestamp}"
-            )
+            assert candle_ts > test_timestamp, f"Timestamp {candle_ts} should be > {test_timestamp}"
 
 
 @pytest.mark.integration

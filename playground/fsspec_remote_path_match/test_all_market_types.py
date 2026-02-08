@@ -78,18 +78,12 @@ def test_market_mapping(
 
 
 def main(
-    base_cache_dir: str = typer.Option(
-        "cache", "-c", "--cache-dir", help="Base cache directory"
-    ),
-    date_str: str = typer.Option(
-        "2025-04-16", "-d", "--date", help="Date in YYYY-MM-DD format"
-    ),
+    base_cache_dir: str = typer.Option("cache", "-c", "--cache-dir", help="Base cache directory"),
+    date_str: str = typer.Option("2025-04-16", "-d", "--date", help="Date in YYYY-MM-DD format"),
     interval: str = typer.Option("1m", "-i", "--interval", help="Time interval"),
 ):
     """Test the VisionPathMapper with different market types."""
-    console.print(
-        "[bold green]Testing VisionPathMapper for All Market Types[/bold green]"
-    )
+    console.print("[bold green]Testing VisionPathMapper for All Market Types[/bold green]")
     console.print("")
 
     # Test Spot market
@@ -100,9 +94,7 @@ def main(
         date_str=date_str,
         base_cache_dir=base_cache_dir,
     )
-    print_test_results(
-        "Spot", "BTCUSDT", remote_url, local_path, mapped_remote, mapped_local
-    )
+    print_test_results("Spot", "BTCUSDT", remote_url, local_path, mapped_remote, mapped_local)
 
     # Test UM Futures
     remote_url, local_path, mapped_remote, mapped_local = test_market_mapping(
@@ -159,12 +151,8 @@ def main(
     fs_local, path_local = handler.get_fs_and_path(local_path)
     fs_remote, path_remote = handler.get_fs_and_path(remote_url)
 
-    console.print(
-        f"Local filesystem: [blue]{fs_local.__class__.__name__}[/blue], Path: [green]{path_local}[/green]"
-    )
-    console.print(
-        f"Remote filesystem: [blue]{fs_remote.__class__.__name__}[/blue], Path: [green]{path_remote}[/green]"
-    )
+    console.print(f"Local filesystem: [blue]{fs_local.__class__.__name__}[/blue], Path: [green]{path_local}[/green]")
+    console.print(f"Remote filesystem: [blue]{fs_remote.__class__.__name__}[/blue], Path: [green]{path_remote}[/green]")
 
 
 if __name__ == "__main__":

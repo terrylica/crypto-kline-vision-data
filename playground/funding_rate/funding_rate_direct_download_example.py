@@ -49,9 +49,7 @@ def download_funding_rate_example():
                 file_path = save_to_csv(df, symbol, output_dir=str(output_dir))
 
                 if file_path:
-                    logger.info(
-                        f"Successfully downloaded and saved {symbol} funding rate to {file_path}"
-                    )
+                    logger.info(f"Successfully downloaded and saved {symbol} funding rate to {file_path}")
                     results[symbol] = True
                 else:
                     logger.error(f"Failed to save {symbol} funding rate to CSV")
@@ -69,15 +67,9 @@ def download_funding_rate_example():
         status = "Success" if success else "Failed"
         logger.info(f"  {symbol}: {status}")
 
-    logger.info(
-        "\nCompare this direct API approach with the CryptoKlineVisionData example (funding_rate_example.py)"
-    )
-    logger.info(
-        "The direct API method is simpler for one-off downloads but lacks caching and advanced features"
-    )
-    logger.info(
-        "For production use, consider using the CryptoKlineVisionData approach for better robustness"
-    )
+    logger.info("\nCompare this direct API approach with the CryptoKlineVisionData example (funding_rate_example.py)")
+    logger.info("The direct API method is simpler for one-off downloads but lacks caching and advanced features")
+    logger.info("For production use, consider using the CryptoKlineVisionData approach for better robustness")
 
 
 if __name__ == "__main__":

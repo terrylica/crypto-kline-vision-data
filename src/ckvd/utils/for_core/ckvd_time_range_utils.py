@@ -196,9 +196,7 @@ def identify_missing_segments(
     interval_offset = timedelta(seconds=interval.to_seconds())
 
     # Build missing segments from gaps
-    missing_segments: list[tuple[datetime, datetime]] = [
-        (gap.start_time + interval_offset, gap.end_time) for gap in gaps
-    ]
+    missing_segments: list[tuple[datetime, datetime]] = [(gap.start_time + interval_offset, gap.end_time) for gap in gaps]
 
     if min_time > start_time:
         missing_segments.insert(0, (start_time, min_time))

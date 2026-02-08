@@ -115,8 +115,7 @@ class TestCrossMarketFuturesWarning:
             # Check stderr for the warning (emitted before data fetch attempt)
             captured = capsys.readouterr()
             assert "FUTURES COUNTERPART WARNING" in captured.err, (
-                f"Expected futures warning in stderr. "
-                f"Data fetch succeeded: {data_fetch_succeeded}. stderr: {captured.err[:200]}"
+                f"Expected futures warning in stderr. Data fetch succeeded: {data_fetch_succeeded}. stderr: {captured.err[:200]}"
             )
             assert "BTCUSDT" in captured.err
         finally:
@@ -210,9 +209,7 @@ class TestUnknownSymbolBehavior:
             # (availability check allows unknown symbols)
             # It will likely fail with empty data or API error from Binance
             try:
-                _df = manager.get_data(
-                    "UNKNOWNSYMBOL123", start_time, end_time, Interval.HOUR_1
-                )
+                _df = manager.get_data("UNKNOWNSYMBOL123", start_time, end_time, Interval.HOUR_1)
                 # If we get here, data was returned (unlikely but acceptable)
             except DataNotAvailableError:
                 pytest.fail("Unknown symbols should not raise DataNotAvailableError")

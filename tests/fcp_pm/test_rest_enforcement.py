@@ -59,9 +59,7 @@ def test_rest_enforcement():
             use_cache=use_cache,
             retry_count=3,
         ) as manager:
-            print(
-                "[bold yellow]Fetching data with REST API enforcement...[/bold yellow]"
-            )
+            print("[bold yellow]Fetching data with REST API enforcement...[/bold yellow]")
 
             # Explicitly enforce REST API as the source
             df = manager.get_data(
@@ -81,9 +79,7 @@ def test_rest_enforcement():
 
         # Verify source information
         if "_data_source" not in df.columns:
-            print(
-                "[bold red]Error: Source information not included in the result[/bold red]"
-            )
+            print("[bold red]Error: Source information not included in the result[/bold red]")
             raise AssertionError("Source information not included in the result")
 
         # Check that all data came from REST API
@@ -111,14 +107,10 @@ def test_rest_enforcement():
 
         # Final result
         if all_from_rest:
-            print(
-                "\n[bold green]✓ SUCCESS: All data came from REST API as expected[/bold green]"
-            )
+            print("\n[bold green]✓ SUCCESS: All data came from REST API as expected[/bold green]")
             assert True
         else:
-            print(
-                "\n[bold red]✗ FAILURE: Some data did not come from REST API[/bold red]"
-            )
+            print("\n[bold red]✗ FAILURE: Some data did not come from REST API[/bold red]")
             raise AssertionError("Some data did not come from REST API")
 
     except (RuntimeError, ValueError, KeyError, OSError) as e:

@@ -81,9 +81,7 @@ class TestPolarsTimezonePreservation:
 
         Note: Pandas uses nanoseconds, so Polars inherits ns precision.
         """
-        timestamps = pd.DatetimeIndex(
-            [base_time_utc + timedelta(hours=i) for i in range(3)], tz="UTC"
-        )
+        timestamps = pd.DatetimeIndex([base_time_utc + timedelta(hours=i) for i in range(3)], tz="UTC")
         pd_df = pd.DataFrame({"open_time": timestamps})
 
         pl_df = pl.from_pandas(pd_df)
@@ -145,17 +143,13 @@ class TestNaiveDatetimeHandling:
         Pattern used in dsm_cache_utils.py:199-201 for predicate pushdown.
         """
         timestamps = [base_time_utc + timedelta(hours=i) for i in range(24)]
-        df = pl.DataFrame(
-            {"open_time": timestamps, "value": [float(i) for i in range(24)]}
-        )
+        df = pl.DataFrame({"open_time": timestamps, "value": [float(i) for i in range(24)]})
 
         # Filter using UTC start/end times
         start = base_time_utc + timedelta(hours=6)
         end = base_time_utc + timedelta(hours=12)
 
-        filtered = df.lazy().filter(
-            (pl.col("open_time") >= start) & (pl.col("open_time") <= end)
-        ).collect()
+        filtered = df.lazy().filter((pl.col("open_time") >= start) & (pl.col("open_time") <= end)).collect()
 
         # Should have hours 6-12 inclusive
         assert len(filtered) == 7

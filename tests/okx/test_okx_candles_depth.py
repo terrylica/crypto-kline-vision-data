@@ -39,12 +39,7 @@ def has_data(endpoint: str, instrument: str, interval: str, timestamp: int) -> t
     }
     result = retry_request(endpoint, params)
 
-    if (
-        result
-        and "data" in result
-        and result["data"].get("code") == "0"
-        and len(result["data"].get("data", [])) > 0
-    ):
+    if result and "data" in result and result["data"].get("code") == "0" and len(result["data"].get("data", [])) > 0:
         return True, result
 
     return False, result
@@ -77,9 +72,7 @@ class TestHistoricalDepthFromNow:
         test_date = datetime.now() - timedelta(days=days_back)
         test_ms = int(test_date.timestamp() * 1000)
 
-        _, response = has_data(
-            CANDLES_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms
-        )
+        _, response = has_data(CANDLES_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -110,9 +103,7 @@ class TestHistoricalDepthFromNow:
         test_date = datetime.now() - timedelta(days=days_back)
         test_ms = int(test_date.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms
-        )
+        has_data_result, response = has_data(HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -148,9 +139,7 @@ class TestCandlesEndpointRecentWindow:
         test_time = datetime.now() - timedelta(hours=hours_ago)
         test_timestamp = int(test_time.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            CANDLES_ENDPOINT, SPOT_INSTRUMENT, "1m", test_timestamp
-        )
+        has_data_result, response = has_data(CANDLES_ENDPOINT, SPOT_INSTRUMENT, "1m", test_timestamp)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -177,9 +166,7 @@ class TestEarliestDataAvailability:
         test_date = datetime(2017, 10, 15)
         test_ms = int(test_date.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            HISTORY_ENDPOINT, SPOT_INSTRUMENT, "1D", test_ms
-        )
+        has_data_result, response = has_data(HISTORY_ENDPOINT, SPOT_INSTRUMENT, "1D", test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -198,9 +185,7 @@ class TestEarliestDataAvailability:
         test_date = datetime(2016, 1, 1)
         test_ms = int(test_date.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            HISTORY_ENDPOINT, SPOT_INSTRUMENT, "1D", test_ms
-        )
+        has_data_result, response = has_data(HISTORY_ENDPOINT, SPOT_INSTRUMENT, "1D", test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -228,9 +213,7 @@ class TestMultipleIntervalDepth:
         test_date = datetime.now() - timedelta(days=30)
         test_ms = int(test_date.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms
-        )
+        has_data_result, response = has_data(HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]
@@ -252,9 +235,7 @@ class TestMultipleIntervalDepth:
         test_date = datetime.now() - timedelta(days=365)
         test_ms = int(test_date.timestamp() * 1000)
 
-        has_data_result, response = has_data(
-            HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms
-        )
+        has_data_result, response = has_data(HISTORY_ENDPOINT, SPOT_INSTRUMENT, interval, test_ms)
 
         assert "data" in response, f"Request failed: {response.get('error')}"
         data = response["data"]

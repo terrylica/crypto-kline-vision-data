@@ -70,9 +70,7 @@ class TestCryptoKlineVisionDataInitialization:
 
     def test_create_manager_spot(self, mock_get_clients):
         """Verify manager creation for spot market."""
-        mock_get_clients.return_value = self._create_mock_clients(
-            DataProvider.BINANCE, MarketType.SPOT
-        )
+        mock_get_clients.return_value = self._create_mock_clients(DataProvider.BINANCE, MarketType.SPOT)
 
         manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT)
 
@@ -83,9 +81,7 @@ class TestCryptoKlineVisionDataInitialization:
 
     def test_create_manager_futures_usdt(self, mock_get_clients):
         """Verify manager creation for USDT-margined futures."""
-        mock_get_clients.return_value = self._create_mock_clients(
-            DataProvider.BINANCE, MarketType.FUTURES_USDT
-        )
+        mock_get_clients.return_value = self._create_mock_clients(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
         manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
@@ -95,9 +91,7 @@ class TestCryptoKlineVisionDataInitialization:
 
     def test_create_manager_futures_coin(self, mock_get_clients):
         """Verify manager creation for coin-margined futures."""
-        mock_get_clients.return_value = self._create_mock_clients(
-            DataProvider.BINANCE, MarketType.FUTURES_COIN
-        )
+        mock_get_clients.return_value = self._create_mock_clients(DataProvider.BINANCE, MarketType.FUTURES_COIN)
 
         manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_COIN)
 
@@ -170,11 +164,13 @@ class TestFundingRateRouting:
 
         # Mock funding rate client
         mock_client_instance = MagicMock()
-        mock_client_instance.fetch.return_value = pd.DataFrame({
-            "symbol": ["BTCUSDT"] * 3,
-            "funding_time": [start_time + timedelta(hours=i * 8) for i in range(3)],
-            "funding_rate": [0.0001, 0.0002, 0.00015],
-        })
+        mock_client_instance.fetch.return_value = pd.DataFrame(
+            {
+                "symbol": ["BTCUSDT"] * 3,
+                "funding_time": [start_time + timedelta(hours=i * 8) for i in range(3)],
+                "funding_rate": [0.0001, 0.0002, 0.00015],
+            }
+        )
         mock_funding_client.return_value = mock_client_instance
 
         manager = CryptoKlineVisionData.create(

@@ -133,9 +133,7 @@ def fetch_market_data(
     validate_interval(market_type, interval)
 
     # Calculate time range (handles datetime | str | None via pendulum)
-    start_datetime, end_datetime = calculate_date_range(
-        start_time, end_time, days, interval
-    )
+    start_datetime, end_datetime = calculate_date_range(start_time, end_time, days, interval)
 
     # Convert enforce_source string to enum
     enforce_source_enum = DataSource[enforce_source.upper()]

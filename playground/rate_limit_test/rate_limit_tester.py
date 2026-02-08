@@ -209,13 +209,9 @@ class RateLimitTester:
         signal.signal(signal.SIGTERM, self._handle_signal)
 
         # Print test parameters
-        self.console.print(
-            f"[bold green]Starting rate limit test with {len(self.symbols)} symbols[/bold green]"
-        )
+        self.console.print(f"[bold green]Starting rate limit test with {len(self.symbols)} symbols[/bold green]")
         self.console.print(f"Test duration: {self.duration} seconds")
-        self.console.print(
-            f"Expected weight per request: {self.tracker.weight_per_request}"
-        )
+        self.console.print(f"Expected weight per request: {self.tracker.weight_per_request}")
         self.console.print(f"Maximum weight per minute: {self.tracker.max_weight}")
 
         # Display progress bar
@@ -263,35 +259,25 @@ class RateLimitTester:
             _signum: Signal number (unused but required by signal handler interface)
             _frame: Current stack frame (unused but required by signal handler interface)
         """
-        self.console.print(
-            "\n[bold red]Received termination signal. Shutting down...[/bold red]"
-        )
+        self.console.print("\n[bold red]Received termination signal. Shutting down...[/bold red]")
         self.running = False
 
     def print_final_stats(self):
         """Print final test statistics."""
         self.console.print("\n[bold green]Rate Limit Test Completed[/bold green]")
-        self.console.print(
-            f"Total test duration: {time.time() - self.test_start_time:.1f} seconds"
-        )
+        self.console.print(f"Total test duration: {time.time() - self.test_start_time:.1f} seconds")
         self.console.print(f"Total requests: {self.total_requests}")
         self.console.print(f"Successful requests: {self.successful_requests}")
         self.console.print(f"Failed requests: {self.failed_requests}")
 
         stats = self.tracker.get_stats()
-        self.console.print(
-            f"Final weight usage: {stats['current_weight']}/{stats['max_weight']} ({stats['usage_percentage']:.1f}%)"
-        )
+        self.console.print(f"Final weight usage: {stats['current_weight']}/{stats['max_weight']} ({stats['usage_percentage']:.1f}%)")
         self.console.print(f"Total warnings: {stats['warnings']}")
 
         if stats["warnings"] > 0:
-            self.console.print(
-                "[bold red]WARNING: Rate limit threshold was exceeded during the test![/bold red]"
-            )
+            self.console.print("[bold red]WARNING: Rate limit threshold was exceeded during the test![/bold red]")
         else:
-            self.console.print(
-                "[bold green]SUCCESS: No rate limit warnings were triggered.[/bold green]"
-            )
+            self.console.print("[bold green]SUCCESS: No rate limit warnings were triggered.[/bold green]")
 
     def cleanup(self):
         """Clean up resources."""
@@ -335,9 +321,7 @@ def main():
     """Run the rate limit test."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test Binance API rate limits")
-    parser.add_argument(
-        "--duration", type=int, default=300, help="Test duration in seconds"
-    )
+    parser.add_argument("--duration", type=int, default=300, help="Test duration in seconds")
     parser.add_argument(
         "--symbols",
         type=str,
@@ -349,9 +333,7 @@ def main():
     # Read symbols from file
     symbols = read_symbols_from_file(args.symbols)
     if not symbols:
-        print(
-            "No symbols found. Make sure symbols.txt exists with one symbol per line."
-        )
+        print("No symbols found. Make sure symbols.txt exists with one symbol per line.")
         return
 
     print(f"Loaded {len(symbols)} symbols from {args.symbols}")

@@ -21,17 +21,10 @@ def test_validate_symbol_for_market_type_valid_cases():
     assert validate_symbol_for_market_type("ETHUSDT", MarketType.FUTURES_USDT) is True
 
     # Valid FUTURES_COIN symbols
-    assert (
-        validate_symbol_for_market_type("BTCUSD_PERP", MarketType.FUTURES_COIN) is True
-    )
-    assert (
-        validate_symbol_for_market_type("ETHUSD_PERP", MarketType.FUTURES_COIN) is True
-    )
+    assert validate_symbol_for_market_type("BTCUSD_PERP", MarketType.FUTURES_COIN) is True
+    assert validate_symbol_for_market_type("ETHUSD_PERP", MarketType.FUTURES_COIN) is True
     # Valid quarterly contracts
-    assert (
-        validate_symbol_for_market_type("BTCUSD_220930", MarketType.FUTURES_COIN)
-        is True
-    )
+    assert validate_symbol_for_market_type("BTCUSD_220930", MarketType.FUTURES_COIN) is True
 
 
 def test_validate_symbol_for_market_type_invalid_cases():

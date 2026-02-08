@@ -33,9 +33,7 @@ class TestSymbolFormatting:
             ("BTC-USD-SWAP", MarketType.FUTURES_USDT, "BTC-USD-SWAP"),  # Already formatted
         ],
     )
-    def test_symbol_formatting_converts_correctly(
-        self, original: str, market_type: MarketType, expected: str
-    ) -> None:
+    def test_symbol_formatting_converts_correctly(self, original: str, market_type: MarketType, expected: str) -> None:
         """
         Verify symbol formatting converts generic symbols to OKX format.
 
@@ -81,9 +79,7 @@ class TestSymbolValidation:
             ("BTC-USD", MarketType.FUTURES_USDT, "Missing SWAP suffix"),
         ],
     )
-    def test_invalid_symbols_raise_error(
-        self, symbol: str, market_type: MarketType, description: str
-    ) -> None:
+    def test_invalid_symbols_raise_error(self, symbol: str, market_type: MarketType, description: str) -> None:
         """
         Verify invalid OKX symbols raise ValueError.
 
@@ -123,9 +119,7 @@ class TestEndpointUrls:
             ),
         ],
     )
-    def test_endpoint_url_generation(
-        self, market_type: MarketType, chart_type: ChartType, expected_url: str
-    ) -> None:
+    def test_endpoint_url_generation(self, market_type: MarketType, chart_type: ChartType, expected_url: str) -> None:
         """
         Verify endpoint URL generation returns correct URLs for OKX.
 

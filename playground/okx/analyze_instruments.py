@@ -31,11 +31,7 @@ def fetch_data(inst_type: str) -> list[dict]:
                 if inst_type == "SPOT":
                     return data["data"]
                 if inst_type == "SWAP":
-                    return [
-                        item
-                        for item in data["data"]
-                        if item.get("instId") and item["instId"].endswith("-USD-SWAP")
-                    ]
+                    return [item for item in data["data"] if item.get("instId") and item["instId"].endswith("-USD-SWAP")]
                 return data["data"]
             logger.error(f"Unexpected API response format: {data}")
             return []
@@ -51,9 +47,7 @@ def fetch_data(inst_type: str) -> list[dict]:
     return []
 
 
-def load_and_filter_data(
-    file_path: str, filter_criteria: str | None = None
-) -> list[dict]:
+def load_and_filter_data(file_path: str, filter_criteria: str | None = None) -> list[dict]:
     """Load data from local file as fallback"""
     script_dir = Path(__file__).parent.absolute()
     full_path = script_dir / file_path
@@ -66,11 +60,7 @@ def load_and_filter_data(
                 if filter_criteria == "spot":
                     return data["data"]
                 if filter_criteria == "swap":
-                    return [
-                        item
-                        for item in data["data"]
-                        if item.get("instId") and item["instId"].endswith("-USD-SWAP")
-                    ]
+                    return [item for item in data["data"] if item.get("instId") and item["instId"].endswith("-USD-SWAP")]
                 return data["data"]
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}. Ensure files are in {script_dir}")
@@ -83,18 +73,10 @@ def load_and_filter_data(
 
 @app.command()
 def analyze(
-    verbose: bool = typer.Option(
-        False, "-v", "--verbose", help="Show detailed instrument listings"
-    ),
-    usd_only: bool = typer.Option(
-        False, "-u", "--usd-only", help="Only show SPOT-USD with SWAP-USD-SWAP matches"
-    ),
-    use_local: bool = typer.Option(
-        False, "-l", "--use-local", help="Use local JSON files instead of API"
-    ),
-    save_files: bool = typer.Option(
-        False, "-s", "--save-files", help="Save API response to local JSON files"
-    ),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="Show detailed instrument listings"),
+    usd_only: bool = typer.Option(False, "-u", "--usd-only", help="Only show SPOT-USD with SWAP-USD-SWAP matches"),
+    use_local: bool = typer.Option(False, "-l", "--use-local", help="Use local JSON files instead of API"),
+    save_files: bool = typer.Option(False, "-s", "--save-files", help="Save API response to local JSON files"),
 ):
     """
     Analyze OKX spot and swap instruments to count spot instruments
@@ -116,15 +98,11 @@ def analyze(
 
             with open(script_dir / "spot_instruments.json", "w") as f:
                 json.dump({"data": spot_data}, f, indent=2)
-                logger.info(
-                    f"Saved spot data to {script_dir / 'spot_instruments.json'}"
-                )
+                logger.info(f"Saved spot data to {script_dir / 'spot_instruments.json'}")
 
             with open(script_dir / "swap_instruments.json", "w") as f:
                 json.dump({"data": swap_data}, f, indent=2)
-                logger.info(
-                    f"Saved swap data to {script_dir / 'swap_instruments.json'}"
-                )
+                logger.info(f"Saved swap data to {script_dir / 'swap_instruments.json'}")
 
     # Extract base currencies from swap instruments
     swap_base_currencies = {}
@@ -146,9 +124,7 @@ def analyze(
             continue
 
         if base_ccy and base_ccy in swap_base_currencies:
-            matching_spot_instruments.append(
-                {"spot": spot_item, "swap": swap_base_currencies[base_ccy]}
-            )
+            matching_spot_instruments.append({"spot": spot_item, "swap": swap_base_currencies[base_ccy]})
 
     # Statistics for matching SPOT instruments
     matching_count = len(matching_spot_instruments)
@@ -156,19 +132,13 @@ def analyze(
     rprint(f"Total SPOT instruments: {len(spot_data)}")
     rprint(f"Total SWAP instruments with -USD-SWAP: {len(swap_data)}")
     if usd_only:
-        rprint(
-            f"SPOT-USD instruments with corresponding SWAP-USD-SWAP instruments: {matching_count}"
-        )
+        rprint(f"SPOT-USD instruments with corresponding SWAP-USD-SWAP instruments: {matching_count}")
     else:
-        rprint(
-            f"SPOT instruments with corresponding SWAP instruments: {matching_count}"
-        )
+        rprint(f"SPOT instruments with corresponding SWAP instruments: {matching_count}")
 
     if verbose or matching_count > 0:
         if usd_only:
-            rprint(
-                "\n[bold cyan]SPOT-USD Instruments with SWAP-USD-SWAP Counterparts:[/bold cyan]"
-            )
+            rprint("\n[bold cyan]SPOT-USD Instruments with SWAP-USD-SWAP Counterparts:[/bold cyan]")
         else:
             rprint("\n[bold cyan]SPOT Instruments with SWAP Counterparts:[/bold cyan]")
 
@@ -176,9 +146,7 @@ def analyze(
             for i, pair in enumerate(matching_spot_instruments):
                 spot_item = pair["spot"]
                 swap_item = pair["swap"]
-                rprint(
-                    f"{i + 1}. {spot_item.get('instId')}, Base: {spot_item.get('baseCcy')}, Quote: {spot_item.get('quoteCcy')}"
-                )
+                rprint(f"{i + 1}. {spot_item.get('instId')}, Base: {spot_item.get('baseCcy')}, Quote: {spot_item.get('quoteCcy')}")
                 rprint(f"   └─ Swap: {swap_item.get('instId')}")
         else:
             rprint("No matching instruments found.")

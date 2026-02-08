@@ -131,9 +131,7 @@ class TestValidateInterval:
 class TestProcessVisionStep:
     """Tests for process_vision_step function (FCP Step 2)."""
 
-    def test_vision_success_returns_data_and_clears_missing(
-        self, sample_ohlcv_df, historical_time_range
-    ):
+    def test_vision_success_returns_data_and_clears_missing(self, sample_ohlcv_df, historical_time_range):
         """Vision API success should return data and clear missing ranges."""
         start_time, end_time = historical_time_range
         missing_ranges = [(start_time, end_time)]
@@ -190,9 +188,7 @@ class TestProcessVisionStep:
         assert result_df.empty
         assert len(remaining_missing) == 1
 
-    def test_vision_merges_with_existing_data(
-        self, sample_ohlcv_df, historical_time_range
-    ):
+    def test_vision_merges_with_existing_data(self, sample_ohlcv_df, historical_time_range):
         """Vision data should merge with existing cache data."""
         start_time, end_time = historical_time_range
 
@@ -284,9 +280,7 @@ class TestProcessRestStep:
 
         mock_save_func.assert_called_once()
 
-    def test_rest_merges_with_existing_data(
-        self, sample_ohlcv_df, historical_time_range
-    ):
+    def test_rest_merges_with_existing_data(self, sample_ohlcv_df, historical_time_range):
         """REST data should merge with existing data."""
         start_time, end_time = historical_time_range
 
@@ -313,9 +307,7 @@ class TestProcessRestStep:
         # Should have merged data from both sources
         assert len(result_df) >= 12
 
-    def test_rest_empty_returns_existing_data(
-        self, sample_ohlcv_df, historical_time_range
-    ):
+    def test_rest_empty_returns_existing_data(self, sample_ohlcv_df, historical_time_range):
         """REST returning empty should preserve existing data."""
         start_time, end_time = historical_time_range
 
@@ -350,22 +342,16 @@ class TestVerifyFinalData:
         with pytest.raises(RuntimeError) as excinfo:
             verify_final_data(pd.DataFrame(), start_time, end_time)
 
-        assert "No data available" in str(excinfo.value) or "All data sources failed" in str(
-            excinfo.value
-        )
+        assert "No data available" in str(excinfo.value) or "All data sources failed" in str(excinfo.value)
 
-    def test_valid_historical_data_passes(
-        self, sample_ohlcv_df, historical_time_range
-    ):
+    def test_valid_historical_data_passes(self, sample_ohlcv_df, historical_time_range):
         """Valid historical data should pass verification."""
         start_time, end_time = historical_time_range
 
         # Should not raise
         verify_final_data(sample_ohlcv_df, start_time, end_time)
 
-    def test_valid_data_with_index_passes(
-        self, sample_ohlcv_df_with_index, historical_time_range
-    ):
+    def test_valid_data_with_index_passes(self, sample_ohlcv_df_with_index, historical_time_range):
         """DataFrame with open_time as index should pass verification."""
         start_time, end_time = historical_time_range
 
@@ -531,14 +517,16 @@ class TestIdentifyMissingSegments:
         timestamps_after = [base + timedelta(hours=i) for i in range(10, 13)]
         all_timestamps = timestamps_before + timestamps_after
 
-        df = pd.DataFrame({
-            "open_time": all_timestamps,
-            "open": [100.0] * len(all_timestamps),
-            "high": [110.0] * len(all_timestamps),
-            "low": [90.0] * len(all_timestamps),
-            "close": [105.0] * len(all_timestamps),
-            "volume": [1000.0] * len(all_timestamps),
-        })
+        df = pd.DataFrame(
+            {
+                "open_time": all_timestamps,
+                "open": [100.0] * len(all_timestamps),
+                "high": [110.0] * len(all_timestamps),
+                "low": [90.0] * len(all_timestamps),
+                "close": [105.0] * len(all_timestamps),
+                "volume": [1000.0] * len(all_timestamps),
+            }
+        )
 
         result = identify_missing_segments(df, base, base + timedelta(hours=12), Interval.HOUR_1)
 
@@ -570,25 +558,29 @@ class TestMergeDataFrames:
         """Two DataFrames should be merged correctly."""
         base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
 
-        df1 = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(6)],
-            "open": [100.0] * 6,
-            "high": [110.0] * 6,
-            "low": [90.0] * 6,
-            "close": [105.0] * 6,
-            "volume": [1000.0] * 6,
-            "_data_source": ["CACHE"] * 6,
-        })
+        df1 = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+                "high": [110.0] * 6,
+                "low": [90.0] * 6,
+                "close": [105.0] * 6,
+                "volume": [1000.0] * 6,
+                "_data_source": ["CACHE"] * 6,
+            }
+        )
 
-        df2 = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(6, 12)],
-            "open": [105.0] * 6,
-            "high": [115.0] * 6,
-            "low": [95.0] * 6,
-            "close": [110.0] * 6,
-            "volume": [1100.0] * 6,
-            "_data_source": ["VISION"] * 6,
-        })
+        df2 = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(6, 12)],
+                "open": [105.0] * 6,
+                "high": [115.0] * 6,
+                "low": [95.0] * 6,
+                "close": [110.0] * 6,
+                "volume": [1100.0] * 6,
+                "_data_source": ["VISION"] * 6,
+            }
+        )
 
         result = merge_dataframes([df1, df2])
 
@@ -600,26 +592,30 @@ class TestMergeDataFrames:
         base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
 
         # CACHE data
-        df_cache = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(6)],
-            "open": [100.0] * 6,
-            "high": [110.0] * 6,
-            "low": [90.0] * 6,
-            "close": [105.0] * 6,
-            "volume": [1000.0] * 6,
-            "_data_source": ["CACHE"] * 6,
-        })
+        df_cache = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+                "high": [110.0] * 6,
+                "low": [90.0] * 6,
+                "close": [105.0] * 6,
+                "volume": [1000.0] * 6,
+                "_data_source": ["CACHE"] * 6,
+            }
+        )
 
         # REST data with same timestamps (should win due to higher priority)
-        df_rest = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(6)],
-            "open": [200.0] * 6,  # Different values
-            "high": [210.0] * 6,
-            "low": [190.0] * 6,
-            "close": [205.0] * 6,
-            "volume": [2000.0] * 6,
-            "_data_source": ["REST"] * 6,
-        })
+        df_rest = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(6)],
+                "open": [200.0] * 6,  # Different values
+                "high": [210.0] * 6,
+                "low": [190.0] * 6,
+                "close": [205.0] * 6,
+                "volume": [2000.0] * 6,
+                "_data_source": ["REST"] * 6,
+            }
+        )
 
         result = merge_dataframes([df_cache, df_rest])
 
@@ -636,15 +632,17 @@ class TestMergeDataFrames:
         # Create DataFrames with same timestamp but different sources
         dfs = []
         for source, value in [("UNKNOWN", 100), ("VISION", 200), ("CACHE", 300), ("REST", 400)]:
-            df = pd.DataFrame({
-                "open_time": [timestamp],
-                "open": [float(value)],
-                "high": [float(value + 10)],
-                "low": [float(value - 10)],
-                "close": [float(value + 5)],
-                "volume": [1000.0],
-                "_data_source": [source],
-            })
+            df = pd.DataFrame(
+                {
+                    "open_time": [timestamp],
+                    "open": [float(value)],
+                    "high": [float(value + 10)],
+                    "low": [float(value - 10)],
+                    "close": [float(value + 5)],
+                    "volume": [1000.0],
+                    "_data_source": [source],
+                }
+            )
             dfs.append(df)
 
         result = merge_dataframes(dfs)
@@ -661,37 +659,43 @@ class TestMergeDataFrames:
         base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
 
         # Cache: hours 0-3
-        df_cache = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(4)],
-            "open": [100.0] * 4,
-            "high": [110.0] * 4,
-            "low": [90.0] * 4,
-            "close": [105.0] * 4,
-            "volume": [1000.0] * 4,
-            "_data_source": ["CACHE"] * 4,
-        })
+        df_cache = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(4)],
+                "open": [100.0] * 4,
+                "high": [110.0] * 4,
+                "low": [90.0] * 4,
+                "close": [105.0] * 4,
+                "volume": [1000.0] * 4,
+                "_data_source": ["CACHE"] * 4,
+            }
+        )
 
         # Vision: hours 4-7
-        df_vision = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(4, 8)],
-            "open": [105.0] * 4,
-            "high": [115.0] * 4,
-            "low": [95.0] * 4,
-            "close": [110.0] * 4,
-            "volume": [1100.0] * 4,
-            "_data_source": ["VISION"] * 4,
-        })
+        df_vision = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(4, 8)],
+                "open": [105.0] * 4,
+                "high": [115.0] * 4,
+                "low": [95.0] * 4,
+                "close": [110.0] * 4,
+                "volume": [1100.0] * 4,
+                "_data_source": ["VISION"] * 4,
+            }
+        )
 
         # REST: hours 8-11
-        df_rest = pd.DataFrame({
-            "open_time": [base + timedelta(hours=i) for i in range(8, 12)],
-            "open": [110.0] * 4,
-            "high": [120.0] * 4,
-            "low": [100.0] * 4,
-            "close": [115.0] * 4,
-            "volume": [1200.0] * 4,
-            "_data_source": ["REST"] * 4,
-        })
+        df_rest = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=i) for i in range(8, 12)],
+                "open": [110.0] * 4,
+                "high": [120.0] * 4,
+                "low": [100.0] * 4,
+                "close": [115.0] * 4,
+                "volume": [1200.0] * 4,
+                "_data_source": ["REST"] * 4,
+            }
+        )
 
         result = merge_dataframes([df_cache, df_vision, df_rest])
 
@@ -750,25 +754,29 @@ class TestSourceAttribution:
         """Mixed source data should preserve individual attributions."""
         base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
 
-        df_cache = pd.DataFrame({
-            "open_time": [base],
-            "open": [100.0],
-            "high": [110.0],
-            "low": [90.0],
-            "close": [105.0],
-            "volume": [1000.0],
-            "_data_source": ["CACHE"],
-        })
+        df_cache = pd.DataFrame(
+            {
+                "open_time": [base],
+                "open": [100.0],
+                "high": [110.0],
+                "low": [90.0],
+                "close": [105.0],
+                "volume": [1000.0],
+                "_data_source": ["CACHE"],
+            }
+        )
 
-        df_rest = pd.DataFrame({
-            "open_time": [base + timedelta(hours=1)],
-            "open": [105.0],
-            "high": [115.0],
-            "low": [95.0],
-            "close": [110.0],
-            "volume": [1100.0],
-            "_data_source": ["REST"],
-        })
+        df_rest = pd.DataFrame(
+            {
+                "open_time": [base + timedelta(hours=1)],
+                "open": [105.0],
+                "high": [115.0],
+                "low": [95.0],
+                "close": [110.0],
+                "volume": [1100.0],
+                "_data_source": ["REST"],
+            }
+        )
 
         result = merge_dataframes([df_cache, df_rest])
 

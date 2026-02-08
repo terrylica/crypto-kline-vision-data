@@ -168,12 +168,7 @@ def validate_ohlcv_integrity(df: pd.DataFrame, symbol: str, market_type: str) ->
         issues.append(f"{low_close_violations} rows where low > close")
 
     # Positive prices
-    negative_prices = (
-        (df["open"] <= 0).sum()
-        + (df["high"] <= 0).sum()
-        + (df["low"] <= 0).sum()
-        + (df["close"] <= 0).sum()
-    )
+    negative_prices = (df["open"] <= 0).sum() + (df["high"] <= 0).sum() + (df["low"] <= 0).sum() + (df["close"] <= 0).sum()
     if negative_prices > 0:
         issues.append(f"{negative_prices} non-positive price values")
 
@@ -208,10 +203,7 @@ def validate_interval_spacing(df: pd.DataFrame, interval: Interval) -> dict:
     # Allow small tolerance for edge cases
     tolerance = expected_seconds * 0.01  # 1% tolerance
 
-    correct_spacing = (
-        (actual_deltas >= expected_seconds - tolerance)
-        & (actual_deltas <= expected_seconds + tolerance)
-    ).sum()
+    correct_spacing = ((actual_deltas >= expected_seconds - tolerance) & (actual_deltas <= expected_seconds + tolerance)).sum()
 
     total_gaps = len(actual_deltas)
     spacing_accuracy = correct_spacing / total_gaps if total_gaps > 0 else 0
@@ -273,8 +265,7 @@ class TestSpotMarketEmpirical:
         spacing_result = validate_interval_spacing(df, interval)
 
         assert spacing_result["valid"], (
-            f"SPOT BTCUSDT {interval.value} spacing validation failed: "
-            f"{spacing_result['spacing_accuracy']:.1%} correct"
+            f"SPOT BTCUSDT {interval.value} spacing validation failed: {spacing_result['spacing_accuracy']:.1%} correct"
         )
 
 
@@ -324,8 +315,7 @@ class TestFuturesUsdtMarketEmpirical:
         spacing_result = validate_interval_spacing(df, interval)
 
         assert spacing_result["valid"], (
-            f"FUTURES_USDT BTCUSDT {interval.value} spacing validation failed: "
-            f"{spacing_result['spacing_accuracy']:.1%} correct"
+            f"FUTURES_USDT BTCUSDT {interval.value} spacing validation failed: {spacing_result['spacing_accuracy']:.1%} correct"
         )
 
 
@@ -375,8 +365,7 @@ class TestFuturesCoinMarketEmpirical:
         spacing_result = validate_interval_spacing(df, interval)
 
         assert spacing_result["valid"], (
-            f"FUTURES_COIN BTCUSD_PERP {interval.value} spacing validation failed: "
-            f"{spacing_result['spacing_accuracy']:.1%} correct"
+            f"FUTURES_COIN BTCUSD_PERP {interval.value} spacing validation failed: {spacing_result['spacing_accuracy']:.1%} correct"
         )
 
 
@@ -389,9 +378,7 @@ class TestFuturesCoinMarketEmpirical:
 class TestCrossMarketConsistency:
     """Validate data consistency across different markets for same underlying."""
 
-    def test_btc_price_correlation_spot_vs_futures(
-        self, spot_manager, futures_usdt_manager
-    ):
+    def test_btc_price_correlation_spot_vs_futures(self, spot_manager, futures_usdt_manager):
         """BTC prices should be highly correlated across SPOT and FUTURES_USDT."""
         spot_df = spot_manager.get_data(
             symbol="BTCUSDT",
@@ -417,9 +404,7 @@ class TestCrossMarketConsistency:
         correlation = spot_aligned.corr(futures_aligned)
         assert correlation > 0.99, f"BTC SPOT vs FUTURES correlation too low: {correlation:.4f}"
 
-    def test_eth_price_correlation_spot_vs_futures(
-        self, spot_manager, futures_usdt_manager
-    ):
+    def test_eth_price_correlation_spot_vs_futures(self, spot_manager, futures_usdt_manager):
         """ETH prices should be highly correlated across SPOT and FUTURES_USDT."""
         spot_df = spot_manager.get_data(
             symbol="ETHUSDT",
@@ -444,9 +429,7 @@ class TestCrossMarketConsistency:
         correlation = spot_aligned.corr(futures_aligned)
         assert correlation > 0.99, f"ETH SPOT vs FUTURES correlation too low: {correlation:.4f}"
 
-    def test_futures_usdt_vs_coin_same_underlying(
-        self, futures_usdt_manager, futures_coin_manager
-    ):
+    def test_futures_usdt_vs_coin_same_underlying(self, futures_usdt_manager, futures_coin_manager):
         """BTC USDT-margined and coin-margined futures should be correlated."""
         usdt_df = futures_usdt_manager.get_data(
             symbol="BTCUSDT",
@@ -603,9 +586,7 @@ class TestFCPSourceTracking:
         if "_data_source" in df.columns:
             sources = df["_data_source"].value_counts(normalize=True)
             cache_or_vision_pct = sources.get("CACHE", 0) + sources.get("VISION", 0)
-            assert cache_or_vision_pct > 0.8, (
-                f"Historical data should be >80% CACHE/VISION, got {cache_or_vision_pct:.1%}"
-            )
+            assert cache_or_vision_pct > 0.8, f"Historical data should be >80% CACHE/VISION, got {cache_or_vision_pct:.1%}"
 
 
 # =============================================================================
@@ -617,9 +598,7 @@ class TestFCPSourceTracking:
 class TestEmpiricalSummaryReport:
     """Generate a summary report of all market validations."""
 
-    def test_generate_validation_summary(
-        self, spot_manager, futures_usdt_manager, futures_coin_manager
-    ):
+    def test_generate_validation_summary(self, spot_manager, futures_usdt_manager, futures_coin_manager):
         """Generate comprehensive validation summary across all markets."""
         results = []
 
@@ -712,13 +691,8 @@ class TestPolarsPipelineE2E:
         # Validate data integrity using existing helper
         result = validate_ohlcv_integrity(df, symbol, market_type.name)
 
-        assert result["valid"], (
-            f"Polars pipeline data integrity failed for {symbol}/{market_type.name}: "
-            f"{result['issues']}"
-        )
-        assert result["row_count"] >= 100, (
-            f"Expected 100+ rows for 7 days 1h, got {result['row_count']}"
-        )
+        assert result["valid"], f"Polars pipeline data integrity failed for {symbol}/{market_type.name}: {result['issues']}"
+        assert result["row_count"] >= 100, f"Expected 100+ rows for 7 days 1h, got {result['row_count']}"
 
     @pytest.mark.parametrize(
         "interval,expected_min_rows",
@@ -747,9 +721,7 @@ class TestPolarsPipelineE2E:
             pytest.skip(f"No data returned for interval {interval.value}")
 
         # Verify row count meets expectation
-        assert len(df) >= expected_min_rows, (
-            f"Interval {interval.value}: Expected {expected_min_rows}+ rows, got {len(df)}"
-        )
+        assert len(df) >= expected_min_rows, f"Interval {interval.value}: Expected {expected_min_rows}+ rows, got {len(df)}"
 
         # Verify interval spacing
         spacing_result = validate_interval_spacing(df, interval)
@@ -774,17 +746,13 @@ class TestPolarsPipelineE2E:
         )
         manager.close()
 
-        assert isinstance(result, pl.DataFrame), (
-            f"Expected pl.DataFrame, got {type(result).__name__}"
-        )
+        assert isinstance(result, pl.DataFrame), f"Expected pl.DataFrame, got {type(result).__name__}"
         assert len(result) >= 100, f"Expected 100+ rows, got {len(result)}"
 
         # Verify Polars schema
         expected_cols = {"open_time", "open", "high", "low", "close", "volume"}
         actual_cols = set(result.columns)
-        assert expected_cols.issubset(actual_cols), (
-            f"Missing columns: {expected_cols - actual_cols}"
-        )
+        assert expected_cols.issubset(actual_cols), f"Missing columns: {expected_cols - actual_cols}"
 
     def test_polars_pipeline_source_tracking(self):
         """Verify _data_source column tracks FCP sources correctly."""
@@ -806,9 +774,7 @@ class TestPolarsPipelineE2E:
         valid_sources = {"CACHE", "VISION", "REST"}
         actual_sources = set(df["_data_source"].unique())
 
-        assert actual_sources.issubset(valid_sources), (
-            f"Invalid sources found: {actual_sources - valid_sources}"
-        )
+        assert actual_sources.issubset(valid_sources), f"Invalid sources found: {actual_sources - valid_sources}"
 
         # Historical data should be mostly CACHE/VISION
         source_pcts = df["_data_source"].value_counts(normalize=True)

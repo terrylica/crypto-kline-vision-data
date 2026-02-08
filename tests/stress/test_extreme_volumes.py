@@ -131,10 +131,7 @@ class TestMemoryScaling:
         # Memory should scale roughly linearly with rows
         # Allow 2x tolerance for fixed overhead
         # If row_ratio is ~4x, memory_ratio should be < 8x
-        assert memory_ratio < row_ratio * 2, (
-            f"Memory scaling non-linear: "
-            f"rows grew {row_ratio:.1f}x but memory grew {memory_ratio:.1f}x"
-        )
+        assert memory_ratio < row_ratio * 2, f"Memory scaling non-linear: rows grew {row_ratio:.1f}x but memory grew {memory_ratio:.1f}x"
 
     def test_incremental_fetch_memory_stable(self, memory_tracker):
         """Fetching data in increments should not accumulate memory."""

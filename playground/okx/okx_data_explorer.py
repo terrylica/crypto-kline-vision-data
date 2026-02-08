@@ -60,9 +60,7 @@ def build_url(data_type: str, symbol: str, date_obj: datetime.date) -> str:
         Full URL to the data file
     """
     dir_date, file_date = format_date(date_obj)
-    return (
-        f"{BASE_URL}/{data_type}/daily/{dir_date}/{symbol}-{data_type}-{file_date}.zip"
-    )
+    return f"{BASE_URL}/{data_type}/daily/{dir_date}/{symbol}-{data_type}-{file_date}.zip"
 
 
 def check_url_exists(url: str, timeout: float = DEFAULT_TIMEOUT) -> bool:
@@ -85,9 +83,7 @@ def check_url_exists(url: str, timeout: float = DEFAULT_TIMEOUT) -> bool:
         return False
 
 
-def download_file(
-    url: str, output_path: Path, timeout: float = DEFAULT_TIMEOUT
-) -> bool:
+def download_file(url: str, output_path: Path, timeout: float = DEFAULT_TIMEOUT) -> bool:
     """
     Download a file from the given URL
 
@@ -102,13 +98,9 @@ def download_file(
     try:
         with httpx.Client() as client:
             with Progress() as progress:
-                task = progress.add_task(
-                    f"[cyan]Downloading {output_path.name}...", total=None
-                )
+                task = progress.add_task(f"[cyan]Downloading {output_path.name}...", total=None)
 
-                with client.stream(
-                    "GET", url, timeout=timeout, follow_redirects=True
-                ) as response:
+                with client.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
                     response.raise_for_status()
 
                     # Get content length if available
@@ -173,16 +165,11 @@ def explore_date_range(
                 combinations.append((url, data_type, symbol, date))
 
     with Progress() as progress:
-        task = progress.add_task(
-            "[green]Checking available files...", total=len(combinations)
-        )
+        task = progress.add_task("[green]Checking available files...", total=len(combinations))
 
         # Use ThreadPoolExecutor to check URLs in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            future_to_url = {
-                executor.submit(check_url_exists, combo[0]): combo
-                for combo in combinations
-            }
+            future_to_url = {executor.submit(check_url_exists, combo[0]): combo for combo in combinations}
 
             for future in concurrent.futures.as_completed(future_to_url):
                 url, data_type, symbol, date = future_to_url[future]
@@ -190,9 +177,7 @@ def explore_date_range(
                     exists = future.result()
                     if exists:
                         available_files[data_type].append((symbol, date))
-                        print(
-                            f"[green]Found: {data_type} data for {symbol} on {date.isoformat()}[/green]"
-                        )
+                        print(f"[green]Found: {data_type} data for {symbol} on {date.isoformat()}[/green]")
                 except Exception as e:
                     print(f"[red]Error checking {url}: {e!s}[/red]")
 
@@ -223,12 +208,8 @@ def preview_zip_content(zip_path: Path) -> None:
 
                         # Print information
                         console.print(f"[bold]File[/bold]: {file_name}")
-                        console.print(
-                            f"[bold]Shape[/bold]: {df.shape[0]} rows, {df.shape[1]} columns"
-                        )
-                        console.print(
-                            "[bold]Columns[/bold]:", ", ".join(df.columns.tolist())
-                        )
+                        console.print(f"[bold]Shape[/bold]: {df.shape[0]} rows, {df.shape[1]} columns")
+                        console.print("[bold]Columns[/bold]:", ", ".join(df.columns.tolist()))
 
                         # Create a table for preview
                         table = Table(title=f"Preview of {file_name}")
@@ -245,25 +226,15 @@ def preview_zip_content(zip_path: Path) -> None:
 
                         # Basic statistics
                         if "price" in df.columns:
-                            console.print(
-                                f"[bold]Price Range[/bold]: {df['price'].min()} - {df['price'].max()}"
-                            )
+                            console.print(f"[bold]Price Range[/bold]: {df['price'].min()} - {df['price'].max()}")
 
                         if "created_time" in df.columns and len(df) > 0:
                             # Convert timestamps
                             try:
-                                timestamps = pd.to_datetime(
-                                    df["created_time"], unit="ms"
-                                )
-                                min_time = timestamps.min().strftime(
-                                    "%Y-%m-%d %H:%M:%S"
-                                )
-                                max_time = timestamps.max().strftime(
-                                    "%Y-%m-%d %H:%M:%S"
-                                )
-                                console.print(
-                                    f"[bold]Time Range[/bold]: {min_time} - {max_time}"
-                                )
+                                timestamps = pd.to_datetime(df["created_time"], unit="ms")
+                                min_time = timestamps.min().strftime("%Y-%m-%d %H:%M:%S")
+                                max_time = timestamps.max().strftime("%Y-%m-%d %H:%M:%S")
+                                console.print(f"[bold]Time Range[/bold]: {min_time} - {max_time}")
                             except Exception:
                                 pass
 
@@ -272,9 +243,7 @@ def preview_zip_content(zip_path: Path) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Explore and download OKX historical data"
-    )
+    parser = argparse.ArgumentParser(description="Explore and download OKX historical data")
 
     # Date range arguments
     parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD)")
@@ -380,21 +349,15 @@ def main():
         return
 
     if end_date > today:
-        print(
-            f"[yellow]Warning: End date {end_date.isoformat()} is in the future, limiting to today.[/yellow]"
-        )
+        print(f"[yellow]Warning: End date {end_date.isoformat()} is in the future, limiting to today.[/yellow]")
         end_date = today
 
-    print(
-        f"[bold]Exploring data from {start_date.isoformat()} to {end_date.isoformat()}[/bold]"
-    )
+    print(f"[bold]Exploring data from {start_date.isoformat()} to {end_date.isoformat()}[/bold]")
     print(f"[bold]Data types[/bold]: {', '.join(args.data_types)}")
     print(f"[bold]Symbols[/bold]: {', '.join(args.symbols)}")
 
     # Explore data
-    available_files = explore_date_range(
-        start_date, end_date, args.data_types, args.symbols
-    )
+    available_files = explore_date_range(start_date, end_date, args.data_types, args.symbols)
 
     # Print summary
     console.print("\n[bold]Summary of Available Data:[/bold]")
@@ -422,10 +385,7 @@ def main():
                     print(f"[green]Downloaded {file_name} to {output_path}[/green]")
 
                     # Preview the first downloaded file
-                    if (
-                        data_type == available_files[args.data_types[0]][0][0]
-                        and date == available_files[args.data_types[0]][0][1]
-                    ):
+                    if data_type == available_files[args.data_types[0]][0][0] and date == available_files[args.data_types[0]][0][1]:
                         preview_zip_content(output_path)
 
 

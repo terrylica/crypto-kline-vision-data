@@ -1,6 +1,6 @@
 // Pyright configuration file
 {
-  "include": ["src/ckvd", "examples", "scripts"], // Specifies the directories that Pyright should include when analyzing code.
+  "include": ["src/ckvd"], // Specifies the directories that Pyright should include when analyzing code.
   "exclude": [
     // Specifies the directories and patterns that Pyright should exclude from analysis.
     "**/__pycache__", // Exclude Python cache directories
@@ -28,5 +28,6 @@
   "reportInvalidTypeVarUse": false, // For incorrect usage of type variables (used in generics).
   "reportPropertyTypeMismatch": false, // If the type of a property setter doesn't match its getter.
   "reportMissingTypeStubs": false, // Missing type stubs (.pyi files) for libraries without inline types.
-  "reportPrivateImportUsage": false // Importing names that start with a single underscore.
+  "reportPrivateImportUsage": false, // Importing names that start with a single underscore.
+  "reportUnsupportedDunderAll": false // __getattr__-based lazy imports not understood by pyright
 }

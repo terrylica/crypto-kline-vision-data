@@ -264,7 +264,7 @@ Specialized subagents for delegation (in `.claude/agents/`):
 | silent-failure-hunter | Finds silent failures and bare excepts |
 | fcp-debugger          | Diagnoses FCP issues                   |
 | api-reviewer          | Reviews code for API consistency       |
-| test-writer           | Writes tests following CKVD patterns    |
+| test-writer           | Writes tests following CKVD patterns   |
 | data-fetcher          | Fetches data with proper FCP handling  |
 
 ---
@@ -277,7 +277,7 @@ Slash commands in `.claude/commands/`:
 | -------------- | --------------------------------- |
 | /debug-fcp     | Debug FCP behavior for a symbol   |
 | /quick-test    | Run quick verification tests      |
-| /review-ckvd    | Review code against CKVD patterns  |
+| /review-ckvd   | Review code against CKVD patterns |
 | /fetch-data    | Fetch market data with validation |
 | /validate-data | Validate DataFrame structure      |
 | /feature-dev   | Guided feature development        |
@@ -291,45 +291,6 @@ Slash commands in `.claude/commands/`:
 | This repo docs | Repo-root (`/`) | `[ADR](/docs/adr/file.md)`       |
 | Skill-internal | Relative (`./`) | `[Guide](./references/guide.md)` |
 | External       | Full URL        | `[Docs](https://example.com)`    |
-
----
-
-## Session Management
-
-**Context is the primary constraint.** Performance degrades as context fills (~20k baseline, ~180k for work).
-
-| Workflow       | When to Use             | How                                      |
-| -------------- | ----------------------- | ---------------------------------------- |
-| `/clear`       | Between unrelated tasks | Reset context completely                 |
-| `/compact X`   | Long task, need focus   | Summarize with specific focus            |
-| Document-Clear | Complex multi-step task | Dump progress to markdown, then `/clear` |
-| Subagent       | Exploration/research    | Task tool keeps main context clean       |
-
-**Rules of thumb**:
-
-- After 2 failed corrections → `/clear` and rewrite prompt
-- Investigation without scope fills context → always bound searches
-- Run `/context` mid-session to monitor token usage
-
-**Proactive delegation**: Agents with "Use proactively" in description auto-trigger.
-
-**Personal preferences**: Use `CLAUDE.local.md` (gitignored) for individual settings.
-
----
-
-## Recent Lessons Learned
-
-**2026-02-05**: Performance benchmarks published - Polars 6.35x faster, streaming 1.42x faster. [Benchmarks](/docs/benchmarks/README.md)
-
-**2026-02-05**: API boundary defaults to Pandas (`return_polars=False`), internal processing uses Polars.
-
-**2026-02-01**: DRY audit identified consolidation opportunities - dual logger systems, cache function wrappers, scattered symbol validation. [RESUME.md](/docs/RESUME.md)
-
-**2026-02-01**: Example files must use `ckvd.` prefix imports, not relative imports from `__init__`.
-
-**2026-01-30**: Lazy-loaded CLAUDE.md in subdirs (src/, docs/, examples/, tests/, scripts/).
-
-**2025-01-30**: FCP priority is Cache → Vision → REST. [FCP ADR](/docs/adr/2025-01-30-failover-control-protocol.md)
 
 ---
 

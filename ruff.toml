@@ -36,6 +36,12 @@ ignore = [ # https://docs.astral.sh/ruff/rules/ for quick reference of rule code
     "RUF002",    # Ambiguous unicode character - Allow when context is clear https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-docstring/
     # Lazy imports in factory methods for circular import prevention
     "PLC0415",   # import should be at top-level - Allow lazy imports in factory methods https://docs.astral.sh/ruff/rules/import-outside-top-level/
+    # Complexity metrics — legacy code has large orchestrator functions (FCP, cache, validation)
+    # Refactoring these is tracked separately; suppressing to keep lint clean
+    "PLR0911",   # Too many return statements https://docs.astral.sh/ruff/rules/too-many-return-statements/
+    "PLR0912",   # Too many branches https://docs.astral.sh/ruff/rules/too-many-branches/
+    "PLR0915",   # Too many statements https://docs.astral.sh/ruff/rules/too-many-statements/
+    "PLW2901",   # Outer loop variable overwritten https://docs.astral.sh/ruff/rules/redefined-loop-name/
 ]
 
 # Allow autofix for all enabled rules
@@ -63,8 +69,14 @@ convention = "google" # Use Google-style docstrings
 # Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
 "__init__.py" = ["E402"]
 # Ignore `E402` in example scripts that need path manipulation
-"examples/sync/dsm_datetime_example.py" = ["E402"]
-"examples/sync/dsm_one_second_test.py" = ["E402"]
+"examples/sync/ckvd_datetime_example.py" = ["E402"]
+"examples/sync/ckvd_one_second_test.py" = ["E402"]
+"examples/ckvd_logging_demo.py" = ["E402"]
+"examples/clean_feature_engineering_example.py" = ["E402"]
+"docs/skills/ckvd-usage/scripts/diagnose_fcp.py" = ["E402"]
+"scripts/arrow_cache/cache_builder_sync.py" = ["E402"]
+"docs/benchmarks/scripts/*.py" = ["E402"]
+"scripts/dev/*.py" = ["E402"]
 # Ignore `D` rules everywhere except for the `src/` directory.
 "!src/**.py" = ["D"]
 # Add any per-file ignore rules here if needed

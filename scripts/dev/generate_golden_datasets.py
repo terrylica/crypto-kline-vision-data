@@ -62,9 +62,7 @@ FIXTURES_DIR = Path(__file__).parent.parent.parent / "tests" / "fixtures" / "gol
 @app.command()
 def generate(
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", "-n", help="Show what would be generated without creating files"
-    ),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show what would be generated without creating files"),
 ):
     """Generate all golden dataset fixtures."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)

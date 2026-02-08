@@ -197,10 +197,7 @@ class TestSmallIntervalMemory:
             ratio = mb_per_row_3d / mb_per_row_1d if mb_per_row_1d > 0 else float("inf")
 
             # 3x data shouldn't have worse than 2x memory per row
-            assert ratio < 2.0, (
-                f"Memory scaling not linear: "
-                f"1d={mb_per_row_1d:.4f}MB/row, 3d={mb_per_row_3d:.4f}MB/row, ratio={ratio:.2f}x"
-            )
+            assert ratio < 2.0, f"Memory scaling not linear: 1d={mb_per_row_1d:.4f}MB/row, 3d={mb_per_row_3d:.4f}MB/row, ratio={ratio:.2f}x"
 
     def test_small_interval_cleanup_no_leak(self, memory_tracker):
         """Repeated small interval fetches should not leak memory."""

@@ -111,16 +111,7 @@ def get_cache_path(
     interval_str = interval.value
 
     # Construct path components
-    return (
-        cache_root
-        / provider_dir
-        / market_dir
-        / chart_dir
-        / "daily"
-        / symbol.upper()
-        / interval_str
-        / f"{cache_date.isoformat()}.arrow"
-    )
+    return cache_root / provider_dir / market_dir / chart_dir / "daily" / symbol.upper() / interval_str / f"{cache_date.isoformat()}.arrow"
 
 
 def get_cache_dir_for_symbol(
@@ -221,9 +212,9 @@ def get_cache_lazyframes(
                     # open_time == end_time would represent data AFTER the requested range.
                     lf = _scan_cache_file(cache_path)
 
-                    lf = lf.filter(
-                        (pl.col("open_time") >= start_time) & (pl.col("open_time") < end_time)
-                    ).with_columns(pl.lit("CACHE").alias("_data_source"))
+                    lf = lf.filter((pl.col("open_time") >= start_time) & (pl.col("open_time") < end_time)).with_columns(
+                        pl.lit("CACHE").alias("_data_source")
+                    )
 
                     lazy_frames.append(lf)
                     logger.debug(f"Added LazyFrame for {current_date.format('YYYY-MM-DD')}")
@@ -313,9 +304,7 @@ def get_from_cache(
 
                     # Apply time range filter with predicate pushdown
                     # Note: Polars datetime comparison requires proper type handling
-                    filtered_lf = lf.filter(
-                        (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
-                    )
+                    filtered_lf = lf.filter((pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time))
 
                     # Collect filtered data using streaming engine for better memory efficiency
                     # Source: https://pola.rs/posts/polars-in-aggregate-dec25/ (3-7x faster, less memory)

@@ -16,6 +16,7 @@ console = Console()
 
 BASE_URL = "https://api.bybit.com/v5/market/kline"
 
+
 def check_for_duplicates(klines: list[list[str]]) -> tuple[bool, int]:
     """Checks a list of klines for duplicates based on timestamp."""
     if not klines:
@@ -27,6 +28,7 @@ def check_for_duplicates(klines: list[list[str]]) -> tuple[bool, int]:
     num_duplicates = len(timestamps) - len(unique_timestamps)
     return has_duplicates, num_duplicates
 
+
 def interval_to_ms(interval: str) -> int:
     """Converts interval string (5, 15) to milliseconds."""
     if interval == "5":
@@ -36,6 +38,7 @@ def interval_to_ms(interval: str) -> int:
     else:
         # This case should be caught by the interval validation in main
         raise ValueError("Unsupported interval")
+
 
 @app.command()
 def main(
@@ -60,7 +63,7 @@ def main(
     for limit in limits:
         console.print(f"\n[bold yellow]Testing with limit={limit}[/bold yellow]")
         all_klines_for_limit: list[list[str]] = []
-        end_time_ms: int | None = None # Use the timestamp of the first kline in the previous batch as the end time
+        end_time_ms: int | None = None  # Use the timestamp of the first kline in the previous batch as the end time
 
         for batch_num in range(num_batches):
             console.print(f"  Fetching batch {batch_num + 1}/{num_batches} with limit={limit}...")
@@ -72,13 +75,13 @@ def main(
                 "limit": limit,
             }
             if end_time_ms is not None:
-                 params["end"] = end_time_ms
+                params["end"] = end_time_ms
 
             try:
                 # Use a small delay to avoid hitting rate limits quickly
                 time.sleep(0.1)
                 response = httpx.get(BASE_URL, params=params)
-                response.raise_for_status() # Raise an exception for bad status codes
+                response.raise_for_status()  # Raise an exception for bad status codes
                 data = response.json()
 
                 if data["retCode"] != 0:
@@ -121,7 +124,7 @@ def main(
         table.add_row(
             str(len(all_klines_for_limit)),
             "[bold green]No[/bold green]" if not has_duplicates else "[bold red]Yes[/bold red]",
-            str(num_duplicates)
+            str(num_duplicates),
         )
 
         console.print(table)

@@ -179,10 +179,7 @@ class BinanceFundingRateClient(DataClientInterface):
                                 try:
                                     converted = df[col].astype(dtype)
                                     # For numeric types, check for data loss in conversion
-                                    if (
-                                        pd.api.types.is_numeric_dtype(df[col])
-                                        and pd.api.types.is_numeric_dtype(converted)
-                                    ):
+                                    if pd.api.types.is_numeric_dtype(df[col]) and pd.api.types.is_numeric_dtype(converted):
                                         # Reuse original_values instead of calling .to_numpy() again
                                         converted_values = converted.dropna().to_numpy()
                                         if not (converted_values == original_values).all():

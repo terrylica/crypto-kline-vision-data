@@ -31,9 +31,7 @@ def fetch_funding_rates():
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(days=5)
 
-        logger.info(
-            f"Fetching funding rate data for BTCUSDT from {start_time} to {end_time}"
-        )
+        logger.info(f"Fetching funding rate data for BTCUSDT from {start_time} to {end_time}")
 
         # Fetch funding rate data
         df = ckvd.get_data(

@@ -186,7 +186,7 @@ class UnifiedCacheManager:
         provider = provider.upper()
         chart_type = chart_type.upper()
         market_type = market_type.upper()  # Normalize to uppercase for key consistency
-        interval = str(interval).upper()   # Normalize to uppercase for key consistency
+        interval = str(interval).upper()  # Normalize to uppercase for key consistency
 
         # Format date to YYYYMMDD format
         date_str = date.strftime("%Y%m%d")

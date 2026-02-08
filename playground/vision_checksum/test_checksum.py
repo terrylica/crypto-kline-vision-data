@@ -21,24 +21,12 @@ console = Console()
 
 def setup_argparse() -> argparse.Namespace:
     """Set up command line argument parsing."""
-    parser = argparse.ArgumentParser(
-        description="Download and analyze CHECKSUM files from Binance Data"
-    )
-    parser.add_argument(
-        "symbols", nargs="*", help="Symbols to check (e.g. BTCUSDT ETHUSDT)"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable verbose output"
-    )
-    parser.add_argument(
-        "--validate", metavar="FILE", help="Validate file against its checksum"
-    )
-    parser.add_argument(
-        "--checksum-url", metavar="URL", help="Specify checksum file URL"
-    )
-    parser.add_argument(
-        "--date", help="Date in YYYY-MM-DD format to check (defaults to today)"
-    )
+    parser = argparse.ArgumentParser(description="Download and analyze CHECKSUM files from Binance Data")
+    parser.add_argument("symbols", nargs="*", help="Symbols to check (e.g. BTCUSDT ETHUSDT)")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("--validate", metavar="FILE", help="Validate file against its checksum")
+    parser.add_argument("--checksum-url", metavar="URL", help="Specify checksum file URL")
+    parser.add_argument("--date", help="Date in YYYY-MM-DD format to check (defaults to today)")
     parser.add_argument("--interval", default="1m", help="Kline interval (default: 1m)")
     parser.add_argument("--market", default="spot", help="Market type (spot, um, cm)")
     return parser.parse_args()
@@ -53,9 +41,7 @@ def download_file(url: str, output_path: Path) -> bool:
             with httpx.Client(timeout=30.0) as client:
                 with client.stream("GET", url) as response:
                     if response.status_code != HTTP_OK:
-                        console.print(
-                            f"[red]Error downloading {url}: {response.status_code}"
-                        )
+                        console.print(f"[red]Error downloading {url}: {response.status_code}")
                         return False
 
                     total_size = int(response.headers.get("content-length", 0))
@@ -131,9 +117,7 @@ def validate_file_checksum(file_path: Path, checksum_url: str) -> tuple[bool, st
             os.unlink(temp_path)
 
 
-def show_checksums_for_symbol(
-    symbol: str, date: str, interval: str = "1m", market: str = "spot"
-) -> None:
+def show_checksums_for_symbol(symbol: str, date: str, interval: str = "1m", market: str = "spot") -> None:
     """Download and display checksum for a specific symbol."""
     # Construct URL for the data file
     base_url = "https://data.binance.vision/data"
@@ -156,23 +140,14 @@ def show_checksums_for_symbol(
                 content_length = len(content)
                 preview_length = min(40, content_length)
                 console.print("\n[bold]Raw checksum file content preview:[/bold]")
-                console.print(
-                    f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)"
-                )
+                console.print(f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)")
 
                 # Try to decode as text
                 console.print("\n[bold]Decoded content preview:[/bold]")
                 try:
                     text_content = content.decode("utf-8", errors="replace")
-                    text_preview = (
-                        text_content[:TEXT_PREVIEW_LENGTH]
-                        if len(text_content) > TEXT_PREVIEW_LENGTH
-                        else text_content
-                    )
-                    console.print(
-                        f"{text_preview}"
-                        + ("..." if len(text_content) > TEXT_PREVIEW_LENGTH else "")
-                    )
+                    text_preview = text_content[:TEXT_PREVIEW_LENGTH] if len(text_content) > TEXT_PREVIEW_LENGTH else text_content
+                    console.print(f"{text_preview}" + ("..." if len(text_content) > TEXT_PREVIEW_LENGTH else ""))
                 except Exception as e:
                     console.print(f"[red]Error decoding content: {e}")
         except Exception as e:
@@ -195,14 +170,8 @@ def show_checksums_for_symbol(
 
             # Add extracted checksum row
             if extracted_checksum:
-                match_status = (
-                    "[green]✓ MATCH"
-                    if extracted_checksum.lower() == calculated_checksum.lower()
-                    else "[red]✗ MISMATCH"
-                )
-                table.add_row(
-                    "Extracted from .CHECKSUM file", extracted_checksum, match_status
-                )
+                match_status = "[green]✓ MATCH" if extracted_checksum.lower() == calculated_checksum.lower() else "[red]✗ MISMATCH"
+                table.add_row("Extracted from .CHECKSUM file", extracted_checksum, match_status)
             else:
                 table.add_row(
                     "Extracted from .CHECKSUM file",
@@ -216,11 +185,7 @@ def show_checksums_for_symbol(
             # Add additional rows for DataValidation implementation
             if calculated_checksum:
                 validation_result = DataValidation.calculate_checksum(zip_path)
-                validation_match = (
-                    "[green]✓ MATCH"
-                    if validation_result.lower() == calculated_checksum.lower()
-                    else "[red]✗ MISMATCH"
-                )
+                validation_match = "[green]✓ MATCH" if validation_result.lower() == calculated_checksum.lower() else "[red]✗ MISMATCH"
                 table.add_row(
                     "DataValidation.calculate_checksum()",
                     validation_result,
@@ -239,12 +204,8 @@ def main():
             console.print(f"[red]File not found: {file_path}")
             return
 
-        console.print(
-            f"[bold]Validating[/bold] {file_path} against {args.checksum_url}"
-        )
-        is_valid, expected, actual = validate_file_checksum(
-            file_path, args.checksum_url
-        )
+        console.print(f"[bold]Validating[/bold] {file_path} against {args.checksum_url}")
+        is_valid, expected, actual = validate_file_checksum(file_path, args.checksum_url)
 
         table = Table(title="Checksum Validation Results")
         table.add_column("Type", style="cyan")

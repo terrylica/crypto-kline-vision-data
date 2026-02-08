@@ -58,13 +58,11 @@ def create_retry_decorator(retry_count: int = 3):
     """
     return retry(
         stop=stop_after_attempt(retry_count),
-        wait=wait_exponential(multiplier=1, min=1, max=MAX_RETRY_WAIT_SECONDS)
-        + _jitter_wait(),
+        wait=wait_exponential(multiplier=1, min=1, max=MAX_RETRY_WAIT_SECONDS) + _jitter_wait(),
         retry=_RetryIfNotRateLimit(),
         reraise=True,
         before_sleep=lambda retry_state: logger.warning(
-            f"Retrying after error (attempt {retry_state.attempt_number}/{retry_count}): "
-            f"{retry_state.outcome.exception()}"
+            f"Retrying after error (attempt {retry_state.attempt_number}/{retry_count}): {retry_state.outcome.exception()}"
         ),
     )
 

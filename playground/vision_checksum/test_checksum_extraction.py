@@ -42,13 +42,9 @@ def setup_argparse() -> argparse.ArgumentParser:
     Returns:
         Configured argument parser object
     """
-    parser = argparse.ArgumentParser(
-        description="Test checksum extraction from various CHECKSUM file formats"
-    )
+    parser = argparse.ArgumentParser(description="Test checksum extraction from various CHECKSUM file formats")
 
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     parser.add_argument(
         "--test-types",
@@ -80,9 +76,7 @@ def generate_random_sha256() -> str:
     Returns:
         Random SHA-256 hash string (64 hex characters)
     """
-    random_data = "".join(
-        random.choice(string.ascii_letters + string.digits) for _ in range(64)
-    )
+    random_data = "".join(random.choice(string.ascii_letters + string.digits) for _ in range(64))
     return hashlib.sha256(random_data.encode()).hexdigest()
 
 
@@ -126,9 +120,7 @@ def create_test_files() -> list[tuple[str, str, Path]]:
     checksum4a = generate_random_sha256()
     checksum4b = generate_random_sha256()  # This is the one that should be extracted
     filename4 = "BNBUSDT-1m-2023-01-01.zip"
-    content4 = (
-        f"Invalid line with {checksum4a}\nAnother line\n{checksum4b}  {filename4}"
-    )
+    content4 = f"Invalid line with {checksum4a}\nAnother line\n{checksum4b}  {filename4}"
     path4 = temp_dir / "multiple_checksums.CHECKSUM"
     with open(path4, "w") as f:
         f.write(content4)
@@ -172,15 +164,11 @@ def download_file(url: str, output_path: Path, verbose: bool = False) -> bool:
             TimeRemainingColumn(),
             disable=not verbose,
         ) as progress:
-            download_task = progress.add_task(
-                f"Downloading {output_path.name}", total=None
-            )
+            download_task = progress.add_task(f"Downloading {output_path.name}", total=None)
 
             with httpx.stream("GET", url, follow_redirects=True) as response:
                 if response.status_code != HTTP_OK:
-                    logger.error(
-                        f"Failed to download {url}: HTTP {response.status_code}"
-                    )
+                    logger.error(f"Failed to download {url}: HTTP {response.status_code}")
                     return False
 
                 response.raise_for_status()
@@ -196,18 +184,14 @@ def download_file(url: str, output_path: Path, verbose: bool = False) -> bool:
                         if total_size:
                             progress.update(download_task, completed=num_bytes)
 
-                logger.info(
-                    f"Downloaded {output_path.name} ({output_path.stat().st_size} bytes)"
-                )
+                logger.info(f"Downloaded {output_path.name} ({output_path.stat().st_size} bytes)")
                 return True
     except Exception as e:
         logger.error(f"Error downloading {url}: {e}")
         return False
 
 
-def test_real_checksum_extraction(
-    symbol: str, date: str, verbose: bool = False
-) -> tuple[bool, str | None, str | None]:
+def test_real_checksum_extraction(symbol: str, date: str, verbose: bool = False) -> tuple[bool, str | None, str | None]:
     """
     Test checksum extraction with a real checksum file from Binance Vision API.
 
@@ -241,22 +225,13 @@ def test_real_checksum_extraction(
                 content_length = len(content)
                 preview_length = min(40, content_length)
                 rprint("\n[bold]Raw checksum file content preview:[/bold]")
-                rprint(
-                    f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)"
-                )
+                rprint(f"{content[:preview_length]} (+ {content_length - preview_length} more bytes, {content_length} total)")
 
                 try:
                     decoded = content.decode("utf-8", errors="replace")
-                    decoded_preview = (
-                        decoded[:TEXT_PREVIEW_LENGTH]
-                        if len(decoded) > TEXT_PREVIEW_LENGTH
-                        else decoded
-                    )
+                    decoded_preview = decoded[:TEXT_PREVIEW_LENGTH] if len(decoded) > TEXT_PREVIEW_LENGTH else decoded
                     rprint("\n[bold]Decoded content preview:[/bold]")
-                    rprint(
-                        f"{decoded_preview}"
-                        + ("..." if len(decoded) > TEXT_PREVIEW_LENGTH else "")
-                    )
+                    rprint(f"{decoded_preview}" + ("..." if len(decoded) > TEXT_PREVIEW_LENGTH else ""))
                 except Exception:
                     pass
 
@@ -272,9 +247,7 @@ def test_real_checksum_extraction(
         return False, None, str(e)
 
 
-def test_extract_checksum(
-    test_files: list[tuple[str, str, Path]], verbose: bool = False
-) -> dict[str, dict[str, Any]]:
+def test_extract_checksum(test_files: list[tuple[str, str, Path]], verbose: bool = False) -> dict[str, dict[str, Any]]:
     """
     Test the extraction of checksums from different file formats.
 
@@ -394,13 +367,9 @@ def main() -> int:
     real_test_result = None
     if "real" in args.test_types:
         if args.verbose:
-            rprint(
-                f"\n[bold]Testing with real checksum file for {args.symbol} on {args.date}[/bold]"
-            )
+            rprint(f"\n[bold]Testing with real checksum file for {args.symbol} on {args.date}[/bold]")
 
-        real_test_result = test_real_checksum_extraction(
-            args.symbol, args.date, args.verbose
-        )
+        real_test_result = test_real_checksum_extraction(args.symbol, args.date, args.verbose)
 
         if args.verbose:
             success, extracted, error = real_test_result

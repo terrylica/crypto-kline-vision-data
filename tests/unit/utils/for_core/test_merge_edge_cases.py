@@ -73,9 +73,7 @@ class TestPartialOverlapMerge:
         Result: hours 0-8, df2 wins for hours 3-5 (if higher priority)
         """
         df1 = make_ohlcv_df(base_time, hours=6, source="CACHE", open_base=100.0)
-        df2 = make_ohlcv_df(
-            base_time, hours=6, source="REST", offset_hours=3, open_base=200.0
-        )
+        df2 = make_ohlcv_df(base_time, hours=6, source="REST", offset_hours=3, open_base=200.0)
 
         result = merge_dataframes([df1, df2])
 
@@ -92,9 +90,7 @@ class TestPartialOverlapMerge:
         Pattern: df1 covers hours 3-8, df2 covers hours 0-5
         Result: hours 0-8, df1 (REST) wins for hours 3-5
         """
-        df1 = make_ohlcv_df(
-            base_time, hours=6, source="REST", offset_hours=3, open_base=200.0
-        )
+        df1 = make_ohlcv_df(base_time, hours=6, source="REST", offset_hours=3, open_base=200.0)
         df2 = make_ohlcv_df(base_time, hours=6, source="VISION", open_base=100.0)
 
         result = merge_dataframes([df1, df2])

@@ -114,9 +114,7 @@ class TestGoldenDatasetRegression:
 
         manager.close()
 
-        assert len(df) == len(golden_btcusdt_spot), (
-            f"Row count mismatch: current={len(df)}, golden={len(golden_btcusdt_spot)}"
-        )
+        assert len(df) == len(golden_btcusdt_spot), f"Row count mismatch: current={len(df)}, golden={len(golden_btcusdt_spot)}"
 
         ohlcv_cols = ["open", "high", "low", "close", "volume"]
 
@@ -142,9 +140,7 @@ class TestGoldenDatasetRegression:
 
         manager.close()
 
-        assert len(df) == len(golden_btcusd_perp_coin), (
-            f"Row count mismatch: current={len(df)}, golden={len(golden_btcusd_perp_coin)}"
-        )
+        assert len(df) == len(golden_btcusd_perp_coin), f"Row count mismatch: current={len(df)}, golden={len(golden_btcusd_perp_coin)}"
 
         ohlcv_cols = ["open", "high", "low", "close", "volume"]
 

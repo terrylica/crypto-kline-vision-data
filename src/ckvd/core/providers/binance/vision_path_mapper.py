@@ -156,7 +156,6 @@ class VisionPathMapper:
         )
 
 
-
 class FSSpecVisionHandler:
     """Handles file operations for Binance Vision data using fsspec.
 
@@ -206,4 +205,3 @@ class FSSpecVisionHandler:
             chart_type=chart_type,
         )
         return self.get_local_path(components)
-

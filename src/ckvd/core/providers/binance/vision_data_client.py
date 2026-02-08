@@ -625,8 +625,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         # Generate UTC datetime objects directly (single list, no intermediate date_range)
         days_count = (end_date - start_date).days + 1
         date_objects = [
-            datetime.combine(start_date + timedelta(days=i), datetime.min.time(), tzinfo=timezone.utc)
-            for i in range(days_count)
+            datetime.combine(start_date + timedelta(days=i), datetime.min.time(), tzinfo=timezone.utc) for i in range(days_count)
         ]
 
         logger.info(f"Need to check {len(date_objects)} dates for data")
@@ -791,9 +790,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 needs_modification = False
                 if "open_time" not in filtered_df.columns and isinstance(filtered_df.index, pd.DatetimeIndex):
                     needs_modification = True
-                elif "open_time" in filtered_df.columns and not pd.api.types.is_datetime64_any_dtype(
-                    filtered_df["open_time"]
-                ):
+                elif "open_time" in filtered_df.columns and not pd.api.types.is_datetime64_any_dtype(filtered_df["open_time"]):
                     needs_modification = True
 
                 if needs_modification:

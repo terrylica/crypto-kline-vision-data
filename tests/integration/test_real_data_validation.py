@@ -70,9 +70,7 @@ class TestDataFrameStructure:
             (MarketType.FUTURES_COIN, "BTCUSD_PERP"),
         ],
     )
-    def test_dataframe_structure_all_markets(
-        self, market_type, symbol, expected_columns, expected_dtypes
-    ):
+    def test_dataframe_structure_all_markets(self, market_type, symbol, expected_columns, expected_dtypes):
         """Validate DataFrame structure across all market types."""
         manager = CryptoKlineVisionData.create(DataProvider.BINANCE, market_type)
 
@@ -95,13 +93,11 @@ class TestDataFrameStructure:
             # Handle single dtype or tuple of acceptable dtypes
             if isinstance(expected_dtype, tuple):
                 assert actual_dtype in expected_dtype, (
-                    f"Dtype mismatch for {col} in {market_type}: "
-                    f"got {actual_dtype}, expected one of {expected_dtype}"
+                    f"Dtype mismatch for {col} in {market_type}: got {actual_dtype}, expected one of {expected_dtype}"
                 )
             else:
                 assert actual_dtype == expected_dtype, (
-                    f"Dtype mismatch for {col} in {market_type}: "
-                    f"got {actual_dtype}, expected {expected_dtype}"
+                    f"Dtype mismatch for {col} in {market_type}: got {actual_dtype}, expected {expected_dtype}"
                 )
 
     @pytest.mark.parametrize(
@@ -170,10 +166,7 @@ class TestDataIntegrity:
 
         manager.close()
 
-        assert df.index.is_monotonic_increasing, (
-            f"Timestamps not monotonic for {market_type}: "
-            f"duplicates={df.index.has_duplicates}"
-        )
+        assert df.index.is_monotonic_increasing, f"Timestamps not monotonic for {market_type}: duplicates={df.index.has_duplicates}"
 
     @pytest.mark.parametrize(
         "market_type,symbol",
@@ -242,10 +235,7 @@ class TestDataIntegrity:
         # Allow 1% tolerance for edge cases
         min_candles = int(expected_candles * 0.99)
 
-        assert len(df) >= min_candles, (
-            f"Gap detected in {market_type}: got {len(df)}, "
-            f"expected >= {min_candles} (of {expected_candles})"
-        )
+        assert len(df) >= min_candles, f"Gap detected in {market_type}: got {len(df)}, expected >= {min_candles} (of {expected_candles})"
 
 
 # =============================================================================
@@ -475,8 +465,7 @@ class TestIntervalValidation:
 
             # All differences should equal the interval
             assert (time_diffs == expected_delta).all(), (
-                f"Incorrect spacing for {interval.value}: "
-                f"expected {expected_delta}, got unique values {time_diffs.unique()}"
+                f"Incorrect spacing for {interval.value}: expected {expected_delta}, got unique values {time_diffs.unique()}"
             )
 
 

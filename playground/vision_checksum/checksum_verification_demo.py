@@ -45,9 +45,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     Returns:
         Configured argument parser object
     """
-    parser = argparse.ArgumentParser(
-        description="Download and validate Binance data files using checksums"
-    )
+    parser = argparse.ArgumentParser(description="Download and validate Binance data files using checksums")
 
     parser.add_argument(
         "symbols",
@@ -98,9 +96,7 @@ def setup_argparse() -> argparse.ArgumentParser:
         help="Output directory for downloaded files (default: temporary directory)",
     )
 
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     parser.add_argument(
         "--skip-download",
@@ -108,16 +104,12 @@ def setup_argparse() -> argparse.ArgumentParser:
         help="Skip downloading files if they already exist",
     )
 
-    parser.add_argument(
-        "--skip-validation", action="store_true", help="Skip checksum validation"
-    )
+    parser.add_argument("--skip-validation", action="store_true", help="Skip checksum validation")
 
     return parser
 
 
-def download_file(
-    url: str, output_path: Path, verbose: bool = False, skip_if_exists: bool = False
-) -> bool:
+def download_file(url: str, output_path: Path, verbose: bool = False, skip_if_exists: bool = False) -> bool:
     """
     Download a file from a URL to a local path with progress tracking.
 
@@ -147,16 +139,12 @@ def download_file(
             TimeRemainingColumn(),
             disable=not verbose,
         ) as progress:
-            download_task = progress.add_task(
-                f"Downloading {output_path.name}", total=None
-            )
+            download_task = progress.add_task(f"Downloading {output_path.name}", total=None)
 
             # Use httpx for streaming download
             with httpx.stream("GET", url, follow_redirects=True) as response:
                 if response.status_code != HTTP_OK:
-                    logger.error(
-                        f"Failed to download {url}: HTTP {response.status_code}"
-                    )
+                    logger.error(f"Failed to download {url}: HTTP {response.status_code}")
                     return False
 
                 response.raise_for_status()
@@ -172,9 +160,7 @@ def download_file(
                         if total_size:
                             progress.update(download_task, completed=num_bytes)
 
-                logger.info(
-                    f"Downloaded {output_path.name} ({output_path.stat().st_size} bytes)"
-                )
+                logger.info(f"Downloaded {output_path.name} ({output_path.stat().st_size} bytes)")
                 return True
     except Exception as e:
         logger.error(f"Error downloading {url}: {e}")
@@ -184,9 +170,7 @@ def download_file(
         return False
 
 
-def construct_file_url(
-    symbol: str, interval: str, date: str, market: str = "spot"
-) -> tuple[str, str, str]:
+def construct_file_url(symbol: str, interval: str, date: str, market: str = "spot") -> tuple[str, str, str]:
     """
     Construct the URL for a data file from Binance Vision API.
 
@@ -263,9 +247,7 @@ def download_and_validate(
 
     try:
         # Construct URLs and filenames
-        data_url, checksum_url, filename = construct_file_url(
-            symbol, interval, date, market
-        )
+        data_url, checksum_url, filename = construct_file_url(symbol, interval, date, market)
 
         # Set output paths
         data_path = output_dir / filename
@@ -276,13 +258,9 @@ def download_and_validate(
 
         # Download checksum file
         if verbose:
-            rprint(
-                f"\n[bold]Downloading {symbol} {interval} {date} data and checksum...[/bold]"
-            )
+            rprint(f"\n[bold]Downloading {symbol} {interval} {date} data and checksum...[/bold]")
 
-        checksum_success = download_file(
-            checksum_url, checksum_path, verbose=verbose, skip_if_exists=skip_download
-        )
+        checksum_success = download_file(checksum_url, checksum_path, verbose=verbose, skip_if_exists=skip_download)
         result["checksum_download_success"] = checksum_success
 
         if not checksum_success:
@@ -294,9 +272,7 @@ def download_and_validate(
         result["expected_checksum"] = expected_checksum
 
         # Download data file
-        data_success = download_file(
-            data_url, data_path, verbose=verbose, skip_if_exists=skip_download
-        )
+        data_success = download_file(data_url, data_path, verbose=verbose, skip_if_exists=skip_download)
         result["data_download_success"] = data_success
 
         if not data_success:
@@ -313,18 +289,14 @@ def download_and_validate(
         result["actual_checksum"] = actual_checksum
 
         # Verify checksum
-        validation_success, validation_error = verify_file_checksum(
-            data_path, checksum_path
-        )
+        validation_success, validation_error = verify_file_checksum(data_path, checksum_path)
         result["validation_success"] = validation_success
         result["validation_error"] = validation_error
 
         if validation_success:
             logger.info(f"Checksum validation successful for {filename}")
         else:
-            logger.warning(
-                f"Checksum validation failed for {filename}: {validation_error}"
-            )
+            logger.warning(f"Checksum validation failed for {filename}: {validation_error}")
 
         return result
 
@@ -356,14 +328,8 @@ def display_results(results: list[dict[str, Any]]) -> None:
         interval = result["interval"]
         date = result["date"]
 
-        data_status = (
-            "[green]✓[/green]" if result["data_download_success"] else "[red]✗[/red]"
-        )
-        checksum_status = (
-            "[green]✓[/green]"
-            if result["checksum_download_success"]
-            else "[red]✗[/red]"
-        )
+        data_status = "[green]✓[/green]" if result["data_download_success"] else "[red]✗[/red]"
+        checksum_status = "[green]✓[/green]" if result["checksum_download_success"] else "[red]✗[/red]"
 
         if result["validation_success"] is None:
             validation_status = "[yellow]SKIPPED[/yellow]"
@@ -372,27 +338,19 @@ def display_results(results: list[dict[str, Any]]) -> None:
         else:
             validation_status = "[red]✗ INVALID[/red]"
 
-        table.add_row(
-            symbol, interval, date, data_status, checksum_status, validation_status
-        )
+        table.add_row(symbol, interval, date, data_status, checksum_status, validation_status)
 
     console.print(table)
 
     # Display detailed results for each file
     for i, result in enumerate(results):
-        if not (
-            result["data_download_success"] and result["checksum_download_success"]
-        ):
+        if not (result["data_download_success"] and result["checksum_download_success"]):
             continue
 
         if result["validation_success"] is None:
             continue
 
-        validation_title = (
-            "[green]✓ VALID CHECKSUM[/green]"
-            if result["validation_success"]
-            else "[red]✗ INVALID CHECKSUM[/red]"
-        )
+        validation_title = "[green]✓ VALID CHECKSUM[/green]" if result["validation_success"] else "[red]✗ INVALID CHECKSUM[/red]"
 
         detail_table = Table(
             title=f"{result['symbol']} {result['interval']} {result['date']} - {validation_title}",
@@ -466,21 +424,15 @@ def main() -> int:
 
     # Determine overall success
     success = all(
-        result["data_download_success"]
-        and result["checksum_download_success"]
-        and (result["validation_success"] or args.skip_validation)
+        result["data_download_success"] and result["checksum_download_success"] and (result["validation_success"] or args.skip_validation)
         for result in results
     )
 
     if args.verbose:
         if success:
-            rprint(
-                "\n[bold green]✓ All operations completed successfully![/bold green]"
-            )
+            rprint("\n[bold green]✓ All operations completed successfully![/bold green]")
         else:
-            rprint(
-                "\n[bold red]✗ Some operations failed. See details above.[/bold red]"
-            )
+            rprint("\n[bold red]✗ Some operations failed. See details above.[/bold red]")
 
     return 0 if success else 1
 

@@ -92,8 +92,7 @@ class TestOneSecondIntervalRejection:
         data = response["data"]
         # OKX returns code "51000" for "Parameter bar error"
         assert data.get("code") == "51000", (
-            f"Expected error code '51000' for unsupported 1s interval, "
-            f"got code='{data.get('code')}', msg='{data.get('msg')}'"
+            f"Expected error code '51000' for unsupported 1s interval, got code='{data.get('code')}', msg='{data.get('msg')}'"
         )
 
     def test_history_candles_rejects_1s_interval(self) -> None:
@@ -113,8 +112,7 @@ class TestOneSecondIntervalRejection:
         data = response["data"]
         # OKX returns code "51000" for "Parameter bar error"
         assert data.get("code") == "51000", (
-            f"Expected error code '51000' for unsupported 1s interval, "
-            f"got code='{data.get('code')}', msg='{data.get('msg')}'"
+            f"Expected error code '51000' for unsupported 1s interval, got code='{data.get('code')}', msg='{data.get('msg')}'"
         )
 
 

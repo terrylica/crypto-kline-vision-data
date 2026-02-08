@@ -112,9 +112,7 @@ class TestSequentialFetches:
 
         # Reusing manager shouldn't be worse than creating new ones
         # (might be similar due to caching)
-        assert peak_reuse_mb <= peak_new_mb * 1.5, (
-            f"Reusing manager ({peak_reuse_mb:.1f}MB) worse than new ({peak_new_mb:.1f}MB)"
-        )
+        assert peak_reuse_mb <= peak_new_mb * 1.5, f"Reusing manager ({peak_reuse_mb:.1f}MB) worse than new ({peak_new_mb:.1f}MB)"
 
 
 @pytest.mark.stress

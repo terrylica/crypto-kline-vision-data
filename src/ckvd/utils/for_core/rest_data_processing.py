@@ -99,30 +99,33 @@ def _process_kline_data_polars(raw_data: list[list]) -> pl.DataFrame:
     return (
         pl.DataFrame(raw_data, schema=columns, orient="row")
         .drop("ignore")
-        .with_columns([
-            # Convert milliseconds to datetime
-            pl.col("open_time").cast(pl.Int64).cast(pl.Datetime("ms", "UTC")),
-            pl.col("close_time").cast(pl.Int64).cast(pl.Datetime("ms", "UTC")),
-            # Convert strings to floats
-            pl.col("open").cast(pl.Float64),
-            pl.col("high").cast(pl.Float64),
-            pl.col("low").cast(pl.Float64),
-            pl.col("close").cast(pl.Float64),
-            pl.col("volume").cast(pl.Float64),
-            pl.col("quote_asset_volume").cast(pl.Float64),
-            pl.col("taker_buy_base_asset_volume").cast(pl.Float64),
-            pl.col("taker_buy_quote_asset_volume").cast(pl.Float64),
-            # Convert number of trades to integer
-            pl.col("number_of_trades").cast(pl.Int64),
-        ])
+        .with_columns(
+            [
+                # Convert milliseconds to datetime
+                pl.col("open_time").cast(pl.Int64).cast(pl.Datetime("ms", "UTC")),
+                pl.col("close_time").cast(pl.Int64).cast(pl.Datetime("ms", "UTC")),
+                # Convert strings to floats
+                pl.col("open").cast(pl.Float64),
+                pl.col("high").cast(pl.Float64),
+                pl.col("low").cast(pl.Float64),
+                pl.col("close").cast(pl.Float64),
+                pl.col("volume").cast(pl.Float64),
+                pl.col("quote_asset_volume").cast(pl.Float64),
+                pl.col("taker_buy_base_asset_volume").cast(pl.Float64),
+                pl.col("taker_buy_quote_asset_volume").cast(pl.Float64),
+                # Convert number of trades to integer
+                pl.col("number_of_trades").cast(pl.Int64),
+            ]
+        )
         # Rename columns in a single operation (standardization)
-        .rename({
-            "number_of_trades": "count",
-            "taker_buy_base_asset_volume": "taker_buy_volume",
-            "taker_buy_quote_asset_volume": "taker_buy_quote_volume",
-        })
+        .rename(
+            {
+                "number_of_trades": "count",
+                "taker_buy_base_asset_volume": "taker_buy_volume",
+                "taker_buy_quote_asset_volume": "taker_buy_quote_volume",
+            }
+        )
     )
-
 
 
 def process_kline_data(raw_data: list[list]) -> pd.DataFrame:

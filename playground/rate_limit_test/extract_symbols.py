@@ -40,9 +40,7 @@ def extract_symbols(csv_path, output_path):
 if __name__ == "__main__":
     # Set paths
     workspace_root = Path("/workspaces/crypto-kline-vision-data")
-    csv_path = (
-        workspace_root / "scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv"
-    )
+    csv_path = workspace_root / "scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv"
     output_path = Path(__file__).parent / "symbols.txt"
 
     # Extract symbols

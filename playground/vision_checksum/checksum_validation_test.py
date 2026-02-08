@@ -75,14 +75,10 @@ async def download_file(url: str, output_path: Path) -> bool:
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(url, follow_redirects=True)
-            logger.info(
-                f'HTTP Request: GET {url} "{response.status_code} {response.reason_phrase}"'
-            )
+            logger.info(f'HTTP Request: GET {url} "{response.status_code} {response.reason_phrase}"')
 
             if response.status_code != HTTP_OK:
-                logger.warning(
-                    f"Failed to download file: {response.status_code} {response.reason_phrase}"
-                )
+                logger.warning(f"Failed to download file: {response.status_code} {response.reason_phrase}")
                 return False
 
             # Save to file
@@ -103,9 +99,7 @@ async def main():
     try:
         date = datetime.strptime(args.date, "%Y-%m-%d")
     except ValueError:
-        console.print(
-            f"Invalid date format: {args.date}. Please use YYYY-MM-DD format."
-        )
+        console.print(f"Invalid date format: {args.date}. Please use YYYY-MM-DD format.")
         sys.exit(1)
 
     # Print test setup
@@ -157,9 +151,7 @@ async def main():
     console.print("Downloading checksum file...")
     checksum_download_success = await download_file(checksum_url, checksum_file)
     if not checksum_download_success:
-        console.print(
-            f"[red]Failed to download checksum file from {checksum_url}[/red]"
-        )
+        console.print(f"[red]Failed to download checksum file from {checksum_url}[/red]")
         sys.exit(1)
 
     # Verify checksum

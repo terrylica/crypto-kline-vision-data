@@ -292,9 +292,7 @@ class TestPolarsFeatureFlagIntegration:
         assert not df.index.has_duplicates, f"Duplicate timestamps for {symbol}"
 
         # Memory should be reasonable (< 50MB for 1 week of hourly data)
-        assert tracker.peak_mb < 50, (
-            f"{symbol}/{market_type.name}: Peak {tracker.peak_mb:.1f}MB exceeds 50MB"
-        )
+        assert tracker.peak_mb < 50, f"{symbol}/{market_type.name}: Peak {tracker.peak_mb:.1f}MB exceeds 50MB"
 
         print(f"\n{symbol}/{market_type.name}: {len(df)} rows, {tracker.peak_mb:.1f}MB peak")
 
@@ -332,9 +330,7 @@ class TestPolarsFeatureFlagIntegration:
             pytest.skip(f"No data returned for interval {interval.value}")
 
         # Verify row count meets expectation
-        assert len(df) >= expected_min_rows, (
-            f"Interval {interval.value}: Expected {expected_min_rows}+ rows, got {len(df)}"
-        )
+        assert len(df) >= expected_min_rows, f"Interval {interval.value}: Expected {expected_min_rows}+ rows, got {len(df)}"
 
         # Verify data integrity
         assert df.index.is_monotonic_increasing, f"Timestamps not sorted for {interval.value}"
@@ -345,4 +341,3 @@ class TestPolarsFeatureFlagIntegration:
         assert (df["volume"] >= 0).all(), f"Negative volume for {interval.value}"
 
         print(f"\n{interval.value}: {len(df)} rows, {tracker.peak_mb:.1f}MB peak")
-

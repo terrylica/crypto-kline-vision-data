@@ -35,12 +35,7 @@ __all__ = [
 # To:   scripts/binance_vision_api_aws_s3/reports/
 # Need: .parent (validation) -> .parent (utils) -> .parent (ckvd)
 #       -> .parent (src) -> .parent (crypto-kline-vision-data repo root)
-REPORTS_DIR = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "scripts"
-    / "binance_vision_api_aws_s3"
-    / "reports"
-)
+REPORTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "scripts" / "binance_vision_api_aws_s3" / "reports"
 
 # CSV filenames by market type
 CSV_FILES = {
@@ -196,8 +191,7 @@ def is_symbol_available_at(
     # Check if target_date is before earliest_date
     if target_date < earliest_date:
         logger.debug(
-            f"Symbol {symbol} on {market_type.name} not available at {target_date.isoformat()}. "
-            f"Earliest: {earliest_date.isoformat()}"
+            f"Symbol {symbol} on {market_type.name} not available at {target_date.isoformat()}. Earliest: {earliest_date.isoformat()}"
         )
         return (False, earliest_date)
 
@@ -277,15 +271,15 @@ def check_futures_counterpart_availability(
         # Only warn about coin-margined if USDT-M was not found
         if cm_earliest is not None and target_date < cm_earliest and um_earliest is None:
             return FuturesAvailabilityWarning(
-                    message=(
-                        f"Futures counterpart {cm_symbol} on FUTURES_COIN not available "
-                        f"until {cm_earliest.strftime('%Y-%m-%d')}. Requested data from "
-                        f"{target_date.strftime('%Y-%m-%d')} has no corresponding futures hedge."
-                    ),
-                    futures_market="FUTURES_COIN",
-                    symbol=cm_symbol,
-                    earliest_date=cm_earliest,
-                    requested_start=target_date,
-                )
+                message=(
+                    f"Futures counterpart {cm_symbol} on FUTURES_COIN not available "
+                    f"until {cm_earliest.strftime('%Y-%m-%d')}. Requested data from "
+                    f"{target_date.strftime('%Y-%m-%d')} has no corresponding futures hedge."
+                ),
+                futures_market="FUTURES_COIN",
+                symbol=cm_symbol,
+                earliest_date=cm_earliest,
+                requested_start=target_date,
+            )
 
     return None

@@ -76,20 +76,14 @@ def main():
 
     # Messages that should always be visible regardless of log level
     # can use logger.console.print directly
-    logger.console.print(
-        "\n[bold red]Important message that's always visible[/bold red]"
-    )
+    logger.console.print("\n[bold red]Important message that's always visible[/bold red]")
     logger.console.print("[yellow]Even when log level is ERROR or CRITICAL[/yellow]")
 
     # Show conclusion
     logger.console.print("\n[bold cyan]Demo completed![/bold cyan]")
     logger.console.print("Try running with different log levels to see the difference:")
-    logger.console.print(
-        "  python examples/logger_demo/simple_print_demo.py --level INFO"
-    )
-    logger.console.print(
-        "  python examples/logger_demo/simple_print_demo.py --level ERROR"
-    )
+    logger.console.print("  python examples/logger_demo/simple_print_demo.py --level INFO")
+    logger.console.print("  python examples/logger_demo/simple_print_demo.py --level ERROR")
 
 
 if __name__ == "__main__":

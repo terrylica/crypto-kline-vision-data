@@ -260,9 +260,7 @@ class TestFetchMarketDataErrors:
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     def test_invalid_interval_raises_unsupported_error(self, mock_validate):
         """Invalid interval should raise UnsupportedIntervalError, not SystemExit."""
-        mock_validate.side_effect = UnsupportedIntervalError(
-            "SECOND_1 is not supported for FUTURES_USDT"
-        )
+        mock_validate.side_effect = UnsupportedIntervalError("SECOND_1 is not supported for FUTURES_USDT")
 
         with pytest.raises(UnsupportedIntervalError, match="SECOND_1"):
             fetch_market_data(

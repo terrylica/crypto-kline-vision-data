@@ -75,10 +75,7 @@ def analyze_source_distribution(df: pd.DataFrame) -> dict:
 
     return {
         "total": total,
-        "sources": {
-            source: {"count": count, "percentage": count / total * 100}
-            for source, count in source_counts.items()
-        },
+        "sources": {source: {"count": count, "percentage": count / total * 100} for source, count in source_counts.items()},
     }
 
 
@@ -147,16 +144,14 @@ class TestFCPCacheHit:
         print_source_table(analysis, "Cache Hit Test - Second Fetch")
 
         # AUDIT FIX: Unconditional assertion - CACHE must be present
-        assert "CACHE" in analysis["sources"], (
-            f"Expected CACHE in sources after second fetch, got: {list(analysis['sources'].keys())}"
-        )
+        assert "CACHE" in analysis["sources"], f"Expected CACHE in sources after second fetch, got: {list(analysis['sources'].keys())}"
         cache_pct = analysis["sources"]["CACHE"]["percentage"]
         assert cache_pct > 90, f"Expected >90% from cache, got {cache_pct:.1f}%"
 
         # Performance assertion - cached fetch should be reasonably fast
         # 500ms is generous threshold accounting for disk I/O
-        rprint(f"[cyan]Second fetch took {elapsed*1000:.2f}ms[/cyan]")
-        assert elapsed < 0.5, f"Cache fetch too slow: {elapsed*1000:.2f}ms (expected <500ms)"
+        rprint(f"[cyan]Second fetch took {elapsed * 1000:.2f}ms[/cyan]")
+        assert elapsed < 0.5, f"Cache fetch too slow: {elapsed * 1000:.2f}ms (expected <500ms)"
 
 
 # =============================================================================
@@ -259,16 +254,14 @@ class TestFCPRestOnly:
         assert rest_pct > 80, f"Expected REST to dominate (>80%), got {rest_pct:.1f}%"
 
         # AUDIT FIX: Unconditional recency check - must have timestamps
-        assert df.index.name == "open_time" or "open_time" in df.columns, (
-            "DataFrame missing open_time - cannot verify data recency"
-        )
+        assert df.index.name == "open_time" or "open_time" in df.columns, "DataFrame missing open_time - cannot verify data recency"
         max_time = df.index.max() if df.index.name == "open_time" else df["open_time"].max()
 
         # Convert to timezone-aware if needed
         if hasattr(max_time, "tzinfo") and max_time.tzinfo is None:
             max_time = max_time.replace(tzinfo=timezone.utc)
         age = utc_now - max_time
-        rprint(f"[cyan]Most recent data is {age.total_seconds()/60:.1f} minutes old[/cyan]")
+        rprint(f"[cyan]Most recent data is {age.total_seconds() / 60:.1f} minutes old[/cyan]")
         assert age < timedelta(minutes=5), f"Data too old: {age}"
 
 
@@ -322,9 +315,7 @@ class TestFCPHybrid:
         assert completeness > 90, f"Expected >90% completeness, got {completeness:.1f}%"
 
         # AUDIT FIX: Unconditional timestamp validation
-        assert df.index.name == "open_time" or "open_time" in df.columns, (
-            "DataFrame missing open_time - cannot verify data integrity"
-        )
+        assert df.index.name == "open_time" or "open_time" in df.columns, "DataFrame missing open_time - cannot verify data integrity"
         # Unconditional monotonicity check - works for both index and column cases
         if df.index.name == "open_time":
             df_sorted = df.sort_index()
@@ -500,11 +491,14 @@ class TestFCPRateLimitHandling:
 class TestFCPIntervalCoverage:
     """Test FCP with different intervals."""
 
-    @pytest.mark.parametrize("interval,days,min_expected_bars", [
-        (Interval.MINUTE_1, 1, 1000),  # 1 day = 1440 bars, allow some missing
-        (Interval.HOUR_1, 3, 50),       # 3 days = 72 bars, allow some missing
-        (Interval.DAY_1, 30, 20),       # 30 days = 30 bars, use REST for reliability
-    ])
+    @pytest.mark.parametrize(
+        "interval,days,min_expected_bars",
+        [
+            (Interval.MINUTE_1, 1, 1000),  # 1 day = 1440 bars, allow some missing
+            (Interval.HOUR_1, 3, 50),  # 3 days = 72 bars, allow some missing
+            (Interval.DAY_1, 30, 20),  # 30 days = 30 bars, use REST for reliability
+        ],
+    )
     def test_common_intervals(self, utc_now, interval, days, min_expected_bars):
         """Test MINUTE_1, HOUR_1, and DAY_1 intervals.
 
@@ -538,9 +532,7 @@ class TestFCPIntervalCoverage:
 
         # Check minimum expected bars (conservative threshold)
         rprint(f"[cyan]{interval.name}: {len(df)} bars (min expected: {min_expected_bars})[/cyan]")
-        assert len(df) >= min_expected_bars, (
-            f"{interval.name}: Expected at least {min_expected_bars} bars, got {len(df)}"
-        )
+        assert len(df) >= min_expected_bars, f"{interval.name}: Expected at least {min_expected_bars} bars, got {len(df)}"
 
 
 # =============================================================================
@@ -675,9 +667,7 @@ class TestFCPCachePartialHit:
             rprint(f"[cyan]Sources used for extended range: {sources}[/cyan]")
 
             # Verify data is complete and gap-free - unconditional check
-            assert df2.index.name == "open_time" or "open_time" in df2.columns, (
-                "DataFrame missing open_time - cannot verify data integrity"
-            )
+            assert df2.index.name == "open_time" or "open_time" in df2.columns, "DataFrame missing open_time - cannot verify data integrity"
             if df2.index.name == "open_time":
                 df2_sorted = df2.sort_index()
                 assert df2_sorted.index.is_monotonic_increasing, "Timestamps not monotonic"
@@ -825,16 +815,17 @@ class TestFCPPolarsIntegration:
 
         # Verify schema
         expected_cols = {"open_time", "open", "high", "low", "close", "volume"}
-        assert expected_cols.issubset(set(result.columns)), (
-            f"Missing columns: {expected_cols - set(result.columns)}"
-        )
+        assert expected_cols.issubset(set(result.columns)), f"Missing columns: {expected_cols - set(result.columns)}"
         rprint(f"[green]✓ Polars DataFrame returned with {len(result)} rows[/green]")
 
-    @pytest.mark.parametrize("market_type,symbol", [
-        (MarketType.SPOT, "BTCUSDT"),
-        (MarketType.FUTURES_USDT, "ETHUSDT"),
-        (MarketType.FUTURES_COIN, "BTCUSD_PERP"),
-    ])
+    @pytest.mark.parametrize(
+        "market_type,symbol",
+        [
+            (MarketType.SPOT, "BTCUSDT"),
+            (MarketType.FUTURES_USDT, "ETHUSDT"),
+            (MarketType.FUTURES_COIN, "BTCUSD_PERP"),
+        ],
+    )
     def test_polars_fcp_all_market_types(self, market_type, symbol, historical_range):
         """Polars FCP should work across all market types."""
         start_time, end_time = historical_range
@@ -858,12 +849,15 @@ class TestFCPPolarsIntegration:
 
         rprint(f"[green]✓ {market_type.name}/{symbol}: {len(df)} rows[/green]")
 
-    @pytest.mark.parametrize("interval,min_rows", [
-        (Interval.MINUTE_1, 5000),
-        (Interval.MINUTE_5, 1000),
-        (Interval.HOUR_1, 100),
-        (Interval.DAY_1, 5),
-    ])
+    @pytest.mark.parametrize(
+        "interval,min_rows",
+        [
+            (Interval.MINUTE_1, 5000),
+            (Interval.MINUTE_5, 1000),
+            (Interval.HOUR_1, 100),
+            (Interval.DAY_1, 5),
+        ],
+    )
     def test_polars_fcp_interval_coverage(self, fcp_manager_futures, historical_range, interval, min_rows):
         """Polars FCP should work correctly for all intervals."""
         start_time, end_time = historical_range
@@ -879,9 +873,7 @@ class TestFCPPolarsIntegration:
         if df is None or df.empty:
             pytest.skip(f"No data returned for interval {interval.value}")
 
-        assert len(df) >= min_rows, (
-            f"Interval {interval.value}: Expected {min_rows}+ rows, got {len(df)}"
-        )
+        assert len(df) >= min_rows, f"Interval {interval.value}: Expected {min_rows}+ rows, got {len(df)}"
 
         rprint(f"[green]✓ {interval.value}: {len(df)} rows[/green]")
 
@@ -893,11 +885,12 @@ class TestFCPPolarsIntegration:
 
 def main():
     """Run FCP edge case tests with rich output."""
-    rprint(Panel(
-        "[bold green]FCP Edge Case Test Suite[/bold green]\n"
-        "Run with: pytest tests/fcp_pm/test_fcp_edge_cases.py -v",
-        border_style="green",
-    ))
+    rprint(
+        Panel(
+            "[bold green]FCP Edge Case Test Suite[/bold green]\nRun with: pytest tests/fcp_pm/test_fcp_edge_cases.py -v",
+            border_style="green",
+        )
+    )
 
     # Run pytest programmatically
     sys.exit(pytest.main([__file__, "-v", "--tb=short"]))

@@ -77,8 +77,7 @@ class TestCacheLatency:
         if avg_latency > 0:
             consistency_ratio = max_latency / avg_latency
             assert consistency_ratio < 3, (
-                f"Cache latency inconsistent: max {max_latency:.2f}ms is "
-                f"{consistency_ratio:.1f}x avg {avg_latency:.2f}ms"
+                f"Cache latency inconsistent: max {max_latency:.2f}ms is {consistency_ratio:.1f}x avg {avg_latency:.2f}ms"
             )
 
 
@@ -137,10 +136,7 @@ class TestVisionLatency:
         # (accounts for overhead, caching, and parallelism)
         if time_1d > 0:
             scaling_ratio = time_3d / time_1d
-            assert scaling_ratio < 5, (
-                f"Historical scaling ratio {scaling_ratio:.1f}x exceeds 5x "
-                f"(1d={time_1d:.2f}s, 3d={time_3d:.2f}s)"
-            )
+            assert scaling_ratio < 5, f"Historical scaling ratio {scaling_ratio:.1f}x exceeds 5x (1d={time_1d:.2f}s, 3d={time_3d:.2f}s)"
 
 
 @pytest.mark.stress
@@ -191,8 +187,7 @@ class TestRESTLatency:
         if avg_latency > 0:
             consistency_ratio = max_latency / avg_latency
             assert consistency_ratio < 3, (
-                f"REST latency inconsistent: max {max_latency:.0f}ms is "
-                f"{consistency_ratio:.1f}x avg {avg_latency:.0f}ms"
+                f"REST latency inconsistent: max {max_latency:.0f}ms is {consistency_ratio:.1f}x avg {avg_latency:.0f}ms"
             )
 
 

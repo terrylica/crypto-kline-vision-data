@@ -142,15 +142,22 @@ class PolarsDataPipeline:
         for col in time_cols:
             if col in schema:
                 # Cast to Datetime with microseconds and UTC timezone
-                casts.append(
-                    pl.col(col).cast(pl.Datetime("us", "UTC")).alias(col)
-                )
+                casts.append(pl.col(col).cast(pl.Datetime("us", "UTC")).alias(col))
 
         # Cast numeric columns to Float64 for consistency
         # Include 'ignore' column which may have inconsistent types across cache files
-        numeric_cols = ["open", "high", "low", "close", "volume",
-                       "quote_volume", "quote_asset_volume",
-                       "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
+        numeric_cols = [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "quote_volume",
+            "quote_asset_volume",
+            "taker_buy_volume",
+            "taker_buy_quote_volume",
+            "ignore",
+        ]
 
         for col in numeric_cols:
             if col in schema:
@@ -206,17 +213,12 @@ class PolarsDataPipeline:
 
         # Add priority column and resolve duplicates
         return (
-            combined.with_columns(
-                pl.col("_data_source")
-                .replace_strict(SOURCE_PRIORITY, default=0)
-                .alias("_priority")
-            )
+            combined.with_columns(pl.col("_data_source").replace_strict(SOURCE_PRIORITY, default=0).alias("_priority"))
             .sort(["open_time", "_priority"])
             .unique(subset=["open_time"], keep="last")
             .drop("_priority")
             .sort("open_time")
         )
-
 
     def collect_polars(self, use_streaming: bool = True) -> pl.DataFrame:
         """Collect merged data as Polars DataFrame.
@@ -278,8 +280,6 @@ class PolarsDataPipeline:
             source_counts = pd_df["_data_source"].value_counts()
             for source, count in source_counts.items():
                 percentage = (count / len(pd_df)) * 100
-                logger.debug(
-                    f"Polars pipeline result: {count} records ({percentage:.1f}%) from {source}"
-                )
+                logger.debug(f"Polars pipeline result: {count} records ({percentage:.1f}%) from {source}")
 
         return pd_df

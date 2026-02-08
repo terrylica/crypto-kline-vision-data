@@ -111,9 +111,7 @@ def mock_provider_clients():
         )
 
     with patch("ckvd.core.sync.crypto_kline_vision_data.get_provider_clients") as mock:
-        mock.side_effect = lambda provider, market_type, **kwargs: _create_mock_clients(
-            provider, market_type
-        )
+        mock.side_effect = lambda provider, market_type, **kwargs: _create_mock_clients(provider, market_type)
         yield mock
 
 

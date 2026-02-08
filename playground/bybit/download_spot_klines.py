@@ -55,43 +55,49 @@ LIMIT = 5  # Set the API limit to 5 for testing overlap with a larger batch size
 SYMBOL_PATTERNS = {
     "spot": {"suffix": "", "examples": "BTCUSDT, ETHUSDC"},
     "linear": {"suffix": "USDT", "examples": "BTCUSDT, ETHUSDT"},
-    "inverse": {"suffix": "USD", "examples": "BTCUSD, ETHUSD"}
+    "inverse": {"suffix": "USD", "examples": "BTCUSD, ETHUSD"},
 }
+
 
 def validate_symbol_for_category(symbol: str, category: str) -> bool:
     """
     Validates that the symbol follows the correct naming pattern for the specified category.
-    
+
     Args:
         symbol: The trading pair symbol
         category: The market category (spot, linear, inverse)
-        
+
     Returns:
         True if the symbol is valid for the category, False otherwise
     """
     logger.debug(f"Validating symbol '{symbol}' for category '{category}'")
-    
+
     if category not in SYMBOL_PATTERNS:
         logger.error(f"Unknown category: {category}")
         return False
-        
+
     pattern = SYMBOL_PATTERNS[category]
-    
+
     # For spot market, we don't enforce specific suffix patterns
     if category == "spot":
         return True
-        
+
     # For linear, symbols should end with USDT
     if category == "linear" and not symbol.endswith(pattern["suffix"]):
-        logger.warning(f"Symbol '{symbol}' doesn't follow the naming convention for {category} market (should end with '{pattern['suffix']}')")
+        logger.warning(
+            f"Symbol '{symbol}' doesn't follow the naming convention for {category} market (should end with '{pattern['suffix']}')"
+        )
         return False
-        
+
     # For inverse, symbols should end with USD
     if category == "inverse" and not symbol.endswith(pattern["suffix"]):
-        logger.warning(f"Symbol '{symbol}' doesn't follow the naming convention for {category} market (should end with '{pattern['suffix']}')")
+        logger.warning(
+            f"Symbol '{symbol}' doesn't follow the naming convention for {category} market (should end with '{pattern['suffix']}')"
+        )
         return False
-    
+
     return True
+
 
 # KLINES_PER_BATCH = 3 # Define the number of klines to fetch per batch # This is not used anymore with limit
 # NUM_BATCHES_TO_FETCH = 10 # Define the number of batches to download for testing # This is set by the num_batches option now
@@ -179,12 +185,12 @@ def fetch_klines(
 
         klines = data["result"]["list"]
         logger.debug(f"Received {len(klines)} klines in this response.")
-        
+
         # Validate that the response contains the expected category and symbol
         if "symbol" in data["result"] and "category" in data["result"]:
             response_symbol = data["result"]["symbol"]
             response_category = data["result"]["category"]
-            
+
             # If response data doesn't match what we requested, log a warning
             if response_symbol != symbol or response_category != category:
                 warning_msg = f"API response mismatch: Requested {category}/{symbol}, but received {response_category}/{response_symbol}"
@@ -196,7 +202,7 @@ def fetch_klines(
                     # Check if --force flag is set before raising an exception
                     if not getattr(typer.Context.get_current(), "params", {}).get("force", False):
                         raise Exception(f"API returned data from unexpected category: {response_category} (expected {category})")
-        
+
         return klines
 
     except httpx.HTTPStatusError as e:
@@ -216,8 +222,8 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
     """
     console.print(
         f"\n[bold blue]Discovering true genesis timestamp for {category.upper()} {symbol.upper()} "
-        f"{interval_ms//60000}-minute data...[/bold blue]"
-    ) # Keep console.print for user-facing message
+        f"{interval_ms // 60000}-minute data...[/bold blue]"
+    )  # Keep console.print for user-facing message
 
     # Step 1: Initial query with a very early start and limit=1
     very_early_timestamp = 1500000000000  # Example: July 2017
@@ -238,8 +244,8 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
         potential_earliest_ts = int(klines_initial[0][0])
         console.print(
             f"  Potential earliest timestamp found: {potential_earliest_ts} ("
-            f"{datetime.datetime.fromtimestamp(potential_earliest_ts/1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})"
-        ) # Keep console.print for user-facing message
+            f"{datetime.datetime.fromtimestamp(potential_earliest_ts / 1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})"
+        )  # Keep console.print for user-facing message
         logger.debug(f"Potential earliest timestamp: {potential_earliest_ts}")
 
         # Step 2: Verify by querying one interval before
@@ -262,7 +268,7 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
         else:
             # Bybit API behavior: When querying before the earliest available data,
             # the API typically returns the earliest data point rather than an empty list
-            
+
             # Check if the verification returned the same timestamp as our potential earliest
             if klines_verification and int(klines_verification[0][0]) == potential_earliest_ts:
                 console.print(
@@ -270,14 +276,12 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
                 )  # Keep console.print for user-facing message
                 logger.info("Verification confirmed earliest timestamp - Bybit API returns earliest point when querying before it.")
                 true_genesis_ts = potential_earliest_ts
-                console.print(
-                    f"  Confirmed earliest timestamp: {true_genesis_ts}"
-                )  # Keep console.print for user-facing message
+                console.print(f"  Confirmed earliest timestamp: {true_genesis_ts}")  # Keep console.print for user-facing message
             else:
                 # This is an unexpected scenario where verification returned a different timestamp
                 console.print(
                     "[bold yellow]Unexpected verification result:[/bold yellow] Querying one interval before returned different data."
-                ) # Keep console.print for user-facing message
+                )  # Keep console.print for user-facing message
                 # Log the timestamp returned in verification for debugging
                 logger.warning(
                     f"Verification query returned unexpected data. First kline timestamp in verification: "
@@ -291,7 +295,7 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
                 console.print(
                     "[bold yellow]Warning:[/bold yellow] Genesis timestamp verification returned unexpected data."
                 )  # Keep console.print for user-facing error
-                
+
                 # For robustness, let's still use the potential_earliest_ts found in step 1 as a fallback.
                 true_genesis_ts = potential_earliest_ts
                 console.print(
@@ -300,8 +304,8 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
 
         console.print(
             f"[bold green]True genesis timestamp discovered:[/bold green] {true_genesis_ts} ("
-            f"{datetime.datetime.fromtimestamp(true_genesis_ts/1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})"
-        ) # Keep console.print for user-facing message
+            f"{datetime.datetime.fromtimestamp(true_genesis_ts / 1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})"
+        )  # Keep console.print for user-facing message
         logger.debug(f"True genesis timestamp determined: {true_genesis_ts}")
         return true_genesis_ts
 
@@ -314,50 +318,50 @@ def find_true_genesis_timestamp_ms(client: httpx.Client, category: str, symbol: 
 def validate_symbol_exists(client: httpx.Client, category: str, symbol: str) -> bool:
     """
     Validates that the symbol exists in the given category by making a test API call.
-    
+
     Args:
         client: The httpx Client to use for API requests
         category: The market category (spot, linear, inverse)
         symbol: The trading pair symbol
-        
+
     Returns:
         True if the symbol exists in the category, False otherwise
     """
     logger.debug(f"Validating that symbol '{symbol}' exists in category '{category}'")
-    
+
     try:
         # Make a minimal request to check if the symbol exists
         params = {
             "category": category,
             "symbol": symbol,
             "interval": "5",  # Use a common interval
-            "limit": 1,       # Just need one record to verify
+            "limit": 1,  # Just need one record to verify
         }
-        
+
         response = client.get(BYBIT_API_URL, params=params)
         response.raise_for_status()
-        
+
         data = response.json()
-        
+
         # Check if the API returned a valid response
         if data["retCode"] != 0:
             logger.warning(f"API returned error when validating symbol: {data['retMsg']}")
             return False
-            
+
         # Check if we got any data back
         klines = data["result"]["list"]
         if not klines:
             logger.warning(f"No data returned for symbol '{symbol}' in category '{category}'")
             return False
-            
+
         # Check if the response symbol matches the requested symbol
         if data["result"]["symbol"] != symbol or data["result"]["category"] != category:
             logger.warning(f"API returned mismatched data: {data['result']['category']}/{data['result']['symbol']}")
             return False
-            
+
         logger.debug(f"Symbol '{symbol}' exists in category '{category}'")
         return True
-        
+
     except Exception as e:
         logger.warning(f"Error validating symbol: {e}")
         return False
@@ -383,7 +387,7 @@ def main(
         False,
         "--force",
         "-f",
-        help="Force download even if symbol doesn't match the expected pattern for the category. WARNING: Using incorrect symbol formats may result in receiving data from a different market than requested (e.g., using BTCUSDT with inverse category returns linear market data)."
+        help="Force download even if symbol doesn't match the expected pattern for the category. WARNING: Using incorrect symbol formats may result in receiving data from a different market than requested (e.g., using BTCUSDT with inverse category returns linear market data).",
     ),
 ):
     """
@@ -411,21 +415,21 @@ def main(
     Data is saved to a directory in your user documents folder: ~/Documents/ckvd/data/bybit/{category}/{symbol}/{interval}m/
 
     The output file follows the format: bybit-{symbol}-{interval}m.csv
-    
+
     Symbol naming conventions:
     * For inverse markets: Use USD suffix (e.g. BTCUSD, ETHUSD)
     * For linear markets: Use USDT suffix (e.g. BTCUSDT, ETHUSDT)
-    
+
     ⚠️ Important API Behavior Warning:
     Our empirical testing has revealed that when using incorrect symbol formats with the Bybit API
     (e.g., requesting BTCUSDT with category=inverse), the API returns potentially misleading data:
-    
+
     * When using inverse category with USDT-suffixed symbols, the API returns linear market data
       but incorrectly labels it as "inverse" in the response
     * The data values and timestamps are identical to what would be returned from linear market
     * This can lead to data integrity issues and incorrect analysis
-    
-    The script validates symbol formats to prevent this issue, but if you override with --force, 
+
+    The script validates symbol formats to prevent this issue, but if you override with --force,
     be aware that you may receive data from a different market than intended.
     """
     if interval not in ["5", "15"]:
@@ -442,32 +446,36 @@ def main(
         console.print("[bold red]Error:[/bold red] Gap search limit cannot be negative when --fetch-all is used.")
         logger.error(f"Invalid gap_search_limit: {gap_search_limit}")
         raise typer.Exit(code=1)
-        
+
     # Validate that the category is supported
     if category not in SYMBOL_PATTERNS:
-        console.print(f"[bold red]Error:[/bold red] Unsupported market category: {category}. Supported categories are: {', '.join(SYMBOL_PATTERNS.keys())}")
+        console.print(
+            f"[bold red]Error:[/bold red] Unsupported market category: {category}. Supported categories are: {', '.join(SYMBOL_PATTERNS.keys())}"
+        )
         logger.error(f"Unsupported market category: {category}")
         raise typer.Exit(code=1)
-    
+
     # Validate symbol format based on market category
     if not validate_symbol_for_category(symbol, category) and not force:
         pattern = SYMBOL_PATTERNS[category]
         console.print(f"[bold red]Error:[/bold red] Symbol '{symbol}' doesn't follow the expected naming convention for {category} market.")
         console.print(f"[yellow]Expected format for {category}:[/yellow] {pattern['examples']}")
-        
+
         if category == "inverse" and symbol.endswith("USDT"):
             suggested_symbol = symbol.replace("USDT", "USD")
             console.print(f"[bold green]Suggestion:[/bold green] For inverse market, use '{suggested_symbol}' instead of '{symbol}'")
         elif category == "linear" and symbol.endswith("USD"):
             suggested_symbol = symbol + "T"
             console.print(f"[bold green]Suggestion:[/bold green] For linear market, use '{suggested_symbol}' instead of '{symbol}'")
-            
+
         console.print("[yellow]You can override this check with the --force flag if you're sure about the symbol.[/yellow]")
         logger.error(f"Symbol '{symbol}' validation failed for category '{category}'")
         raise typer.Exit(code=1)
-        
+
     if force:
-        console.print(f"[bold yellow]Warning:[/bold yellow] Forcing download with symbol '{symbol}' for {category} market despite potential naming mismatch.")
+        console.print(
+            f"[bold yellow]Warning:[/bold yellow] Forcing download with symbol '{symbol}' for {category} market despite potential naming mismatch."
+        )
         logger.warning(f"Forcing download with symbol '{symbol}' for {category} market despite potential naming mismatch")
 
     interval_ms = interval_to_ms(interval)
@@ -502,14 +510,14 @@ def main(
             console.print("[yellow]You can override this check with the --force flag if you're sure about the symbol.[/yellow]")
             logger.error(f"Symbol '{symbol}' validation failed - does not exist in category '{category}'")
             raise typer.Exit(code=1)
-            
+
         if fetch_all:
             # --- Fetch All from Genesis ---
             start_time_ms = find_true_genesis_timestamp_ms(client, category, symbol, interval_ms)  # Call synchronous genesis finder
             console.print(
                 f"Attempting to download {interval}-minute {category.upper()} {symbol.upper()} klines from genesis ("
-                f"{datetime.datetime.fromtimestamp(start_time_ms/1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})..."
-            ) # Keep console.print for user-facing message
+                f"{datetime.datetime.fromtimestamp(start_time_ms / 1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')})..."
+            )  # Keep console.print for user-facing message
             logger.info(
                 f"Starting limited data download from genesis: "
                 f"{datetime.datetime.fromtimestamp(start_time_ms / 1000, datetime.timezone.utc)}"
@@ -600,17 +608,18 @@ def main(
                                 download_task,
                                 description="Gap detected - Searching for data",
                                 current_batch_start_utc=(
-                                    datetime.datetime.fromtimestamp(current_batch_request_start_time_ms/1000, datetime.timezone.utc)
-                                    .strftime('%Y-%m-%d %H:%M:%S UTC')
+                                    datetime.datetime.fromtimestamp(
+                                        current_batch_request_start_time_ms / 1000, datetime.timezone.utc
+                                    ).strftime("%Y-%m-%d %H:%M:%S UTC")
                                 ),
-                                current_batch_newest_utc="N/A"
+                                current_batch_newest_utc="N/A",
                             )
 
                             # Temporarily hide the progress bar, print the message, then restore the progress bar
                             progress.stop()
                             console.print(
                                 f"\n[yellow]No data received starting from "
-                                f"{datetime.datetime.fromtimestamp(current_batch_request_start_time_ms/1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}. Starting binary search for next data point...[/yellow]"
+                                f"{datetime.datetime.fromtimestamp(current_batch_request_start_time_ms / 1000, datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}. Starting binary search for next data point...[/yellow]"
                             )
                             progress.start()
 

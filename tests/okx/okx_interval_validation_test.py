@@ -6,7 +6,6 @@ These integration tests verify the OKX API behavior with different interval
 formats, including case sensitivity and 1-second interval support.
 """
 
-
 import pytest
 
 from tests.okx.conftest import (
@@ -24,12 +23,12 @@ class TestIntervalCaseSensitivity:
     @pytest.mark.parametrize(
         "interval,expected_success",
         [
-            ("1m", True),   # Correct: lowercase m for minute
-            ("1H", True),   # Correct: uppercase H for hour
-            ("4H", True),   # Correct: uppercase H for hour
-            ("1D", True),   # Correct: uppercase D for day
-            ("1W", True),   # Correct: uppercase W for week
-            ("1M", True),   # Correct: uppercase M for month
+            ("1m", True),  # Correct: lowercase m for minute
+            ("1H", True),  # Correct: uppercase H for hour
+            ("4H", True),  # Correct: uppercase H for hour
+            ("1D", True),  # Correct: uppercase D for day
+            ("1W", True),  # Correct: uppercase W for week
+            ("1M", True),  # Correct: uppercase M for month
         ],
     )
     def test_candles_official_interval_format(self, interval: str, expected_success: bool) -> None:
@@ -54,9 +53,7 @@ class TestIntervalCaseSensitivity:
             assert data.get("code") == "0", f"Expected success for '{interval}': {data.get('msg')}"
             assert len(data.get("data", [])) > 0, f"No data returned for '{interval}'"
         else:
-            assert data.get("code") != "0" or len(data.get("data", [])) == 0, (
-                f"Expected failure for '{interval}'"
-            )
+            assert data.get("code") != "0" or len(data.get("data", [])) == 0, f"Expected failure for '{interval}'"
 
     @pytest.mark.parametrize(
         "interval,description",
@@ -115,6 +112,5 @@ class TestOneSecondInterval:
         data = response["data"]
         # OKX returns code "51000" for "Parameter bar error"
         assert data.get("code") == "51000", (
-            f"Expected error code '51000' for unsupported 1s interval, "
-            f"got code='{data.get('code')}', msg='{data.get('msg')}'"
+            f"Expected error code '51000' for unsupported 1s interval, got code='{data.get('code')}', msg='{data.get('msg')}'"
         )
