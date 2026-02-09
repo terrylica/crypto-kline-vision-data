@@ -1,3 +1,11 @@
+# [4.1.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.0.0...v4.1.0) (2026-02-09)
+
+
+### Features
+
+* **cache:** add CKVD_ENABLE_CACHE env var and enforce_source guard ([ab6b051](https://github.com/terrylica/crypto-kline-vision-data/commit/ab6b05143c2a1800391e50d6146ceea958d93690))
+* **scripts:** add Claude Code session migration script for directory rename ([90bcc0b](https://github.com/terrylica/crypto-kline-vision-data/commit/90bcc0bb6969aba5f60b0b7663ab0c4de4f341eb))
+
 # [4.0.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v3.1.1...v4.0.0) (2026-02-08)
 
 
