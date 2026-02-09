@@ -12,13 +12,14 @@ High-performance market data integration with Failover Control Protocol (FCP).
 
 Each directory has its own CLAUDE.md with domain-specific context, loaded on demand.
 
-| Directory   | CLAUDE.md                                | Owns                                       |
-| ----------- | ---------------------------------------- | ------------------------------------------ |
-| `src/`      | [src/CLAUDE.md](src/CLAUDE.md)           | Package structure, code patterns, FCP impl |
-| `tests/`    | [tests/CLAUDE.md](tests/CLAUDE.md)       | Test commands, markers, fixtures, mocking  |
-| `docs/`     | [docs/CLAUDE.md](docs/CLAUDE.md)         | ADRs, skills, benchmarks, troubleshooting  |
-| `examples/` | [examples/CLAUDE.md](examples/CLAUDE.md) | Example conventions, common patterns       |
-| `scripts/`  | [scripts/CLAUDE.md](scripts/CLAUDE.md)   | Dev scripts, mise tasks, cache tools       |
+| Directory     | CLAUDE.md                                    | Owns                                       |
+| ------------- | -------------------------------------------- | ------------------------------------------ |
+| `src/`        | [src/CLAUDE.md](src/CLAUDE.md)               | Package structure, code patterns, FCP impl |
+| `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking  |
+| `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting  |
+| `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, common patterns       |
+| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools       |
+| `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)   |
 
 **Also**: [.claude/settings.md](.claude/settings.md) | [docs/INDEX.md](docs/INDEX.md) | [docs/GLOSSARY.md](docs/GLOSSARY.md) | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 

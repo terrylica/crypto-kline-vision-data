@@ -2,7 +2,7 @@
 
 Context-specific instructions for working with CKVD tests.
 
-**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [src/](../src/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [examples/](../examples/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md)
+**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [src/](../src/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [examples/](../examples/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md) | [playground/](../playground/CLAUDE.md)
 
 ---
 
@@ -11,6 +11,9 @@ Context-specific instructions for working with CKVD tests.
 ```bash
 # Unit tests only (fast, no network)
 uv run -p 3.13 pytest tests/unit/ -v
+
+# Single test file
+uv run -p 3.13 pytest tests/unit/core/sync/test_fetch_market_data.py -v
 
 # Integration tests (requires network)
 uv run -p 3.13 pytest tests/integration/ -v
@@ -23,31 +26,51 @@ uv run -p 3.13 pytest tests/unit/ --cov=src/ckvd --cov-report=term-missing
 
 # FCP edge case tests
 uv run -p 3.13 pytest tests/fcp_pm/test_fcp_edge_cases.py -v
+
+# Stress tests
+uv run -p 3.13 pytest tests/stress/ -v
 ```
 
 ---
 
 ## Directory Structure
 
-| Directory      | Purpose                   | Network Required |
-| -------------- | ------------------------- | ---------------- |
-| `unit/`        | Fast, isolated tests      | No               |
-| `integration/` | External API tests        | Yes              |
-| `okx/`         | OKX-specific integration  | Yes              |
-| `fcp_pm/`      | FCP protocol matrix tests | Yes              |
-| `stress/`      | Memory & fault tolerance  | Yes              |
+| Directory      | Purpose                              | Network Required |
+| -------------- | ------------------------------------ | ---------------- |
+| `unit/`        | Fast, isolated tests                 | No               |
+| `integration/` | External API tests                   | Yes              |
+| `okx/`         | OKX-specific integration             | Yes              |
+| `fcp_pm/`      | FCP protocol matrix tests            | Yes              |
+| `stress/`      | Memory & fault tolerance             | Yes              |
+| `utils/`       | Test utilities (`data_integrity.py`) | No               |
+| `fixtures/`    | Golden datasets (`.parquet`)         | No               |
 
 ### Unit Test Subdirectories
 
 ```
 unit/
 ├── core/
-│   ├── providers/binance/   # REST/Vision client tests
-│   └── sync/                # CryptoKlineVisionData tests
-├── utils/                   # Utility function tests
+│   ├── providers/
+│   │   ├── binance/         # REST/Vision client tests
+│   │   └── okx/             # OKX REST client tests
+│   └── sync/                # CryptoKlineVisionData tests (has own conftest.py)
+├── utils/
+│   ├── for_core/            # FCP utility tests
+│   ├── internal/            # Polars pipeline tests
+│   └── validation/          # Data validation tests
 ├── test_timestamp_semantics.py
 └── test_ckvd_logging_improvements.py
 ```
+
+### conftest.py Hierarchy
+
+| File                               | Scope           | Key Role                                                      |
+| ---------------------------------- | --------------- | ------------------------------------------------------------- |
+| `tests/conftest.py`                | All tests       | Time, mock, data fixtures; `mock_provider_clients` factory    |
+| `tests/unit/core/sync/conftest.py` | Unit sync tests | Autouse factory mock (old `@patch` decorators become no-ops)  |
+| `tests/fcp_pm/conftest.py`         | FCP tests       | `fcp_manager_*` fixtures with real network                    |
+| `tests/stress/conftest.py`         | Stress tests    | `memory_tracker`, `historical_time_range`, `large_time_range` |
+| `tests/okx/conftest.py`            | OKX tests       | OKX-specific fixtures                                         |
 
 ---
 
@@ -158,7 +181,7 @@ def test_rest_response(mock_get):
 
 Comprehensive edge case tests for Failover Control Protocol. Run with `mise run test:fcp-edge`.
 
-### Test Classes (10 edge case categories)
+### Test Classes (11 edge case categories)
 
 | Test Class               | Edge Case                   | Key Assertion                             |
 | ------------------------ | --------------------------- | ----------------------------------------- |
@@ -172,6 +195,7 @@ Comprehensive edge case tests for Failover Control Protocol. Run with `mise run 
 | TestFCPIntervalCoverage  | 1m, 1h, 1d intervals        | Min bar count thresholds (parametrized)   |
 | TestFCPEmptyResult       | Invalid symbol              | Non-silent failure (any exception)        |
 | TestFCPCachePartialHit   | Gap filling                 | Monotonic, no duplicates                  |
+| TestFCPPolarsIntegration | return_polars=True          | pl.DataFrame output, zero-copy path       |
 
 ### Audit Findings (2026-01-31)
 
@@ -222,18 +246,18 @@ Memory efficiency and fault tolerance tests. Run with `uv run -p 3.13 pytest tes
 
 ### Stress Fixtures (stress/conftest.py)
 
-| Fixture          | Purpose                                  |
-| ---------------- | ---------------------------------------- |
-| `memory_tracker` | tracemalloc context manager with peak_mb |
-| `test_symbols`   | 10 common trading symbols                |
-| `stress_range`   | 7-day historical range                   |
-| `long_range`     | 30-day range for pressure tests          |
+| Fixture                 | Purpose                                  |
+| ----------------------- | ---------------------------------------- |
+| `memory_tracker`        | tracemalloc context manager with peak_mb |
+| `test_symbols`          | 10 common trading symbols                |
+| `historical_time_range` | 7-day historical range                   |
+| `large_time_range`      | 30-day range for pressure tests          |
 
 ---
 
 ## Related
 
 - @docs/skills/ckvd-testing/SKILL.md - Full testing guide
-- @conftest.py - Shared fixtures
+- @tests/conftest.py - Shared fixtures
 - @tests/fcp_pm/test_fcp_edge_cases.py - FCP edge case tests
 - @tests/stress/ - Memory and fault tolerance stress tests

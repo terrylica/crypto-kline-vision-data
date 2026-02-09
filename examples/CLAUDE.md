@@ -2,7 +2,7 @@
 
 Context-specific instructions for working with CKVD examples.
 
-**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [src/](../src/CLAUDE.md) | [tests/](../tests/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md)
+**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [src/](../src/CLAUDE.md) | [tests/](../tests/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md) | [playground/](../playground/CLAUDE.md)
 
 ---
 
@@ -20,11 +20,11 @@ CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
 
 ## Directory Structure
 
-| Directory     | Purpose                |
-| ------------- | ---------------------- |
-| `sync/`       | Synchronous CLI demos  |
-| `lib_module/` | Library usage patterns |
-| Root files    | Quick start and demos  |
+| Directory     | Purpose                                     |
+| ------------- | ------------------------------------------- |
+| `sync/`       | Synchronous examples (datetime, 1s testing) |
+| `lib_module/` | Legacy (README only, demos removed)         |
+| Root files    | Quick start, logging, lazy init demos       |
 
 **Root-level examples**: `quick_start.py`, `ckvd_logging_demo.py`, `ckvd_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`
 

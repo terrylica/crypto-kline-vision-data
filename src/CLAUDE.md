@@ -2,7 +2,7 @@
 
 Context-specific instructions for working with CKVD source code.
 
-**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [tests/](../tests/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [examples/](../examples/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md)
+**Hub**: [Root CLAUDE.md](../CLAUDE.md) | **Siblings**: [tests/](../tests/CLAUDE.md) | [docs/](../docs/CLAUDE.md) | [examples/](../examples/CLAUDE.md) | [scripts/](../scripts/CLAUDE.md) | [playground/](../playground/CLAUDE.md)
 
 ---
 
@@ -131,7 +131,7 @@ Key methods:
 │  Vision → pl.LazyFrame                                       │
 │  REST → pl.DataFrame → .lazy()                              │
 │                    ↓                                         │
-│  PolarsDataPipeline.merge_with_priority() → LazyFrame       │
+│  PolarsDataPipeline._merge_with_priority() → LazyFrame      │
 │                    ↓                                         │
 │  .collect(engine='streaming') → pl.DataFrame                │
 └─────────────────────────────────────────────────────────────┘
