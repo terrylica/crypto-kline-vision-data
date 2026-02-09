@@ -34,6 +34,7 @@ Example:
     ... )
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, overload
@@ -347,6 +348,10 @@ class CryptoKlineVisionData:
         self.market_type = market_type
         self.chart_type = chart_type
         self.use_cache = use_cache
+        # Environment variable override: CKVD_ENABLE_CACHE=false disables cache
+        if self.use_cache and os.environ.get("CKVD_ENABLE_CACHE", "").lower() in ("false", "0", "no"):
+            self.use_cache = False
+            logger.info("[CKVD] Cache disabled via CKVD_ENABLE_CACHE environment variable")
         self.retry_count = retry_count
 
         # Store logging configuration
@@ -929,6 +934,12 @@ class CryptoKlineVisionData:
             # ----------------------------------------------------------------
             # STEP 1: Local Cache Retrieval
             # ----------------------------------------------------------------
+            if enforce_source == DataSource.CACHE and not self.use_cache:
+                raise ValueError(
+                    "Cannot use enforce_source=DataSource.CACHE when use_cache=False. "
+                    "Either enable caching or use a different data source."
+                )
+
             skip_cache = not self.use_cache or enforce_source in (
                 DataSource.REST,
                 DataSource.VISION,
