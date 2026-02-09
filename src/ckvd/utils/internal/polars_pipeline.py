@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 # Source priority for FCP conflict resolution
 # Higher number = higher priority (kept when duplicates exist)
-# CRITICAL: This order must match dsm_time_range_utils.py merge_dataframes()
+# CRITICAL: This order must match ckvd_time_range_utils.py merge_dataframes()
 SOURCE_PRIORITY = {
     "UNKNOWN": 0,
     "VISION": 1,
@@ -47,7 +47,7 @@ class PolarsDataPipeline:
     """Polars-native FCP data pipeline with streaming support.
 
     This class implements the same merge logic as merge_dataframes() in
-    dsm_time_range_utils.py but using Polars LazyFrame operations for
+    ckvd_time_range_utils.py but using Polars LazyFrame operations for
     better memory efficiency and predicate pushdown.
 
     The pipeline is always active internally in CryptoKlineVisionData

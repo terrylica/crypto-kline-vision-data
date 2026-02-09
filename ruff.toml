@@ -5,7 +5,7 @@ preview = false # Whether to enable preview features (e.g. ruff-lsp)
 respect-gitignore = true # Whether to respect .gitignore when linting and formatting
 
 # File patterns to exclude from linting and formatting (in addition to defaults)
-exclude = [".cursorignore", "playground/", "tests/", "__pycache__/"] # Default exclusions: [".bzr", ".direnv", ".eggs", ".git", ".git-rewrite", ".hg", ".mypy_cache", ".nox", ".pants.d", ".pytype", ".ruff_cache", ".svn", ".tox", ".venv", "__pypackages__", "_build", "buck-out", "dist", "node_modules", "venv"]
+exclude = ["playground/", "tests/", "__pycache__/"] # Default exclusions: [".bzr", ".direnv", ".eggs", ".git", ".git-rewrite", ".hg", ".mypy_cache", ".nox", ".pants.d", ".pytype", ".ruff_cache", ".svn", ".tox", ".venv", "__pypackages__", "_build", "buck-out", "dist", "node_modules", "venv"]
 
 # Additional file patterns to exclude (extends the exclude list without overriding it)
 extend-exclude = [] # Useful for excluding tests or specific problematic files

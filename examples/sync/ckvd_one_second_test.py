@@ -35,7 +35,7 @@ def main():
     warnings.filterwarnings("error")
 
     # Configure logging
-    main_log, error_log, _ = configure_session_logging("dsm_one_second_test", "INFO")
+    main_log, error_log, _ = configure_session_logging("ckvd_one_second_test", "INFO")
     logger.info(f"Logs: {main_log} and {error_log}")
 
     # Create CKVD instance

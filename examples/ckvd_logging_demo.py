@@ -7,17 +7,17 @@ It demonstrates the solution to the user's request for configurable logging leve
 
 Usage:
     # Clean output for feature engineering (suppress CKVD logs)
-    CKVD_LOG_LEVEL=CRITICAL python examples/dsm_logging_demo.py
+    CKVD_LOG_LEVEL=CRITICAL python examples/ckvd_logging_demo.py
 
     # Normal output with CKVD info logs
-    CKVD_LOG_LEVEL=INFO python examples/dsm_logging_demo.py
+    CKVD_LOG_LEVEL=INFO python examples/ckvd_logging_demo.py
 
     # Detailed debugging output
-    CKVD_LOG_LEVEL=DEBUG python examples/dsm_logging_demo.py
+    CKVD_LOG_LEVEL=DEBUG python examples/ckvd_logging_demo.py
 
     # Using command line options
-    python examples/dsm_logging_demo.py --log-level CRITICAL
-    python examples/dsm_logging_demo.py --log-level DEBUG --show-all
+    python examples/ckvd_logging_demo.py --log-level CRITICAL
+    python examples/ckvd_logging_demo.py --log-level DEBUG --show-all
 """
 
 import os
@@ -114,9 +114,9 @@ def demonstrate_feature_engineering_workflow():
     console.print(Panel.fit("[bold magenta]Feature Engineering Workflow Example[/bold magenta]", border_style="magenta"))
 
     console.print("[bold]Before (cluttered output):[/bold]")
-    console.print("[dim]2024-06-04 10:15:23 | INFO     | dsm_cache_utils:get_from_cache:45 - Checking cache for SOLUSDT")
-    console.print("[dim]2024-06-04 10:15:23 | DEBUG    | dsm_fcp_utils:process_cache_step:67 - Cache miss, fetching from source")
-    console.print("[dim]2024-06-04 10:15:23 | INFO     | dsm_cache_utils:save_to_cache:123 - Storing data in cache")
+    console.print("[dim]2024-06-04 10:15:23 | INFO     | ckvd_cache_utils:get_from_cache:45 - Checking cache for SOLUSDT")
+    console.print("[dim]2024-06-04 10:15:23 | DEBUG    | ckvd_fcp_utils:process_cache_step:67 - Cache miss, fetching from source")
+    console.print("[dim]2024-06-04 10:15:23 | INFO     | ckvd_cache_utils:save_to_cache:123 - Storing data in cache")
     console.print("[dim]... (hundreds of similar lines)")
     console.print()
 
@@ -148,7 +148,7 @@ def demonstrate_feature_engineering_workflow():
     console.print()
 
 
-def test_actual_dsm_logging(log_level: str):
+def test_actual_ckvd_logging(log_level: str):
     """Test actual CKVD logging with the specified level."""
     console.print(Panel.fit(f"[bold cyan]Testing CKVD with {log_level} Level[/bold cyan]", border_style="cyan"))
 
@@ -193,7 +193,7 @@ def test_actual_dsm_logging(log_level: str):
 def main(
     log_level: str = typer.Option("INFO", "--log-level", "-l", help="Log level to demonstrate"),
     show_all: bool = typer.Option(False, "--show-all", "-a", help="Show all demonstrations"),
-    test_dsm: bool = typer.Option(False, "--test-ckvd", "-t", help="Test actual CKVD logging"),
+    test_ckvd: bool = typer.Option(False, "--test-ckvd", "-t", help="Test actual CKVD logging"),
 ):
     """Demonstrate CKVD logging control capabilities."""
 
@@ -221,8 +221,8 @@ def main(
         demonstrate_programmatic_control()
         demonstrate_feature_engineering_workflow()
 
-    if test_dsm:
-        test_actual_dsm_logging(log_level)
+    if test_ckvd:
+        test_actual_ckvd_logging(log_level)
 
     # Show the solution summary
     console.print(

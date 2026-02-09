@@ -6,7 +6,7 @@ Polars operations and conversions to/from Pandas.
 
 These tests serve as a regression safety net for Phase 2 Polars pipeline migration.
 
-Copy from: tests/unit/utils/for_core/test_dsm_fcp_utils.py
+Copy from: tests/unit/utils/for_core/test_ckvd_fcp_utils.py
 Task: #79 - Create test_timezone_handling_polars.py (8 tests)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md
@@ -140,7 +140,7 @@ class TestNaiveDatetimeHandling:
     def test_polars_filter_with_utc_timestamp(self, base_time_utc):
         """Filtering with UTC timestamp should work correctly.
 
-        Pattern used in dsm_cache_utils.py:199-201 for predicate pushdown.
+        Pattern used in ckvd_cache_utils.py:199-201 for predicate pushdown.
         """
         timestamps = [base_time_utc + timedelta(hours=i) for i in range(24)]
         df = pl.DataFrame({"open_time": timestamps, "value": [float(i) for i in range(24)]})

@@ -35,7 +35,7 @@ from ckvd.utils.market_constraints import (
 
 
 @pytest.fixture
-def mock_dsm():
+def mock_ckvd():
     """Mock CryptoKlineVisionData to avoid network calls."""
     with patch("ckvd.core.sync.ckvd_lib.CryptoKlineVisionData") as mock_cls:
         mock_manager = MagicMock()
@@ -88,13 +88,13 @@ class TestFetchMarketDataTimeInputs:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_accepts_datetime_objects(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_accepts_datetime_objects(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """fetch_market_data() should accept plain datetime objects without crashing.
 
         This is the root cause bug: before the fix, passing datetime objects
         caused a crash in calculate_date_range() which expected strings only.
         """
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start, end)
@@ -117,9 +117,9 @@ class TestFetchMarketDataTimeInputs:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_accepts_string_times(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_accepts_string_times(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """fetch_market_data() should accept ISO format string times."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start_dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end_dt = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start_dt, end_dt)
@@ -141,9 +141,9 @@ class TestFetchMarketDataTimeInputs:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_accepts_none_with_days(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_accepts_none_with_days(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """fetch_market_data() should accept None times with days parameter."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start_dt = datetime(2024, 1, 7, tzinfo=timezone.utc)
         end_dt = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start_dt, end_dt)
@@ -163,11 +163,11 @@ class TestFetchMarketDataTimeInputs:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_accepts_pendulum_datetime(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_accepts_pendulum_datetime(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """fetch_market_data() should accept pendulum DateTime objects."""
         import pendulum
 
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = pendulum.datetime(2024, 1, 1, tz="UTC")
         end = pendulum.datetime(2024, 1, 10, tz="UTC")
         mock_date_range.return_value = (start, end)
@@ -197,9 +197,9 @@ class TestFetchMarketDataReturnTypes:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_return_polars_true(self, mock_date_range, mock_validate, mock_dsm, sample_polars_df):
+    def test_return_polars_true(self, mock_date_range, mock_validate, mock_ckvd, sample_polars_df):
         """return_polars=True should pass through and return pl.DataFrame."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start, end)
@@ -224,9 +224,9 @@ class TestFetchMarketDataReturnTypes:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_return_polars_false(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_return_polars_false(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """return_polars=False (default) should return pd.DataFrame."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start, end)
@@ -283,9 +283,9 @@ class TestFetchMarketDataTupleStructure:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_return_tuple_structure(self, mock_date_range, mock_validate, mock_dsm, sample_pandas_df):
+    def test_return_tuple_structure(self, mock_date_range, mock_validate, mock_ckvd, sample_pandas_df):
         """Return value should be (DataFrame, float, int) tuple."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start, end)
@@ -310,9 +310,9 @@ class TestFetchMarketDataTupleStructure:
 
     @patch("ckvd.core.sync.ckvd_lib.validate_interval")
     @patch("ckvd.core.sync.ckvd_lib.calculate_date_range")
-    def test_return_tuple_none_df(self, mock_date_range, mock_validate, mock_dsm):
+    def test_return_tuple_none_df(self, mock_date_range, mock_validate, mock_ckvd):
         """When get_data returns None, count should be 0."""
-        _mock_cls, mock_manager = mock_dsm
+        _mock_cls, mock_manager = mock_ckvd
         start = datetime(2024, 1, 1, tzinfo=timezone.utc)
         end = datetime(2024, 1, 10, tzinfo=timezone.utc)
         mock_date_range.return_value = (start, end)

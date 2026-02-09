@@ -6,7 +6,7 @@ beyond those covered in test_merge_dataframes_polars.py.
 
 These tests serve as a regression safety net for Phase 2 Polars pipeline migration.
 
-Copy from: tests/unit/utils/for_core/test_dsm_fcp_utils.py
+Copy from: tests/unit/utils/for_core/test_ckvd_fcp_utils.py
 Task: #81 - Create test_merge_edge_cases.py (10 tests)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md

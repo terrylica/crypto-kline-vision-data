@@ -288,9 +288,6 @@ Note that recent data (within ~48 hours) is typically not available in the Visio
 
 ## Development Guidelines
 
-### Core Principles
-
-- **[Focus CKVD FCP Demo Rule](.cursor/rules/focus-ckvd-fcp-demo.mdc)**: The authoritative instruction file guiding the Cursor Agent to strictly adhere to the demo plan and maintain focus on the Failover Control Protocol demonstration.
 - [scripts/dev](scripts/dev): Contains various scripts for development and maintenance tasks.
 
 ## API Documentation
@@ -401,21 +398,18 @@ Try the logging demos to see the benefits:
 
 ```bash
 # CKVD logging control demo
-python examples/dsm_logging_demo.py
+python examples/ckvd_logging_demo.py
 
 # Test different log levels with actual CKVD
-python examples/dsm_logging_demo.py --log-level CRITICAL --test-ckvd
-python examples/dsm_logging_demo.py --log-level DEBUG --test-ckvd
+python examples/ckvd_logging_demo.py --log-level CRITICAL --test-ckvd
+python examples/ckvd_logging_demo.py --log-level DEBUG --test-ckvd
 
 # Clean feature engineering example
 python examples/clean_feature_engineering_example.py
 
-# General loguru demo
-python examples/loguru_demo.py
-
 # Environment variable control
 CKVD_LOG_LEVEL=CRITICAL python examples/clean_feature_engineering_example.py
-CKVD_LOG_LEVEL=DEBUG python examples/dsm_logging_demo.py --test-ckvd
+CKVD_LOG_LEVEL=DEBUG python examples/ckvd_logging_demo.py --test-ckvd
 ```
 
 ## Benefits of Loguru
@@ -457,8 +451,8 @@ df = manager.get_data(
 
 ### Feature Flag Summary
 
-| Flag                | Environment Variable    | Effect                  |
-| ------------------- | ----------------------- | ----------------------- |
+| Flag                | Environment Variable     | Effect                  |
+| ------------------- | ------------------------ | ----------------------- |
 | `USE_POLARS_OUTPUT` | `CKVD_USE_POLARS_OUTPUT` | Zero-copy Polars output |
 
 Defaults to `False` for backward compatibility. Set to `true`, `1`, or `yes` to enable.

@@ -191,23 +191,23 @@ This will output tables showing the consistent path mapping across all market ty
 
 ## Integration with CryptoKlineVisionData
 
-The `dsm_integration_example.py` script demonstrates how to integrate the path mapper with a data source manager:
+The `ckvd_integration_example.py` script demonstrates how to integrate the path mapper with CryptoKlineVisionData:
 
 ```bash
 # Run the example with a specific market type
-python dsm_integration_example.py --market-type spot
+python ckvd_integration_example.py --market-type spot
 
 # Run the example with USDT-margined futures
-python dsm_integration_example.py --market-type um
+python ckvd_integration_example.py --market-type um
 
 # Run the example with Coin-margined futures
-python dsm_integration_example.py --market-type cm
+python ckvd_integration_example.py --market-type cm
 
 # Run the example with all market types
-python dsm_integration_example.py --all-markets
+python ckvd_integration_example.py --all-markets
 ```
 
-The data source manager uses the path mapper to:
+CryptoKlineVisionData uses the path mapper to:
 
 1. Generate consistent paths for each market type
 2. Handle local cache and remote API endpoints

@@ -33,7 +33,7 @@ class BenchmarkResult(NamedTuple):
     peak_memory_mb: float
 
 
-def run_dsm_benchmark(
+def run_ckvd_benchmark(
     days: int,
     use_streaming: bool,
     scenario_name: str,
@@ -267,25 +267,25 @@ def main():
     print("\n\n[PART 2] Real CKVD Data Fetch - Full FCP Flow")
     print("-" * 60)
 
-    dsm_results = []
-    dsm_scenarios = [
+    ckvd_results = []
+    ckvd_scenarios = [
         ("7 days", 7),
         ("30 days", 30),
         ("90 days", 90),
         ("180 days", 180),
     ]
 
-    for scenario_name, days in dsm_scenarios:
+    for scenario_name, days in ckvd_scenarios:
         print(f"\nRunning: {scenario_name}")
 
-        inmem = run_dsm_benchmark(days, False, scenario_name)
-        stream = run_dsm_benchmark(days, True, scenario_name)
+        inmem = run_ckvd_benchmark(days, False, scenario_name)
+        stream = run_ckvd_benchmark(days, True, scenario_name)
 
-        dsm_results.extend([inmem, stream])
+        ckvd_results.extend([inmem, stream])
         print(f"  In-Memory: {inmem.rows:,} rows, {inmem.time_seconds * 1000:.2f}ms, {inmem.peak_memory_mb:.2f}MB")
         print(f"  Streaming: {stream.rows:,} rows, {stream.time_seconds * 1000:.2f}ms, {stream.peak_memory_mb:.2f}MB")
 
-    output2 = format_results(dsm_results, "PART 2: Real CKVD Data - Full FCP Flow with Streaming")
+    output2 = format_results(ckvd_results, "PART 2: Real CKVD Data - Full FCP Flow with Streaming")
     print(output2)
     all_output.append(output2)
 

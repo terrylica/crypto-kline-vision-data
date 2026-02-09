@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Example of fetching funding rate data using the unified data source manager."""
+"""Example of fetching funding rate data using CryptoKlineVisionData."""
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

@@ -10,7 +10,7 @@ It shows:
 3. Performance benchmarks vs industry standards
 
 Run this script to verify the improvements work correctly:
-    uv run -p 3.13 python examples/dsm_lazy_initialization_demo.py
+    uv run -p 3.13 python examples/ckvd_lazy_initialization_demo.py
 """
 
 import time
@@ -25,7 +25,7 @@ def benchmark_import_speed() -> tuple[float, float]:
     start_time = time.time()
     from ckvd import DataProvider, CryptoKlineVisionData, Interval, MarketType  # noqa: F401
 
-    dsm_import_time = time.time() - start_time
+    ckvd_import_time = time.time() - start_time
 
     # Compare with pandas (typical benchmark)
     start_time = time.time()
@@ -33,24 +33,24 @@ def benchmark_import_speed() -> tuple[float, float]:
 
     pandas_import_time = time.time() - start_time
 
-    print(f"📊 CKVD import time:    {dsm_import_time:.3f}s")
+    print(f"📊 CKVD import time:    {ckvd_import_time:.3f}s")
     print(f"📊 Pandas import time: {pandas_import_time:.3f}s")
 
     # Avoid division by zero - if pandas imported instantly, use a small epsilon
     if pandas_import_time > 0.001:
-        ratio = dsm_import_time / pandas_import_time
+        ratio = ckvd_import_time / pandas_import_time
         print(f"📊 Ratio (CKVD/Pandas): {ratio:.2f}x")
     else:
         print("📊 Ratio (CKVD/Pandas): Both imports very fast (<1ms)")
 
     # Should be similar speed to pandas
-    if dsm_import_time < 0.5:
+    if ckvd_import_time < 0.5:
         print("✅ PASS: CKVD import is fast (<500ms)")
     else:
         print("⚠️  WARN: CKVD import is slower than expected (>500ms)")
 
     print()
-    return dsm_import_time, pandas_import_time
+    return ckvd_import_time, pandas_import_time
 
 
 def demonstrate_factory_creation() -> None:
@@ -233,7 +233,7 @@ def run_comprehensive_demo() -> None:
     print()
 
     # Run all demonstrations
-    dsm_time, pandas_time = benchmark_import_speed()
+    ckvd_time, pandas_time = benchmark_import_speed()
     demonstrate_factory_creation()
     demonstrate_configuration_patterns()
     test_import_after_scipy()
@@ -242,7 +242,7 @@ def run_comprehensive_demo() -> None:
 
     print("🎉 SUMMARY")
     print("=" * 50)
-    print(f"✅ Import speed: {dsm_time:.3f}s (pandas: {pandas_time:.3f}s)")
+    print(f"✅ Import speed: {ckvd_time:.3f}s (pandas: {pandas_time:.3f}s)")
     print("✅ Factory creation: Working")
     print("✅ Configuration system: Complete")
     print("✅ Industry patterns: Implemented")

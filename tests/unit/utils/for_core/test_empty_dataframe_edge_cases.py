@@ -6,7 +6,7 @@ during FCP operations and Polars migration.
 
 These tests serve as a regression safety net for Phase 2 Polars pipeline migration.
 
-Copy from: tests/unit/utils/for_core/test_dsm_fcp_utils.py
+Copy from: tests/unit/utils/for_core/test_ckvd_fcp_utils.py
 Task: #75 - Create test_empty_dataframe_edge_cases.py (10 tests)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md

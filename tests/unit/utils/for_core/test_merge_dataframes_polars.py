@@ -5,7 +5,7 @@ Tests validate that the FCP merge_dataframes() behavior is correctly preserved
 when migrating to Polars. These tests serve as a regression safety net for
 Phase 2 Polars pipeline migration.
 
-Copy from: tests/unit/utils/for_core/test_dsm_fcp_utils.py
+Copy from: tests/unit/utils/for_core/test_ckvd_fcp_utils.py
 Task: #73 - Create test_merge_dataframes_polars.py (12 tests)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md

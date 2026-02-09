@@ -12,10 +12,10 @@ through a sequence of increasingly reliable sources:
 3. REST API: Direct API calls for recent or missing data
 
 The main class is CryptoKlineVisionData, which is the core implementation of the FCP strategy.
-DataSource and CKVDConfig are imported from dsm_types for backward compatibility.
+DataSource and CKVDConfig are imported from ckvd_types for backward compatibility.
 
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
-# Refactoring: Extract DataSource and CKVDConfig to dsm_types.py
+# Refactoring: Extract DataSource and CKVDConfig to ckvd_types.py
 
 Example:
     >>> from core.sync.crypto_kline_vision_data import CryptoKlineVisionData, DataSource
@@ -331,7 +331,7 @@ class CryptoKlineVisionData:
         suppress_http_debug: bool = True,
         quiet_mode: bool = False,
     ) -> None:
-        """Initialize the data source manager.
+        """Initialize CryptoKlineVisionData.
 
         Args:
             provider: Data provider (BINANCE)

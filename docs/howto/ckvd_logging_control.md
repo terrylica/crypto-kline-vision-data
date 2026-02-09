@@ -198,17 +198,17 @@ Try the interactive demo to see logging control in action:
 
 ```bash
 # Basic demo
-python examples/dsm_logging_demo.py
+python examples/ckvd_logging_demo.py
 
 # Test different log levels
-python examples/dsm_logging_demo.py --log-level CRITICAL --test-ckvd
-python examples/dsm_logging_demo.py --log-level DEBUG --test-ckvd
+python examples/ckvd_logging_demo.py --log-level CRITICAL --test-ckvd
+python examples/ckvd_logging_demo.py --log-level DEBUG --test-ckvd
 
 # Show all features
-python examples/dsm_logging_demo.py --show-all
+python examples/ckvd_logging_demo.py --show-all
 
 # Environment variable control
-CKVD_LOG_LEVEL=CRITICAL python examples/dsm_logging_demo.py --test-ckvd
+CKVD_LOG_LEVEL=CRITICAL python examples/ckvd_logging_demo.py --test-ckvd
 ```
 
 ## Migration Guide
@@ -219,10 +219,12 @@ If you have existing code with logging suppression boilerplate:
 
 1. **Remove all logging suppression code** (15+ lines of `logging.getLogger().setLevel()` calls)
 2. **Add single environment variable** at the top of your file:
+
    ```python
    import os
    os.environ["CKVD_LOG_LEVEL"] = "CRITICAL"
    ```
+
 3. **Import CKVD normally** - no other changes needed
 
 ### Gradual Migration
@@ -276,6 +278,7 @@ If CKVD logs still appear after setting `CKVD_LOG_LEVEL=CRITICAL`:
 1. **Check environment variable**: `echo $CKVD_LOG_LEVEL`
 2. **Set before import**: Ensure you set the environment variable before importing CKVD
 3. **Verify effective level**:
+
    ```python
    from ckvd.utils.loguru_setup import logger
    print(f"Effective level: {logger.getEffectiveLevel()}")
@@ -318,10 +321,10 @@ logging.basicConfig(level=logging.INFO)
 
 ### Supported Environment Variables
 
-| Variable             | Purpose                | Default | Example                                         |
-| -------------------- | ---------------------- | ------- | ----------------------------------------------- |
+| Variable              | Purpose                | Default | Example                                         |
+| --------------------- | ---------------------- | ------- | ----------------------------------------------- |
 | `CKVD_LOG_LEVEL`      | Set log level          | `ERROR` | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` |
-| `CKVD_LOG_FILE`       | Enable file logging    | None    | `./logs/ckvd.log`                                |
+| `CKVD_LOG_FILE`       | Enable file logging    | None    | `./logs/ckvd.log`                               |
 | `CKVD_DISABLE_COLORS` | Disable colored output | `false` | `true`, `false`                                 |
 
 ## Benefits Summary

@@ -222,7 +222,7 @@ run = "uv run -p 3.13 python examples/quick_start.py"
 
 [tasks."demo:logging"]
 description = "Run logging demo"
-run = "uv run -p 3.13 python examples/dsm_logging_demo.py"
+run = "uv run -p 3.13 python examples/ckvd_logging_demo.py"
 
 [tasks."demo:cli"]
 description = "Run CKVD CLI demo"

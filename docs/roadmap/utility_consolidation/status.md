@@ -62,7 +62,7 @@ The following core modules have been updated to use consolidated utility modules
    - `src/ckvd/core/rest_data_client.py` - Now uses consolidated utility modules directly
 
 2. **Test Modules**
-   - `tests/time_boundary/test_dsm_time_boundary_comprehensive.py` - Now uses consolidated utility modules directly
+   - `tests/time_boundary/test_dsm_time_boundary_comprehensive.py` - _(removed during package rename)_
    - `tests/api_boundary/test_api_boundary.py` - Now uses consolidated time utility functions directly instead of deprecated methods
 
 Deprecated wrapper functions have been added to maintain backward compatibility for existing client code.
@@ -115,7 +115,7 @@ We've successfully updated several core modules to use the consolidated utility 
    - Simplified dependency structure
 
 7. **Test Files**:
-   - Updated `test_dsm_time_boundary_comprehensive.py` to import and use consolidated functions directly
+   - Updated `test_dsm_time_boundary_comprehensive.py` to import and use consolidated functions directly _(file removed during package rename)_
    - Replaced calls to `TimeRangeManager.align_vision_api_to_rest` with direct calls to `align_vision_api_to_rest`
    - Improved test reliability by eliminating deprecated function dependencies
 

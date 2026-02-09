@@ -13,7 +13,7 @@ Context-specific instructions for working with CKVD examples.
 uv run -p 3.13 python examples/quick_start.py
 
 # Run with debug logging
-CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/dsm_logging_demo.py
+CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
 ```
 
 ---
@@ -26,7 +26,7 @@ CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/dsm_logging_demo.py
 | `lib_module/` | Library usage patterns |
 | Root files    | Quick start and demos  |
 
-**Root-level examples**: `quick_start.py`, `dsm_logging_demo.py`, `dsm_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`
+**Root-level examples**: `quick_start.py`, `ckvd_logging_demo.py`, `ckvd_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`
 
 ---
 

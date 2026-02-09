@@ -261,17 +261,15 @@ if __name__ == "__main__":
 ## Running the Demo
 
 ```bash
-# Run with INFO level
-python examples/loguru_demo.py --level INFO
+# Run the CKVD logging demo
+uv run -p 3.13 python examples/ckvd_logging_demo.py
 
-# Run with DEBUG level for verbose output
-python examples/loguru_demo.py --level DEBUG
+# Run with different log levels via environment variable
+CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
+CKVD_LOG_LEVEL=CRITICAL uv run -p 3.13 python examples/ckvd_logging_demo.py
 
-# Run with ERROR level for minimal output
-python examples/loguru_demo.py --level ERROR
-
-# Using environment variable
-CKVD_LOG_LEVEL=DEBUG python examples/loguru_demo.py
+# Clean feature engineering example (suppressed logging)
+uv run -p 3.13 python examples/clean_feature_engineering_example.py
 ```
 
 ## Best Practices
@@ -295,5 +293,5 @@ CKVD_LOG_LEVEL=DEBUG python examples/loguru_demo.py
 
 - [Migration Guide](../howto/loguru_migration.md) - Detailed migration instructions
 - [README.md](/README.md#logging-control) - Overview in main README
-- [examples/loguru_demo.py](/examples/loguru_demo.py) - Demo script
-- [examples/dsm_logging_demo.py](/examples/dsm_logging_demo.py) - CKVD-specific logging demo
+- [examples/ckvd_logging_demo.py](/examples/ckvd_logging_demo.py) - CKVD logging demo
+- [examples/clean_feature_engineering_example.py](/examples/clean_feature_engineering_example.py) - Clean logging for feature engineering

@@ -6,7 +6,7 @@ when transitioning between Polars lazy/eager modes and Pandas DataFrames.
 
 These tests serve as a regression safety net for Phase 2 Polars pipeline migration.
 
-Copy from: tests/unit/utils/for_core/test_dsm_fcp_utils.py
+Copy from: tests/unit/utils/for_core/test_ckvd_fcp_utils.py
 Task: #74 - Create test_lazy_frame_conversion.py (15 tests)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md

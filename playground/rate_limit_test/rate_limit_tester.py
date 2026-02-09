@@ -107,7 +107,7 @@ class RateLimitTester:
         logger.setup_root(level="WARNING")
 
     def setup(self):
-        """Set up the data source manager and REST client."""
+        """Set up CryptoKlineVisionData and REST client."""
         self.manager = CryptoKlineVisionData(
             market_type=MarketType.SPOT,
             provider=DataProvider.BINANCE,

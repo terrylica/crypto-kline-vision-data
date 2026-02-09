@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for FCP utility functions.
 
-Tests the Failover Control Protocol utility functions in dsm_fcp_utils.py:
+Tests the Failover Control Protocol utility functions in ckvd_fcp_utils.py:
 1. validate_interval() - Interval validation
 2. process_vision_step() - FCP Step 2: Vision API
 3. process_rest_step() - FCP Step 3: REST API fallback

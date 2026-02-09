@@ -225,7 +225,7 @@ class ResourceAwareCryptoKlineVisionData(CryptoKlineVisionData):
         """Track creation of manager instance."""
         manager = await super().__aenter__()
         self.resource_tracker.track_resource(
-            ResourceType.DATA_SOURCE_MANAGER,
+            ResourceType.CKVD_MANAGER,
             id(self),
             {"type": self.market_type.name if hasattr(self, "market_type") else "unknown"}
         )
@@ -235,7 +235,7 @@ class ResourceAwareCryptoKlineVisionData(CryptoKlineVisionData):
         """Track cleanup of manager instance."""
         result = await super().__aexit__(exc_type, exc_val, exc_tb)
         self.resource_tracker.release_resource(
-            ResourceType.DATA_SOURCE_MANAGER,
+            ResourceType.CKVD_MANAGER,
             id(self)
         )
         return result

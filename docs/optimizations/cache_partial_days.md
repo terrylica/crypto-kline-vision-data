@@ -46,7 +46,7 @@ FEATURE_FLAGS = {
 This optimization is protected by:
 
 1. Unit tests in `tests/test_ckvd_cache_utils.py`
-2. Integration tests in `tests/integration/test_dsm_cache_optimization.py`
+2. Integration tests in `tests/integration/test_ckvd_cache_optimization.py`
 
 All tests must pass before making any modifications to this code.
 
@@ -72,4 +72,4 @@ When working with this code:
 - `src/ckvd/utils/for_core/ckvd_cache_utils.py`: Contains the optimization implementation
 - `src/ckvd/utils/config.py`: Contains the feature flag
 - `tests/test_ckvd_cache_utils.py`: Contains unit tests
-- `tests/integration/test_dsm_cache_optimization.py`: Contains integration tests
+- `tests/integration/test_ckvd_cache_optimization.py`: Contains integration tests

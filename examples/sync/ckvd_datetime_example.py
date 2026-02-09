@@ -39,7 +39,7 @@ console = Console()
 def setup():
     """Set up logging and environment."""
     # Configure logging
-    main_log, error_log, _ = configure_session_logging("dsm_datetime_example", "INFO")
+    main_log, error_log, _ = configure_session_logging("ckvd_datetime_example", "INFO")
     logger.info(f"Logs: {main_log} and {error_log}")
 
     # Create CKVD instance

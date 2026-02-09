@@ -23,9 +23,9 @@ uv run -p 3.13 python examples/quick_start.py
 
 | Example                                | Description                    |
 | -------------------------------------- | ------------------------------ |
-| `dsm_lazy_initialization_demo.py`      | Lazy manager initialization    |
+| `ckvd_lazy_initialization_demo.py`     | Lazy manager initialization    |
 | `clean_feature_engineering_example.py` | Feature engineering pipeline   |
-| `dsm_logging_demo.py`                  | Logging configuration patterns |
+| `ckvd_logging_demo.py`                 | Logging configuration patterns |
 
 ### Logging
 
