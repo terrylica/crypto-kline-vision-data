@@ -8,8 +8,8 @@ This project uses Claude Code extensions for AI-assisted development:
 
 - **5 Agents**: Specialized subagents for task delegation
 - **6 Commands**: Slash commands for common workflows
-- **7 Rules**: Domain-specific context loaded on demand
 - **4 Skills**: Progressive disclosure documentation
+- **Domain context**: In nested CLAUDE.md spokes (see [src/CLAUDE.md](/src/CLAUDE.md))
 
 ## Active Configuration
 
@@ -31,33 +31,23 @@ This project uses Claude Code extensions for AI-assisted development:
 | /fetch-data    | Yes          | Fetch real market data       |
 | /quick-test    | Yes          | Run actual tests             |
 | /feature-dev   | No           | Guided feature development   |
-| /review-ckvd    | No           | Review code against patterns |
+| /review-ckvd   | No           | Review code against patterns |
 | /validate-data | No           | Validate DataFrame structure |
 
 Commands with side effects have `disable-model-invocation: true`.
 
-### Rules
+### Domain Context
 
-Claude loads these rules on demand based on context:
-
-| Rule                    | Triggers When Discussing             |
-| ----------------------- | ------------------------------------ |
-| binance-api.md          | API calls, rate limits, endpoints    |
-| caching-patterns.md     | Cache, Arrow files, mmap             |
-| dataframe-operations.md | DataFrame, Polars, OHLCV             |
-| error-handling.md       | Exceptions, try/except, recovery     |
-| fcp-protocol.md         | FCP, failover, data source selection |
-| symbol-formats.md       | Symbol validation, market types      |
-| timestamp-handling.md   | datetime, timezone, UTC              |
+Domain-specific rules (Binance API, exceptions, symbols, timestamps, caching, FCP) are in [src/CLAUDE.md](/src/CLAUDE.md) — loaded on demand when working with source code.
 
 ### Skills (in docs/skills/)
 
-| Skill           | Context | Agent   | allowed-tools          | Purpose                        |
-| --------------- | ------- | ------- | ---------------------- | ------------------------------ |
-| ckvd-usage       | -       | -       | Read, Bash             | CryptoKlineVisionData API guide    |
-| ckvd-testing     | -       | -       | Read, Bash, Grep, Glob | Testing patterns and pytest    |
-| ckvd-research    | fork    | Explore | (agent's tools)        | Codebase research (subagent)   |
-| ckvd-fcp-monitor | fork    | -       | Read, Bash, Grep, Glob | FCP monitoring and diagnostics |
+| Skill            | Context | Agent   | allowed-tools          | Purpose                         |
+| ---------------- | ------- | ------- | ---------------------- | ------------------------------- |
+| ckvd-usage       | -       | -       | Read, Bash             | CryptoKlineVisionData API guide |
+| ckvd-testing     | -       | -       | Read, Bash, Grep, Glob | Testing patterns and pytest     |
+| ckvd-research    | fork    | Explore | (agent's tools)        | Codebase research (subagent)    |
+| ckvd-fcp-monitor | fork    | -       | Read, Bash, Grep, Glob | FCP monitoring and diagnostics  |
 
 ## Hooks Configuration
 
@@ -73,7 +63,10 @@ Project hooks are in `.claude/hooks/hooks.json`:
       { "matcher": "Bash", "hooks": [{ "command": "ckvd-bash-guard.sh" }] }
     ],
     "PostToolUse": [
-      { "matcher": "Write|Edit", "hooks": [{ "command": "ckvd-code-guard.sh" }] }
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{ "command": "ckvd-code-guard.sh" }]
+      }
     ],
     "Stop": [{ "hooks": [{ "command": "ckvd-final-check.sh" }] }]
   }
@@ -84,8 +77,8 @@ Project hooks are in `.claude/hooks/hooks.json`:
 
 The `ckvd-skill-suggest.sh` hook provides suggestions based on prompt keywords:
 
-| Keyword             | Suggested Skill  |
-| ------------------- | ---------------- |
+| Keyword             | Suggested Skill   |
+| ------------------- | ----------------- |
 | fetch, data, klines | /ckvd-usage       |
 | test, pytest, mock  | /ckvd-testing     |
 | FCP, cache miss     | /ckvd-fcp-monitor |
@@ -98,7 +91,7 @@ The `ckvd-bash-guard.sh` blocks dangerous operations:
 | Blocked               | Reason                     |
 | --------------------- | -------------------------- |
 | Cache deletion        | Use `mise run cache:clear` |
-| Python version change | CKVD requires 3.13 ONLY     |
+| Python version change | CKVD requires 3.13 ONLY    |
 | Force push to main    | Use feature branches       |
 | Direct pip install    | Use `uv add`               |
 
@@ -141,7 +134,7 @@ From [Anthropic best practices](https://platform.claude.com/docs/en/agents-and-t
 
 ### Structure
 
-- [x] CLAUDE.md under 300 lines (currently 290)
+- [x] CLAUDE.md under 300 lines (hub: 154, largest spoke: 286)
 - [x] Side-effect commands have `disable-model-invocation: true`
 - [x] Skills have `user-invocable: true` and `$ARGUMENTS`
 - [x] Agents have explicit `tools` field (prevents inheriting all tools)
@@ -157,4 +150,4 @@ From [Anthropic best practices](https://platform.claude.com/docs/en/agents-and-t
 
 - [CLAUDE.md](/CLAUDE.md) - Main instructions
 - [.claude/README.md](README.md) - Directory overview
-- [Design spec](/docs/design/2026-01-30-claude-code-infrastructure/spec.md) - Full implementation details
+- [ADR](/docs/adr/2026-01-30-claude-code-infrastructure.md) - Infrastructure decision record

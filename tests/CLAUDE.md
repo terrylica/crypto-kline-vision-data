@@ -54,6 +54,7 @@ unit/
 │   │   ├── binance/         # REST/Vision client tests
 │   │   └── okx/             # OKX REST client tests
 │   └── sync/                # CryptoKlineVisionData tests (has own conftest.py)
+│       └── test_cache_toggle.py  # 34 cache toggle tests (CKVD_ENABLE_CACHE, use_cache, enforce_source)
 ├── utils/
 │   ├── for_core/            # FCP utility tests
 │   ├── internal/            # Polars pipeline tests

@@ -148,7 +148,6 @@ with ThreadPoolExecutor(max_workers=3) as executor:
 
 ## Related
 
-- @.claude/rules/fcp-protocol.md - FCP decision logic
-- @.claude/rules/caching-patterns.md - Cache structure
+- @src/CLAUDE.md - FCP implementation, cache patterns, exception hierarchy
 - @docs/skills/ckvd-usage/references/debugging.md - General debugging
 - @./references/evolution-log.md - Skill improvement history

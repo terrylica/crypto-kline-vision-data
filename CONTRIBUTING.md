@@ -43,7 +43,7 @@ mise run test:all
 mise run test:integration
 
 # Test with coverage report
-mise run test:coverage
+mise run test:cov
 ```
 
 ### Code Quality
@@ -74,15 +74,15 @@ mise run check:all
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning:
 
-| Prefix                         | Version Bump  | Example                               |
-| ------------------------------ | ------------- | ------------------------------------- |
-| `feat:`                        | Minor (0.X.0) | `feat: add OKX provider support`      |
-| `fix:`                         | Patch (0.0.X) | `fix: handle timeout in REST client`  |
-| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: rename DataProvider enum`     |
-| `docs:`                        | No release    | `docs: update API documentation`      |
-| `chore:`                       | No release    | `chore: update dependencies`          |
-| `refactor:`                    | No release    | `refactor: simplify cache logic`      |
-| `test:`                        | No release    | `test: add coverage for gap detector` |
+| Prefix                     | Version Bump  | Example                               |
+| -------------------------- | ------------- | ------------------------------------- |
+| `feat:`                    | Minor (0.X.0) | `feat: add OKX provider support`      |
+| `fix:`                     | Patch (0.0.X) | `fix: handle timeout in REST client`  |
+| `BREAKING CHANGE:` trailer | Major (X.0.0) | Body trailer: `BREAKING CHANGE: ...`  |
+| `docs:`                    | No release    | `docs: update API documentation`      |
+| `chore:`                   | No release    | `chore: update dependencies`          |
+| `refactor:`                | No release    | `refactor: simplify cache logic`      |
+| `test:`                    | No release    | `test: add coverage for gap detector` |
 
 ### SRED Trailers (Required)
 
@@ -109,7 +109,7 @@ Valid SRED-Type values:
 - **Imports**: Absolute imports with `ckvd.` prefix
 - **Type hints**: Required for all public functions
 - **Docstrings**: Google style
-- **Line length**: 120 characters
+- **Line length**: 140 characters
 - **Formatting**: ruff format (enforced)
 
 ## Project Structure

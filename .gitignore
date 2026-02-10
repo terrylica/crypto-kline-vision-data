@@ -141,7 +141,7 @@ bun.lockb
 !.claude/agents/
 !.claude/commands/
 !.claude/hooks/
-!.claude/rules/
+
 
 # Claude Code local settings (personal overrides, not committed)
 .claude/settings.local.json

@@ -17,12 +17,11 @@ docs/
 ├── ckvd/                   ← CKVD class documentation
 ├── debugging/              ← Debugging techniques
 ├── design/                 ← Implementation specifications (1:1 with ADRs)
-├── howto/                  ← Step-by-step guides
+├── howto/                  ← Step-by-step guides (cache control, AWS CLI, git operations)
 ├── optimizations/          ← Performance optimization notes
 ├── roadmap/                ← Feature roadmap and planning
 ├── skills/                 ← Claude Code progressive disclosure skills
-├── testing/                ← Test writing guides
-├── utils/                  ← Utility module documentation
+├── utils/                  ← Utility module documentation (time_utils)
 ├── research/               ← Research notes (git-ignored)
 ├── GLOSSARY.md             ← Domain terminology
 ├── INDEX.md                ← Navigation hub

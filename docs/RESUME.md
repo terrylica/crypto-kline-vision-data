@@ -70,7 +70,7 @@ Post-cleanup: vulture 0 items at 80% confidence, PMD CPD 4 structural clones rem
 
 Comprehensive Claude Code infrastructure created:
 
-- 5 agents, 6 commands, 7 context rules, 4 skills
+- 5 agents, 6 commands, 4 skills (domain rules migrated to src/CLAUDE.md spoke)
 - Hooks: PreToolUse (bash-guard), PostToolUse (code-guard), Stop (final-check)
 - Settings: permission rules (allow/deny patterns)
 - ADR: `docs/adr/2026-01-30-claude-code-infrastructure.md`
@@ -106,8 +106,7 @@ crypto-kline-vision-data/
 ├── .claude/               # Claude Code extensions
 │   ├── agents/            # 5 subagents
 │   ├── commands/          # 6 slash commands
-│   ├── hooks/             # Pre/Post tool hooks
-│   └── rules/             # 7 context rules
+│   └── hooks/             # Pre/Post tool hooks
 └── docs/
     ├── skills/            # 4 progressive disclosure skills
     ├── adr/               # Architecture decisions
@@ -116,7 +115,7 @@ crypto-kline-vision-data/
 
 ## Codebase Health
 
-- Unit tests: 299 passed, 21 skipped
+- Unit tests: 318 passed
 - vulture: 0 dead code items at 80% confidence
 - PMD CPD: 4 structural clones remaining (all non-actionable)
 - ruff: pre-existing warnings (PLR0912, PLR0915, PLR0911, PLW2901 - legacy code)

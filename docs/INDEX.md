@@ -23,7 +23,6 @@ Navigation hub for Crypto Kline Vision Data documentation.
 | ------------------------------------------------- | ---------------------------------------- |
 | [howto/](howto/)                                  | Step-by-step guides for common tasks     |
 | [debugging/](debugging/)                          | Debugging techniques and troubleshooting |
-| [testing/](testing/)                              | Test writing and execution guides        |
 | [Telemetry](/examples/README.md#telemetry-output) | NDJSON event schema and parsing          |
 
 ---
@@ -51,10 +50,9 @@ Navigation hub for Crypto Kline Vision Data documentation.
 
 ## Project Planning
 
-| Directory                                        | Purpose                      |
-| ------------------------------------------------ | ---------------------------- |
-| [roadmap/](roadmap/)                             | Feature roadmap and planning |
-| [documentation_audit.md](documentation_audit.md) | Documentation coverage audit |
+| Directory            | Purpose                      |
+| -------------------- | ---------------------------- |
+| [roadmap/](roadmap/) | Feature roadmap and planning |
 
 ---
 
@@ -125,14 +123,6 @@ Slash commands for common workflows:
 | /validate-data | Validate DataFrame structure      |
 | /feature-dev   | Guided feature development        |
 
-### Context Rules
+### Domain Context (migrated to hub-and-spoke)
 
-Domain-specific rules Claude loads on demand (in `.claude/rules/`):
-
-- `binance-api.md` - API rate limits, error codes
-- `timestamp-handling.md` - UTC requirements
-- `dataframe-operations.md` - DataFrame/OHLCV patterns
-- `caching-patterns.md` - Cache structure
-- `symbol-formats.md` - Market-specific formats
-- `error-handling.md` - Exception hierarchy, recovery patterns
-- `fcp-protocol.md` - FCP decision logic, debugging
+Domain-specific rules (Binance API, exceptions, symbols, timestamps, caching, FCP) are now in [src/CLAUDE.md](/src/CLAUDE.md) — loaded on demand when working with source code.

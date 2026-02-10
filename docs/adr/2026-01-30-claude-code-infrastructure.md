@@ -77,7 +77,7 @@ docs/skills/
 
 1. **CLAUDE.md** (<300 lines) - Quick reference, navigation, critical rules
 2. **Skills** (SKILL.md) - Task-specific guidance with examples and references
-3. **Context Rules** (.claude/rules/) - Domain-specific guidance loaded on demand
+3. **Nested CLAUDE.md** (src/, tests/, etc.) - Domain-specific guidance loaded on demand
 4. **Agents** (.claude/agents/) - Specialized subagents for delegation
 5. **Commands** (.claude/commands/) - Slash commands for common workflows
 
@@ -130,8 +130,8 @@ user-invocable: true
 | Metric              | Value                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
 | Agents              | 5 (api-reviewer, data-fetcher, fcp-debugger, silent-failure-hunter, test-writer) |
-| Commands            | 6 (debug-fcp, fetch-data, quick-test, review-ckvd, validate-data, feature-dev)    |
-| Skills              | 4 (ckvd-usage, ckvd-testing, ckvd-research, ckvd-fcp-monitor)                        |
+| Commands            | 6 (debug-fcp, fetch-data, quick-test, review-ckvd, validate-data, feature-dev)   |
+| Skills              | 4 (ckvd-usage, ckvd-testing, ckvd-research, ckvd-fcp-monitor)                    |
 | Rules               | 7 (binance-api, caching, dataframe, error, fcp, symbols, timestamp)              |
 | Hooks               | 5 (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop)                |
 | CLAUDE.md hierarchy | 5 files (root, src/, tests/, docs/, examples/)                                   |

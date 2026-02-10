@@ -2,25 +2,23 @@
 
 Quick reference guides for common tasks in the codebase.
 
-## Code Quality
+## Cache Control
 
-- [Removing Unused Imports](remove_unused_imports.md) - Find and remove unused imports
-- [Code Quality Checks](code_quality_checks.md) - Perform various code quality checks
-
-## HTTP Client
-
-- [Using curl_cffi](using_curl_cffi.md) - Best practices for the curl_cffi HTTP client
+- [Cache Control Guide](ckvd_cache_control.md) - Enable/disable caching, environment variable control
 
 ## Testing
 
-Run tests using our parallel test script:
+Run tests using mise tasks:
 
 ```bash
-# Run all tests
-scripts/op/run_tests_parallel.sh
+# Run unit tests
+mise run test
 
-# Run specific test directory
-scripts/op/run_tests_parallel.sh tests/cache_structure
+# Run all tests
+mise run test:all
+
+# Run with coverage
+mise run test:cov
 ```
 
 ## AWS CLI Commands

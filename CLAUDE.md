@@ -12,14 +12,14 @@ High-performance market data integration with Failover Control Protocol (FCP).
 
 Each directory has its own CLAUDE.md with domain-specific context, loaded on demand.
 
-| Directory     | CLAUDE.md                                    | Owns                                       |
-| ------------- | -------------------------------------------- | ------------------------------------------ |
-| `src/`        | [src/CLAUDE.md](src/CLAUDE.md)               | Package structure, code patterns, FCP impl |
-| `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking  |
-| `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting  |
-| `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry      |
-| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools       |
-| `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)   |
+| Directory     | CLAUDE.md                                    | Owns                                                                 |
+| ------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| `src/`        | [src/CLAUDE.md](src/CLAUDE.md)               | Package structure, FCP, exceptions, Binance API, symbols, timestamps |
+| `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking                            |
+| `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting                            |
+| `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry                                |
+| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools                                 |
+| `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)                             |
 
 **Also**: [.claude/settings.md](.claude/settings.md) | [docs/INDEX.md](docs/INDEX.md) | [docs/GLOSSARY.md](docs/GLOSSARY.md) | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
@@ -113,18 +113,6 @@ SRED-Claim: CKVD
 ---
 
 ## Claude Code Extensions
-
-### Context Rules (`.claude/rules/` — loaded on demand)
-
-| Rule                                   | Topic                                 |
-| -------------------------------------- | ------------------------------------- |
-| @.claude/rules/binance-api.md          | Rate limits, error codes, endpoints   |
-| @.claude/rules/timestamp-handling.md   | UTC requirements, open_time semantics |
-| @.claude/rules/dataframe-operations.md | DataFrame handling, OHLCV validation  |
-| @.claude/rules/caching-patterns.md     | Cache structure, invalidation         |
-| @.claude/rules/symbol-formats.md       | Market-specific symbol formats        |
-| @.claude/rules/error-handling.md       | Exception hierarchy, recovery         |
-| @.claude/rules/fcp-protocol.md         | FCP decision logic, debugging         |
 
 ### Skills (progressive disclosure in `docs/skills/`)
 
