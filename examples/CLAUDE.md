@@ -21,11 +21,10 @@ CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
 
 ## Directory Structure
 
-| Directory     | Purpose                                     |
-| ------------- | ------------------------------------------- |
-| `sync/`       | Synchronous examples (datetime, 1s testing) |
-| `lib_module/` | Legacy (README only, demos removed)         |
-| Root files    | Quick start, logging, lazy init demos       |
+| Directory  | Purpose                                     |
+| ---------- | ------------------------------------------- |
+| `sync/`    | Synchronous examples (datetime, 1s testing) |
+| Root files | Quick start, logging, lazy init demos       |
 
 **Root-level examples**: `quick_start.py`, `ckvd_logging_demo.py`, `ckvd_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`, `ckvd_cache_control_example.py`
 

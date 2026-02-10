@@ -105,5 +105,4 @@ From [Anthropic best practices](https://platform.claude.com/docs/en/agents-and-t
 ## Related
 
 - [CLAUDE.md](/CLAUDE.md) - Main instructions
-- [.claude/README.md](README.md) - Directory overview
 - [ADR](/docs/adr/2026-01-30-claude-code-infrastructure.md) - Infrastructure decision record
