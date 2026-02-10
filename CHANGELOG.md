@@ -1,3 +1,11 @@
+# [4.2.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.1.0...v4.2.0) (2026-02-10)
+
+
+### Features
+
+* **cache:** extend CKVD_ENABLE_CACHE env var to CKVDConfig and FundingRateClient ([8a85cca](https://github.com/terrylica/crypto-kline-vision-data/commit/8a85ccac09e0269c7c7cd768824b81d35b9eefe2))
+* **telemetry:** add NDJSON telemetry layer to all examples ([4418ad0](https://github.com/terrylica/crypto-kline-vision-data/commit/4418ad0a2c230342ccdbc3697b95acd7089fe60d))
+
 # [4.1.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.0.0...v4.1.0) (2026-02-09)
 
 
