@@ -134,7 +134,7 @@ user-invocable: true
 
 ## More Information
 
-- `.claude/README.md` - Infrastructure documentation
+- `.claude/settings.md` - Infrastructure documentation
 - `docs/INDEX.md` - Documentation navigation hub
 - [cc-skills](https://github.com/terrylica/cc-skills) - Pattern source
 

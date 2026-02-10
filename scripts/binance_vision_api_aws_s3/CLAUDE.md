@@ -1,6 +1,8 @@
 # Binance Vision API & AWS S3 Data Downloader
 
-This directory contains scripts for downloading and verifying data from the Binance Vision API and AWS S3 storage.
+**Hub**: [scripts/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Scripts for downloading and verifying data from the Binance Vision API and AWS S3 storage.
 
 ## Binance Data Availability Fetcher
 

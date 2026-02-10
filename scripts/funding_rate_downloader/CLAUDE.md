@@ -1,6 +1,8 @@
 # Binance Funding Rate History Downloader
 
-This tool allows you to download funding rate history data from Binance Futures API and save it as CSV files.
+**Hub**: [scripts/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Download funding rate history data from Binance Futures API and save as CSV files.
 
 ## Features
 

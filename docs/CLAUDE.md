@@ -59,11 +59,11 @@ Progressive disclosure skills in `docs/skills/`:
 
 ## Benchmarks
 
-Performance benchmark documentation in `docs/benchmarks/`:
+Performance benchmarks in `docs/benchmarks/` — see [benchmarks/CLAUDE.md](benchmarks/CLAUDE.md) for details.
 
 | Document                                                    | Purpose                        |
 | ----------------------------------------------------------- | ------------------------------ |
-| [README.md](benchmarks/README.md)                           | Benchmark overview and results |
+| [CLAUDE.md](benchmarks/CLAUDE.md)                           | Benchmark overview and results |
 | [PERFORMANCE_SUMMARY.md](benchmarks/PERFORMANCE_SUMMARY.md) | Executive summary              |
 | `scripts/`                                                  | Runnable benchmark scripts     |
 | `results/`                                                  | Raw benchmark output           |

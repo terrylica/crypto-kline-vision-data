@@ -8,12 +8,12 @@ Utility scripts for development, maintenance, and deployment.
 
 ## Directory Structure
 
-| Directory                    | Purpose                               |
-| ---------------------------- | ------------------------------------- |
-| `dev/`                       | Development utilities (linting, etc.) |
-| `arrow_cache/`               | Cache management and diagnostics      |
-| `binance_vision_api_aws_s3/` | Binance Vision data availability      |
-| `funding_rate_downloader/`   | Funding rate data utilities           |
+| Directory                                                           | Purpose                               |
+| ------------------------------------------------------------------- | ------------------------------------- |
+| `dev/`                                                              | Development utilities (linting, etc.) |
+| [`arrow_cache/`](arrow_cache/CLAUDE.md)                             | Cache management and diagnostics      |
+| [`binance_vision_api_aws_s3/`](binance_vision_api_aws_s3/CLAUDE.md) | Binance Vision data availability      |
+| [`funding_rate_downloader/`](funding_rate_downloader/CLAUDE.md)     | Funding rate data utilities           |
 
 ## Key Scripts
 

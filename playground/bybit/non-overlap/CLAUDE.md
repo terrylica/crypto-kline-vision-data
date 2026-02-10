@@ -1,6 +1,8 @@
 # Bybit Kline Data Fetching - Duplicate Test
 
-This directory contains a Python script (`fetch_data_batch_test.py`) designed to investigate potential duplicate data when fetching historical Bybit kline data in small, consecutive batches using the REST API.
+**Hub**: [bybit/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../../CLAUDE.md)
+
+Investigates potential duplicate data when fetching historical Bybit kline data in small, consecutive batches via REST API.
 
 ## The Problem
 
@@ -26,21 +28,21 @@ The `fetch_data_batch_test.py` script implements this corrected logic. It calcul
 
 ## How to Run
 
-1.  Navigate to the script directory in your terminal: `cd playground/bybit/non-overlap/`
-2.  Ensure the script has execute permissions (if running directly): `chmod +x fetch_data_batch_test.py` (Alternatively, run with `python fetch_data_batch_test.py ...`)
-3.  Run the script using the `python` interpreter, providing the required arguments:
+1. Navigate to the script directory in your terminal: `cd playground/bybit/non-overlap/`
+2. Ensure the script has execute permissions (if running directly): `chmod +x fetch_data_batch_test.py` (Alternatively, run with `python fetch_data_batch_test.py ...`)
+3. Run the script using the `python` interpreter, providing the required arguments:
 
-    ```bash
-    python fetch_data_batch_test.py --category <market_category> --symbol <trading_pair> --interval <interval> --num-batches <number_of_batches> --limit <limit1> --limit <limit2> ...
-    ```
+   ```bash
+   python fetch_data_batch_test.py --category <market_category> --symbol <trading_pair> --interval <interval> --num-batches <number_of_batches> --limit <limit1> --limit <limit2> ...
+   ```
 
-    **Example:**
+   **Example:**
 
-    ```bash
-    python fetch_data_batch_test.py --category inverse --symbol BTCUSD --interval 5 --num-batches 10 --limit 3 --limit 5 --limit 7
-    ```
+   ```bash
+   python fetch_data_batch_test.py --category inverse --symbol BTCUSD --interval 5 --num-batches 10 --limit 3 --limit 5 --limit 7
+   ```
 
-    Replace `<market_category>`, `<trading_pair>`, `<interval>`, `<number_of_batches>`, and `<limitX>` with your desired values. The script currently supports `interval` values of "5" and "15".
+   Replace `<market_category>`, `<trading_pair>`, `<interval>`, `<number_of_batches>`, and `<limitX>` with your desired values. The script currently supports `interval` values of "5" and "15".
 
 ## Results
 

@@ -1,5 +1,7 @@
 # Performance Benchmarks
 
+**Hub**: [docs/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
 Comprehensive performance benchmarks for Crypto Kline Vision Data v2.0+.
 
 ## Executive Summary

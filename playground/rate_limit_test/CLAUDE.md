@@ -1,6 +1,8 @@
 # Binance API Rate Limit Testing
 
-This directory contains tools for testing and analyzing Binance's API rate limits, focusing on optimizing data retrieval for multiple symbols simultaneously while staying within the platform's rate constraints.
+**Hub**: [playground/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Tools for testing and analyzing Binance API rate limits — optimizing multi-symbol data retrieval within platform constraints.
 
 ## Key Components
 

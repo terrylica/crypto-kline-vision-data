@@ -1,6 +1,8 @@
 # OKX API Tests
 
-This directory contains an extensive suite of tests for the OKX API implementation, specifically focusing on historical market data retrieval via the REST API (`/api/v5/market/candles` and `/api/v5/market/history-candles` endpoints). The tests aim to verify endpoint behavior, data availability, formatting, validation, and various edge cases based on findings documented in `docs/api/okx_data_download_guide.md`.
+**Hub**: [tests/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Extensive test suite for OKX API implementation — historical market data retrieval via REST API (`/api/v5/market/candles` and `/api/v5/market/history-candles`). Verifies endpoint behavior, data availability, formatting, validation, and edge cases per `docs/api/okx_data_download_guide.md`.
 
 ## Test Files
 
@@ -108,4 +110,4 @@ When contributing new tests to this suite:
 4. Use the `retry_request` helper for making API calls to handle retries consistently.
 5. Format test output using `rich.print` and `rich.table.Table` for clear reporting.
 6. Ensure tests are self-contained and can be run independently or via `pytest`.
-7. Update this `README.md` file to include a description of the new test file and the areas it covers.
+7. Update this `CLAUDE.md` file to include a description of the new test file and the areas it covers.

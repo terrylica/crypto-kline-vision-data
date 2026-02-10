@@ -1,6 +1,8 @@
 # Bybit Data Tools
 
-This directory contains tools for downloading and analyzing historical price data from the Bybit cryptocurrency exchange.
+**Hub**: [playground/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Tools for downloading and analyzing historical price data from the Bybit cryptocurrency exchange.
 
 ## Prerequisites
 

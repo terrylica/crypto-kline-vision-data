@@ -121,7 +121,7 @@ Key methods:
 
 **Cache toggle**: `use_cache=False` disables cache read/write. `CKVD_ENABLE_CACHE=false` env var also disables cache (honored in `CKVDConfig.__attrs_post_init__`, `CryptoKlineVisionData.__init__`, and `BinanceFundingRateClient.__init__`). `enforce_source=DataSource.CACHE` with `use_cache=False` raises `ValueError`.
 
-**Cache population rules**: Cache complete days from Vision/REST. Never cache partial days, future timestamps, error responses, or data <48h old.
+**Cache population rules**: Cache complete days from Vision/REST. Never cache partial days, future timestamps, error responses, or data <48h old. The `OPTIMIZE_CACHE_PARTIAL_DAYS` flag in `utils/config.py` controls partial-day optimization (always on).
 
 **Cache storage**: Apache Arrow IPC (`.arrow`) files with atomic writes (temp-file-then-rename). One file per day. Cache location via `platformdirs.user_cache_path('crypto-kline-vision-data')`. Clear with `mise run cache:clear`.
 
@@ -282,5 +282,5 @@ manager = CryptoKlineVisionData.create(
 
 - @docs/adr/2025-01-30-failover-control-protocol.md - FCP architecture
 - @docs/api/ - Detailed Binance API documentation
-- @docs/benchmarks/README.md - Performance benchmarks
+- @docs/benchmarks/CLAUDE.md - Performance benchmarks
 - @docs/TROUBLESHOOTING.md - Cache toggle and troubleshooting

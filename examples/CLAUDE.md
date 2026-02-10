@@ -19,14 +19,36 @@ CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
 
 ---
 
-## Directory Structure
+## Example Files
 
-| Directory  | Purpose                                     |
-| ---------- | ------------------------------------------- |
-| `sync/`    | Synchronous examples (datetime, 1s testing) |
-| Root files | Quick start, logging, lazy init demos       |
+### Basic Usage
 
-**Root-level examples**: `quick_start.py`, `ckvd_logging_demo.py`, `ckvd_lazy_initialization_demo.py`, `clean_feature_engineering_example.py`, `ckvd_cache_control_example.py`
+| Example          | Description               | mise task         |
+| ---------------- | ------------------------- | ----------------- |
+| `quick_start.py` | Minimal FCP usage example | `demo:quickstart` |
+
+### Advanced Patterns
+
+| Example                                | Description                    | mise task       |
+| -------------------------------------- | ------------------------------ | --------------- |
+| `ckvd_lazy_initialization_demo.py`     | Lazy manager initialization    | `demo:lazy`     |
+| `clean_feature_engineering_example.py` | Feature engineering pipeline   | `demo:features` |
+| `ckvd_logging_demo.py`                 | Logging configuration patterns | `demo:logging`  |
+| `ckvd_cache_control_example.py`        | Cache toggle mechanisms        | `demo:cache`    |
+
+### Synchronous Examples
+
+| Example                         | Description                          |
+| ------------------------------- | ------------------------------------ |
+| `sync/ckvd_datetime_example.py` | Timezone handling and gap detection  |
+| `sync/ckvd_one_second_test.py`  | One-second interval retrieval (SPOT) |
+
+### Support Files
+
+| File            | Purpose                                   |
+| --------------- | ----------------------------------------- |
+| `_telemetry.py` | Shared NDJSON telemetry (ResilientLogger) |
+| `lib_module/`   | Library integration guide (demo removed)  |
 
 ---
 
@@ -73,6 +95,22 @@ CKVD's `loguru_setup.py` calls `logger.remove()` during `CryptoKlineVisionData.c
 ### Known Limitation
 
 `fetch_completed` events include `latency_ms` but do not report which FCP source (CACHE, VISION, REST) was used. To see source distribution, check the `_data_source` column in the returned DataFrame (see `sync/ckvd_datetime_example.py` for an example).
+
+### Parsing Telemetry
+
+```bash
+# View all events from the last run
+cat examples/logs/events.jsonl | jq .
+
+# Filter by event type
+cat examples/logs/events.jsonl | jq 'select(.event_type == "fetch_completed")'
+
+# Extract latency metrics
+cat examples/logs/events.jsonl | jq 'select(.latency_ms) | {event: .event_type, ms: .latency_ms}'
+
+# Filter by example name
+cat examples/logs/events.jsonl | jq 'select(.example == "quick_start")'
+```
 
 ### Pattern
 

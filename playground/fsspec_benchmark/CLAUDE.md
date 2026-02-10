@@ -1,6 +1,8 @@
 # fsspec vs Traditional ZIP Handling Benchmark
 
-This directory contains comprehensive benchmarking tools for comparing the performance of `fsspec` against traditional `zipfile` and `tempfile` methods when processing Binance Vision API data.
+**Hub**: [playground/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Benchmarking tools comparing `fsspec` vs traditional `zipfile`+`tempfile` for processing Binance Vision API data.
 
 ## Overview
 

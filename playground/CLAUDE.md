@@ -8,16 +8,16 @@ Experimental prototypes and research spikes. **Not production code.**
 
 ## Subdirectories
 
-| Directory                   | Purpose                           |
-| --------------------------- | --------------------------------- |
-| `bybit/`                    | Bybit exchange API exploration    |
-| `fsspec_benchmark/`         | fsspec performance benchmarking   |
-| `fsspec_remote_path_match/` | fsspec remote path matching tests |
-| `funding_rate/`             | Funding rate data experiments     |
-| `logger_demo/`              | Logging configuration prototypes  |
-| `okx/`                      | OKX exchange API exploration      |
-| `rate_limit_test/`          | Rate limit behavior testing       |
-| `vision_checksum/`          | Vision API checksum verification  |
+| Directory                                                         | Purpose                           |
+| ----------------------------------------------------------------- | --------------------------------- |
+| [`bybit/`](bybit/CLAUDE.md)                                       | Bybit exchange API exploration    |
+| [`fsspec_benchmark/`](fsspec_benchmark/CLAUDE.md)                 | fsspec performance benchmarking   |
+| [`fsspec_remote_path_match/`](fsspec_remote_path_match/CLAUDE.md) | fsspec remote path matching tests |
+| `funding_rate/`                                                   | Funding rate data experiments     |
+| `logger_demo/`                                                    | Logging configuration prototypes  |
+| `okx/`                                                            | OKX exchange API exploration      |
+| [`rate_limit_test/`](rate_limit_test/CLAUDE.md)                   | Rate limit behavior testing       |
+| `vision_checksum/`                                                | Vision API checksum verification  |
 
 ---
 

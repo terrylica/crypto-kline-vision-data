@@ -35,15 +35,15 @@ uv run -p 3.13 pytest tests/stress/ -v
 
 ## Directory Structure
 
-| Directory      | Purpose                              | Network Required |
-| -------------- | ------------------------------------ | ---------------- |
-| `unit/`        | Fast, isolated tests                 | No               |
-| `integration/` | External API tests                   | Yes              |
-| `okx/`         | OKX-specific integration             | Yes              |
-| `fcp_pm/`      | FCP protocol matrix tests            | Yes              |
-| `stress/`      | Memory & fault tolerance             | Yes              |
-| `utils/`       | Test utilities (`data_integrity.py`) | No               |
-| `fixtures/`    | Golden datasets (`.parquet`)         | No               |
+| Directory               | Purpose                              | Network Required |
+| ----------------------- | ------------------------------------ | ---------------- |
+| `unit/`                 | Fast, isolated tests                 | No               |
+| `integration/`          | External API tests                   | Yes              |
+| [`okx/`](okx/CLAUDE.md) | OKX-specific integration             | Yes              |
+| `fcp_pm/`               | FCP protocol matrix tests            | Yes              |
+| `stress/`               | Memory & fault tolerance             | Yes              |
+| `utils/`                | Test utilities (`data_integrity.py`) | No               |
+| `fixtures/`             | Golden datasets (`.parquet`)         | No               |
 
 ### Unit Test Subdirectories
 

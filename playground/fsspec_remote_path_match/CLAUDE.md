@@ -1,6 +1,8 @@
 # Binance Vision Path Mapper with fsspec
 
-This module provides a lightweight solution for mapping between Binance Vision API paths and local cache storage using `fsspec` for filesystem abstraction.
+**Hub**: [playground/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
+Lightweight solution for mapping between Binance Vision API paths and local cache storage using `fsspec` filesystem abstraction.
 
 ## Overview
 

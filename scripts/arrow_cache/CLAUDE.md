@@ -1,5 +1,7 @@
 # Arrow Cache Builder
 
+**Hub**: [scripts/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
+
 A robust tool for building and managing local Arrow cache files from Binance Vision API data.
 
 ## Current Status & Recent Updates

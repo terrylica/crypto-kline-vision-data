@@ -174,7 +174,7 @@ All examples emit structured **NDJSON telemetry** to `examples/logs/events.jsonl
 cat examples/logs/events.jsonl | jq 'select(.event_type == "fetch_completed")'
 ```
 
-See [examples/README.md](examples/README.md) for the full list and telemetry schema.
+See [examples/CLAUDE.md](examples/CLAUDE.md) for conventions and the telemetry schema.
 
 ## Using as a Library
 
