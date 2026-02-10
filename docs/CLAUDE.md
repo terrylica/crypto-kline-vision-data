@@ -18,7 +18,6 @@ docs/
 ├── skills/                 ← Claude Code progressive disclosure skills
 ├── GLOSSARY.md             ← Domain terminology
 ├── INDEX.md                ← Navigation hub
-├── RESUME.md               ← Session resume context
 └── TROUBLESHOOTING.md      ← Common issues and solutions
 ```
 
@@ -74,12 +73,11 @@ Performance benchmark documentation in `docs/benchmarks/`:
 
 ## Key Documents
 
-| Document                                 | Purpose                |
-| ---------------------------------------- | ---------------------- |
-| [INDEX.md](INDEX.md)                     | Navigation hub         |
-| [RESUME.md](RESUME.md)                   | Session resume context |
-| [GLOSSARY.md](GLOSSARY.md)               | Domain terminology     |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Issue resolution       |
+| Document                                 | Purpose            |
+| ---------------------------------------- | ------------------ |
+| [INDEX.md](INDEX.md)                     | Navigation hub     |
+| [GLOSSARY.md](GLOSSARY.md)               | Domain terminology |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Issue resolution   |
 
 ## Link Conventions
 
