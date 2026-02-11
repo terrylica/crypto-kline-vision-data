@@ -1,456 +1,187 @@
 # Crypto Kline Vision Data
 
-A high-performance, robust package for efficient market data retrieval from multiple data providers, including [Binance Vision](https://data.binance.vision/) and Binance REST ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-Margined Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-Margined Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info)) using Apache Arrow MMAP for optimal performance.
+High-performance market data integration with Failover Control Protocol (FCP).
+
+**Package**: `crypto-kline-vision-data` | **Import**: `ckvd` | **Python**: 3.13
+
+[![GitHub Release](https://img.shields.io/github/v/release/terrylica/crypto-kline-vision-data)](https://github.com/terrylica/crypto-kline-vision-data/releases)
 
 ## Features
 
-- **Failover Control Protocol (FCP)**: Robust data retrieval from multiple sources
-- **Local Cache**: Fast access to previously downloaded data using Apache Arrow
-- **Vision API**: Efficient historical data from Binance Vision API on AWS S3
-- **REST API**: Real-time and recent data from Binance REST API
-- **Automatic Retry**: Built-in retry logic with exponential backoff
-- **Data Validation**: Comprehensive data integrity checks
-- **Rich Logging**: Beautiful, configurable logging with loguru support
-- **Professional Package Structure**: Proper src-layout with clean namespace imports
+- **Failover Control Protocol (FCP)**: Cache (~1ms) → Vision API (~1-5s) → REST API (~100-500ms) — automatic failover, retry, and gap detection
+- **Apache Arrow Cache**: Memory-mapped local cache for instant repeated access
+- **Binance Vision API**: Bulk historical data from AWS S3 (no rate limits, ~48h delay)
+- **Binance REST API**: Real-time data with built-in rate limit handling ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-M Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-M Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info))
+- **Polars Engine**: Internal Polars LazyFrames + streaming; pandas or Polars output at API boundary
+- **AI Agent Introspection**: `__probe__.py` module for stateless API discovery
+- **Security**: Symbol validation (CWE-22 path traversal prevention)
+- **Machine-Parseable Errors**: All exceptions carry `.details` dict
 
-## Package Structure
-
-Crypto Kline Vision Data follows modern Python packaging standards with a clean src-layout structure:
-
-```
-crypto-kline-vision-data/
-├── src/
-│   └── ckvd/        # Main package namespace
-│       ├── __init__.py             # Public API exports (lazy loading)
-│       ├── core/                   # Core functionality
-│       │   ├── sync/               # Synchronous data managers
-│       │   │   ├── crypto_kline_vision_data.py  # Main CKVD class with FCP
-│       │   │   ├── ckvd_types.py            # DataSource, CKVDConfig
-│       │   │   └── ckvd_lib.py              # High-level fetch functions
-│       │   └── providers/          # Data provider implementations
-│       │       └── binance/        # Binance-specific clients
-│       └── utils/                  # Utility modules
-│           ├── market_constraints.py  # Enums: DataProvider, MarketType, Interval
-│           └── loguru_setup.py        # Logging configuration
-├── examples/                       # Usage examples and demos
-├── tests/                          # Test suite
-└── docs/                           # Documentation
-```
-
-**Note**: The public API returns pandas DataFrames for compatibility with downstream consumers. Polars is used internally for some performance-critical operations.
-
-## Installation
-
-There are two main ways to install Crypto Kline Vision Data, depending on your needs:
-
-### 1. For Development or Running Demos Directly
-
-If you want to run the provided demos directly from the cloned repository or use the core library while having the source files available in your workspace, follow these steps:
+## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/terrylica/crypto-kline-vision-data.git
 cd crypto-kline-vision-data
-
-# Install with uv (recommended, 10-100x faster than pip)
 uv sync --dev
-
-# Or with pip (slower, not recommended)
-pip install -e ".[dev]"
 ```
-
-**Note**: This project uses [uv](https://docs.astral.sh/uv/) for package management. Install it via `curl -LsSf https://astral.sh/uv/install.sh | sh`.
-
-This method keeps all the source files in your workspace and includes necessary tools for development workflows.
-
-### 2. As a Dependency in Your Project (`pyproject.toml`)
-
-If you want to use Crypto Kline Vision Data as a library in your own Python project (managed with `pyproject.toml`) without including its entire source code in your project's directory, you can add it as a Git dependency.
-
-Add the following to your project's `pyproject.toml` file under the `[project.dependencies]` array (as per PEP 621):
-
-```toml
-[project]
-# ... other project configurations like name, version ...
-dependencies = [
-    # ... other dependencies ...
-    "crypto-kline-vision-data @ git+https://github.com/terrylica/crypto-kline-vision-data.git"
-    # You can also specify a particular branch, tag, or commit hash:
-    # "crypto-kline-vision-data @ git+https://github.com/terrylica/crypto-kline-vision-data.git@main"
-    # "crypto-kline-vision-data @ git+https://github.com/terrylica/crypto-kline-vision-data.git@<version>"
-]
-```
-
-This will install Crypto Kline Vision Data into your Python environment's `site-packages` directory, keeping your project workspace clean.
-
-After installation, run examples directly with `uv run -p 3.13 python examples/quick_start.py` or via [mise](https://mise.jdx.dev/): `mise run demo:quickstart`. See [examples/](examples/) for the full list.
-
-## Usage
-
-### Basic Usage
 
 ```python
 from ckvd import CryptoKlineVisionData, DataProvider, MarketType, Interval
 from datetime import datetime, timedelta, timezone
 
-# Create a manager for USDT-margined futures
 manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
-# Fetch recent BTCUSDT data with automatic failover
-# IMPORTANT: Always use UTC timezone-aware datetimes
-end_time = datetime.now(timezone.utc)
-start_time = end_time - timedelta(days=7)
+end = datetime.now(timezone.utc)
+start = end - timedelta(days=7)
 
-df = manager.get_data(
-    symbol="BTCUSDT",
-    start_time=start_time,
-    end_time=end_time,
-    interval=Interval.HOUR_1
-)
-
-print(f"Loaded {len(df)} bars of BTCUSDT data")
-print(df.head())
-manager.close()  # Always close when done
+df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
+print(f"Loaded {len(df)} bars")
+manager.close()
 ```
 
-### Failover Control Protocol (FCP)
+Or as a Git dependency in your `pyproject.toml`:
 
-The CKVD automatically handles data retrieval through multiple sources:
-
-```python
-# The FCP follows this sequence automatically:
-# 1. 🚀 Local cache lookup (fastest)
-# 2. 📡 Vision API for historical data (efficient)
-# 3. 🔄 REST API fallback (real-time)
-
-# All with automatic retry, data validation, and gap detection
-manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT)
-
-# This single call handles all the complexity:
-data = manager.get_data("ETHUSDT", start_time, end_time, Interval.MINUTE_5)
-# ✅ Cache checked, Vision API queried, REST API fallback - all automatic!
+```toml
+dependencies = [
+    "crypto-kline-vision-data @ git+https://github.com/terrylica/crypto-kline-vision-data.git"
+]
 ```
 
-### Advanced Configuration
+## For Claude Code Users
 
-```python
-from ckvd import CryptoKlineVisionData, DataProvider, MarketType, Interval
-from ckvd.core.sync.crypto_kline_vision_data import DataSource
+This repository is optimized for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a **hub-and-spoke CLAUDE.md architecture**. When Claude Code opens any directory, it automatically loads that directory's `CLAUDE.md` — giving it domain-specific context, conventions, and deep links to related documentation.
 
-# Force specific data source (bypass FCP)
-manager = CryptoKlineVisionData.create(
-    provider=DataProvider.BINANCE,
-    market_type=MarketType.FUTURES_USDT,
-    enforce_source=DataSource.VISION,  # Force Vision API only
-)
+**Start here**: [`CLAUDE.md`](CLAUDE.md) (root hub) — then Claude Code discovers everything else autonomously.
 
-# Multiple market types supported
-spot_manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT)
-futures_manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
-coin_manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_COIN)
+### Hub-and-Spoke Architecture
+
+```
+CLAUDE.md (root hub)
+├── src/CLAUDE.md         → Package structure, FCP, exceptions, __probe__, security
+├── tests/CLAUDE.md       → Test commands, markers, fixtures, mocking patterns
+├── docs/CLAUDE.md        → ADRs, skills, benchmarks, troubleshooting
+├── examples/CLAUDE.md    → Example conventions, NDJSON telemetry schema
+├── scripts/CLAUDE.md     → Dev scripts, mise tasks, cache tools
+└── playground/CLAUDE.md  → Experimental prototypes
 ```
 
-## Running the Examples
+Each spoke contains only the context relevant to that directory. Claude Code loads them on demand — no context window waste.
+
+### What Claude Code Gets
+
+- **Skills** in `docs/skills/` — progressive disclosure guides for usage, testing, research, FCP monitoring
+- **Agents** in `.claude/agents/` — specialized subagents (API reviewer, test writer, FCP debugger, silent failure hunter)
+- **Commands** in `.claude/commands/` — `/review-ckvd`, `/feature-dev`
+- **Full API surface** via `from ckvd.__probe__ import discover_api` — JSON-serializable metadata for agent introspection
+
+### Tips for Working with Claude Code
+
+1. **Just ask** — Claude Code reads the relevant CLAUDE.md files automatically when you work in a directory
+2. **Use skills** — ask Claude to "fetch BTCUSDT data" or "run tests" and it discovers the right patterns
+3. **Use agents** — `@silent-failure-hunter` to audit code, `@test-writer` to generate tests
+4. **Use probe** — `from ckvd.__probe__ import discover_api` for programmatic API discovery
+
+## Examples
 
 ```bash
-# Basic usage (BTCUSDT hourly data)
+# Via mise tasks
+mise run demo:quickstart          # Minimal FCP usage
+mise run demo:features            # Feature engineering pipeline
+mise run demo:cache               # Cache toggle mechanisms
+mise run demo:logging             # Logging configuration
+mise run demo:datetime            # Timezone handling
+mise run demo:one-second          # 1s interval (SPOT only)
+mise run demo:lazy                # Lazy initialization
+
+# Or directly
 uv run -p 3.13 python examples/quick_start.py
-
-# Feature engineering pipeline
-uv run -p 3.13 python examples/clean_feature_engineering_example.py
-
-# Cache control mechanisms
-uv run -p 3.13 python examples/ckvd_cache_control_example.py
-
-# Logging configuration
-CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py --test-ckvd
 ```
 
-Or via [mise](https://mise.jdx.dev/) tasks: `mise run demo:quickstart`, `mise run demo:features`, `mise run demo:cache`, etc. Run `mise tasks | grep demo` to see all available demo tasks.
+All examples emit **NDJSON telemetry** to `examples/logs/events.jsonl`. See [examples/CLAUDE.md](examples/CLAUDE.md) for schema and parsing.
 
-All examples emit structured **NDJSON telemetry** to `examples/logs/events.jsonl`. Parse with `jq`:
+## API Reference
 
-```bash
-cat examples/logs/events.jsonl | jq 'select(.event_type == "fetch_completed")'
-```
-
-See [examples/CLAUDE.md](examples/CLAUDE.md) for conventions and the telemetry schema.
-
-## Using as a Library
-
-The core data fetching functionality of Crypto Kline Vision Data is available for direct import and use in your Python projects after installation.
-
-The main function for retrieving market data is `fetch_market_data`.
-
-### Example 1: Fetching with Specific Date Range
-
-```python
-from datetime import datetime, timezone
-from ckvd import fetch_market_data, MarketType, DataProvider, Interval, ChartType
-
-# Define parameters
-provider = DataProvider.BINANCE
-market_type = MarketType.SPOT
-chart_type = ChartType.KLINES
-symbol = "BTCUSDT"
-interval = Interval.MINUTE_1
-# IMPORTANT: Always use UTC timezone-aware datetimes
-start_time = datetime(2023, 1, 1, tzinfo=timezone.utc)
-end_time = datetime(2023, 1, 10, tzinfo=timezone.utc)
-
-# Fetch data (returns pandas DataFrame)
-df, elapsed_time, records_count = fetch_market_data(
-    provider=provider,
-    market_type=market_type,
-    chart_type=chart_type,
-    symbol=symbol,
-    interval=interval,
-    start_time=start_time,
-    end_time=end_time,
-    use_cache=True,
-)
-
-# Process results
-print(f"Fetched {records_count} records in {elapsed_time:.2f} seconds")
-if df is not None:
-    print(df.head())
-```
-
-### Example 2: Fetching Backward from a Specific End Time
-
-This example demonstrates how to fetch data backward from a precise end time in May 2025:
-
-```python
-import pendulum
-from ckvd import fetch_market_data, MarketType, DataProvider, Interval, ChartType
-
-# Define parameters
-provider = DataProvider.BINANCE
-market_type = MarketType.SPOT
-chart_type = ChartType.KLINES
-symbol = "BTCUSDT"
-interval = Interval.MINUTE_1
-
-# Define a specific end time with precise minutes and seconds
-# Note: Using pendulum for better datetime handling as per project standards
-end_time = pendulum.datetime(2025, 5, 15, 13, 45, 30, tz="UTC")  # 2025-05-15 13:45:30 UTC
-days = 7  # Fetch 7 days backward from the end time
-
-# Fetch data (no need to specify start_time, it will be calculated)
-df, elapsed_time, records_count = fetch_market_data(
-    provider=provider,
-    market_type=market_type,
-    chart_type=chart_type,
-    symbol=symbol,
-    interval=interval,
-    end_time=end_time,
-    days=days,
-    use_cache=True,
-)
-
-# Process results
-print(f"Fetched {records_count} records in {elapsed_time:.2f} seconds")
-print(f"Date range: {end_time.subtract(days=days).format('YYYY-MM-DD HH:mm:ss.SSS')} to {end_time.format('YYYY-MM-DD HH:mm:ss.SSS')}")
-if df is not None:
-    print(df.head())
-```
-
-You can import `fetch_market_data` directly from the `ckvd` package. The necessary enums (`MarketType`, `DataProvider`, `ChartType`, `Interval`, `DataSource`) and `CKVDConfig` are also exposed at the top level for easy access.
-
-Refer to the source code of `ckvd.core.sync.ckvd_lib.fetch_market_data` and `ckvd.core.sync.crypto_kline_vision_data.CKVDConfig` for detailed parameter information and usage.
-
-## Examples and Demos
-
-- **[Examples](examples/)**: Runnable examples demonstrating FCP data retrieval, cache control, logging configuration, and feature engineering workflows
-- **[Synchronous patterns](examples/sync/)**: Timezone handling, gap detection, one-second intervals
-
-### Understanding Data Sources
-
-The CKVD implements a Failover Control Protocol (FCP) that follows this sequence:
-
-1. **Cache**: First checks local Arrow files for requested data
-2. **VISION API**: For missing data, attempts to download from Binance Vision API
-3. **REST API**: Falls back to Binance REST API for any remaining data gaps
-
-Note that recent data (within ~48 hours) is typically not available in the Vision API and will be retrieved from the REST API.
-
-## Development Guidelines
-
-- [scripts/dev](scripts/dev): Contains various scripts for development and maintenance tasks.
-
-## API Documentation
-
-The `docs/api` folder provides in-depth documentation on data source characteristics and retrieval mechanisms. Refer to the [API Documentation Overview](docs/api/) for a summary of the contents in this directory.
-
-## Data Initialization and Shortlisting
-
-1. Initialization
-   - Execute `scripts/binance_vision_api_aws_s3/fetch_binance_data_availability.sh` to build `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv`
-   - The archaic word _synchronal_ contextually means the Binance Exchanges crypto base pair that we're interested in monitoring, because they must be active in the SPOT, UM and CM market of the Binance Exchange.
-   - `scripts/binance_vision_api_aws_s3/reports/spot_synchronal.csv` contains only the Binance SPOT market symbols, their earliest date available, and their available intervals (i.e. 1s, 1m, 3m, ..., 1d), and which base pairs (e.g. BTC) are also on the UM and CM markets.
-
-2. Shortlisting
-   - To exclude specific symbols from subsequent operations below, simply remove their corresponding lines from `spot_synchronal.csv`
-
-## Development Scripts
-
-The `scripts/dev` directory contains a collection of utility scripts designed to assist with various development, testing, and maintenance tasks. These scripts leverage modern Python tooling and practices to streamline workflows.
-
-Some of the key tools and libraries used across these scripts include:
-
-- **Ruff**: For fast linting and code formatting.
-- **Vulture**: To identify dead code.
-- **pytest-xdist**: For parallel test execution.
-- **rope**: For Python code refactoring, used in conjunction with `git mv` for moving files.
-- **fsspec**: For seamless interaction with various filesystems.
-
-Explore the scripts and their individual READMEs within the [`scripts/dev`](scripts/dev) directory for more details.
-
-## Logging Control
-
-CKVD now supports **loguru** for much easier log level control:
-
-### CKVD Logging Suppression for Feature Engineering
-
-**Problem**: CKVD produces extensive logging that clutters console output during feature engineering workflows.
-
-**Solution**: Use `CKVD_LOG_LEVEL=CRITICAL` to suppress all non-critical CKVD logs:
-
-```python
-# Clean feature engineering code - no boilerplate needed!
-import os
-os.environ["CKVD_LOG_LEVEL"] = "CRITICAL"
-
-from ckvd import CryptoKlineVisionData, DataProvider, MarketType, Interval
-
-# Create CKVD instance - minimal logging
-ckvd = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT)
-
-# Fetch data - clean output, only your logs visible
-data = ckvd.get_data(
-    symbol="SOLUSDT",
-    start_time=start_time,
-    end_time=end_time,
-    interval=Interval.MINUTE_1,
-)
-# ✅ Clean output - no more cluttered CKVD logs!
-```
-
-**Benefits**:
-
-- ✅ **No Boilerplate**: Eliminates 15+ lines of logging suppression code
-- ✅ **Clean Output**: Professional console output for feature engineering
-- ✅ **Easy Control**: Single environment variable controls all CKVD logging
-- ✅ **Cleaner Default**: Default ERROR level provides quieter operation
-
-### Simple Environment Variable Control
-
-```bash
-# Clean output for feature engineering (suppress CKVD logs)
-export CKVD_LOG_LEVEL=CRITICAL
-
-# Normal development with basic info
-export CKVD_LOG_LEVEL=INFO
-
-# Default behavior (errors and critical only)
-# No need to set anything - ERROR is the default
-
-# Detailed debugging
-export CKVD_LOG_LEVEL=DEBUG
-
-# Optional: Log to file with automatic rotation
-export CKVD_LOG_FILE=./logs/ckvd.log
-
-# Run your application
-python your_script.py
-```
-
-### Programmatic Control
-
-```python
-from ckvd.utils.loguru_setup import logger
-
-# Set log level
-logger.configure_level("DEBUG")
-
-# Enable file logging
-logger.configure_file("./logs/ckvd.log")
-
-# Use rich formatting
-logger.info("Status: <green>SUCCESS</green>")
-```
-
-### Demo
-
-Try the logging demos to see the benefits:
-
-```bash
-# CKVD logging control demo
-python examples/ckvd_logging_demo.py
-
-# Test different log levels with actual CKVD
-python examples/ckvd_logging_demo.py --log-level CRITICAL --test-ckvd
-python examples/ckvd_logging_demo.py --log-level DEBUG --test-ckvd
-
-# Clean feature engineering example
-python examples/clean_feature_engineering_example.py
-
-# Environment variable control
-CKVD_LOG_LEVEL=CRITICAL python examples/clean_feature_engineering_example.py
-CKVD_LOG_LEVEL=DEBUG python examples/ckvd_logging_demo.py --test-ckvd
-```
-
-## Benefits of Loguru
-
-- **🎯 Easy Control**: `CKVD_LOG_LEVEL=DEBUG` vs complex logging configuration
-- **🚀 Better Performance**: Loguru is faster than Python's standard logging
-- **🔄 Auto Rotation**: Built-in log file rotation and compression
-- **🎨 Rich Formatting**: Beautiful colored output with module/function info
-- **🔧 Same API**: All existing logging calls work unchanged
-
-## Feature Flags
-
-CKVD supports an optional feature flag for output format optimization.
-
-**Note**: The Polars pipeline is always active internally (`USE_POLARS_PIPELINE` was removed — see [CHANGELOG](CHANGELOG.md) for details). The only remaining flag controls the API output format.
-
-### Zero-Copy Polars Output
-
-When combined with `return_polars=True`, skip pandas conversion entirely for 10-15% memory savings:
-
-```bash
-export CKVD_USE_POLARS_OUTPUT=true
-```
+### Core API
 
 ```python
 from ckvd import CryptoKlineVisionData, DataProvider, MarketType, Interval
 
+# Manager-based (recommended)
 manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
+manager.close()
 
-# Returns pl.DataFrame directly (zero-copy, skips pandas conversion)
-df = manager.get_data(
-    symbol="BTCUSDT",
-    start_time=start_time,
-    end_time=end_time,
-    interval=Interval.HOUR_1,
-    return_polars=True
+# High-level function
+from ckvd import fetch_market_data, ChartType
+df, elapsed, count = fetch_market_data(
+    provider=DataProvider.BINANCE, market_type=MarketType.SPOT,
+    chart_type=ChartType.KLINES, symbol="BTCUSDT",
+    interval=Interval.HOUR_1, start_time=start, end_time=end
 )
 ```
 
-### Feature Flag Summary
+### Market Types and Symbols
 
-| Flag                | Environment Variable     | Effect                  |
-| ------------------- | ------------------------ | ----------------------- |
-| `USE_POLARS_OUTPUT` | `CKVD_USE_POLARS_OUTPUT` | Zero-copy Polars output |
+| Market Type    | Symbol Format    | Example     |
+| -------------- | ---------------- | ----------- |
+| `SPOT`         | `{BASE}{QUOTE}`  | BTCUSDT     |
+| `FUTURES_USDT` | `{BASE}{QUOTE}`  | BTCUSDT     |
+| `FUTURES_COIN` | `{BASE}USD_PERP` | BTCUSD_PERP |
 
-Defaults to `False` for backward compatibility. Set to `true`, `1`, or `yes` to enable.
+### Output Formats
+
+```python
+# Default: pandas DataFrame (backward compatible)
+df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
+
+# Opt-in: Polars DataFrame (zero-copy, faster)
+df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1, return_polars=True)
+```
+
+### Error Handling
+
+```python
+from ckvd.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
+from ckvd.utils.for_core.vision_exceptions import VisionAPIError
+
+try:
+    df = manager.get_data(...)
+except RateLimitError as e:
+    print(f"Rate limited, retry after {e.retry_after}s. Details: {e.details}")
+except (RestAPIError, VisionAPIError) as e:
+    print(f"Error: {e}. Details: {e.details}")
+```
+
+### Environment Variables
+
+| Variable                 | Purpose                      | Default |
+| ------------------------ | ---------------------------- | ------- |
+| `CKVD_LOG_LEVEL`         | Log level (DEBUG/INFO/ERROR) | ERROR   |
+| `CKVD_ENABLE_CACHE`      | Enable/disable cache         | true    |
+| `CKVD_USE_POLARS_OUTPUT` | Zero-copy Polars output      | false   |
+
+## Development
+
+```bash
+uv sync --dev                    # Install dependencies
+mise trust                       # Load environment
+uv run -p 3.13 pytest tests/unit/ -v   # Run tests (399 passing)
+uv run -p 3.13 ruff check --fix .      # Lint
+```
+
+See [CLAUDE.md](CLAUDE.md) for full development conventions, commit trailers, and release workflow.
 
 ## Documentation
 
-- [API Documentation](docs/api/) - Complete API reference
-- [Examples](examples/) - Usage examples and demos
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+| Resource                                           | Purpose                                 |
+| -------------------------------------------------- | --------------------------------------- |
+| [CLAUDE.md](CLAUDE.md)                             | Root hub — start here for Claude Code   |
+| [docs/INDEX.md](docs/INDEX.md)                     | Documentation navigation                |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and solutions             |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md)               | Domain terminology                      |
+| [examples/](examples/)                             | Runnable examples with NDJSON telemetry |
+| [CHANGELOG.md](CHANGELOG.md)                       | Release history (auto-generated)        |
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details.
+MIT License — See [LICENSE](LICENSE) file for details.
