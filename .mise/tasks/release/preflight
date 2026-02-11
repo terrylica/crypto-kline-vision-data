@@ -38,13 +38,13 @@ if ! command -v node &>/dev/null; then
 fi
 echo "✓ Node.js $(node --version) available"
 
-# Check 5: semantic-release installed
-if [[ ! -d "node_modules/semantic-release" ]]; then
-    echo "✗ semantic-release not installed"
-    echo "  Run: npm install"
+# Check 5: semantic-release available (global install)
+if ! command -v semantic-release &>/dev/null; then
+    echo "✗ semantic-release not found on PATH"
+    echo "  Run: npm install -g semantic-release@^25"
     exit 1
 fi
-echo "✓ semantic-release installed"
+echo "✓ semantic-release $(semantic-release --version) available"
 
 # Check 6: Releasable commits exist
 LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
