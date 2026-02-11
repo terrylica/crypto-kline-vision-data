@@ -35,6 +35,7 @@ Example:
 """
 
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, overload
@@ -44,7 +45,7 @@ import polars as pl
 
 from ckvd.core.providers import ProviderClients, get_provider_clients, get_supported_providers
 from ckvd.core.providers.binance.binance_funding_rate_client import BinanceFundingRateClient
-from ckvd.core.sync.ckvd_types import DataSource, CKVDConfig
+from ckvd.core.sync.ckvd_types import CKVDConfig, DataSource
 from ckvd.utils.app_paths import get_cache_dir
 from ckvd.utils.config import (
     FUNDING_RATE_DTYPES,
@@ -52,6 +53,7 @@ from ckvd.utils.config import (
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
     VISION_DATA_DELAY_HOURS,
+    FeatureFlags,
     create_empty_dataframe,
 )
 from ckvd.utils.for_core.ckvd_api_utils import (
@@ -62,7 +64,6 @@ from ckvd.utils.for_core.ckvd_date_range_utils import (
     calculate_date_range,
     get_date_range_description,
 )
-from ckvd.utils.config import FeatureFlags
 from ckvd.utils.for_core.ckvd_fcp_utils import (
     handle_error,
     process_rest_step,
@@ -70,12 +71,12 @@ from ckvd.utils.for_core.ckvd_fcp_utils import (
     validate_interval,
     verify_final_data,
 )
-from ckvd.utils.internal.polars_pipeline import PolarsDataPipeline
 from ckvd.utils.for_core.ckvd_time_range_utils import (
     standardize_columns,
 )
 from ckvd.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
 from ckvd.utils.for_core.vision_exceptions import VisionAPIError
+from ckvd.utils.internal.polars_pipeline import PolarsDataPipeline
 from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 from ckvd.utils.time_utils import align_time_boundaries
@@ -874,6 +875,10 @@ class CryptoKlineVisionData:
 
             # Normalize symbol to upper case
             symbol = symbol.upper()
+
+            # Security: defense-in-depth path traversal prevention (CWE-22, GitHub #21)
+            if not re.match(r"^[A-Z0-9_-]{1,30}$", symbol):
+                raise ValueError(f"Symbol contains invalid characters: '{symbol}'")
 
             # FAIL-LOUD: Validate symbol availability before any API calls (GitHub Issue #10)
             from ckvd.utils.for_core.vision_exceptions import DataNotAvailableError

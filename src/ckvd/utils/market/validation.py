@@ -10,6 +10,8 @@ across different market types and data providers.
 
 from __future__ import annotations
 
+import re
+
 from ckvd.utils.config import (
     MIN_LONG_SYMBOL_LENGTH,
     MIN_SHORT_SYMBOL_LENGTH,
@@ -18,6 +20,10 @@ from ckvd.utils.config import (
 from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market.capabilities import get_market_capabilities
 from ckvd.utils.market.enums import DataProvider, Interval, MarketType
+
+# Security: allowlist regex for symbol characters (CWE-22 path traversal prevention)
+# Allows: uppercase letters, digits, underscore (BTCUSD_PERP), hyphen (BTC-USDT, BTC-240315-50000-C)
+_SYMBOL_SAFE_PATTERN = re.compile(r"^[A-Z0-9_-]{1,30}$")
 
 __all__ = [
     "get_default_symbol",
@@ -152,6 +158,13 @@ def validate_symbol_for_market_type(
         raise ValueError("Symbol cannot be empty")
     if symbol is None:
         symbol = get_default_symbol(market_type)
+
+    # Security: reject path traversal and unsafe characters (CWE-22)
+    if not _SYMBOL_SAFE_PATTERN.match(symbol.upper()):
+        raise ValueError(
+            f"Symbol contains invalid characters: '{symbol}'. "
+            f"Symbols must match [A-Z0-9_-]{{1,30}}."
+        )
 
     capabilities = get_market_capabilities(market_type, data_provider)
     market_name = market_type.name
