@@ -7,7 +7,7 @@ echo "=== Dry-run Release ==="
 echo "(No changes will be made)"
 echo ""
 
-npm run release:dry
+semantic-release --no-ci --dry-run
 
 echo ""
 echo "✓ Dry-run complete"

@@ -153,12 +153,12 @@ git status --porcelain | grep -q . && echo "⚠️  Uncommitted changes detected
 """
 
 [tasks."release:dry"]
-description = "Dry run semantic-release (delegates to npm)"
-run = "npm run release:dry"
+description = "Dry run semantic-release (global install)"
+run = "semantic-release --no-ci --dry-run"
 
 [tasks."release:full"]
-description = "Full semantic-release (delegates to npm, requires GH_TOKEN)"
-run = "npm run release"
+description = "Full semantic-release (global install, requires GH_TOKEN)"
+run = "semantic-release --no-ci"
 
 [tasks."release:pypi"]
 description = "Publish package to PyPI (requires 1Password)"

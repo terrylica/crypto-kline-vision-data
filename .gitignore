@@ -127,10 +127,8 @@ USER_ISSUE_RESOLUTION_REPORT.md
 docs/sr&ed/
 docs/journals/
 
-# Node.js (for semantic-release)
+# Node.js (safety net — semantic-release uses global install)
 node_modules/
-package-lock.json
-bun.lockb
 
 # Stash patch exports (local reference only)
 .stash-patches/

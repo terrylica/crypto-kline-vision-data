@@ -50,12 +50,12 @@ uv run -p 3.13 python -c "from ckvd import CryptoKlineVisionData; print('OK')"  
 
 ### Essential Commands
 
-| Command               | Purpose                   |
-| --------------------- | ------------------------- |
-| `mise run test`       | Run unit tests            |
-| `mise run check:all`  | Lint + format + typecheck |
-| `mise run quick`      | Quick validation          |
-| `npm run release:dry` | Preview semantic-release  |
+| Command                | Purpose                   |
+| ---------------------- | ------------------------- |
+| `mise run test`        | Run unit tests            |
+| `mise run check:all`   | Lint + format + typecheck |
+| `mise run quick`       | Quick validation          |
+| `mise run release:dry` | Preview semantic-release  |
 
 ### FCP Priority
 
@@ -101,7 +101,7 @@ uv sync --dev                    # Install dependencies
 mise trust                       # Load env (GH_TOKEN from .mise.local.toml)
 ```
 
-**Release**: Node.js semantic-release (`npm run release` / `npm run release:dry`). Requires GH_TOKEN in `.mise.local.toml` (copy from `.mise.local.toml.example`). CHANGELOG.md is auto-generated.
+**Release**: semantic-release (global install, `mise run release:full` / `mise run release:dry`). Requires GH_TOKEN in `.mise.local.toml` (copy from `.mise.local.toml.example`). CHANGELOG.md is auto-generated.
 
 **Commit trailers** (hook-enforced):
 

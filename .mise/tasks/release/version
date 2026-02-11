@@ -4,7 +4,7 @@
 set -euo pipefail
 
 echo "=== Running semantic-release ==="
-npm run release
+semantic-release --no-ci
 
 echo ""
 echo "✓ Version phase complete"

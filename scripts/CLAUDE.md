@@ -43,7 +43,7 @@ Most script functionality is available via mise tasks:
 # Instead of running scripts directly
 mise run test           # Run tests
 mise run check:all      # Lint + format + typecheck
-npm run release         # Full release (semantic-release)
+mise run release:full   # Full release (semantic-release)
 ```
 
 See `mise run help` for all available tasks.
