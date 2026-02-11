@@ -11,6 +11,7 @@ Navigation hub for Crypto Kline Vision Data documentation.
 | Directory                                | Purpose                             |
 | ---------------------------------------- | ----------------------------------- |
 | [api/](api/)                             | Binance API reference               |
+| [benchmarks/](benchmarks/)               | Performance benchmarks and results  |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Cache, logging, FCP troubleshooting |
 
 ---
@@ -21,7 +22,6 @@ These directories contain local/private content and are not tracked in git:
 
 - `journals/` - Development journals and notes
 - `sr&ed/` - SR&ED tax credit documentation
-- `complaints_to_binance/` - Support tickets and issue tracking
 
 ---
 

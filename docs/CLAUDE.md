@@ -18,7 +18,7 @@ docs/
 └── TROUBLESHOOTING.md      ← Common issues and solutions
 ```
 
-**Local-only directories** (git-ignored): `complaints_to_binance/`, `journals/`, `sr&ed/`
+**Local-only directories** (git-ignored): `journals/`, `sr&ed/`
 
 ## ADR Conventions
 

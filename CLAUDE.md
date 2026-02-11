@@ -18,7 +18,7 @@ Each directory has its own CLAUDE.md with domain-specific context, loaded on dem
 | `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking                                    |
 | `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting                                    |
 | `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry                                        |
-| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools                                         |
+| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools, Vision data utilities                  |
 | `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)                                     |
 
 **Also**: [.claude/settings.md](.claude/settings.md) | [docs/INDEX.md](docs/INDEX.md) | [docs/GLOSSARY.md](docs/GLOSSARY.md) | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
@@ -82,6 +82,22 @@ from ckvd.__probe__ import discover_api, get_capabilities
 ```
 
 Stateless JSON-serializable API introspection. See [src/CLAUDE.md](src/CLAUDE.md#ai-agent-introspection-__probe__py) for details.
+
+### Cache Toggle
+
+`use_cache=False` disables cache read/write. `CKVD_ENABLE_CACHE=false` env var also works. `enforce_source=CACHE` + `use_cache=False` raises `RuntimeError`. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#cache-toggle-issues).
+
+### Exception `.details`
+
+All exceptions carry `.details: dict[str, Any]` (default `{}`, never `None`). Machine-parseable error context. See [src/CLAUDE.md](src/CLAUDE.md#exception-hierarchy).
+
+### Environment Variables
+
+| Variable                 | Purpose                      | Default |
+| ------------------------ | ---------------------------- | ------- |
+| `CKVD_LOG_LEVEL`         | Log level (DEBUG/INFO/ERROR) | ERROR   |
+| `CKVD_ENABLE_CACHE`      | Enable/disable Arrow cache   | true    |
+| `CKVD_USE_POLARS_OUTPUT` | Default to Polars output     | false   |
 
 ### Security
 

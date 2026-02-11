@@ -2,7 +2,7 @@
 
 **Hub**: [tests/](../CLAUDE.md) | **Root**: [CLAUDE.md](../../CLAUDE.md)
 
-Extensive test suite for OKX API implementation — historical market data retrieval via REST API (`/api/v5/market/candles` and `/api/v5/market/history-candles`). Verifies endpoint behavior, data availability, formatting, validation, and edge cases per `docs/api/okx_data_download_guide.md`.
+Extensive test suite for OKX API implementation — historical market data retrieval via REST API (`/api/v5/market/candles` and `/api/v5/market/history-candles`). Verifies endpoint behavior, data availability, formatting, validation, and edge cases.
 
 ## Test Files
 
