@@ -78,6 +78,10 @@ def __getattr__(name: str) -> Any:
         from .core.sync.ckvd_lib import fetch_market_data
 
         return fetch_market_data
+    if name == "__probe__":  # GitHub Issue #22
+        import importlib
+
+        return importlib.import_module("ckvd.__probe__")
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
