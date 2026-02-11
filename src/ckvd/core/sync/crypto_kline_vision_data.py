@@ -53,7 +53,6 @@ from ckvd.utils.config import (
     REST_CHUNK_SIZE,
     REST_MAX_CHUNKS,
     VISION_DATA_DELAY_HOURS,
-    FeatureFlags,
     create_empty_dataframe,
 )
 from ckvd.utils.for_core.ckvd_api_utils import (
@@ -1123,22 +1122,17 @@ class CryptoKlineVisionData:
 
             # Convert to Polars if requested
             if return_polars:
-                # Check if zero-copy Polars output is enabled
-                use_polars_output = FeatureFlags().USE_POLARS_OUTPUT
-
-                if use_polars_output:
-                    # Zero-copy path: Use PolarsDataPipeline directly
-                    # This avoids the wasteful pandas → polars conversion
-                    logger.debug("[FCP] Using zero-copy Polars output (USE_POLARS_OUTPUT=True)")
+                # Use Polars pipeline directly — avoids wasteful pandas → Polars round-trip
+                if not polars_pipeline.is_empty():
+                    logger.debug("[FCP] Using Polars pipeline for return_polars=True output")
                     result_pl = polars_pipeline.collect_polars(use_streaming=True)
-                    logger.debug(f"[FCP] Zero-copy Polars DataFrame with {len(result_pl)} rows")
+                    logger.debug(f"[FCP] Polars DataFrame with {len(result_pl)} rows")
                     return result_pl
-                # Fallback: Convert pandas DataFrame to Polars DataFrame
-                # Reset index to include open_time as a column before conversion
+                # Fallback: pipeline is empty but result_df has data
                 if result_df.index.name == "open_time":
                     result_df = result_df.reset_index()
                 result_pl = pl.from_pandas(result_df)
-                logger.debug(f"[FCP] Converted to Polars DataFrame with {len(result_pl)} rows")
+                logger.debug(f"[FCP] Converted to Polars DataFrame with {len(result_pl)} rows (fallback)")
                 return result_pl
 
             return result_df
