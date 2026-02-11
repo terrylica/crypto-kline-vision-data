@@ -1,3 +1,12 @@
+# [4.3.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.2.1...v4.3.0) (2026-02-11)
+
+
+### Features
+
+* **exceptions:** formalize .details dict for machine-parseable errors ([d3bbc5c](https://github.com/terrylica/crypto-kline-vision-data/commit/d3bbc5cd19a0ea7100fe929b99d20741bcca52d5))
+* **probe:** add __probe__.py for AI agent API introspection ([c7f9230](https://github.com/terrylica/crypto-kline-vision-data/commit/c7f9230e696b9bf801aba842e03cb1fa14d69224))
+* **security:** add symbol path traversal prevention (CWE-22) ([1bbb78d](https://github.com/terrylica/crypto-kline-vision-data/commit/1bbb78d42c7e40ae51e35356a6797d513c11e281))
+
 ## [4.2.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.2.0...v4.2.1) (2026-02-11)
 
 
