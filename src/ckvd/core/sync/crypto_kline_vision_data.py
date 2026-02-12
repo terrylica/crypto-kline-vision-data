@@ -35,7 +35,6 @@ Example:
 """
 
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, overload
@@ -77,6 +76,7 @@ from ckvd.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
 from ckvd.utils.for_core.vision_exceptions import VisionAPIError
 from ckvd.utils.internal.polars_pipeline import PolarsDataPipeline
 from ckvd.utils.loguru_setup import logger
+from ckvd.utils.market.validation import _SYMBOL_SAFE_PATTERN
 from ckvd.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 from ckvd.utils.time_utils import align_time_boundaries
 
@@ -876,7 +876,7 @@ class CryptoKlineVisionData:
             symbol = symbol.upper()
 
             # Security: defense-in-depth path traversal prevention (CWE-22, GitHub #21)
-            if not re.match(r"^[A-Z0-9_-]{1,30}$", symbol):
+            if not _SYMBOL_SAFE_PATTERN.match(symbol):
                 raise ValueError(f"Symbol contains invalid characters: '{symbol}'")
 
             # FAIL-LOUD: Validate symbol availability before any API calls (GitHub Issue #10)

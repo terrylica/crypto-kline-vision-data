@@ -78,7 +78,9 @@ class PolarsDataPipeline:
             lf = lf.lazy()
 
         # Add _data_source column if not present
-        if "_data_source" not in lf.collect_schema():
+        # Cache schema to avoid repeated query plan resolution
+        schema = lf.collect_schema()
+        if "_data_source" not in schema:
             lf = lf.with_columns(pl.lit(source).alias("_data_source"))
 
         self._lazy_frames.append(lf)

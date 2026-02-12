@@ -155,17 +155,28 @@ def detect_gaps(
     # Pre-calculate expected interval in milliseconds
     expected_interval_ms = int(expected_interval.total_seconds() * 1000)
 
-    # Prepare gap list using itertuples for performance (avoids Series creation)
-    # Convert pd.Timestamp to int64 milliseconds for memory efficiency
+    # Vectorized gap construction using zip() over NumPy arrays
+    # Better cache locality than itertuples() which creates Python tuple objects per row
+    # CRITICAL: Normalize to nanosecond resolution before int64 conversion.
+    # Cache/Polars data arrives as datetime64[us, UTC] (microseconds), while
+    # pd.date_range() creates datetime64[ns, UTC] (nanoseconds). Without normalization,
+    # .to_numpy(dtype="int64") returns microseconds for [us] data, producing 1970 dates
+    # when divided by 1_000_000 (expecting nanoseconds).
+    start_times_ns = gaps_df[time_column].astype("datetime64[ns, UTC]").to_numpy(dtype="int64", na_value=0)
+    end_times_ns = gaps_df["next_time"].astype("datetime64[ns, UTC]").to_numpy(dtype="int64", na_value=0)
+    diffs_ns = gaps_df["time_diff"].astype("timedelta64[ns]").to_numpy(dtype="int64", na_value=0)
+    crosses = gaps_df["crosses_day_boundary"].to_numpy()
+    expected_interval_ns = int(expected_interval.total_seconds() * 1_000_000_000)
+
     gaps = [
         Gap(
-            start_time_ms=int(getattr(row, time_column).value // 1_000_000),  # nanoseconds to milliseconds
-            end_time_ms=int(row.next_time.value // 1_000_000),
-            duration_ms=int(row.time_diff.value // 1_000_000) - expected_interval_ms,
-            missing_points=int((row.time_diff / expected_interval) - 1),
-            crosses_day_boundary=row.crosses_day_boundary,
+            start_time_ms=int(st // 1_000_000),
+            end_time_ms=int(et // 1_000_000),
+            duration_ms=int(diff // 1_000_000) - expected_interval_ms,
+            missing_points=int(diff // expected_interval_ns) - 1,
+            crosses_day_boundary=bool(cross),
         )
-        for row in gaps_df.itertuples(index=False)
+        for st, et, diff, cross in zip(start_times_ns, end_times_ns, diffs_ns, crosses, strict=True)
     ]
 
     # Compile statistics using single-pass for gap metrics (avoids 4 separate iterations)
