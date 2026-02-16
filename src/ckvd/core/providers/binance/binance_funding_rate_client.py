@@ -360,6 +360,7 @@ class BinanceFundingRateClient(DataClientInterface):
         limit = 1000
         retry_count = 0
         current_start_ms = start_time_ms
+        all_rows: list[dict] = []
 
         while current_start_ms < end_time_ms:
             try:
@@ -380,26 +381,16 @@ class BinanceFundingRateClient(DataClientInterface):
                     logger.debug("No more funding rate data available")
                     break
 
-                # Process results
+                # Collect rows as dicts — single DataFrame construction at end
                 for item in data:
                     funding_time = datetime.fromtimestamp(int(item["fundingTime"]) / 1000, tz=timezone.utc)
                     funding_rate = float(item["fundingRate"])
-
-                    # Append to DataFrame
-                    result_df = pd.concat(
-                        [
-                            result_df,
-                            pd.DataFrame(
-                                {
-                                    "symbol": [symbol],
-                                    "funding_time": [funding_time],
-                                    "funding_rate": [funding_rate],
-                                    "interval": [self._interval.value],
-                                }
-                            ),
-                        ],
-                        ignore_index=True,
-                    )
+                    all_rows.append({
+                        "symbol": symbol,
+                        "funding_time": funding_time,
+                        "funding_rate": funding_rate,
+                        "interval": self._interval.value,
+                    })
 
                 # Update start time for next batch
                 if len(data) < limit:
@@ -426,9 +417,13 @@ class BinanceFundingRateClient(DataClientInterface):
                 )
                 time.sleep(wait_time)
 
+        # Build DataFrame from collected rows (single allocation)
+        if all_rows:
+            result_df = pd.DataFrame(all_rows)
+
         # Sort by funding time
         if not result_df.empty:
-            result_df = result_df.sort_values("funding_time").reset_index(drop=True)
+            result_df = result_df.sort_values("funding_time", ignore_index=True)
 
             # Filter to the requested time range
             result_df = filter_dataframe_by_time(result_df, start_time, end_time, "funding_time")

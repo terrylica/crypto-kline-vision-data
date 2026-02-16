@@ -108,11 +108,11 @@ class PolarsDataPipeline:
             logger.debug(f"Skipping empty pandas DataFrame from {source}")
             return self
 
-        # Handle index - if open_time is index, reset it
+        # Convert to Polars, preserving index as column if needed
         if df.index.name == "open_time":
-            df = df.reset_index()
-
-        pl_df = pl.from_pandas(df)
+            pl_df = pl.from_pandas(df, include_index=True)
+        else:
+            pl_df = pl.from_pandas(df)
         return self.add_source(pl_df.lazy(), source)
 
     def is_empty(self) -> bool:
@@ -214,6 +214,9 @@ class PolarsDataPipeline:
         combined = pl.concat(standardized, how="diagonal")
 
         # Add priority column and resolve duplicates
+        # NOTE: Polars .unique(keep="last") is hash-based and does NOT preserve
+        # sort order (unlike pandas drop_duplicates). The final .sort("open_time")
+        # is required to restore chronological order after dedup.
         return (
             combined.with_columns(pl.col("_data_source").replace_strict(SOURCE_PRIORITY, default=0).alias("_priority"))
             .sort(["open_time", "_priority"])

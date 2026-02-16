@@ -287,10 +287,8 @@ def get_data_source_info(df: pd.DataFrame) -> dict:
 
     # Check if the DataFrame has source information
     if "_data_source" in df.columns:
-        sources = df["_data_source"].unique().tolist()
         source_counts = df["_data_source"].value_counts().to_dict()
-
-        return {"sources": sources, "source_counts": source_counts}
+        return {"sources": list(source_counts.keys()), "source_counts": source_counts}
     return {"sources": ["UNKNOWN"], "source_counts": {"UNKNOWN": len(df)}}
 
 

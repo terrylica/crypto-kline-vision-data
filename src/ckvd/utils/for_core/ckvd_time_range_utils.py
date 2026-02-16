@@ -131,14 +131,6 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         logger.debug("Setting index to open_time for standard representation")
         df = df.set_index("open_time")
 
-    # Reset the index to keep open_time as a column too
-    # This ensures both index and column are available to consumers
-    if df.index.name == "open_time" and "open_time" not in df.columns:
-        logger.debug("Adding open_time as column while keeping it as index")
-        df = df.reset_index()
-        # And set it back as index to have both
-        df = df.set_index("open_time")
-
     # Then standardize timestamp precision to align with REST API format
     # This ensures Vision API data (which may use microsecond precision in 2025+)
     # is converted to millisecond precision to match REST API format
