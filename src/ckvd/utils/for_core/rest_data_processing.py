@@ -62,10 +62,11 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
         "date": "open_time",
     }
 
-    # Rename columns that need standardization
-    for col in df.columns:
-        if col.lower() in column_mapping:
-            df = df.rename(columns={col: column_mapping[col.lower()]})
+    # Rename columns that need standardization — batch into single rename()
+    # call to avoid creating a new DataFrame per column (memory efficiency)
+    rename_dict = {col: column_mapping[col.lower()] for col in df.columns if col.lower() in column_mapping}
+    if rename_dict:
+        df = df.rename(columns=rename_dict)
 
     return df
 

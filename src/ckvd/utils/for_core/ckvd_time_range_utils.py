@@ -89,10 +89,11 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
         "numberOfTrades": "count",
     }
 
-    # Apply column mapping
-    for old_name, new_name in column_map.items():
-        if old_name in df.columns and new_name not in df.columns:
-            df = df.rename(columns={old_name: new_name})
+    # Apply column mapping — batch into single rename() call to avoid
+    # creating a new DataFrame per column (memory efficiency)
+    rename_dict = {old: new for old, new in column_map.items() if old in df.columns and new not in df.columns}
+    if rename_dict:
+        df = df.rename(columns=rename_dict)
 
     # First apply the centralized standardize_dataframe function
     # This function ensures proper column structure and data types

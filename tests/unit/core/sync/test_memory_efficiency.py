@@ -634,3 +634,346 @@ class TestAddPandasIncludeIndex:
         pipeline.add_pandas(df, "CACHE")
 
         assert pipeline.is_empty()
+
+
+# =============================================================================
+# Round 3 — Phase 1a: enforce_utc_timezone no unnecessary allocation
+# =============================================================================
+
+
+class TestEnforceUtcTimezoneNoAlloc:
+    """Tests that enforce_utc_timezone() avoids unnecessary object creation.
+
+    Validates Phase 1a (Round 3): When dt is already UTC, return the same
+    object. When naive, use dt.replace() instead of field extraction.
+    """
+
+    def test_returns_same_object_when_already_utc(self):
+        """enforce_utc_timezone(dt) should return same object when already UTC."""
+        from ckvd.utils.time.conversion import enforce_utc_timezone
+
+        dt = datetime(2024, 1, 15, 12, 30, 45, tzinfo=timezone.utc)
+        result = enforce_utc_timezone(dt)
+
+        # Must be the exact same object (identity check), not just equal
+        assert result is dt
+
+    def test_correct_tz_when_naive(self):
+        """enforce_utc_timezone(dt) should add UTC to naive datetime."""
+        from ckvd.utils.time.conversion import enforce_utc_timezone
+
+        dt = datetime(2024, 1, 15, 12, 30, 45)
+        result = enforce_utc_timezone(dt)
+
+        assert result.tzinfo == timezone.utc
+        assert result.year == 2024
+        assert result.month == 1
+        assert result.day == 15
+        assert result.hour == 12
+        assert result.minute == 30
+        assert result.second == 45
+
+    def test_correct_conversion_from_non_utc(self):
+        """enforce_utc_timezone(dt) should convert non-UTC timezone to UTC."""
+        from ckvd.utils.time.conversion import enforce_utc_timezone
+
+        est = timezone(timedelta(hours=-5))
+        dt = datetime(2024, 1, 15, 12, 0, 0, tzinfo=est)
+        result = enforce_utc_timezone(dt)
+
+        assert result.tzinfo == timezone.utc
+        assert result.hour == 17  # 12 EST = 17 UTC
+
+
+# =============================================================================
+# Round 3 — Phase 1b: Batch column rename
+# =============================================================================
+
+
+class TestBatchColumnRename:
+    """Tests that column rename uses a single batch rename() call.
+
+    Validates Phase 1b (Round 3): Both standardize_columns() and
+    standardize_column_names() produce correct output with batch rename.
+    """
+
+    def test_standardize_columns_renames_variants(self, base_time):
+        """standardize_columns() should rename variant column names."""
+        from ckvd.utils.for_core.ckvd_time_range_utils import standardize_columns
+
+        df = pd.DataFrame(
+            {
+                "openTime": [base_time + timedelta(hours=i) for i in range(3)],
+                "open": [100.0] * 3,
+                "high": [110.0] * 3,
+                "low": [90.0] * 3,
+                "close": [105.0] * 3,
+                "volume": [1000.0] * 3,
+                "trades": [50] * 3,
+            }
+        )
+
+        result = standardize_columns(df)
+
+        # "openTime" should be renamed to "open_time" (now the index)
+        assert result.index.name == "open_time"
+        # "trades" should be renamed to "count"
+        assert "count" in result.columns
+        assert "trades" not in result.columns
+
+    def test_standardize_column_names_renames_variants(self):
+        """standardize_column_names() should rename variant column names."""
+        from ckvd.utils.for_core.rest_data_processing import standardize_column_names
+
+        df = pd.DataFrame(
+            {
+                "quote_volume": [100.0],
+                "trades": [50],
+                "taker_buy_base": [40.0],
+            }
+        )
+
+        result = standardize_column_names(df)
+
+        assert "quote_asset_volume" in result.columns
+        assert "count" in result.columns
+        assert "taker_buy_volume" in result.columns
+        # Original variant names should be gone
+        assert "quote_volume" not in result.columns
+        assert "trades" not in result.columns
+        assert "taker_buy_base" not in result.columns
+
+
+# =============================================================================
+# Round 3 — Phase 2a: Vectorized timezone standardization
+# =============================================================================
+
+
+class TestVectorizedTimezoneStandardize:
+    """Tests that standardize_dataframe() uses vectorized tz operations.
+
+    Validates Phase 2a (Round 3): Replaces row-by-row enforce_utc_timezone()
+    list comprehension with vectorized tz_localize/tz_convert.
+    """
+
+    def test_naive_index_gets_utc_localized(self, base_time):
+        """Naive DatetimeIndex should be localized to UTC."""
+        from ckvd.utils.time.processor import TimeseriesDataProcessor
+
+        timestamps = [base_time.replace(tzinfo=None) + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(6)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time"),
+        )
+
+        result = TimeseriesDataProcessor.standardize_dataframe(df)
+
+        assert result.index.tz is not None
+        assert str(result.index.tz) == "UTC"
+        assert len(result) == 6
+
+    def test_utc_index_unchanged(self, base_time):
+        """UTC DatetimeIndex should pass through unchanged."""
+        from ckvd.utils.time.processor import TimeseriesDataProcessor
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(6)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        result = TimeseriesDataProcessor.standardize_dataframe(df)
+
+        assert str(result.index.tz) == "UTC"
+        assert len(result) == 6
+
+    def test_non_utc_index_converted(self, base_time):
+        """Non-UTC DatetimeIndex should be converted to UTC."""
+        from ckvd.utils.time.processor import TimeseriesDataProcessor
+
+        # Create timestamps in US/Eastern
+        timestamps = [base_time.replace(tzinfo=None) + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(6)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="US/Eastern"),
+        )
+
+        result = TimeseriesDataProcessor.standardize_dataframe(df)
+
+        assert str(result.index.tz) == "UTC"
+        assert len(result) == 6
+
+    def test_naive_close_time_localized(self, base_time):
+        """Naive close_time column should be localized to UTC."""
+        from ckvd.utils.time.processor import TimeseriesDataProcessor
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        close_times = [base_time.replace(tzinfo=None) + timedelta(hours=i, minutes=59) for i in range(6)]
+        df = pd.DataFrame(
+            {
+                "close": [100.0 + i for i in range(6)],
+                "close_time": close_times,
+            },
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        result = TimeseriesDataProcessor.standardize_dataframe(df)
+
+        assert result["close_time"].dt.tz is not None
+        assert str(result["close_time"].dt.tz) == "UTC"
+
+
+# =============================================================================
+# Round 3 — Phase 2b: Vectorized timestamp precision
+# =============================================================================
+
+
+class TestVectorizedTimestampPrecision:
+    """Tests that standardize_timestamp_precision() uses vectorized int64 conversion.
+
+    Validates Phase 2b (Round 3): Replaces list comprehension
+    [int(ts.timestamp() * 1000) for ts in index] with vectorized
+    index.astype("int64") // 1_000_000.
+    """
+
+    def test_us_to_ms_conversion_correct(self, base_time):
+        """Microsecond precision should be correctly truncated to milliseconds."""
+        from ckvd.utils.time.conversion import standardize_timestamp_precision
+
+        # Create a DatetimeIndex with microsecond precision
+        timestamps = [base_time + timedelta(hours=i, microseconds=500) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(6)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        # Force TIMESTAMP_PRECISION to "ms" for this test
+        with patch("ckvd.utils.time.conversion.TIMESTAMP_PRECISION", "ms"):
+            result = standardize_timestamp_precision(df)
+
+        # Microseconds should be truncated
+        for ts in result.index:
+            assert ts.microsecond == 0, f"Microsecond component should be 0, got {ts.microsecond}"
+
+    def test_ms_precision_unchanged(self, base_time):
+        """Millisecond precision should pass through when target is ms."""
+        from ckvd.utils.time.conversion import standardize_timestamp_precision
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(6)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        with patch("ckvd.utils.time.conversion.TIMESTAMP_PRECISION", "ms"):
+            result = standardize_timestamp_precision(df)
+
+        assert len(result) == 6
+        assert result.index.name == "open_time"
+
+    def test_empty_dataframe_passes_through(self):
+        """Empty DataFrame should pass through without error."""
+        from ckvd.utils.time.conversion import standardize_timestamp_precision
+
+        df = pd.DataFrame()
+        result = standardize_timestamp_precision(df)
+
+        assert result.empty
+
+
+# =============================================================================
+# Round 3 — Phase 2c: Single Polars→pandas cache conversion
+# =============================================================================
+
+
+class TestCacheSinglePolarsConversion:
+    """Tests that get_from_cache() uses single Polars→pandas conversion.
+
+    Validates Phase 2c (Round 3): Daily cache files are collected as Polars
+    DataFrames, concatenated in Polars, then a single to_pandas() converts
+    the result instead of N separate to_pandas() calls.
+    """
+
+    def test_produces_correct_dataframe(self, base_time):
+        """get_from_cache() should return correct DataFrame with _data_source."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        # Create mock Polars data for 2 days
+        day1_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(24)],
+                "open": [100.0 + i for i in range(24)],
+                "close": [105.0 + i for i in range(24)],
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        day2_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(days=1, hours=i) for i in range(24)],
+                "open": [200.0 + i for i in range(24)],
+                "close": [205.0 + i for i in range(24)],
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        # Mock _scan_cache_file to return LazyFrames
+        day_counter = {"count": 0}
+
+        def mock_scan(path):
+            day_counter["count"] += 1
+            if day_counter["count"] == 1:
+                return day1_data.lazy()
+            return day2_data.lazy()
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = True
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", side_effect=mock_scan),
+        ):
+            from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
+
+            result_df, missing = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(days=2),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert not result_df.empty
+        assert "_data_source" in result_df.columns
+        assert (result_df["_data_source"] == "CACHE").all()
+        # Should be sorted
+        assert result_df["open_time"].is_monotonic_increasing
+
+    def test_empty_cache_returns_empty_dataframe(self, base_time):
+        """No cache files should return empty DataFrame."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = False
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs):
+            from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
+
+            result_df, missing = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(days=1),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert result_df.empty
+        assert len(missing) == 1  # Entire range is missing

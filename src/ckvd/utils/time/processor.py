@@ -10,7 +10,6 @@ timestamp formats (milliseconds vs microseconds).
 # polars-exception: extracted from existing pandas-based time_utils.py - migration is separate task
 """
 
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -19,7 +18,6 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.time.conversion import (
     TIMESTAMP_UNIT,
     detect_timestamp_unit,
-    enforce_utc_timezone,
 )
 
 __all__ = [
@@ -206,15 +204,19 @@ class TimeseriesDataProcessor:
         if df.index.has_duplicates:
             df = df.loc[~df.index.duplicated(keep="first")]
 
-        # Ensure all datetimes are timezone-aware UTC
+        # Ensure all datetimes are timezone-aware UTC — vectorized operations
+        # instead of row-by-row enforce_utc_timezone() list comprehension
         if isinstance(df.index, pd.DatetimeIndex):
-            df.index = pd.DatetimeIndex(
-                [enforce_utc_timezone(dt) for dt in df.index.to_pydatetime()],
-                name=df.index.name,
-            )
+            if df.index.tz is None:
+                df.index = df.index.tz_localize("UTC")
+            elif str(df.index.tz) != "UTC":
+                df.index = df.index.tz_convert("UTC")
 
-        # Also fix close_time if it exists
-        if "close_time" in df.columns and isinstance(df["close_time"].iloc[0], datetime):
-            df["close_time"] = df["close_time"].apply(enforce_utc_timezone)
+        # Also fix close_time if it exists — vectorized
+        if "close_time" in df.columns and pd.api.types.is_datetime64_any_dtype(df["close_time"]):
+            if df["close_time"].dt.tz is None:
+                df["close_time"] = df["close_time"].dt.tz_localize("UTC")
+            elif str(df["close_time"].dt.tz) != "UTC":
+                df["close_time"] = df["close_time"].dt.tz_convert("UTC")
 
         return df

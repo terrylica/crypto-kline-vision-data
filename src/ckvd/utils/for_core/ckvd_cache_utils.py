@@ -271,10 +271,9 @@ def get_from_cache(
     current_date = pendulum.instance(start_time).start_of("day")
     end_date = pendulum.instance(end_time).start_of("day")
 
-    # MEMORY OPTIMIZATION: Collect DataFrames in list, single concat at end
-    # This avoids O(n²) memory allocation from repeated pd.concat() calls
-    # See: /tmp/memory_audit_findings.md - Priority 1 fix
-    daily_dfs: list[pd.DataFrame] = []
+    # MEMORY OPTIMIZATION: Collect Polars DataFrames, concat in Polars, single to_pandas() at end
+    # This avoids N separate to_pandas() conversions (one per day) — Polars concat is zero-copy (same schema)
+    daily_dfs: list[pl.DataFrame] = []
 
     # Track which days we were able to load from cache
     loaded_days = []
@@ -314,12 +313,10 @@ def get_from_cache(
                         logger.info(f"Loaded {len(daily_pl)} records from cache for {current_date.format('YYYY-MM-DD')}")
                         loaded_days.append(current_date.date())
 
-                        # Convert to pandas and add source information
-                        daily_df = daily_pl.to_pandas()
-                        daily_df["_data_source"] = "CACHE"
-
-                        # Collect for batch concat (memory efficient)
-                        daily_dfs.append(daily_df)
+                        # Add source info in Polars and collect for batch concat
+                        # Single Polars→pandas conversion happens after loop (avoids N to_pandas() calls)
+                        daily_pl = daily_pl.with_columns(pl.lit("CACHE").alias("_data_source"))
+                        daily_dfs.append(daily_pl)
                     else:
                         logger.warning(f"Cache file exists but no data in requested range: {cache_path}")
                 except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
@@ -332,8 +329,17 @@ def get_from_cache(
         # Move to next day
         current_date = current_date.add(days=1)
 
-    # Single concat at end - O(n) instead of O(n²)
-    result_df = pd.concat(daily_dfs, ignore_index=True) if daily_dfs else pd.DataFrame()
+    # Single Polars concat + single to_pandas() conversion at end
+    # For a 30-day request, this reduces from 30 to_pandas() calls to 1
+    if daily_dfs:
+        combined_pl = pl.concat(daily_dfs)
+        result_df = combined_pl.to_pandas()
+        # Ensure datetime columns are timezone-aware (Polars to_pandas may lose tz info)
+        if "open_time" in result_df.columns and pd.api.types.is_datetime64_any_dtype(result_df["open_time"]):
+            if result_df["open_time"].dt.tz is None:
+                result_df["open_time"] = result_df["open_time"].dt.tz_localize("UTC")
+    else:
+        result_df = pd.DataFrame()
 
     # Calculate missing time ranges using proper gap detection
     missing_ranges = []

@@ -123,16 +123,19 @@ def standardize_timestamp_precision(df: pd.DataFrame) -> pd.DataFrame:
 
             if current_precision == "us" and TIMESTAMP_PRECISION == "ms":
                 # Convert from microseconds to milliseconds (truncate)
-                # Use numpy array with pd.to_datetime to avoid N Timestamp object allocations
-                timestamps_ms = np.array([int(ts.timestamp() * 1000) for ts in result_df.index], dtype="int64")
+                # Vectorized: int64 nanoseconds → milliseconds via integer arithmetic
+                # Avoids N Python datetime object allocations from list comprehension
+                ns_values = result_df.index.astype("int64")  # nanoseconds since epoch
+                timestamps_ms = ns_values // 1_000_000  # nanoseconds to milliseconds
                 new_index = pd.to_datetime(timestamps_ms, unit="ms", utc=True)
                 new_index.name = result_df.index.name
                 result_df.index = new_index
 
             elif current_precision == "ms" and TIMESTAMP_PRECISION == "us":
                 # Convert from milliseconds to microseconds (add zeros)
-                # Use numpy array with pd.to_datetime to avoid N Timestamp object allocations
-                timestamps_us = np.array([int(ts.timestamp() * 1000000) for ts in result_df.index], dtype="int64")
+                # Vectorized: int64 nanoseconds → microseconds via integer arithmetic
+                ns_values = result_df.index.astype("int64")  # nanoseconds since epoch
+                timestamps_us = ns_values // 1_000  # nanoseconds to microseconds
                 new_index = pd.to_datetime(timestamps_us, unit="us", utc=True)
                 new_index.name = result_df.index.name
                 result_df.index = new_index
@@ -222,27 +225,10 @@ def enforce_utc_timezone(dt: datetime) -> datetime:
         UTC timezone-aware datetime
     """
     if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-        # If naive datetime, assume it's UTC
-        return datetime(
-            dt.year,
-            dt.month,
-            dt.day,
-            dt.hour,
-            dt.minute,
-            dt.second,
-            dt.microsecond,
-            tzinfo=timezone.utc,
-        )
+        # If naive datetime, assume it's UTC — use replace() instead of
+        # field-by-field constructor to avoid 7 attribute accesses
+        return dt.replace(tzinfo=timezone.utc)
     if dt.tzinfo == timezone.utc:
-        # If already in UTC, return a new copy to ensure it's a different object
-        return datetime(
-            dt.year,
-            dt.month,
-            dt.day,
-            dt.hour,
-            dt.minute,
-            dt.second,
-            dt.microsecond,
-            tzinfo=timezone.utc,
-        )
+        # datetime is immutable — safe to return same object (no copy needed)
+        return dt
     return dt.astimezone(timezone.utc)
