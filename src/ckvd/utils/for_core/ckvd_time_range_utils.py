@@ -311,15 +311,13 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
         merged["_source_priority"] = 0
 
     # Sort by open_time and source priority (high priority last to keep in drop_duplicates)
-    # Use inplace=True to avoid additional allocation
     logger.debug("Sorting merged DataFrame by open_time and source priority")
     merged = merged.sort_values(["open_time", "_source_priority"])
 
     # Remove duplicates, keeping the highest priority source for each timestamp
-    # Use inplace=True to avoid additional allocation
     if "open_time" in merged.columns:
         before_count = len(merged)
-        merged = merged.drop_duplicates(subset=["open_time"], keep="last")
+        merged = merged.drop_duplicates(subset=["open_time"], keep="last", ignore_index=True)
         after_count = len(merged)
 
         if before_count > after_count:
@@ -328,10 +326,6 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     # Remove the temporary source priority column (inplace)
     if "_source_priority" in merged.columns:
         merged = merged.drop(columns=["_source_priority"])
-
-    # Final sort and reset index (combine into single operation)
-    merged = merged.sort_values("open_time")
-    merged = merged.reset_index(drop=True)
 
     # Final standardization to ensure consistency across all columns
     merged = standardize_columns(merged)

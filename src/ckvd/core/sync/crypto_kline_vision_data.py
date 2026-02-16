@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# FILE-SIZE-OK
 # polars-exception: Core FCP implementation - CryptoKlineVisionData returns pandas DataFrames
 # for compatibility with all downstream consumers. Coordinated migration needed.
 """Crypto Kline Vision Data (CKVD) that mediates between different data sources.
@@ -155,8 +156,8 @@ class CryptoKlineVisionData:
     REST_MAX_CHUNKS = REST_MAX_CHUNKS
 
     # Output format specification from centralized config
-    OUTPUT_DTYPES = OUTPUT_DTYPES.copy()
-    FUNDING_RATE_DTYPES = FUNDING_RATE_DTYPES.copy()
+    OUTPUT_DTYPES = OUTPUT_DTYPES
+    FUNDING_RATE_DTYPES = FUNDING_RATE_DTYPES
 
     # Default market type that can be configured globally
     DEFAULT_MARKET_TYPE = MarketType.SPOT
@@ -1014,8 +1015,8 @@ class CryptoKlineVisionData:
                     result_df=result_df,
                 )
 
-                # Add Vision data to Polars pipeline for final merge
-                if not result_df.empty and "_data_source" in result_df.columns:
+                # Add Vision data to Polars pipeline for final merge (skip when pandas output)
+                if return_polars and not result_df.empty and "_data_source" in result_df.columns:
                     vision_df = result_df[result_df["_data_source"] == "VISION"]
                     if not vision_df.empty:
                         polars_pipeline.add_pandas(vision_df, "VISION")
@@ -1034,8 +1035,8 @@ class CryptoKlineVisionData:
                     save_to_cache_func=self._save_to_cache if self.use_cache else None,
                 )
 
-                # Add REST data to Polars pipeline for final merge
-                if not result_df.empty and "_data_source" in result_df.columns:
+                # Add REST data to Polars pipeline for final merge (skip when pandas output)
+                if return_polars and not result_df.empty and "_data_source" in result_df.columns:
                     rest_only_df = result_df[result_df["_data_source"] == "REST"]
                     if not rest_only_df.empty:
                         polars_pipeline.add_pandas(rest_only_df, "REST")

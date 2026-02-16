@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# FILE-SIZE-OK
 # polars-exception: VisionDataClient returns pandas DataFrames for CKVD pipeline compatibility
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 r"""VisionDataClient provides direct access to Binance Vision API for historical data.
@@ -69,7 +70,6 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import (
     ChartType,
     DataProvider,
-    Interval,
     MarketType,
     get_market_capabilities,
 )
@@ -672,7 +672,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                         if df is not None and not df.empty:
                             # Ensure each dataframe is properly sorted by open_time before adding it
                             if "open_time" in df.columns and not df["open_time"].is_monotonic_increasing:
-                                df = df.sort_values("open_time").reset_index(drop=True)
+                                df = df.sort_values("open_time", ignore_index=True)
                             downloaded_dfs.append(df)
                     except (httpx.HTTPError, OSError, TimeoutError, zipfile.BadZipFile, pd.errors.ParserError) as exc:
                         # Check if this date is too fresh
@@ -756,7 +756,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
 
         # Sort the dataframe by timestamp
         if not concatenated_df["open_time"].is_monotonic_increasing:
-            concatenated_df = concatenated_df.sort_values("open_time").reset_index(drop=True)
+            concatenated_df = concatenated_df.sort_values("open_time", ignore_index=True)
 
         # Filter data to requested time range
         filtered_df = filter_dataframe_by_time(concatenated_df, start_time, end_time, "open_time")
@@ -768,14 +768,7 @@ class VisionDataClient(DataClientInterface, Generic[T]):
             logger.warning("Filtered dataframe is empty - no data within requested time range")
 
         # Find gaps in the data
-        try:
-            interval_obj = next((i for i in Interval if i.value == self._interval_str), None)
-            if interval_obj is None:
-                interval_obj = Interval.MINUTE_1
-                logger.warning(f"Could not find interval {self._interval_str}, using MINUTE_1 as default for gap detection")
-        except (ValueError, StopIteration) as e:
-            logger.warning(f"Error parsing interval for gap detection: {e}")
-            interval_obj = Interval.MINUTE_1
+        interval_obj = self.interval_obj
 
         # Detect gaps in the data
         time_span_days = (end_time - start_time).total_seconds() / 86400
