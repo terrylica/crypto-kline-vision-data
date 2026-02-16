@@ -1,3 +1,10 @@
+## [4.3.5](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.4...v4.3.5) (2026-02-16)
+
+
+### Performance Improvements
+
+* round 2 memory efficiency — eliminate O(n²) concat loop, remove standardize_columns NO-OP copies ([c290f83](https://github.com/terrylica/crypto-kline-vision-data/commit/c290f8389b6f983cf8c37e0fa03dda899869d8e1))
+
 ## [4.3.4](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.3...v4.3.4) (2026-02-16)
 
 
