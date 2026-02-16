@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Phase 4: Verify release artifacts"
-#MISE depends=["release:version"]
+# Note: No depends — called sequentially from release:full after version/tag is created.
+# Adding depends=["release:preflight"] would fail because preflight checks "commits since tag"
+# and the tag was just created by release:version.
 set -euo pipefail
 
 echo "=== Verifying Release ==="
