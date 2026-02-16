@@ -1,3 +1,10 @@
+## [4.3.4](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.3...v4.3.4) (2026-02-16)
+
+
+### Performance Improvements
+
+* memory efficiency refactoring — skip redundant pipeline, eliminate double sorts ([9760420](https://github.com/terrylica/crypto-kline-vision-data/commit/97604200011aa2d121023584c560a73f159de683))
+
 ## [4.3.3](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.2...v4.3.3) (2026-02-13)
 
 
