@@ -1,3 +1,15 @@
+## [4.3.6](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.5...v4.3.6) (2026-02-16)
+
+
+### Bug Fixes
+
+* use Claude Automation vault for PyPI publishing credentials ([5b22d04](https://github.com/terrylica/crypto-kline-vision-data/commit/5b22d046b78e9df0fb7e91ab04c7b0dcafaba2da))
+
+
+### Performance Improvements
+
+* round 3 memory efficiency — vectorize timezone ops, batch renames, single Polars→pandas cache conversion ([b06330d](https://github.com/terrylica/crypto-kline-vision-data/commit/b06330d60a8200557f054d97afb5a9e817990940))
+
 ## [4.3.5](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.4...v4.3.5) (2026-02-16)
 
 
