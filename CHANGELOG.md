@@ -1,3 +1,10 @@
+## [4.3.9](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.8...v4.3.9) (2026-02-17)
+
+
+### Performance Improvements
+
+* round 6 memory efficiency — ignore_index sort, batch astype, next() generator ([013b942](https://github.com/terrylica/crypto-kline-vision-data/commit/013b94259db08f224cc1dd3dbbe0b6ae7e43ddf3))
+
 ## [4.3.8](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.7...v4.3.8) (2026-02-17)
 
 
