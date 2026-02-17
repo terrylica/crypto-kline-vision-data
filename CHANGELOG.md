@@ -1,3 +1,15 @@
+## [4.3.7](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.6...v4.3.7) (2026-02-17)
+
+
+### Bug Fixes
+
+* remove release:verify depends to prevent preflight re-run after tagging ([31d1b7f](https://github.com/terrylica/crypto-kline-vision-data/commit/31d1b7fba67091e0e157ef7a68179a355224229a))
+
+
+### Performance Improvements
+
+* round 4 memory efficiency — hashlib.file_digest, streaming CSV, vectorized rounding, direct index filtering ([34229e0](https://github.com/terrylica/crypto-kline-vision-data/commit/34229e066cd75f3954f5de1cedf3ec048532da24))
+
 ## [4.3.6](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.5...v4.3.6) (2026-02-16)
 
 
