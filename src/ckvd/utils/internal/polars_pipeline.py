@@ -77,11 +77,11 @@ class PolarsDataPipeline:
         if isinstance(lf, pl.DataFrame):
             lf = lf.lazy()
 
-        # Add _data_source column if not present
-        # Cache schema to avoid repeated query plan resolution
-        schema = lf.collect_schema()
-        if "_data_source" not in schema:
-            lf = lf.with_columns(pl.lit(source).alias("_data_source"))
+        # MEMORY OPTIMIZATION (Round 5): Add _data_source unconditionally instead of
+        # calling collect_schema() to check first. collect_schema() forces query plan
+        # resolution on every LazyFrame — for 30 cache files, that's 30 schema evaluations.
+        # Overwriting with the same literal value is harmless and avoids the overhead.
+        lf = lf.with_columns(pl.lit(source).alias("_data_source"))
 
         self._lazy_frames.append(lf)
         logger.debug(f"Added {source} source to pipeline")

@@ -138,16 +138,20 @@ class TestAddSource:
         assert "_data_source" in result.columns
         assert result["_data_source"][0] == "CACHE"
 
-    def test_add_source_preserves_existing_data_source(self, sample_polars_df):
-        """add_source() should not overwrite existing _data_source."""
+    def test_add_source_overwrites_existing_data_source(self, sample_polars_df):
+        """add_source() should overwrite existing _data_source with caller-provided value.
+
+        MEMORY OPTIMIZATION (Round 5): _data_source is always set unconditionally to avoid
+        calling collect_schema() which forces query plan resolution on every LazyFrame.
+        """
         df_with_source = sample_polars_df.with_columns(pl.lit("EXISTING").alias("_data_source"))
         pipeline = PolarsDataPipeline()
 
         pipeline.add_source(df_with_source, "NEW")
         result = pipeline.collect_polars()
 
-        # Should keep existing value, not overwrite with "NEW"
-        assert result["_data_source"][0] == "EXISTING"
+        # Should overwrite with caller-provided value (no collect_schema check)
+        assert result["_data_source"][0] == "NEW"
 
     def test_add_source_chaining(self, sample_polars_df):
         """add_source() should support method chaining."""

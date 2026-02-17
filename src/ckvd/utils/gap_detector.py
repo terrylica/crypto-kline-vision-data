@@ -133,9 +133,12 @@ def detect_gaps(
     gap_interval_threshold = expected_interval * (1 + gap_threshold)
 
     # Identify day boundary transitions (where date changes between consecutive records)
-    df_sorted["curr_date"] = df_sorted[time_column].dt.date
-    df_sorted["next_date"] = df_sorted["next_time"].dt.date
-    df_sorted["crosses_day_boundary"] = df_sorted["curr_date"] != df_sorted["next_date"]
+    # MEMORY OPTIMIZATION (Round 5): Use .dt.normalize() instead of .dt.date to stay in
+    # datetime64 dtype (8 bytes each) instead of creating Python date objects (object dtype,
+    # 28 bytes each). Also eliminates 2 intermediate columns (curr_date, next_date).
+    df_sorted["crosses_day_boundary"] = (
+        df_sorted[time_column].dt.normalize() != df_sorted["next_time"].dt.normalize()
+    )
 
     # Apply different thresholds based on whether the transition crosses a day boundary
     boundary_mask = df_sorted["crosses_day_boundary"]

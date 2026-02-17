@@ -271,12 +271,10 @@ def get_from_cache(
     current_date = pendulum.instance(start_time).start_of("day")
     end_date = pendulum.instance(end_time).start_of("day")
 
-    # MEMORY OPTIMIZATION: Collect Polars DataFrames, concat in Polars, single to_pandas() at end
-    # This avoids N separate to_pandas() conversions (one per day) — Polars concat is zero-copy (same schema)
-    daily_dfs: list[pl.DataFrame] = []
-
-    # Track which days we were able to load from cache
-    loaded_days = []
+    # MEMORY OPTIMIZATION (Round 5): Keep everything as LazyFrames through the loop.
+    # Single .collect(engine="streaming") after pl.concat() instead of N per-day collections.
+    # For a 30-day request, this reduces from 30 materializations to 1.
+    daily_lfs: list[pl.LazyFrame] = []
 
     # Iterate through days
     while current_date <= end_date:
@@ -294,33 +292,19 @@ def get_from_cache(
             if fs_handler.exists(cache_path):
                 logger.info(f"Loading from cache: {cache_path}")
 
-                # MEMORY OPTIMIZATION: Use Polars LazyFrame with predicate pushdown
-                # This filters at read time instead of loading entire file then filtering.
-                # Detect format and use appropriate scanner.
-                # Source: https://docs.pola.rs/api/python/stable/reference/api/polars.scan_ipc.html
+                # Use Polars LazyFrame with predicate pushdown — stays lazy until final collect
                 try:
                     lf = _scan_cache_file(cache_path)
 
-                    # Apply time range filter with predicate pushdown
-                    # Note: Polars datetime comparison requires proper type handling
-                    filtered_lf = lf.filter((pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time))
+                    # Apply time range filter and add source info as lazy operations
+                    filtered_lf = lf.filter(
+                        (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
+                    ).with_columns(pl.lit("CACHE").alias("_data_source"))
 
-                    # Collect filtered data using streaming engine for better memory efficiency
-                    # Source: https://pola.rs/posts/polars-in-aggregate-dec25/ (3-7x faster, less memory)
-                    daily_pl = filtered_lf.collect(engine="streaming")
-
-                    if len(daily_pl) > 0:
-                        logger.info(f"Loaded {len(daily_pl)} records from cache for {current_date.format('YYYY-MM-DD')}")
-                        loaded_days.append(current_date.date())
-
-                        # Add source info in Polars and collect for batch concat
-                        # Single Polars→pandas conversion happens after loop (avoids N to_pandas() calls)
-                        daily_pl = daily_pl.with_columns(pl.lit("CACHE").alias("_data_source"))
-                        daily_dfs.append(daily_pl)
-                    else:
-                        logger.warning(f"Cache file exists but no data in requested range: {cache_path}")
+                    daily_lfs.append(filtered_lf)
+                    logger.debug(f"Added LazyFrame for {current_date.format('YYYY-MM-DD')}")
                 except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
-                    logger.error(f"Error loading cache file {cache_path}: {e}")
+                    logger.error(f"Error scanning cache file {cache_path}: {e}")
             else:
                 logger.info(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
         except (OSError, ValueError, TypeError) as e:
@@ -329,15 +313,19 @@ def get_from_cache(
         # Move to next day
         current_date = current_date.add(days=1)
 
-    # Single Polars concat + single to_pandas() conversion at end
-    # For a 30-day request, this reduces from 30 to_pandas() calls to 1
-    if daily_dfs:
-        combined_pl = pl.concat(daily_dfs)
-        result_df = combined_pl.to_pandas()
-        # Ensure datetime columns are timezone-aware (Polars to_pandas may lose tz info)
-        if "open_time" in result_df.columns and pd.api.types.is_datetime64_any_dtype(result_df["open_time"]):
-            if result_df["open_time"].dt.tz is None:
-                result_df["open_time"] = result_df["open_time"].dt.tz_localize("UTC")
+    # Single collect: concat all LazyFrames and materialize once
+    if daily_lfs:
+        combined_lf = pl.concat(daily_lfs)
+        combined_pl = combined_lf.collect(engine="streaming")
+        if len(combined_pl) > 0:
+            result_df = combined_pl.to_pandas()
+            # Ensure datetime columns are timezone-aware (Polars to_pandas may lose tz info)
+            if "open_time" in result_df.columns and pd.api.types.is_datetime64_any_dtype(result_df["open_time"]):
+                if result_df["open_time"].dt.tz is None:
+                    result_df["open_time"] = result_df["open_time"].dt.tz_localize("UTC")
+            logger.info(f"Loaded {len(result_df)} total records from {len(daily_lfs)} cache file(s)")
+        else:
+            result_df = pd.DataFrame()
     else:
         result_df = pd.DataFrame()
 
@@ -414,17 +402,19 @@ def save_to_cache(
         if provider != DataProvider.BINANCE:
             logger.warning(f"Provider {provider.name} cache save not yet implemented, using Binance format")
 
-        # Group by day to save daily files
-        df["date"] = pd.to_datetime(df["open_time"]).dt.date
-        grouped = df.groupby(df["date"])
+        # MEMORY OPTIMIZATION (Round 5): Group by day using a local Series instead of
+        # adding a "date" column to the caller's DataFrame. Uses .dt.normalize() to stay
+        # in datetime64 dtype instead of creating Python date objects via .dt.date.
+        groupby_dates = pd.to_datetime(df["open_time"]).dt.normalize()
+        grouped = df.groupby(groupby_dates)
 
         saved_files = 0
 
-        for date, day_df in grouped:
+        for date_key, day_df in grouped:
             try:
-                # Convert date to pendulum DateTime object with UTC timezone
+                # Convert date_key (pd.Timestamp at midnight) to pendulum DateTime
                 # This ensures the object has the tzinfo attribute needed by FSSpecVisionHandler
-                year, month, day = date.year, date.month, date.day
+                year, month, day = date_key.year, date_key.month, date_key.day
                 pdate = pendulum.datetime(year, month, day, 0, 0, 0, tz="UTC")
 
                 # Get cache path for this day
@@ -439,20 +429,18 @@ def save_to_cache(
                 # Ensure directory exists
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # Remove the temporary date column before saving
-                save_df = day_df.drop(columns=["date"])
-
                 # Save to Arrow IPC format (not Parquet) for consistency with
                 # cache_manager.py and vision_manager.py, and to enable memory
                 # mapping and predicate pushdown via scan_ipc()
-                table = pa.Table.from_pandas(save_df)
+                # No need to drop a temp column — groupby key is a separate Series
+                table = pa.Table.from_pandas(day_df)
                 with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
                     writer.write_table(table)
-                logger.info(f"Saved {len(save_df)} records to cache: {cache_path}")
+                logger.info(f"Saved {len(day_df)} records to cache: {cache_path}")
                 saved_files += 1
 
             except (OSError, PermissionError, pd.errors.ParserError) as e:
-                logger.error(f"Error saving cache file for {date}: {e}")
+                logger.error(f"Error saving cache file for {date_key}: {e}")
 
         if saved_files > 0:
             logger.info(f"Saved data to {saved_files} cache files")

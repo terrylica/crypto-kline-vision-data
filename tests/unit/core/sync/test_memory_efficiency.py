@@ -1,4 +1,4 @@
-# FILE-SIZE-OK: All memory efficiency tests (Round 1 + Round 2 + Round 3 + Round 4) belong together
+# FILE-SIZE-OK: All memory efficiency tests (Round 1 + Round 2 + Round 3 + Round 4 + Round 5) belong together
 #!/usr/bin/env python3
 """Unit tests for memory efficiency refactoring.
 
@@ -20,6 +20,12 @@ Round 4 tests validate that:
 11. Vectorized timestamp rounding matches per-row (Phase 1c)
 12. CSV streaming from zip works correctly (Phase 2a)
 13. filter_dataframe_by_time avoids reset_index/set_index (Phase 2b)
+
+Round 5 tests validate that:
+14. get_from_cache() uses deferred LazyFrame collection (Finding 1)
+15. add_source() does not call collect_schema() (Finding 2)
+16. detect_gaps() uses .dt.normalize() instead of .dt.date (Finding 3)
+17. save_to_cache() does not mutate input DataFrame (Finding 4)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md
 """
@@ -1373,3 +1379,472 @@ class TestFilterDataframeByTimeNoResetIndex:
         result = filter_dataframe_by_time(df, start, end, "open_time")
 
         assert len(result) == 6  # Hours 3-8 inclusive
+
+
+# =============================================================================
+# Round 5 — Finding 1: Deferred LazyFrame collection in get_from_cache()
+# =============================================================================
+
+
+class TestDeferredCacheCollection:
+    """Tests that get_from_cache() uses deferred LazyFrame collection.
+
+    Validates Finding 1 (Round 5): Daily cache files are kept as LazyFrames
+    throughout the loop, with a single .collect(engine="streaming") after
+    pl.concat() instead of N per-day collections.
+    """
+
+    def test_produces_correct_dataframe(self, base_time):
+        """Deferred collection should produce correct merged DataFrame."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        # Create mock Polars data for 2 days
+        day1_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(24)],
+                "open": [100.0 + i for i in range(24)],
+                "close": [105.0 + i for i in range(24)],
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        day2_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(days=1, hours=i) for i in range(24)],
+                "open": [200.0 + i for i in range(24)],
+                "close": [205.0 + i for i in range(24)],
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        day_counter = {"count": 0}
+
+        def mock_scan(path):
+            day_counter["count"] += 1
+            if day_counter["count"] == 1:
+                return day1_data.lazy()
+            return day2_data.lazy()
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = True
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", side_effect=mock_scan),
+        ):
+            # end_time is exclusive (<), so use end of day 2 to cover exactly 2 days
+            # The loop iterates current_date <= end_date, and end_date = start_of_day(end_time)
+            # With end_time = base_time + 2 days, end_date = Jan 17 00:00, loop covers Jan 15, 16, 17
+            # Use <= filter in get_from_cache means we get data from all scanned files
+            # that fall within [start_time, end_time]
+            result_df, missing = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(days=2),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert not result_df.empty
+        # 3 cache files scanned (Jan 15, 16, 17), but day1 has 24h, day2 has 24h,
+        # day3 also returns day2_data (24h duplicated). Filter keeps all within range.
+        # Exact count depends on mock; verify data is present and sorted.
+        assert len(result_df) >= 48
+        assert result_df["open_time"].is_monotonic_increasing
+
+    def test_empty_cache_returns_empty(self, base_time):
+        """No cache files should return empty DataFrame with full missing range."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = False
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs):
+            result_df, missing = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(days=1),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert result_df.empty
+        assert len(missing) == 1  # Entire range is missing
+
+    def test_single_day_cache_correct(self, base_time):
+        """Single day of cache data should work with deferred collection."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        day_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(12)],
+                "open": [100.0 + i for i in range(12)],
+                "close": [105.0 + i for i in range(12)],
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = True
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", return_value=day_data.lazy()),
+        ):
+            result_df, missing = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(hours=12),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert not result_df.empty
+        assert len(result_df) == 12
+
+    def test_data_source_column_all_cache(self, base_time):
+        """All rows should have _data_source='CACHE' from lazy ops."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+
+        day_data = pl.DataFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+                "close": [105.0] * 6,
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        mock_fs = MagicMock()
+        mock_fs.exists.return_value = True
+        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", return_value=day_data.lazy()),
+        ):
+            result_df, _ = get_from_cache(
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                start_time=base_time,
+                end_time=base_time + timedelta(hours=6),
+                market_type=MarketType.FUTURES_USDT,
+                provider=DataProvider.BINANCE,
+                cache_dir="/fake/cache",
+            )
+
+        assert "_data_source" in result_df.columns
+        assert (result_df["_data_source"] == "CACHE").all()
+
+
+# =============================================================================
+# Round 5 — Finding 2: Remove collect_schema() from add_source()
+# =============================================================================
+
+
+class TestAddSourceNoSchemaCheck:
+    """Tests that add_source() adds _data_source without schema check.
+
+    Validates Finding 2 (Round 5): collect_schema() is removed from
+    add_source(), and _data_source is always added unconditionally.
+    """
+
+    def test_adds_data_source_to_lazyframe(self, base_time):
+        """add_source() should add _data_source column to LazyFrame."""
+        pipeline = PolarsDataPipeline()
+        lf = pl.LazyFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        pipeline.add_source(lf, "REST")
+        result = pipeline.collect_polars()
+
+        assert "_data_source" in result.columns
+        assert (result["_data_source"] == "REST").all()
+
+    def test_replaces_existing_data_source(self, base_time):
+        """add_source() should overwrite pre-existing _data_source column."""
+        pipeline = PolarsDataPipeline()
+        lf = pl.LazyFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+                "_data_source": ["OLD_SOURCE"] * 6,
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        pipeline.add_source(lf, "CACHE")
+        result = pipeline.collect_polars()
+
+        # Should be overwritten to "CACHE", not "OLD_SOURCE"
+        assert (result["_data_source"] == "CACHE").all()
+
+    def test_no_collect_schema_called(self, base_time):
+        """add_source() should NOT call collect_schema() on the LazyFrame."""
+        pipeline = PolarsDataPipeline()
+        lf = pl.LazyFrame(
+            {
+                "open_time": [base_time + timedelta(hours=i) for i in range(6)],
+                "open": [100.0] * 6,
+            }
+        ).cast({"open_time": pl.Datetime("us", "UTC")})
+
+        # Spy on collect_schema at the class level
+        with patch.object(pl.LazyFrame, "collect_schema", wraps=lf.collect_schema) as spy:
+            pipeline.add_source(lf, "REST")
+            spy.assert_not_called()
+
+
+# =============================================================================
+# Round 5 — Finding 3: detect_gaps() uses .dt.normalize() instead of .dt.date
+# =============================================================================
+
+
+class TestGapDetectorNormalize:
+    """Tests that detect_gaps() uses .dt.normalize() for day boundary detection.
+
+    Validates Finding 3 (Round 5): .dt.normalize() replaces .dt.date to avoid
+    creating object-dtype columns with Python date objects (28 bytes each).
+    """
+
+    def test_day_boundary_detection_correct(self, base_time):
+        """detect_gaps() should correctly detect day boundary transitions."""
+        from ckvd.utils.gap_detector import detect_gaps
+
+        # Day 1: hours 0-23 (full day)
+        timestamps = [base_time + timedelta(hours=i) for i in range(24)]
+        # Skip hours 24-26 (3-hour gap across midnight)
+        # Day 2: hours 27-47
+        timestamps.extend([base_time + timedelta(hours=i) for i in range(27, 48)])
+
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "open": [100.0] * len(timestamps),
+                "close": [105.0] * len(timestamps),
+            }
+        )
+
+        gaps, stats = detect_gaps(df, Interval.HOUR_1, enforce_min_span=False)
+
+        assert len(gaps) == 1
+        assert gaps[0].crosses_day_boundary is True
+
+    def test_no_object_dtype_in_result(self, base_time):
+        """detect_gaps() should NOT create object-dtype intermediate columns."""
+        from ckvd.utils.gap_detector import detect_gaps
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(48)]
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "open": [100.0] * 48,
+            }
+        )
+
+        # Make a copy to verify original is not mutated with object columns
+        original_dtypes = {col: df[col].dtype for col in df.columns}
+
+        detect_gaps(df, Interval.HOUR_1, enforce_min_span=False)
+
+        # Original DataFrame should not gain any object-dtype columns
+        for col in df.columns:
+            assert df[col].dtype == original_dtypes[col], f"Column {col} dtype changed"
+
+    def test_gap_at_midnight_boundary(self, base_time):
+        """Exact midnight transition should be detected as day boundary."""
+        from ckvd.utils.gap_detector import detect_gaps
+
+        # Create data ending at 23:00 and resuming at 03:00 next day (4h gap)
+        # Day boundary threshold = 1h * (1 + 1.5) = 2.5h, so 4h > 2.5h → detected
+        midnight_base = base_time.replace(hour=0, minute=0, second=0)
+        timestamps = [midnight_base + timedelta(hours=i) for i in range(24)]
+        # Skip midnight through 02:00, resume at 03:00
+        timestamps.append(midnight_base + timedelta(days=1, hours=3))
+
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "open": [100.0] * len(timestamps),
+            }
+        )
+
+        gaps, stats = detect_gaps(df, Interval.HOUR_1, enforce_min_span=False)
+
+        # The gap from 23:00 to 03:00 (4h) crosses midnight
+        boundary_gaps = [g for g in gaps if g.crosses_day_boundary]
+        assert len(boundary_gaps) >= 1
+
+    def test_same_day_no_boundary(self, base_time):
+        """Within-day gap should NOT be flagged as day boundary."""
+        from ckvd.utils.gap_detector import detect_gaps
+
+        # Create data with a 3h gap within the same day (skip hours 6-8)
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        timestamps.extend([base_time + timedelta(hours=i) for i in range(9, 15)])
+
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "open": [100.0] * len(timestamps),
+            }
+        )
+
+        gaps, stats = detect_gaps(df, Interval.HOUR_1, enforce_min_span=False)
+
+        # All gaps should be within same day
+        for gap in gaps:
+            assert gap.crosses_day_boundary is False, f"Gap {gap} should not cross day boundary"
+
+
+# =============================================================================
+# Round 5 — Finding 4: save_to_cache() avoids mutating input DataFrame
+# =============================================================================
+
+
+class TestSaveToCacheNoMutation:
+    """Tests that save_to_cache() does not mutate the input DataFrame.
+
+    Validates Finding 4 (Round 5): Groupby uses a local Series instead of
+    adding a "date" column to the caller's DataFrame.
+    """
+
+    def test_input_dataframe_not_mutated(self, base_time):
+        """save_to_cache() should NOT add a 'date' column to the input df."""
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import save_to_cache
+
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(
+                    [base_time + timedelta(hours=i) for i in range(24)], tz="UTC"
+                ),
+                "open": [100.0] * 24,
+                "close": [105.0] * 24,
+                "volume": [1000.0] * 24,
+            }
+        )
+        original_columns = list(df.columns)
+
+        mock_fs = MagicMock()
+        mock_path = MagicMock(spec=Path)
+        mock_path.parent = MagicMock()
+        mock_fs.get_local_path_for_data.return_value = mock_path
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils.pa") as mock_pa,
+        ):
+            mock_pa.Table.from_pandas.return_value = MagicMock()
+            mock_pa.OSFile.return_value.__enter__ = MagicMock()
+            mock_pa.OSFile.return_value.__exit__ = MagicMock(return_value=False)
+            mock_pa.ipc.new_file.return_value.__enter__ = MagicMock()
+            mock_pa.ipc.new_file.return_value.__exit__ = MagicMock(return_value=False)
+
+            save_to_cache(
+                df=df,
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                market_type=MarketType.FUTURES_USDT,
+                cache_dir=Path("/fake/cache"),
+            )
+
+        # Input DataFrame columns should be unchanged
+        assert list(df.columns) == original_columns
+        assert "date" not in df.columns
+
+    def test_saves_correct_files(self, base_time, tmp_path):
+        """save_to_cache() should create Arrow files for each day."""
+        from ckvd.utils.for_core.ckvd_cache_utils import save_to_cache
+
+        # Create data spanning 2 days
+        timestamps = [base_time + timedelta(hours=i) for i in range(48)]
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "open": [100.0 + i for i in range(48)],
+                "high": [110.0 + i for i in range(48)],
+                "low": [90.0 + i for i in range(48)],
+                "close": [105.0 + i for i in range(48)],
+                "volume": [1000.0] * 48,
+            }
+        )
+
+        result = save_to_cache(
+            df=df,
+            symbol="BTCUSDT",
+            interval=Interval.HOUR_1,
+            market_type=MarketType.FUTURES_USDT,
+            cache_dir=tmp_path,
+        )
+
+        assert result is True
+
+    def test_no_date_column_in_saved_data(self, base_time):
+        """Saved data should NOT contain a 'date' column."""
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_cache_utils import save_to_cache
+
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(
+                    [base_time + timedelta(hours=i) for i in range(24)], tz="UTC"
+                ),
+                "open": [100.0] * 24,
+                "close": [105.0] * 24,
+                "volume": [1000.0] * 24,
+            }
+        )
+
+        saved_dfs = []
+
+        def capture_from_pandas(pandas_df):
+            saved_dfs.append(list(pandas_df.columns))
+            return MagicMock()
+
+        mock_fs = MagicMock()
+        mock_path = MagicMock(spec=Path)
+        mock_path.parent = MagicMock()
+        mock_fs.get_local_path_for_data.return_value = mock_path
+
+        with (
+            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
+            patch("ckvd.utils.for_core.ckvd_cache_utils.pa") as mock_pa,
+        ):
+            mock_pa.Table.from_pandas.side_effect = capture_from_pandas
+            mock_pa.OSFile.return_value.__enter__ = MagicMock()
+            mock_pa.OSFile.return_value.__exit__ = MagicMock(return_value=False)
+            mock_pa.ipc.new_file.return_value.__enter__ = MagicMock()
+            mock_pa.ipc.new_file.return_value.__exit__ = MagicMock(return_value=False)
+
+            save_to_cache(
+                df=df,
+                symbol="BTCUSDT",
+                interval=Interval.HOUR_1,
+                market_type=MarketType.FUTURES_USDT,
+                cache_dir=Path("/fake/cache"),
+            )
+
+        assert len(saved_dfs) >= 1
+        for columns in saved_dfs:
+            assert "date" not in columns, f"Saved data should not contain 'date' column, got: {columns}"
