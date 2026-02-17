@@ -1,3 +1,10 @@
+## [4.3.8](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.7...v4.3.8) (2026-02-17)
+
+
+### Performance Improvements
+
+* round 5 memory efficiency — deferred LazyFrame collection, vectorized normalize, no-mutation save ([9add736](https://github.com/terrylica/crypto-kline-vision-data/commit/9add736de7f955ffed66ae7d2bf69aa2b7a490fe))
+
 ## [4.3.7](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.6...v4.3.7) (2026-02-17)
 
 
