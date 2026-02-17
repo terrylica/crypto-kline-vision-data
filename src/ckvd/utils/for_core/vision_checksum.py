@@ -145,8 +145,9 @@ def extract_checksum_from_file(checksum_path: Path) -> str | None:
                 return checksum
 
         # Method 3: Try finding all words and look for a 64-char hex string
-        words = re.findall(r"\b\w+\b", text_content)
-        for word in words:
+        # Use finditer() for lazy matching — stops at first match without allocating full word list
+        for match in re.finditer(r"\b\w+\b", text_content):
+            word = match.group()
             if len(word) == SHA256_HASH_LENGTH and is_valid_sha256(word):
                 logger.debug(f"Extracted checksum from word list: {word}")
                 return word
@@ -171,11 +172,8 @@ def calculate_sha256_direct(file_path: Path) -> str:
     Returns:
         Hexadecimal string of the SHA-256 checksum
     """
-    sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(16384), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 def is_valid_sha256(text: str) -> bool:

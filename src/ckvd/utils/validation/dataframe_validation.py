@@ -111,10 +111,12 @@ class DataFrameValidator:
                     logger.debug("Converting timestamps from microsecond to millisecond precision")
 
                     if isinstance(self.df.index, pd.DatetimeIndex):
-                        rounded_index = pd.DatetimeIndex(
-                            [pd.Timestamp(ts.timestamp() * 1000, unit="ms", tz=timezone.utc) for ts in self.df.index],
-                            name=self.df.index.name,
-                        )
+                        # Vectorized: int64 nanoseconds → milliseconds via integer arithmetic
+                        # Avoids N Python datetime object allocations from list comprehension
+                        ns_values = self.df.index.astype("int64")  # nanoseconds since epoch
+                        ms_values = ns_values // 1_000_000  # truncate to milliseconds
+                        rounded_index = pd.to_datetime(ms_values, unit="ms", utc=True)
+                        rounded_index.name = self.df.index.name
                         self.df.index = rounded_index
 
                     if "open_time" in self.df.columns and pd.api.types.is_datetime64_dtype(self.df["open_time"]):

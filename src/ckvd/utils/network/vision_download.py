@@ -11,7 +11,7 @@ import csv
 import tempfile
 import zipfile
 from datetime import datetime
-from io import StringIO
+import io
 from pathlib import Path
 from typing import Any
 
@@ -137,10 +137,10 @@ class VisionDownloadManager:
                     logger.warning(f"No CSV file found in downloaded zip for {date}")
                     return None
 
-                # Extract and read the CSV data
+                # Stream CSV directly from zip — avoids full bytes→str decode + StringIO allocation
                 with zip_ref.open(csv_files[0]) as csv_file:
-                    content = csv_file.read().decode("utf-8")
-                    reader = csv.reader(StringIO(content))
+                    text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
+                    reader = csv.reader(text_stream)
                     data = list(reader)
 
             # Clean up the temp file

@@ -102,23 +102,16 @@ def filter_dataframe_by_time(
     # Check if the time column exists
     if time_column not in df.columns:
         if df.index.name == time_column and isinstance(df.index, pd.DatetimeIndex):
-            # Reset index to make the time column available for filtering
-            df_with_column = df.reset_index()
-
-            # IMPORTANT: Use >= for start_time and <= for end_time to ensure
-            # exact interval boundaries are included correctly
+            # MEMORY OPTIMIZATION: Filter directly on DatetimeIndex — avoids
+            # reset_index() + set_index() round-trip (2 full DataFrame copies)
             logger.debug(
-                f"Filtering on index reset as column, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}"
+                f"Filtering on DatetimeIndex, using criteria: {time_column} >= {start_time} AND {time_column} <= {end_time}"
             )
 
-            # MEMORY OPTIMIZATION: Boolean indexing returns view, copy only if requested
-            filtered_df = df_with_column[(df_with_column[time_column] >= start_time) & (df_with_column[time_column] <= end_time)]
+            mask = (df.index >= start_time) & (df.index <= end_time)
+            filtered_df = df.loc[mask]
             if copy:
                 filtered_df = filtered_df.copy()
-
-            # Set index back
-            if not filtered_df.empty:
-                filtered_df = filtered_df.set_index(time_column)
         else:
             logger.warning(f"Time column '{time_column}' not found in DataFrame")
             # MEMORY OPTIMIZATION: Return as-is unless explicit copy requested

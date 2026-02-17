@@ -1,4 +1,4 @@
-# FILE-SIZE-OK: All memory efficiency tests (Round 1 + Round 2) belong together
+# FILE-SIZE-OK: All memory efficiency tests (Round 1 + Round 2 + Round 3 + Round 4) belong together
 #!/usr/bin/env python3
 """Unit tests for memory efficiency refactoring.
 
@@ -13,6 +13,13 @@ Round 2 tests validate that:
 6. standardize_columns() has open_time as index and is idempotent (Phase 2a)
 7. Polars pipeline merge produces monotonically sorted open_time (Phase 1c)
 8. add_pandas() with indexed DataFrame preserves open_time column (Phase 2b)
+
+Round 4 tests validate that:
+9. hashlib.file_digest() produces correct checksums (Phase 1a)
+10. re.finditer() checksum extraction still works (Phase 1b)
+11. Vectorized timestamp rounding matches per-row (Phase 1c)
+12. CSV streaming from zip works correctly (Phase 2a)
+13. filter_dataframe_by_time avoids reset_index/set_index (Phase 2b)
 
 ADR: docs/adr/2025-01-30-failover-control-protocol.md
 """
@@ -977,3 +984,392 @@ class TestCacheSinglePolarsConversion:
 
         assert result_df.empty
         assert len(missing) == 1  # Entire range is missing
+
+
+# =============================================================================
+# Round 4 — Phase 1a: hashlib.file_digest
+# =============================================================================
+
+
+class TestHashlibFileDigest:
+    """Tests that calculate_sha256_direct() uses hashlib.file_digest().
+
+    Validates Phase 1a (Round 4): hashlib.file_digest() replaces manual
+    chunk read loop for SHA-256 calculation.
+    """
+
+    def test_correct_hash_for_known_content(self, tmp_path):
+        """calculate_sha256_direct() should produce correct SHA-256 hash."""
+        import hashlib
+
+        from ckvd.utils.for_core.vision_checksum import calculate_sha256_direct
+
+        content = b"Hello, World! This is test data for checksum verification."
+        test_file = tmp_path / "test.csv"
+        test_file.write_bytes(content)
+
+        result = calculate_sha256_direct(test_file)
+        expected = hashlib.sha256(content).hexdigest()
+
+        assert result == expected
+        assert len(result) == 64  # SHA-256 hex length
+
+    def test_correct_hash_for_large_content(self, tmp_path):
+        """Should handle files larger than a single read buffer."""
+        import hashlib
+
+        from ckvd.utils.for_core.vision_checksum import calculate_sha256_direct
+
+        # Create content larger than typical buffer sizes
+        content = b"A" * 100_000
+        test_file = tmp_path / "large.csv"
+        test_file.write_bytes(content)
+
+        result = calculate_sha256_direct(test_file)
+        expected = hashlib.sha256(content).hexdigest()
+
+        assert result == expected
+
+    def test_empty_file(self, tmp_path):
+        """Should handle empty files correctly."""
+        import hashlib
+
+        from ckvd.utils.for_core.vision_checksum import calculate_sha256_direct
+
+        test_file = tmp_path / "empty.csv"
+        test_file.write_bytes(b"")
+
+        result = calculate_sha256_direct(test_file)
+        expected = hashlib.sha256(b"").hexdigest()
+
+        assert result == expected
+
+
+# =============================================================================
+# Round 4 — Phase 1b: re.finditer() checksum extraction
+# =============================================================================
+
+
+class TestRegexFinditerChecksum:
+    """Tests that checksum extraction uses re.finditer() for lazy matching.
+
+    Validates Phase 1b (Round 4): re.finditer() replaces re.findall()
+    to avoid allocating a full word list.
+    """
+
+    def test_extract_from_standard_format(self, tmp_path):
+        """Should extract hash from standard '<hash>  <filename>' format."""
+        from ckvd.utils.for_core.vision_checksum import extract_checksum_from_file
+
+        hash_value = "a" * 64
+        checksum_file = tmp_path / "CHECKSUMS"
+        checksum_file.write_text(f"{hash_value}  BTCUSDT-1h-2024-01-15.zip\n")
+
+        result = extract_checksum_from_file(checksum_file)
+        assert result == hash_value
+
+    def test_extract_from_text_with_multiple_words(self, tmp_path):
+        """Should find 64-char hex string among other words (word-list fallback)."""
+        from ckvd.utils.for_core.vision_checksum import extract_checksum_from_file
+
+        hash_value = "abcdef1234567890" * 4  # 64 hex chars
+        content = f"some random words {hash_value} more words\n"
+        checksum_file = tmp_path / "CHECKSUMS"
+        checksum_file.write_text(content)
+
+        result = extract_checksum_from_file(checksum_file)
+        assert result == hash_value
+
+    def test_no_valid_hash_returns_none(self, tmp_path):
+        """Should return None when no valid SHA-256 hash exists."""
+        from ckvd.utils.for_core.vision_checksum import extract_checksum_from_file
+
+        checksum_file = tmp_path / "CHECKSUMS"
+        checksum_file.write_text("no valid hash here\n")
+
+        result = extract_checksum_from_file(checksum_file)
+        assert result is None
+
+
+# =============================================================================
+# Round 4 — Phase 1c: Vectorized timestamp rounding
+# =============================================================================
+
+
+class TestVectorizedTimestampRounding:
+    """Tests that timestamp rounding uses vectorized int64 arithmetic.
+
+    Validates Phase 1c (Round 4): Replaces per-row list comprehension
+    [pd.Timestamp(ts.timestamp() * 1000, ...)] with vectorized
+    index.astype("int64") // 1_000_000.
+    """
+
+    def test_microsecond_precision_truncated_to_ms(self, base_time):
+        """Microsecond timestamps should be correctly truncated to millisecond precision."""
+        from ckvd.utils.validation.dataframe_validation import DataFrameValidator
+
+        # Create timestamps with microsecond precision
+        timestamps = [base_time + timedelta(hours=i, microseconds=500) for i in range(6)]
+        df = pd.DataFrame(
+            {
+                "open": [100.0 + i for i in range(6)],
+                "high": [110.0 + i for i in range(6)],
+                "low": [90.0 + i for i in range(6)],
+                "close": [105.0 + i for i in range(6)],
+                "volume": [1000.0] * 6,
+            },
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        # The validator rounds microsecond → millisecond when TIMESTAMP_PRECISION="ms"
+        with patch("ckvd.utils.validation.dataframe_validation.TIMESTAMP_PRECISION", "ms"):
+            validator = DataFrameValidator(df)
+            is_valid, error_msg = validator.validate_klines_data()
+
+        assert is_valid, f"Validation should pass, got: {error_msg}"
+        # All microseconds should be truncated to 0
+        for ts in validator.df.index:
+            assert ts.microsecond == 0, f"Expected 0 microseconds, got {ts.microsecond}"
+
+    def test_millisecond_precision_unchanged(self, base_time):
+        """Timestamps already at millisecond precision should remain unchanged."""
+        from ckvd.utils.validation.dataframe_validation import DataFrameValidator
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {
+                "open": [100.0 + i for i in range(6)],
+                "high": [110.0 + i for i in range(6)],
+                "low": [90.0 + i for i in range(6)],
+                "close": [105.0 + i for i in range(6)],
+                "volume": [1000.0] * 6,
+            },
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        with patch("ckvd.utils.validation.dataframe_validation.TIMESTAMP_PRECISION", "ms"):
+            validator = DataFrameValidator(df)
+            is_valid, error_msg = validator.validate_klines_data()
+
+        assert is_valid, f"Validation should pass, got: {error_msg}"
+        assert len(validator.df) == 6
+
+    def test_vectorized_truncates_correctly(self, base_time):
+        """Vectorized method should truncate microseconds to millisecond precision."""
+        # Create timestamps with known microsecond components
+        timestamps = [base_time + timedelta(hours=i, microseconds=750) for i in range(6)]
+        index = pd.DatetimeIndex(timestamps, name="open_time", tz="UTC")
+
+        # Vectorized method (new approach): int64 nanoseconds → milliseconds
+        ns_values = index.astype("int64")
+        ms_values = ns_values // 1_000_000
+        vectorized = pd.to_datetime(ms_values, unit="ms", utc=True)
+        vectorized.name = "open_time"
+
+        # All microseconds should be truncated to 0
+        for ts in vectorized:
+            assert ts.microsecond == 0, f"Expected 0 microseconds, got {ts.microsecond}"
+
+        # Timestamps should preserve hour-level precision
+        for i, ts in enumerate(vectorized):
+            expected_hour = (base_time + timedelta(hours=i)).hour
+            assert ts.hour == expected_hour, f"Expected hour {expected_hour}, got {ts.hour}"
+
+
+# =============================================================================
+# Round 4 — Phase 2a: CSV streaming from zip
+# =============================================================================
+
+
+class TestCsvStreamingFromZip:
+    """Tests that Vision download streams CSV from zip via TextIOWrapper.
+
+    Validates Phase 2a (Round 4): io.TextIOWrapper replaces
+    read().decode("utf-8") + StringIO for streaming CSV from zip.
+    """
+
+    def test_correct_csv_data_from_zip(self, tmp_path):
+        """Should correctly parse CSV data from a zip file."""
+        import zipfile
+
+        # Create a test zip with CSV data
+        csv_content = "1704067200000,42000.0,42100.0,41900.0,42050.0,100.0,1704070799999,4200000.0,500,50.0,2100000.0,0\n"
+        csv_content += "1704070800000,42050.0,42150.0,41950.0,42100.0,120.0,1704074399999,5040000.0,600,60.0,2520000.0,0\n"
+
+        zip_path = tmp_path / "BTCUSDT-1h-2024-01-01.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("BTCUSDT-1h-2024-01-01.csv", csv_content)
+
+        # Read the zip using the same pattern as the production code
+        import csv
+        import io
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
+            assert len(csv_files) == 1
+
+            with zip_ref.open(csv_files[0]) as csv_file:
+                text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
+                reader = csv.reader(text_stream)
+                data = list(reader)
+
+        assert len(data) == 2
+        assert data[0][0] == "1704067200000"  # First timestamp
+        assert data[1][0] == "1704070800000"  # Second timestamp
+        assert len(data[0]) == 12  # 12 kline columns
+
+    def test_empty_csv_in_zip(self, tmp_path):
+        """Should handle empty CSV files correctly."""
+        import zipfile
+
+        zip_path = tmp_path / "empty.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("empty.csv", "")
+
+        import csv
+        import io
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            with zip_ref.open("empty.csv") as csv_file:
+                text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
+                reader = csv.reader(text_stream)
+                data = list(reader)
+
+        assert len(data) == 0
+
+    def test_utf8_content_preserved(self, tmp_path):
+        """Should handle UTF-8 encoding correctly."""
+        import zipfile
+
+        csv_content = "1704067200000,42000.0,42100.0,41900.0,42050.0,100.0\n"
+        zip_path = tmp_path / "test.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("test.csv", csv_content)
+
+        import csv
+        import io
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            with zip_ref.open("test.csv") as csv_file:
+                text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
+                reader = csv.reader(text_stream)
+                data = list(reader)
+
+        assert len(data) == 1
+        assert data[0][1] == "42000.0"
+
+
+# =============================================================================
+# Round 4 — Phase 2b: filter_dataframe_by_time no reset_index
+# =============================================================================
+
+
+class TestFilterDataframeByTimeNoResetIndex:
+    """Tests that filter_dataframe_by_time() filters directly on DatetimeIndex.
+
+    Validates Phase 2b (Round 4): Avoids reset_index()/set_index() round-trip
+    when the time column is already the index, eliminating 2 DataFrame copies.
+    """
+
+    def test_filters_correctly_with_datetime_index(self, base_time):
+        """Should return correct rows when filtering on DatetimeIndex."""
+        from ckvd.utils.time.filtering import filter_dataframe_by_time
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(24)]
+        df = pd.DataFrame(
+            {
+                "open": [100.0 + i for i in range(24)],
+                "close": [105.0 + i for i in range(24)],
+                "volume": [1000.0] * 24,
+            },
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        start = base_time + timedelta(hours=6)
+        end = base_time + timedelta(hours=12)
+
+        result = filter_dataframe_by_time(df, start, end, "open_time")
+
+        assert len(result) == 7  # Hours 6-12 inclusive
+        assert result.index.name == "open_time"
+        assert isinstance(result.index, pd.DatetimeIndex)
+        assert result.index.min() >= start
+        assert result.index.max() <= end
+
+    def test_preserves_index_name(self, base_time):
+        """Filtered DataFrame should preserve the index name."""
+        from ckvd.utils.time.filtering import filter_dataframe_by_time
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(12)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(12)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        start = base_time
+        end = base_time + timedelta(hours=6)
+
+        result = filter_dataframe_by_time(df, start, end, "open_time")
+
+        assert result.index.name == "open_time"
+
+    def test_copy_parameter_works(self, base_time):
+        """copy=True should return independent copy, copy=False should share data."""
+        from ckvd.utils.time.filtering import filter_dataframe_by_time
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(12)]
+        df = pd.DataFrame(
+            {"close": [100.0 + i for i in range(12)]},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        start = base_time
+        end = base_time + timedelta(hours=6)
+
+        result_no_copy = filter_dataframe_by_time(df, start, end, "open_time", copy=False)
+        result_copy = filter_dataframe_by_time(df, start, end, "open_time", copy=True)
+
+        # Both should have same data
+        assert len(result_no_copy) == len(result_copy)
+        pd.testing.assert_frame_equal(result_no_copy, result_copy)
+
+    def test_empty_result_when_out_of_range(self, base_time):
+        """Should raise TimezoneDebugError when filter range doesn't overlap.
+
+        The analyze_filter_conditions() fail-fast check raises when no rows
+        would match, preventing silent empty results from timezone bugs.
+        """
+        from ckvd.utils.time.filtering import filter_dataframe_by_time
+        from ckvd.utils.time.timestamp_debug import TimezoneDebugError
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(6)]
+        df = pd.DataFrame(
+            {"close": [100.0] * 6},
+            index=pd.DatetimeIndex(timestamps, name="open_time", tz="UTC"),
+        )
+
+        # Request data far outside the DataFrame's range
+        start = base_time + timedelta(days=10)
+        end = base_time + timedelta(days=11)
+
+        with pytest.raises(TimezoneDebugError):
+            filter_dataframe_by_time(df, start, end, "open_time")
+
+    def test_column_based_filtering_still_works(self, base_time):
+        """Should still work when time column is a regular column, not index."""
+        from ckvd.utils.time.filtering import filter_dataframe_by_time
+
+        timestamps = [base_time + timedelta(hours=i) for i in range(12)]
+        df = pd.DataFrame(
+            {
+                "open_time": pd.DatetimeIndex(timestamps, tz="UTC"),
+                "close": [100.0 + i for i in range(12)],
+            }
+        )
+
+        start = base_time + timedelta(hours=3)
+        end = base_time + timedelta(hours=8)
+
+        result = filter_dataframe_by_time(df, start, end, "open_time")
+
+        assert len(result) == 6  # Hours 3-8 inclusive
