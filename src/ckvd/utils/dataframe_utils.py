@@ -465,13 +465,23 @@ def convert_to_standardized_formats(df: pd.DataFrame, output_format: str = "defa
     # Select appropriate dtype mapping based on chart type
     dtypes = FUNDING_RATE_DTYPES if chart_type.lower() == "funding_rate" else OUTPUT_DTYPES
 
-    # Ensure correct data types
+    # MEMORY OPTIMIZATION (Round 6): Batch dtype conversion instead of per-column loop.
+    # Skip columns that already have the correct dtype to avoid unnecessary copies.
+    # Use try/except per column to preserve robustness for unconvertible values.
+    dtype_dict = {}
     for col, dtype in dtypes.items():
-        if col in df.columns:
-            try:
-                df[col] = df[col].astype(dtype)
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to convert {col} to {dtype}: {e}")
+        if col in df.columns and str(df[col].dtype) != dtype:
+            dtype_dict[col] = dtype
+    if dtype_dict:
+        try:
+            df = df.astype(dtype_dict)
+        except (ValueError, TypeError):
+            # Fallback: per-column conversion for partial failures
+            for col, dtype in dtype_dict.items():
+                try:
+                    df[col] = df[col].astype(dtype)
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Failed to convert {col} to {dtype}: {e}")
 
     # Perform the conversion based on the requested format
     if output_format == "column_only":

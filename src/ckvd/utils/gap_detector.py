@@ -119,7 +119,9 @@ def detect_gaps(
             # Continue with analysis instead of exiting
 
     # Ensure DataFrame is sorted by time
-    df_sorted = df.sort_values(time_column).reset_index(drop=True)
+    # MEMORY OPTIMIZATION (Round 6): Use ignore_index=True instead of chaining
+    # .sort_values().reset_index(drop=True) — avoids a redundant DataFrame copy.
+    df_sorted = df.sort_values(time_column, ignore_index=True)
 
     # Get expected interval in seconds
     expected_seconds = interval.to_seconds()

@@ -132,13 +132,15 @@ class VisionDownloadManager:
             # Process the zip file
             data: list[list[str]] = []
             with zipfile.ZipFile(temp_file, "r") as zip_ref:
-                csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
-                if not csv_files:
+                # MEMORY OPTIMIZATION (Round 6): Use next() with generator instead of
+                # building a full list — only the first CSV file is needed.
+                csv_file_name = next((f for f in zip_ref.namelist() if f.endswith(".csv")), None)
+                if not csv_file_name:
                     logger.warning(f"No CSV file found in downloaded zip for {date}")
                     return None
 
                 # Stream CSV directly from zip — avoids full bytes→str decode + StringIO allocation
-                with zip_ref.open(csv_files[0]) as csv_file:
+                with zip_ref.open(csv_file_name) as csv_file:
                     text_stream = io.TextIOWrapper(csv_file, encoding="utf-8")
                     reader = csv.reader(text_stream)
                     data = list(reader)

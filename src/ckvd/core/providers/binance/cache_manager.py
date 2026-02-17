@@ -386,7 +386,9 @@ class UnifiedCacheManager:
         # This is the final safety check to prevent unsorted cache entries
         if "open_time" in df.columns and chart_type.upper() == "KLINES" and not df["open_time"].is_monotonic_increasing:
             logger.debug(f"UnifiedCacheManager: Sorting data by open_time before caching for {symbol}")
-            df = df.sort_values("open_time").reset_index(drop=True)
+            # MEMORY OPTIMIZATION (Round 6): Use ignore_index=True instead of chaining
+            # .sort_values().reset_index(drop=True) — avoids a redundant DataFrame copy.
+            df = df.sort_values("open_time", ignore_index=True)
 
         # Generate cache key
         cache_key = self.get_cache_key(symbol, interval, date, provider, chart_type, market_type)

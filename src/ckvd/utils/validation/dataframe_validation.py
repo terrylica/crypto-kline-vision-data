@@ -181,9 +181,9 @@ class DataFrameValidator:
 
         if df.empty:
             logger.debug("Creating empty DataFrame with timezone.utc timezone")
-            empty_df = pd.DataFrame(columns=list(output_dtypes.keys()))
-            for col, dtype in output_dtypes.items():
-                empty_df[col] = empty_df[col].astype(dtype)
+            # MEMORY OPTIMIZATION (Round 6): Batch astype with dict instead of per-column
+            # loop. Also pass dict_keys directly — no intermediate list needed.
+            empty_df = pd.DataFrame(columns=output_dtypes.keys()).astype(output_dtypes)
             empty_df.index = pd.DatetimeIndex([], name=CANONICAL_INDEX_NAME, tz=timezone.utc)
             return empty_df
 
