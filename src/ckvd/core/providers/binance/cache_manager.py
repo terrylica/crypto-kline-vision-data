@@ -307,10 +307,13 @@ class UnifiedCacheManager:
             logger.debug(f"Cache miss for {cache_key} at {cache_path}")
             return None
 
+        # MEMORY OPTIMIZATION (Round 7): Cache dict lookup as local variable — avoids
+        # 3 repeated self.metadata[cache_key] hash lookups in the invalid-entry path.
         # Check if entry is marked as invalid in metadata
-        if cache_key in self.metadata and self.metadata[cache_key].get("is_invalid", False):
-            invalid_reason = self.metadata[cache_key].get("invalid_reason", "Unknown reason")
-            invalidated_at = self.metadata[cache_key].get("invalidated_at", "Unknown time")
+        meta_entry = self.metadata.get(cache_key)
+        if meta_entry is not None and meta_entry.get("is_invalid", False):
+            invalid_reason = meta_entry.get("invalid_reason", "Unknown reason")
+            invalidated_at = meta_entry.get("invalidated_at", "Unknown time")
             logger.error(
                 f"Invalid cache entry detected - Key: {cache_key}, Path: {cache_path}, "
                 f"Reason: {invalid_reason}, Invalidated at: {invalidated_at}"
@@ -341,8 +344,8 @@ class UnifiedCacheManager:
 
             # Update last access time in metadata (mark dirty but don't save immediately)
             # Deferring saves reduces I/O overhead - metadata saved when cache is written to
-            if cache_key in self.metadata:
-                self.metadata[cache_key]["last_accessed"] = datetime.now(timezone.utc).isoformat()
+            if meta_entry is not None:
+                meta_entry["last_accessed"] = datetime.now(timezone.utc).isoformat()
                 self._metadata_dirty = True
 
             logger.debug(f"Successfully loaded {len(df)} rows from {cache_path}")

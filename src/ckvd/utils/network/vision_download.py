@@ -107,18 +107,22 @@ class VisionDownloadManager:
             List of kline data points if successful, None otherwise
         """
         try:
+            # MEMORY OPTIMIZATION (Round 7): Cache strftime result — was called twice
+            # for the same date (URL construction + temp file naming).
+            date_str = date.strftime("%Y-%m-%d")
+
             # Construct URL for the date
             url_template = "https://data.binance.vision/data/{market_type}/daily/klines/{symbol}/{interval}/{symbol}-{interval}-{date}.zip"
             url = url_template.format(
                 market_type=self.market_type,
                 symbol=self.symbol,
                 interval=self.interval,
-                date=date.strftime("%Y-%m-%d"),
+                date=date_str,
             )
 
             # Create a temp file for the download
             temp_dir = tempfile.gettempdir()
-            temp_file = Path(temp_dir) / f"{self.symbol}_{self.interval}_{date.strftime('%Y-%m-%d')}.zip"
+            temp_file = Path(temp_dir) / f"{self.symbol}_{self.interval}_{date_str}.zip"
 
             # Track the temp file for cleanup
             self._temp_files.append(temp_file)

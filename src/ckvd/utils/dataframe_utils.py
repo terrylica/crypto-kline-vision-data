@@ -102,26 +102,31 @@ def ensure_open_time_as_column(df: pd.DataFrame) -> pd.DataFrame:
                 # This is a last resort and should be handled by the caller
                 df[CANONICAL_INDEX_NAME] = pd.Series(dtype="datetime64[ns, UTC]")
 
+    # MEMORY OPTIMIZATION (Round 7): Cache column reference as local variable to avoid
+    # repeated df[CANONICAL_INDEX_NAME] lookups (was 5x column access + 4x .dt accessor).
     # Ensure the column is datetime type with UTC timezone
     if CANONICAL_INDEX_NAME in df.columns:
+        col = df[CANONICAL_INDEX_NAME]
         # Handle non-datetime columns
-        if not pd.api.types.is_datetime64_any_dtype(df[CANONICAL_INDEX_NAME]):
+        if not pd.api.types.is_datetime64_any_dtype(col):
             try:
                 logger.debug(f"Converting {CANONICAL_INDEX_NAME} to datetime")
-                df[CANONICAL_INDEX_NAME] = pd.to_datetime(df[CANONICAL_INDEX_NAME], utc=True)
+                df[CANONICAL_INDEX_NAME] = pd.to_datetime(col, utc=True)
+                col = df[CANONICAL_INDEX_NAME]  # refresh after conversion
             except (ValueError, TypeError) as e:
                 logger.error(f"Error converting {CANONICAL_INDEX_NAME} to datetime: {e}")
 
         # Ensure timezone is UTC
-        if hasattr(df[CANONICAL_INDEX_NAME], "dt") and hasattr(df[CANONICAL_INDEX_NAME].dt, "tz"):
-            if df[CANONICAL_INDEX_NAME].dt.tz is None:
+        if hasattr(col, "dt") and hasattr(col.dt, "tz"):
+            dt = col.dt
+            if dt.tz is None:
                 logger.debug(f"Localizing {CANONICAL_INDEX_NAME} to UTC")
-                df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_localize(timezone.utc)
-            elif df[CANONICAL_INDEX_NAME].dt.tz != timezone.utc:
+                df[CANONICAL_INDEX_NAME] = dt.tz_localize(timezone.utc)
+            elif dt.tz != timezone.utc:
                 logger.debug(f"Converting {CANONICAL_INDEX_NAME} timezone to UTC")
-                df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_convert(timezone.utc)
+                df[CANONICAL_INDEX_NAME] = dt.tz_convert(timezone.utc)
 
-    logger.debug(f"Final DataFrame columns: {list(df.columns)}")
+    logger.debug(f"Final DataFrame columns: {df.columns.tolist()}")
     return df
 
 
@@ -170,18 +175,22 @@ def ensure_open_time_as_index(df: pd.DataFrame) -> pd.DataFrame:
         if CANONICAL_INDEX_NAME in df.columns:
             logger.debug("Setting open_time column as index")
 
+            # MEMORY OPTIMIZATION (Round 7): Cache column reference and .dt accessor
+            # as locals — avoids repeated df[key] lookups (was 5x) and .dt access (4x).
+            col = df[CANONICAL_INDEX_NAME]
             # Ensure the column is properly timezone-aware
             if (
-                pd.api.types.is_datetime64_dtype(df[CANONICAL_INDEX_NAME])
-                and hasattr(df[CANONICAL_INDEX_NAME], "dt")
-                and hasattr(df[CANONICAL_INDEX_NAME].dt, "tz")
+                pd.api.types.is_datetime64_dtype(col)
+                and hasattr(col, "dt")
+                and hasattr(col.dt, "tz")
             ):
-                if df[CANONICAL_INDEX_NAME].dt.tz is None:
+                dt = col.dt
+                if dt.tz is None:
                     logger.debug("Localizing open_time column to UTC before setting as index")
-                    df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_localize(timezone.utc)
-                elif df[CANONICAL_INDEX_NAME].dt.tz != timezone.utc:
-                    logger.debug(f"Converting open_time column timezone from {df[CANONICAL_INDEX_NAME].dt.tz} to UTC")
-                    df[CANONICAL_INDEX_NAME] = df[CANONICAL_INDEX_NAME].dt.tz_convert(timezone.utc)
+                    df[CANONICAL_INDEX_NAME] = dt.tz_localize(timezone.utc)
+                elif dt.tz != timezone.utc:
+                    logger.debug(f"Converting open_time column timezone from {dt.tz} to UTC")
+                    df[CANONICAL_INDEX_NAME] = dt.tz_convert(timezone.utc)
 
             try:
                 return df.set_index(CANONICAL_INDEX_NAME)
@@ -424,22 +433,27 @@ def standardize_dataframe(df: pd.DataFrame, keep_as_column: bool = True) -> pd.D
             mask = df["quote_asset_volume"].isna()
             df.loc[mask, "quote_asset_volume"] = df.loc[mask, "quote_volume"]
 
-    # Use centralized DEFAULT_COLUMN_ORDER from config.py instead of duplicating
-    standard_columns = DEFAULT_COLUMN_ORDER.copy()
+    # MEMORY OPTIMIZATION (Round 7): Build column lists without copying the module-level
+    # constant. Previous code: DEFAULT_COLUMN_ORDER.copy() + .append() + two list
+    # comprehensions. Now: single pass partitions into result/missing without mutation.
+    # Prepend open_time if keeping as column; append _data_source if present.
+    cols_set = set(df.columns)
+    desired = (
+        [CANONICAL_INDEX_NAME, *DEFAULT_COLUMN_ORDER]
+        if keep_as_column
+        else list(DEFAULT_COLUMN_ORDER)
+    )
+    if "_data_source" in cols_set:
+        desired.append("_data_source")
 
-    # Add open_time to front of column list if we're keeping it as a column
-    if keep_as_column:
-        standard_columns = [CANONICAL_INDEX_NAME, *standard_columns]
+    result_columns = []
+    missing_columns = []
+    for col in desired:
+        if col in cols_set:
+            result_columns.append(col)
+        else:
+            missing_columns.append(col)
 
-    # Add data source info if present
-    if "_data_source" in df.columns:
-        standard_columns.append("_data_source")
-
-    # Create a new DataFrame with only the standard columns that exist
-    result_columns = [col for col in standard_columns if col in df.columns]
-
-    # If any standard columns are missing, log a warning
-    missing_columns = [col for col in standard_columns if col not in df.columns]
     if missing_columns:
         logger.warning(f"Missing standard columns in output: {missing_columns}")
 

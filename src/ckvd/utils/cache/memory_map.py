@@ -84,7 +84,9 @@ class SafeMemoryMap:
         with SafeMemoryMap(path) as source, pa.ipc.open_file(source) as reader:
             if columns:
                 all_cols = reader.schema.names
-                cols_to_read = ["open_time", *list(columns)] if "open_time" in all_cols and "open_time" not in columns else list(columns)
+                # MEMORY OPTIMIZATION (Round 7): Use *columns directly instead of
+                # *list(columns) — Sequence unpacking works without copying to list.
+                cols_to_read = ["open_time", *columns] if "open_time" in all_cols and "open_time" not in columns else list(columns)
                 table = reader.read_all().select(cols_to_read)
             else:
                 table = reader.read_all()
