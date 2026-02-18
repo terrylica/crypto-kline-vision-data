@@ -1,3 +1,10 @@
+## [4.3.10](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.9...v4.3.10) (2026-02-18)
+
+
+### Performance Improvements
+
+* round 7 memory efficiency — local variable caching, single-pass columns, strftime reuse ([6f65e70](https://github.com/terrylica/crypto-kline-vision-data/commit/6f65e7030e53ab239c0b73327de5809152f40ce0))
+
 ## [4.3.9](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.8...v4.3.9) (2026-02-17)
 
 
