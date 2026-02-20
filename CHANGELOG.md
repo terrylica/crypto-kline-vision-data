@@ -1,3 +1,10 @@
+## [4.3.11](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.10...v4.3.11) (2026-02-20)
+
+
+### Performance Improvements
+
+* round 8 memory efficiency — module constants, len() caching, list() elimination ([2af4aaf](https://github.com/terrylica/crypto-kline-vision-data/commit/2af4aafc80beef6571fc2d1c8b1124a484a52b57))
+
 ## [4.3.10](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.9...v4.3.10) (2026-02-18)
 
 
