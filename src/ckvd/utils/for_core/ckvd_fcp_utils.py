@@ -78,8 +78,9 @@ def process_vision_step(
     # Process each missing range (no copy needed - list is only iterated, not modified)
     remaining_ranges = []
 
+    n_vision_ranges = len(missing_ranges)
     for range_idx, (miss_start, miss_end) in enumerate(missing_ranges):
-        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{len(missing_ranges)}: {miss_start} to {miss_end}")
+        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{n_vision_ranges}: {miss_start} to {miss_end}")
 
         range_df = fetch_from_vision_func(symbol, miss_start, miss_end, interval)
 
@@ -152,14 +153,15 @@ def process_rest_step(
     merged_rest_ranges = merge_adjacent_ranges(missing_ranges, interval)
 
     rate_limit_hit = False
+    n_rest_ranges = len(merged_rest_ranges)
     for range_idx, (miss_start, miss_end) in enumerate(merged_rest_ranges):
-        logger.debug(f"[FCP] Fetching from REST API range {range_idx + 1}/{len(merged_rest_ranges)}: {miss_start} to {miss_end}")
+        logger.debug(f"[FCP] Fetching from REST API range {range_idx + 1}/{n_rest_ranges}: {miss_start} to {miss_end}")
 
         try:
             rest_df = fetch_from_rest_func(symbol, miss_start, miss_end, interval)
         except RateLimitError as e:
             logger.warning(
-                f"[FCP] Rate limited at REST range {range_idx + 1}/{len(merged_rest_ranges)}. "
+                f"[FCP] Rate limited at REST range {range_idx + 1}/{n_rest_ranges}. "
                 f"Returning partial data. Retry after: {getattr(e, 'retry_after', 'unknown')}s"
             )
             rate_limit_hit = True

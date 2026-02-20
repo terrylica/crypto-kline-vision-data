@@ -14,6 +14,32 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import Interval
 from ckvd.utils.time_utils import standardize_timestamp_precision
 
+# Source priority for FCP conflict resolution in merge_dataframes().
+# MEMORY OPTIMIZATION (Round 8): Module-level constant avoids dict recreation on every merge call.
+#
+# Priority values determine which source wins when multiple sources have data for the same timestamp:
+# - REST (3): Highest priority — real-time data is most authoritative
+# - CACHE (2): Second — local cache is preferred over re-fetching from network
+# - VISION (1): Lower priority than CACHE to minimize unnecessary network calls
+# - UNKNOWN (0): Lowest priority for data with unknown origin
+#
+# How conflict resolution works:
+# 1. When multiple data sources have records for the same timestamp, these priority values
+#    are used to determine which one to keep
+# 2. The DataFrame is sorted by open_time and then by _source_priority (ascending order)
+# 3. drop_duplicates(subset=["open_time"], keep="last") is called, which keeps the LAST
+#    occurrence of each timestamp - which will be the one with the HIGHEST priority value
+#    because of the sorting order
+#
+# Do not change this ordering without careful consideration of the FCP workflow.
+# Reversing CACHE and VISION would result in always preferring network calls over local cache.
+_SOURCE_PRIORITY: dict[str, int] = {
+    "UNKNOWN": 0,
+    "VISION": 1,
+    "CACHE": 2,
+    "REST": 3,
+}
+
 
 def merge_adjacent_ranges(ranges: list[tuple[datetime, datetime]], interval: Interval) -> list[tuple[datetime, datetime]]:
     """Merge adjacent or overlapping time ranges to minimize API calls.
@@ -273,33 +299,9 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     logger.debug(f"Concatenating {len(dfs)} DataFrames")
     merged = pd.concat(dfs, ignore_index=True, copy=False, sort=False)
 
-    # Set source priority for resolving duplicates (higher number = higher priority)
-    # IMPORTANT: This priority order is critical for the FCP mechanism:
-    # - REST (3): Highest priority as it always has the most up-to-date data from the exchange
-    # - CACHE (2): Second priority to prefer local data over network calls when available
-    # - VISION (1): Lower priority than CACHE to minimize unnecessary network calls
-    # - UNKNOWN (0): Lowest priority for data with unknown origin
-    #
-    # How conflict resolution works:
-    # 1. When multiple data sources have records for the same timestamp, these priority values
-    #    are used to determine which one to keep
-    # 2. The DataFrame is sorted by open_time and then by _source_priority (ascending order)
-    # 3. drop_duplicates(subset=["open_time"], keep="last") is called, which keeps the LAST
-    #    occurrence of each timestamp - which will be the one with the HIGHEST priority value
-    #    because of the sorting order
-    #
-    # Do not change this ordering without careful consideration of the FCP workflow.
-    # Reversing CACHE and VISION would result in always preferring network calls over local cache.
-    source_priority = {
-        "UNKNOWN": 0,
-        "VISION": 1,
-        "CACHE": 2,
-        "REST": 3,
-    }
-
-    # Add a numeric priority column based on data source
+    # Add a numeric priority column based on data source (see _SOURCE_PRIORITY module constant)
     if "_data_source" in merged.columns:
-        merged["_source_priority"] = merged["_data_source"].map(source_priority)
+        merged["_source_priority"] = merged["_data_source"].map(_SOURCE_PRIORITY)
     else:
         merged["_source_priority"] = 0
 

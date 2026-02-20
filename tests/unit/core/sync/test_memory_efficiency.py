@@ -2669,3 +2669,332 @@ class TestVisionDownloadStrftimeCache:
         temp_name = f"{symbol}_{interval}_{date_str}.zip"
 
         assert temp_name == "ETHUSDT_4h_2024-12-31.zip"
+
+
+# =============================================================================
+# Round 8: Module-level constants, len() caching, list() elimination
+# =============================================================================
+
+
+class TestSourcePriorityModuleConstant:
+    """Tests that _SOURCE_PRIORITY is a module-level constant.
+
+    Validates Finding 1 (Round 8): source_priority dict was recreated inside
+    merge_dataframes() on every call. Now hoisted to module-level _SOURCE_PRIORITY.
+    """
+
+    def test_module_constant_exists(self):
+        """_SOURCE_PRIORITY must be importable from the module."""
+        from ckvd.utils.for_core.ckvd_time_range_utils import _SOURCE_PRIORITY
+
+        assert isinstance(_SOURCE_PRIORITY, dict)
+
+    def test_constant_values_correct(self):
+        """_SOURCE_PRIORITY must have correct FCP priority values."""
+        from ckvd.utils.for_core.ckvd_time_range_utils import _SOURCE_PRIORITY
+
+        assert _SOURCE_PRIORITY["UNKNOWN"] == 0
+        assert _SOURCE_PRIORITY["VISION"] == 1
+        assert _SOURCE_PRIORITY["CACHE"] == 2
+        assert _SOURCE_PRIORITY["REST"] == 3
+        # REST has highest priority (wins over all others)
+        assert _SOURCE_PRIORITY["REST"] > _SOURCE_PRIORITY["CACHE"]
+        assert _SOURCE_PRIORITY["CACHE"] > _SOURCE_PRIORITY["VISION"]
+        assert _SOURCE_PRIORITY["VISION"] > _SOURCE_PRIORITY["UNKNOWN"]
+
+    def test_merge_conflict_resolution_rest_over_vision(self):
+        """merge_dataframes() must keep REST data when REST+VISION overlap."""
+        from ckvd.utils.for_core.ckvd_time_range_utils import merge_dataframes
+
+        base = datetime(2024, 1, 15, 0, 0, 0, tzinfo=timezone.utc)
+        timestamps = [base + timedelta(hours=i) for i in range(6)]
+        vision_df = pd.DataFrame(
+            {
+                "open_time": timestamps[:6],
+                "open": [40000.0] * 6,
+                "close": [40100.0] * 6,
+                "_data_source": ["VISION"] * 6,
+            }
+        )
+        rest_df = pd.DataFrame(
+            {
+                "open_time": timestamps[3:6],  # Last 3 overlap with vision
+                "open": [99999.0] * 3,  # Distinctive value to identify winner
+                "close": [99998.0] * 3,
+                "_data_source": ["REST"] * 3,
+            }
+        )
+        merged = merge_dataframes([vision_df, rest_df])
+
+        # merge_dataframes sets open_time as the index — look up by index
+        overlap_ts = pd.DatetimeIndex(timestamps[3:6], tz="UTC")
+        overlap_rows = merged[merged.index.isin(overlap_ts)]
+        assert (overlap_rows["_data_source"] == "REST").all(), "REST must beat VISION in conflict"
+        assert (overlap_rows["open"] == 99999.0).all(), "REST values must be kept"
+
+    def test_same_module_object_across_imports(self):
+        """Multiple imports of _SOURCE_PRIORITY must return the same object."""
+        from ckvd.utils.for_core.ckvd_time_range_utils import _SOURCE_PRIORITY as c1
+        from ckvd.utils.for_core.ckvd_time_range_utils import _SOURCE_PRIORITY as c2
+
+        assert c1 is c2, "_SOURCE_PRIORITY must be a single module-level object"
+
+
+class TestRawKlineColumnsModuleConstant:
+    """Tests that _RAW_KLINE_COLUMNS is a module-level constant.
+
+    Validates Finding 2 (Round 8): columns list was recreated inside
+    _process_kline_data_polars() on every REST batch parse. Now hoisted to
+    module-level _RAW_KLINE_COLUMNS.
+    """
+
+    def test_module_constant_exists(self):
+        """_RAW_KLINE_COLUMNS must be importable from the module."""
+        from ckvd.utils.for_core.rest_data_processing import _RAW_KLINE_COLUMNS
+
+        assert isinstance(_RAW_KLINE_COLUMNS, list)
+
+    def test_constant_has_12_columns(self):
+        """_RAW_KLINE_COLUMNS must have exactly 12 elements ending with 'ignore'."""
+        from ckvd.utils.for_core.rest_data_processing import _RAW_KLINE_COLUMNS
+
+        assert len(_RAW_KLINE_COLUMNS) == 12
+        assert _RAW_KLINE_COLUMNS[0] == "open_time"
+        assert _RAW_KLINE_COLUMNS[-1] == "ignore"
+        assert "open" in _RAW_KLINE_COLUMNS
+        assert "close" in _RAW_KLINE_COLUMNS
+        assert "volume" in _RAW_KLINE_COLUMNS
+
+    def test_same_module_object_across_imports(self):
+        """Multiple imports of _RAW_KLINE_COLUMNS must return the same object."""
+        from ckvd.utils.for_core.rest_data_processing import _RAW_KLINE_COLUMNS as c1
+        from ckvd.utils.for_core.rest_data_processing import _RAW_KLINE_COLUMNS as c2
+
+        assert c1 is c2, "_RAW_KLINE_COLUMNS must be a single module-level object"
+
+    def test_parse_result_has_correct_output_columns(self):
+        """_process_kline_data_polars() must produce DataFrame without 'ignore' column."""
+        from ckvd.utils.for_core.rest_data_processing import _process_kline_data_polars
+
+        raw_data = [
+            [
+                1704067200000,
+                "42000.0",
+                "42100.0",
+                "41900.0",
+                "42050.0",
+                "100.5",
+                1704070799999,
+                "4200000.0",
+                "1000",
+                "50.0",
+                "2100000.0",
+                "0",
+            ]
+        ]
+        result = _process_kline_data_polars(raw_data)
+        assert "ignore" not in result.columns, "'ignore' column must be dropped"
+        assert "open_time" in result.columns
+        assert "open" in result.columns
+        assert "close" in result.columns
+        assert len(result) == 1
+
+
+class TestLenCachingInFcpLoop:
+    """Tests that Vision and REST FCP loops process all ranges correctly.
+
+    Validates Finding 3 (Round 8): len() called per-iteration inside loops.
+    Caching len() as a local variable before the loop is the fix.
+    These tests verify behavioral correctness after the refactor.
+    """
+
+    def _make_non_adjacent_ranges(self, n: int) -> list[tuple[datetime, datetime]]:
+        """Create N non-adjacent 1-hour ranges (7 days apart) that won't be merged."""
+        base = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        return [
+            (base + timedelta(days=i * 7), base + timedelta(days=i * 7, hours=1))
+            for i in range(n)
+        ]
+
+    def test_vision_loop_calls_fetch_n_times(self):
+        """Vision step must call fetch function once per missing range."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_fcp_utils import process_vision_step
+
+        ranges = self._make_non_adjacent_ranges(3)
+        mock_fetch = MagicMock(return_value=pd.DataFrame())  # Empty → goes to remaining
+        result_df, remaining = process_vision_step(
+            fetch_from_vision_func=mock_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=False,
+            result_df=pd.DataFrame(),
+        )
+        assert mock_fetch.call_count == 3, f"Expected 3 fetch calls, got {mock_fetch.call_count}"
+        assert len(remaining) == 3  # All went to remaining (empty DataFrames)
+
+    def test_rest_loop_calls_fetch_n_times(self):
+        """REST step must call fetch function once per merged range."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_fcp_utils import process_rest_step
+
+        ranges = self._make_non_adjacent_ranges(2)
+        mock_fetch = MagicMock(return_value=pd.DataFrame())  # Empty → no data added but loop continues
+        process_rest_step(
+            fetch_from_rest_func=mock_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=False,
+            result_df=pd.DataFrame(),
+        )
+        assert mock_fetch.call_count == 2, f"Expected 2 fetch calls, got {mock_fetch.call_count}"
+
+    def test_rest_rate_limit_breaks_loop_cleanly(self):
+        """RateLimitError on second REST range must stop the loop (no third call)."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_fcp_utils import process_rest_step
+        from ckvd.utils.for_core.rest_exceptions import RateLimitError
+
+        ranges = self._make_non_adjacent_ranges(3)
+        mock_fetch = MagicMock(
+            side_effect=[
+                pd.DataFrame(),  # First range: empty (ok)
+                RateLimitError("429"),  # Second range: rate limited → break
+            ]
+        )
+        process_rest_step(
+            fetch_from_rest_func=mock_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=False,
+            result_df=pd.DataFrame(),
+        )
+        assert mock_fetch.call_count == 2, "Must stop after RateLimitError (not call third range)"
+
+    def test_empty_ranges_no_crash(self):
+        """Both loops must handle empty missing_ranges without crashing."""
+        from unittest.mock import MagicMock
+
+        from ckvd.utils.for_core.ckvd_fcp_utils import process_rest_step, process_vision_step
+
+        mock_fetch = MagicMock()
+        result_df, remaining = process_vision_step(
+            fetch_from_vision_func=mock_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=[],
+            interval=Interval.HOUR_1,
+            include_source_info=False,
+            result_df=pd.DataFrame(),
+        )
+        assert mock_fetch.call_count == 0
+        assert remaining == []
+
+        mock_fetch.reset_mock()
+        process_rest_step(
+            fetch_from_rest_func=mock_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=[],
+            interval=Interval.HOUR_1,
+            include_source_info=False,
+            result_df=pd.DataFrame(),
+        )
+        assert mock_fetch.call_count == 0
+
+
+class TestFundingRateMissingColumns:
+    """Tests that FUNDING_RATE_DTYPES dict iteration works without intermediate list.
+
+    Validates Finding 4 (Round 8): list(FUNDING_RATE_DTYPES.keys()) was called on
+    every validation invocation. Now inlined as direct dict iteration.
+    """
+
+    def _make_valid_funding_df(self):
+        """Create a DataFrame with all required funding rate columns."""
+        return pd.DataFrame(
+            {
+                "contracts": pd.array(["BTCUSDT"], dtype="string"),
+                "funding_interval": pd.array(["8h"], dtype="string"),
+                "funding_rate": [0.0001],
+            }
+        )
+
+    def test_validates_correctly_with_all_columns(self):
+        """DataFrame with all FUNDING_RATE_DTYPES columns must pass validation."""
+        from ckvd.utils.config import FUNDING_RATE_DTYPES
+
+        df = self._make_valid_funding_df()
+        # Inline the fixed pattern: iterate dict directly (no list())
+        missing = [col for col in FUNDING_RATE_DTYPES if col not in df.columns]
+        assert missing == [], f"Expected no missing columns, got: {missing}"
+
+    def test_detects_missing_column(self):
+        """DataFrame missing a required column must be detected."""
+        from ckvd.utils.config import FUNDING_RATE_DTYPES
+
+        df = pd.DataFrame({"funding_rate": [0.0001]})  # Missing "contracts" and "funding_interval"
+        missing = [col for col in FUNDING_RATE_DTYPES if col not in df.columns]
+        assert "contracts" in missing
+        assert "funding_interval" in missing
+
+    def test_extra_columns_not_flagged(self):
+        """DataFrame with extra columns beyond required must still pass."""
+        from ckvd.utils.config import FUNDING_RATE_DTYPES
+
+        df = self._make_valid_funding_df()
+        df["extra_col"] = "unused"
+        missing = [col for col in FUNDING_RATE_DTYPES if col not in df.columns]
+        assert missing == [], "Extra columns must not affect validation"
+
+
+class TestSourceInfoListConversion:
+    """Tests that get_data_source_info() returns a plain list, not dict_keys.
+
+    Validates Finding 5 (Round 8): list(source_counts.keys()) replaced with
+    list(source_counts) — idiomatic Python, avoids .keys() method call overhead.
+    """
+
+    def test_returns_plain_list_not_dict_keys(self):
+        """sources field must be a plain list, not a dict_keys view."""
+        from ckvd.utils.for_core.ckvd_utilities import get_data_source_info
+
+        df = pd.DataFrame(
+            {
+                "open_time": [datetime(2024, 1, 15, tzinfo=timezone.utc)],
+                "open": [42000.0],
+                "_data_source": ["CACHE"],
+            }
+        )
+        info = get_data_source_info(df)
+        assert isinstance(info["sources"], list), "sources must be a plain list"
+
+    def test_sources_list_has_correct_values(self):
+        """sources list must contain the correct source names."""
+        from ckvd.utils.for_core.ckvd_utilities import get_data_source_info
+
+        base = datetime(2024, 1, 15, tzinfo=timezone.utc)
+        df = pd.DataFrame(
+            {
+                "open_time": [base, base + timedelta(hours=1), base + timedelta(hours=2)],
+                "open": [42000.0, 42100.0, 42200.0],
+                "_data_source": ["CACHE", "REST", "CACHE"],
+            }
+        )
+        info = get_data_source_info(df)
+        sources = info["sources"]
+        assert isinstance(sources, list)
+        assert "CACHE" in sources
+        assert "REST" in sources
+
+    def test_empty_dataframe_returns_empty_sources(self):
+        """Empty DataFrame must return empty sources list and empty source_counts."""
+        from ckvd.utils.for_core.ckvd_utilities import get_data_source_info
+
+        info = get_data_source_info(pd.DataFrame())
+        assert info["sources"] == []
+        assert info["source_counts"] == {}

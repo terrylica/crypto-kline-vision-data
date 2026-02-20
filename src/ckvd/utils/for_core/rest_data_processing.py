@@ -17,6 +17,23 @@ import polars as pl
 
 from ckvd.utils.config import OUTPUT_DTYPES
 
+# Raw Binance kline column names as received from the API (12 columns including "ignore")
+# MEMORY OPTIMIZATION (Round 8): Module-level constant avoids list recreation per REST batch parse
+_RAW_KLINE_COLUMNS: list[str] = [
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "quote_asset_volume",
+    "number_of_trades",
+    "taker_buy_base_asset_volume",
+    "taker_buy_quote_asset_volume",
+    "ignore",
+]
+
 # Define the column names as a constant for REST API output
 REST_OUTPUT_COLUMNS = [
     "open",
@@ -80,25 +97,9 @@ def _process_kline_data_polars(raw_data: list[list]) -> pl.DataFrame:
     Returns:
         Polars DataFrame with processed data
     """
-    # Define column names
-    columns = [
-        "open_time",
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "close_time",
-        "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_quote_asset_volume",
-        "ignore",
-    ]
-
     # Create Polars DataFrame - all processing in a single expression chain
     return (
-        pl.DataFrame(raw_data, schema=columns, orient="row")
+        pl.DataFrame(raw_data, schema=_RAW_KLINE_COLUMNS, orient="row")
         .drop("ignore")
         .with_columns(
             [

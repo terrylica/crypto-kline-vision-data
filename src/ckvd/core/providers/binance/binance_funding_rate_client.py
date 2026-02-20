@@ -160,8 +160,7 @@ class BinanceFundingRateClient(DataClientInterface):
                 return True, None
 
             # Check basic structure
-            required_columns = list(FUNDING_RATE_DTYPES.keys())
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            missing_columns = [col for col in FUNDING_RATE_DTYPES if col not in df.columns]
 
             if missing_columns:
                 return False, f"Missing required columns: {missing_columns}"
