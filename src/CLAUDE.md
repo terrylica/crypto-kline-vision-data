@@ -14,9 +14,17 @@ src/ckvd/
 ├── __probe__.py             # AI agent API introspection (GitHub #22)
 ├── core/
 │   ├── sync/
-│   │   ├── crypto_kline_vision_data.py  # Main CKVD class with FCP
-│   │   ├── ckvd_types.py            # DataSource, CKVDConfig
+│   │   ├── crypto_kline_vision_data.py  # Main CKVD class with FCP + streaming methods
+│   │   ├── ckvd_types.py            # DataSource (incl. STREAMING), CKVDConfig
 │   │   └── ckvd_lib.py              # High-level functions (fetch_market_data)
+│   ├── streaming/
+│   │   ├── __init__.py              # Public streaming API
+│   │   ├── kline_update.py          # KlineUpdate dataclass (frozen, slots)
+│   │   ├── stream_config.py         # StreamConfig attrs definition
+│   │   ├── stream_client.py         # StreamClient Protocol interface
+│   │   ├── connection_manager.py    # 10-state FSM, TransitionNotAllowed
+│   │   ├── kline_stream.py          # KlineStream async context manager
+│   │   └── sync_bridge.py           # Threading bridge for sync callers
 │   └── providers/
 │       ├── __init__.py              # ProviderClients, get_provider_clients factory
 │       ├── binance/
@@ -25,7 +33,8 @@ src/ckvd/
 │       │   ├── cache_manager.py         # Arrow cache
 │       │   ├── vision_path_mapper.py    # Vision S3 path resolution
 │       │   ├── data_client_interface.py # Provider interface contract
-│       │   └── binance_funding_rate_client.py
+│       │   ├── binance_funding_rate_client.py
+│       │   └── binance_stream_client.py # BinanceStreamClient (WebSocket)
 │       └── okx/                     # OKX provider
 └── utils/
     ├── market_constraints.py    # Enums and validation (re-export)
@@ -65,7 +74,7 @@ src/ckvd/
     │   └── availability_validation.py
     ├── internal/
     │   └── polars_pipeline.py   # PolarsDataPipeline class
-    └── for_core/                # FCP internal utilities
+    └── for_core/                # FCP + Streaming internal utilities
         ├── ckvd_fcp_utils.py    # FCP orchestration (local imports for circular deps)
         ├── ckvd_api_utils.py    # Vision/REST fetch helpers
         ├── ckvd_cache_utils.py  # Cache LazyFrame utilities
@@ -81,23 +90,37 @@ src/ckvd/
         ├── vision_checksum.py   # Checksum verification
         ├── vision_constraints.py    # Vision data constraints
         ├── vision_file_utils.py     # Vision file handling
-        └── vision_timestamp.py      # Vision timestamp parsing
+        ├── vision_timestamp.py      # Vision timestamp parsing
+        └── streaming_exceptions.py  # WebSocket streaming exceptions
 ```
 
 ---
 
 ## Key Classes
 
-| Class                   | Location                                | Purpose                    |
-| ----------------------- | --------------------------------------- | -------------------------- |
-| `CryptoKlineVisionData` | `core/sync/crypto_kline_vision_data.py` | Main entry point with FCP  |
-| `CKVDConfig`            | `core/sync/ckvd_types.py`               | Configuration dataclass    |
-| `DataSource`            | `core/sync/ckvd_types.py`               | Data source enum           |
-| `DataProvider`          | `utils/market_constraints.py`           | Provider enum (BINANCE)    |
-| `MarketType`            | `utils/market_constraints.py`           | Market type enum           |
-| `Interval`              | `utils/market_constraints.py`           | Timeframe interval enum    |
-| `PolarsDataPipeline`    | `utils/internal/polars_pipeline.py`     | Internal Polars processing |
-| `FeatureFlags`          | `utils/config.py`                       | Feature flag configuration |
+**FCP + Historical Data:**
+
+| Class                   | Location                                | Purpose                                                 |
+| ----------------------- | --------------------------------------- | ------------------------------------------------------- |
+| `CryptoKlineVisionData` | `core/sync/crypto_kline_vision_data.py` | Main entry point with FCP + streaming methods           |
+| `CKVDConfig`            | `core/sync/ckvd_types.py`               | Configuration dataclass                                 |
+| `DataSource`            | `core/sync/ckvd_types.py`               | Data source enum (AUTO, REST, VISION, CACHE, STREAMING) |
+| `DataProvider`          | `utils/market_constraints.py`           | Provider enum (BINANCE)                                 |
+| `MarketType`            | `utils/market_constraints.py`           | Market type enum                                        |
+| `Interval`              | `utils/market_constraints.py`           | Timeframe interval enum                                 |
+| `PolarsDataPipeline`    | `utils/internal/polars_pipeline.py`     | Internal Polars processing                              |
+| `FeatureFlags`          | `utils/config.py`                       | Feature flag configuration                              |
+
+**Streaming (Real-time WebSocket):**
+
+| Class                 | Location                                     | Purpose                                                              |
+| --------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| `KlineUpdate`         | `core/streaming/kline_update.py`             | Candlestick update model (frozen dataclass)                          |
+| `StreamConfig`        | `core/streaming/stream_config.py`            | Streaming configuration (confirmed_only, queue_maxsize, compression) |
+| `StreamClient`        | `core/streaming/stream_client.py`            | StreamClient Protocol interface                                      |
+| `KlineStream`         | `core/streaming/kline_stream.py`             | Async context manager for streaming updates                          |
+| `ConnectionManager`   | `core/streaming/connection_manager.py`       | 10-state FSM for connection lifecycle                                |
+| `BinanceStreamClient` | `providers/binance/binance_stream_client.py` | Binance WebSocket implementation                                     |
 
 ---
 
@@ -193,12 +216,154 @@ VisionAPIError (base)            # All carry .details dict (GitHub #23)
 ├── DownloadFailedError       # File download failed
 └── DataNotAvailableError     # Auto-populates .details from attributes
 
+Streaming Exceptions (for_core/streaming_exceptions.py):
+StreamingError (base, NOT ValueError)  # All carry .details dict (GitHub #23)
+├── StreamConnectionError             # WebSocket connection/handshake fails
+├── StreamSubscriptionError           # Subscribe/unsubscribe operation fails
+├── StreamReconnectExhaustedError     # Max reconnection attempts exceeded
+├── StreamTimeoutError                # WebSocket read or ping times out
+├── StreamMessageParseError           # JSON decoding or schema validation fails
+└── StreamBackpressureError           # Consumer too slow, queue limit exceeded
+
 UnsupportedIntervalError (ValueError)  # Also carries .details dict
 ```
 
 **Exception `.details` dict** (GitHub #23): All exception base classes accept `details: dict[str, Any] | None = None` keyword arg. Default is `{}` (never `None`). `DataNotAvailableError` auto-populates `.details` from its structured attributes (symbol, market_type, requested_start, earliest_available). Backward compatible — existing `raise RestAPIError("msg")` still works.
 
+**CRITICAL — StreamingError inheritance**: Streaming exceptions inherit `Exception` directly (NOT `ValueError`). FCP's error handler wraps `ValueError → RuntimeError`, which would mangle streaming exceptions if they inherited `ValueError`.
+
 **FCP error flow**: Cache miss → try Vision → `VisionAPIError` → try REST → `RestAPIError` → raise.
+
+**Streaming architecture**: WebSocket streaming is PARALLEL to FCP, not part of it. Streaming updates are merged with historical FCP data via `DataSource.STREAMING` priority in the merge strategy.
+
+---
+
+## Streaming API (Real-time WebSocket)
+
+Real-time kline updates via Binance WebSocket. Streaming is independent of FCP but can be merged with historical data.
+
+### Async Streaming
+
+```python
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType, StreamConfig
+import asyncio
+
+async def stream_live_data():
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+    config = StreamConfig(
+        market_type=MarketType.FUTURES_USDT,
+        confirmed_only=True,  # Only @klines with k.x (candle confirmed)
+        queue_maxsize=1000,   # Drop oldest if queue fills
+        compression=None      # No compression
+    )
+
+    async with manager.create_stream(config) as stream:
+        async for kline_update in stream.messages():
+            # KlineUpdate: open_time, close, is_closed, symbol, interval, open, high, low, volume
+            print(f"{kline_update.symbol} {kline_update.interval}: {kline_update.close}")
+
+    manager.close()
+
+# Run
+asyncio.run(stream_live_data())
+```
+
+### Sync Streaming (Threading Bridge)
+
+```python
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
+
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+# Iterator-based sync API — internally uses threading
+for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1, confirmed_only=True):
+    print(f"Update: {kline_update.open_time} → {kline_update.close}")
+    # Yields KlineUpdate objects one-by-one
+    # Stop by breaking out of loop
+
+manager.close()
+```
+
+### KlineUpdate Model
+
+```python
+from ckvd import KlineUpdate
+from datetime import datetime, timezone
+
+# Each streaming update is a frozen dataclass
+# kline_update.open_time     → datetime (UTC)
+# kline_update.close         → float
+# kline_update.is_closed     → bool (True if k.x set)
+# kline_update.symbol        → str (e.g. "BTCUSDT")
+# kline_update.interval      → str (e.g. "1h")
+# kline_update.open          → float
+# kline_update.high          → float
+# kline_update.low           → float
+# kline_update.volume        → float
+
+# Construction from raw Binance WebSocket message
+update = KlineUpdate.from_binance_ws(raw_ws_message)
+
+# Or from a historical DataFrame row
+update = KlineUpdate.from_historical_row(df.iloc[0], interval="1h")
+```
+
+### StreamConfig Parameters
+
+```python
+from ckvd import StreamConfig, MarketType
+
+config = StreamConfig(
+    market_type=MarketType.FUTURES_USDT,     # Required: market type
+    confirmed_only=True,                      # Only k.x candles (default: True)
+    queue_maxsize=1000,                       # Message queue size (default: 1000)
+    compression=None                          # Compression method (default: None, enforced)
+)
+```
+
+### Error Handling
+
+```python
+from ckvd.utils.for_core.streaming_exceptions import (
+    StreamConnectionError, StreamSubscriptionError, StreamReconnectExhaustedError
+)
+
+try:
+    async with manager.create_stream(config) as stream:
+        async for update in stream.messages():
+            pass
+except StreamConnectionError as e:
+    print(f"Connection failed: {e}")
+    print(f"Details: {e.details}")  # Machine-parseable context
+except StreamReconnectExhaustedError as e:
+    print(f"Reconnection attempts exhausted: {e}")
+    print(f"Attempts: {e.details.get('attempts')}")
+```
+
+### Combining Streaming + Historical Data
+
+```python
+from datetime import datetime, timedelta, timezone
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType, Interval
+
+# Fetch historical data
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+end = datetime.now(timezone.utc) - timedelta(hours=1)
+start = end - timedelta(days=7)
+
+df_historical = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
+print(f"Historical: {len(df_historical)} candles")
+
+# Stream future updates
+for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1):
+    # Each update is a KlineUpdate object
+    print(f"Live: {kline_update.open_time} → {kline_update.close}")
+    # Combine with historical_df as needed
+
+manager.close()
+```
 
 ---
 

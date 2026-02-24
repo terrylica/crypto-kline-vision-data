@@ -4,6 +4,20 @@ Reverse-chronological log of skill improvements.
 
 ---
 
+## 2026-02-24: Add streaming API documentation
+
+**Trigger**: [Public streaming API release](https://github.com/terrylica/crypto-kline-vision-data/releases)
+
+**Changes**:
+
+- Added "Streaming" row to Key Concepts table
+- New "Streaming Real-Time Klines" section with sync and async examples
+- Documented KlineUpdate fields and StreamConfig options
+- Added Template D: Stream Real-Time Data (TodoWrite)
+- Noted optional [streaming] extras requirement
+
+---
+
 ## 2026-02-10: Add scaffolding and fix cache paths
 
 **Trigger**: Alignment audit against skill-architecture standards

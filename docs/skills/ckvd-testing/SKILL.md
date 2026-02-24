@@ -34,6 +34,7 @@ Test Progress:
 ```
 tests/
 ├── unit/                    # Fast, no network (~0.5s)
+│   └── streaming/           # Async streaming tests (pytest-asyncio)
 ├── integration/             # External services
 ├── okx/                     # OKX API integration
 └── fcp_pm/                  # FCP protocol tests
@@ -74,6 +75,7 @@ uv run -p 3.13 pytest tests/ -v
 | `@pytest.mark.integration` | Tests that call external APIs |
 | `@pytest.mark.okx`         | OKX-specific tests            |
 | `@pytest.mark.serial`      | Must run sequentially         |
+| `@pytest.mark.asyncio`     | Async streaming tests         |
 
 ## Writing New Tests
 
@@ -114,6 +116,64 @@ def test_with_mocks(self, mock_cache, mock_handler):
     mock_handler.return_value = MagicMock()
     mock_cache.return_value = MagicMock()
     # Test logic...
+```
+
+## Async Streaming Tests
+
+Streaming tests use `pytest-asyncio`. Ensure it's installed (`uv run -p 3.13 pip install pytest-asyncio`).
+
+```python
+import pytest
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType, StreamConfig, KlineUpdate
+from unittest.mock import AsyncMock, MagicMock, patch
+
+
+@pytest.fixture
+async def stream_manager():
+    """Create streaming manager for tests (auto-cleanup)."""
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+    yield manager
+    manager.close()
+
+
+@pytest.mark.asyncio
+async def test_stream_creation(stream_manager):
+    """Verify stream creation."""
+    config = StreamConfig(market_type=MarketType.FUTURES_USDT, confirmed_only=True)
+    stream = stream_manager.create_stream(config)
+    assert stream is not None
+
+
+@pytest.mark.asyncio
+async def test_stream_subscribe_and_receive():
+    """Test async streaming with mocked KlineStream."""
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+    with patch("ckvd.core.streaming.kline_stream.KlineStream") as MockStream:
+        # Mock the stream to emit KlineUpdate objects
+        mock_stream_instance = AsyncMock()
+        MockStream.return_value = mock_stream_instance
+
+        # Simulate 2 updates: one open, one closed
+        mock_updates = [
+            MagicMock(spec=KlineUpdate, symbol="BTCUSDT", interval="1h", is_closed=False),
+            MagicMock(spec=KlineUpdate, symbol="BTCUSDT", interval="1h", is_closed=True, close=42500.0),
+        ]
+        mock_stream_instance.__aenter__.return_value = mock_stream_instance
+        mock_stream_instance.__aiter__.return_value = iter(mock_updates)
+
+        config = StreamConfig(market_type=MarketType.FUTURES_USDT)
+        stream = manager.create_stream(config)
+
+        updates_received = []
+        async with stream:
+            await stream.subscribe("BTCUSDT", "1h")
+            async for update in stream:
+                updates_received.append(update)
+
+        assert len(updates_received) == 2
+        assert updates_received[1].is_closed is True
+        manager.close()
 ```
 
 ## Examples
@@ -165,6 +225,21 @@ Quick test runner:
 2. Identify modules below target coverage
 3. Write tests for uncovered paths
 4. Re-run coverage to verify improvement
+```
+
+### Template D: Write Async Stream Test
+
+```
+1. Import pytest-asyncio and async test utilities (@pytest.mark.asyncio)
+2. Create async fixture for stream manager (yield pattern)
+3. Set up StreamConfig with desired options
+4. Create stream via manager.create_stream()
+5. Mock KlineStream if testing without network (AsyncMock)
+6. Use async context manager (async with stream)
+7. Subscribe to symbol/interval
+8. Iterate updates with async for loop
+9. Assert on KlineUpdate fields (is_closed, close, volume, etc.)
+10. Run with: uv run -p 3.13 pytest tests/unit/streaming/ -v --asyncio-mode=auto
 ```
 
 ---

@@ -4,6 +4,19 @@ Reverse-chronological log of skill improvements.
 
 ---
 
+## 2026-02-24: Add streaming research areas
+
+**Trigger**: Public streaming API release
+
+**Changes**:
+
+- Added streaming implementation to Key Areas to Investigate
+- Documented KlineStream, KlineUpdate, StreamConfig, WebSocket, and async patterns as research topics
+- Template D: Investigate Streaming Architecture (TodoWrite)
+- References async context manager patterns and message loop investigation
+
+---
+
 ## 2026-02-10: Add scaffolding
 
 **Trigger**: Alignment audit against skill-architecture standards

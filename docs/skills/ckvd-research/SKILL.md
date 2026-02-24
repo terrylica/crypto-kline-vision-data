@@ -29,6 +29,13 @@ Research the crypto-kline-vision-data codebase to answer questions about: $ARGUM
    - Timestamp handling
    - DataFrame utilities
 
+4. **Streaming Implementation** (`src/ckvd/core/streaming/`)
+   - KlineStream class and stream lifecycle
+   - KlineUpdate dataclass structure
+   - StreamConfig configuration options
+   - WebSocket client connection handling
+   - Async message loop patterns
+
 ## Research Instructions
 
 1. Use Glob to find relevant files
@@ -77,6 +84,18 @@ Provide:
 3. Map which exceptions trigger FCP fallback
 4. Identify any silent failures or bare excepts
 5. Document exception flow with file:line references
+```
+
+### Template D: Investigate Streaming Architecture
+
+```
+1. Read src/ckvd/core/streaming/kline_stream.py (KlineStream class)
+2. Understand stream lifecycle: create → subscribe → iterate → close
+3. Research KlineUpdate dataclass (fields: open_time, close, open, high, low, volume, symbol, interval, is_closed)
+4. Trace async context manager patterns (__aenter__, __aexit__)
+5. Study WebSocket client initialization and message handling
+6. Document stream state management and error handling
+7. Summarize async patterns with file:line references
 ```
 
 ---

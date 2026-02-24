@@ -45,6 +45,7 @@ manager.close()
 | Intervals     | MINUTE_1, MINUTE_5, HOUR_1, HOUR_4, DAY_1           |
 | FCP Priority  | Cache (~1ms) → Vision (~1-5s) → REST (~100-500ms)   |
 | Symbol Format | BTCUSDT (spot/futures), BTCUSD_PERP (coin-margined) |
+| Streaming     | Real-time klines (sync/async), KlineUpdate objects  |
 
 ## High-Level API
 
@@ -65,6 +66,54 @@ df, elapsed_time, records_count = fetch_market_data(
 )
 print(f"Loaded {records_count} bars in {elapsed_time:.2f}s")
 ```
+
+## Streaming Real-Time Klines
+
+For real-time market data, use the streaming API (requires `pip install crypto-kline-vision-data[streaming]`):
+
+### Synchronous Streaming
+
+```python
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
+
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+# Blocking iterator - receives KlineUpdate objects
+for update in manager.stream_data_sync("BTCUSDT", "1h"):
+    if update.is_closed:
+        print(f"Closed candle: open={update.open}, close={update.close}, volume={update.volume}")
+    else:
+        print(f"Open candle (time: {update.open_time})")
+
+manager.close()
+```
+
+### Asynchronous Streaming
+
+```python
+import asyncio
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType, StreamConfig
+
+async def main():
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+    # Create stream with optional config
+    config = StreamConfig(
+        market_type=MarketType.FUTURES_USDT,
+        confirmed_only=True,  # Only emit when candle closes
+        queue_maxsize=1000
+    )
+    stream = manager.create_stream(config)
+
+    async with stream:
+        await stream.subscribe("BTCUSDT", "1h")
+        async for update in stream:
+            print(f"{update.symbol} {update.interval}: close={update.close}")
+
+asyncio.run(main())
+```
+
+**KlineUpdate fields**: `open_time` (UTC datetime), `open`, `high`, `low`, `close`, `volume` (all float), `symbol`, `interval`, `is_closed` (bool)
 
 ## Examples
 
@@ -120,6 +169,20 @@ uv run -p 3.13 python docs/skills/ckvd-usage/scripts/diagnose_fcp.py BTCUSDT fut
 3. Create new manager with target MarketType
 4. Verify data fetches correctly for new market type
 5. Update any dependent code with new symbol format
+```
+
+### Template D: Stream Real-Time Data
+
+```
+1. Determine if sync (blocking) or async streaming is needed
+   - Sync: Simple use case, single symbol, main thread OK
+   - Async: Multiple symbols, integration with other async code
+2. Create CryptoKlineVisionData manager
+3. For sync: Use manager.stream_data_sync("SYMBOL", "INTERVAL")
+4. For async: Create StreamConfig, create_stream(), subscribe to symbols
+5. Process KlineUpdate objects in loop
+6. Check is_closed flag to detect candle completion
+7. Close manager when done (use context manager for async)
 ```
 
 ---

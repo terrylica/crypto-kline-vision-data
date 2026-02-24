@@ -14,11 +14,12 @@ Key terminology used in Crypto Kline Vision Data.
 
 ## Data Sources
 
-| Term           | Definition                                                                         |
-| -------------- | ---------------------------------------------------------------------------------- |
-| **Vision API** | Binance Vision - bulk historical data on AWS S3, ~48h delay, no rate limits        |
-| **REST API**   | Real-time Binance REST API, rate limited (Spot: 6,000 / Futures: 2,400 weight/min) |
-| **Cache**      | Local Apache Arrow files for fast repeated access (~1ms)                           |
+| Term           | Definition                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| **Vision API** | Binance Vision - bulk historical data on AWS S3, ~48h delay, no rate limits                  |
+| **REST API**   | Real-time Binance REST API, rate limited (Spot: 6,000 / Futures: 2,400 weight/min)           |
+| **Cache**      | Local Apache Arrow files for fast repeated access (~1ms)                                     |
+| **WebSocket**  | Real-time Binance WebSocket streams (RFC 6455) — continuous kline updates as k.x gate events |
 
 ## Storage Concepts
 
@@ -79,8 +80,28 @@ Key terminology used in Crypto Kline Vision Data.
 | **MarketType**      | Enum for market categories (SPOT, FUTURES_USDT, FUTURES_COIN, FUTURES, OPTIONS)               |
 | **ChartType**       | Enum for chart data types (KLINES, FUNDING_RATE, OKX_CANDLES, OKX_HISTORY_CANDLES)            |
 | **Interval**        | Enum for candle timeframes (1s to 1M)                                                         |
-| **DataSource**      | Enum for FCP source selection (AUTO, CACHE, VISION, REST)                                     |
+| **DataSource**      | Enum for data source selection (AUTO, CACHE, VISION, REST, STREAMING)                         |
 | **CKVDConfig**      | Configuration dataclass for CKVD instances                                                    |
 | **ResilientLogger** | Logger wrapper in `_telemetry.py` that auto-heals sinks destroyed by CKVD's `logger.remove()` |
 | **trace_id**        | 16-char hex correlation ID grouping all events from one example run                           |
 | **span_id**         | 8-char hex ID linking a `timed_span`'s start/complete/fail events                             |
+
+## Streaming Architecture
+
+| Term                    | Definition                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **KlineUpdate**         | Frozen dataclass (frozen=True, slots=True) representing a real-time kline event from WebSocket                                         |
+| **StreamConfig**        | Immutable streaming configuration (attrs.define, frozen=True, slots=True) with market_type, confirmed_only, queue_maxsize, compression |
+| **KlineStream**         | Async context manager wrapping StreamClient with asyncio.Queue backpressure and gap tracking                                           |
+| **StreamClient**        | @runtime_checkable Protocol for WebSocket provider duck-typing                                                                         |
+| **ConnectionMachine**   | 10-state FSM managing WebSocket connection lifecycle                                                                                   |
+| **BinanceStreamClient** | Concrete StreamClient implementation for Binance WebSocket streams                                                                     |
+| **sync_bridge**         | Thread-safe bridge between async streaming and synchronous callers                                                                     |
+
+## Streaming Concepts
+
+| Term               | Definition                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **k.x gate**       | Binance WebSocket field `k.x` (is_closed boolean) indicating a closed/finalized candle; filtered by confirmed_only |
+| **Drop-newest**    | Queue backpressure strategy discarding incoming messages when full, preserving older queued data                   |
+| **StreamingError** | Base exception hierarchy for streaming failures (NOT ValueError — critical for FCP compatibility)                  |

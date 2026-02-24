@@ -4,6 +4,20 @@ Reverse-chronological log of skill improvements.
 
 ---
 
+## 2026-02-24: Clarify streaming and FCP as separate systems
+
+**Trigger**: Public streaming API release, avoid confusion about FCP scope
+
+**Changes**:
+
+- Added "Streaming and FCP" section with comparison table
+- Documented that streaming is a parallel data path (WebSocket, no cache/Vision)
+- FCP applies to historical `get_data()`, streaming to real-time methods
+- Added note to TodoWrite templates: "All templates are for FCP-based fetching"
+- Clarified that monitoring FCP does not affect streaming performance
+
+---
+
 ## 2026-02-10: Add scaffolding, fix cache paths, remove missing scripts
 
 **Trigger**: Alignment audit against skill-architecture standards

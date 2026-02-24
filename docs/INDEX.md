@@ -30,11 +30,12 @@ These directories contain local/private content and are not tracked in git:
 ADRs should be placed in `docs/adr/` following MADR 4.0 format.
 Naming convention: `YYYY-MM-DD-slug.md`
 
-| ADR                                                                                  | Design Spec                                                       |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| [Failover Control Protocol](/docs/adr/2025-01-30-failover-control-protocol.md)       | [spec](/docs/design/2025-01-30-failover-control-protocol/spec.md) |
-| [src-layout Package Structure](/docs/adr/2025-01-30-src-layout-package-structure.md) | _(self-contained)_                                                |
-| [Claude Code Infrastructure](/docs/adr/2026-01-30-claude-code-infrastructure.md)     | _(self-contained)_                                                |
+| ADR                                                                                    | Design Spec                                                       |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Failover Control Protocol](/docs/adr/2025-01-30-failover-control-protocol.md)         | [spec](/docs/design/2025-01-30-failover-control-protocol/spec.md) |
+| [src-layout Package Structure](/docs/adr/2025-01-30-src-layout-package-structure.md)   | _(self-contained)_                                                |
+| [Claude Code Infrastructure](/docs/adr/2026-01-30-claude-code-infrastructure.md)       | _(self-contained)_                                                |
+| [WebSocket Streaming Subsystem](/docs/adr/2026-02-24-websocket-streaming-subsystem.md) | _(self-contained)_                                                |
 
 See [itp:adr-graph-easy-architect](https://github.com/terrylica/cc-skills) for diagram creation.
 

@@ -135,6 +135,23 @@ with ThreadPoolExecutor(max_workers=3) as executor:
     results = list(executor.map(fetch_symbol, symbols))
 ```
 
+## Streaming and FCP
+
+**Important**: Streaming operates on a PARALLEL data path and does not interact with FCP.
+
+| Aspect         | FCP (Historical)                       | Streaming (Real-Time)                   |
+| -------------- | -------------------------------------- | --------------------------------------- |
+| **API Method** | `get_data()`                           | `stream_data_sync()`, `create_stream()` |
+| **Data Flow**  | Cache → Vision → REST                  | WebSocket → KlineUpdate stream          |
+| **Cache Used** | Yes (Arrow IPC)                        | No                                      |
+| **Failover**   | Vision → REST                          | No fallback                             |
+| **Latency**    | ~1-500ms                               | Real-time (ms)                          |
+| **Use Case**   | Historical backtesting, batch analysis | Live trading, real-time monitoring      |
+
+**Monitoring FCP does not affect streaming performance.** The two systems are independent. If streaming is slow, check WebSocket connectivity, not FCP sources.
+
+---
+
 ## Scripts
 
 | Script            | Purpose                      |
@@ -144,6 +161,8 @@ with ThreadPoolExecutor(max_workers=3) as executor:
 ---
 
 ## TodoWrite Task Templates
+
+**Note**: All templates below are for FCP-based data fetching. For streaming issues, check WebSocket connectivity and async event loop, not FCP sources.
 
 ### Template A: Diagnose Slow Fetches
 

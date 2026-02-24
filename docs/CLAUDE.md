@@ -28,11 +28,12 @@ docs/
 
 **Current ADRs**:
 
-| ADR                                                                                       | Purpose           |
-| ----------------------------------------------------------------------------------------- | ----------------- |
-| [2025-01-30-failover-control-protocol](adr/2025-01-30-failover-control-protocol.md)       | FCP architecture  |
-| [2025-01-30-src-layout-package-structure](adr/2025-01-30-src-layout-package-structure.md) | Package layout    |
-| [2026-01-30-claude-code-infrastructure](adr/2026-01-30-claude-code-infrastructure.md)     | Claude Code setup |
+| ADR                                                                                         | Purpose             |
+| ------------------------------------------------------------------------------------------- | ------------------- |
+| [2025-01-30-failover-control-protocol](adr/2025-01-30-failover-control-protocol.md)         | FCP architecture    |
+| [2025-01-30-src-layout-package-structure](adr/2025-01-30-src-layout-package-structure.md)   | Package layout      |
+| [2026-01-30-claude-code-infrastructure](adr/2026-01-30-claude-code-infrastructure.md)       | Claude Code setup   |
+| [2026-02-24-websocket-streaming-subsystem](adr/2026-02-24-websocket-streaming-subsystem.md) | WebSocket streaming |
 
 ## Design Specs
 

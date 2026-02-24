@@ -12,6 +12,9 @@ Context-specific instructions for working with CKVD tests.
 # Unit tests only (fast, no network)
 uv run -p 3.13 pytest tests/unit/ -v
 
+# Streaming tests (async, requires pytest-asyncio)
+uv run -p 3.13 pytest tests/unit/streaming/ -v
+
 # Single test file
 uv run -p 3.13 pytest tests/unit/core/sync/test_fetch_market_data.py -v
 
@@ -55,6 +58,13 @@ unit/
 │   │   └── okx/             # OKX REST client tests
 │   └── sync/                # CryptoKlineVisionData tests (has own conftest.py)
 │       └── test_cache_toggle.py  # 34 cache toggle tests (CKVD_ENABLE_CACHE, use_cache, enforce_source)
+├── streaming/               # WebSocket + streaming tests (pytest-asyncio, 162 tests)
+│   ├── conftest.py                              # Async fixtures, test configs
+│   ├── test_kline_update.py                     # 29 KlineUpdate parser tests
+│   ├── test_stream_config.py                    # 17 StreamConfig validation tests
+│   ├── test_streaming_exceptions.py             # 39 streaming exception tests
+│   ├── test_connection_machine.py               # 48 connection state machine tests
+│   └── test_kline_stream.py                     # 26 KlineStream lifecycle tests
 ├── utils/
 │   ├── for_core/            # FCP utility tests
 │   ├── internal/            # Polars pipeline tests
@@ -66,12 +76,15 @@ unit/
 └── test_ckvd_logging_improvements.py
 ```
 
+**Total unit tests**: 682 (520 baseline + 162 streaming)
+
 ### conftest.py Hierarchy
 
 | File                               | Scope           | Key Role                                                      |
 | ---------------------------------- | --------------- | ------------------------------------------------------------- |
 | `tests/conftest.py`                | All tests       | Time, mock, data fixtures; `mock_provider_clients` factory    |
 | `tests/unit/core/sync/conftest.py` | Unit sync tests | Autouse factory mock (old `@patch` decorators become no-ops)  |
+| `tests/unit/streaming/conftest.py` | Streaming tests | Async fixtures: `raw_kline_closed`, `stream_config_*`         |
 | `tests/fcp_pm/conftest.py`         | FCP tests       | `fcp_manager_*` fixtures with real network                    |
 | `tests/stress/conftest.py`         | Stress tests    | `memory_tracker`, `historical_time_range`, `large_time_range` |
 | `tests/okx/conftest.py`            | OKX tests       | OKX-specific fixtures                                         |
@@ -85,6 +98,20 @@ unit/
 @pytest.mark.okx          # OKX-specific tests
 @pytest.mark.serial       # Must run sequentially
 ```
+
+**Async Tests (pytest-asyncio)**
+
+Streaming tests use `@pytest.mark.asyncio` (automatically applied by pytest-asyncio with `--asyncio-mode=auto` in pytest.ini):
+
+```python
+@pytest.mark.asyncio
+async def test_async_operation():
+    """Async test runs with event loop automatically."""
+    result = await async_function()
+    assert result is not None
+```
+
+No manual setup required — pytest-asyncio handles event loop lifecycle automatically.
 
 ---
 
@@ -172,12 +199,46 @@ def test_rest_response(mock_get):
 
 ---
 
+## Streaming Test Environment
+
+### Installation
+
+Streaming tests require additional dependencies (pytest-asyncio, hypothesis for property testing, time-machine for time manipulation):
+
+```bash
+# Install streaming test extras
+uv sync --extra streaming-test
+
+# Or manually add to uv.lock
+uv add --extra streaming-test
+```
+
+### Requirements
+
+- **pytest-asyncio** ≥ 0.24 — Async test runner with event loop management
+- **hypothesis** ≥ 6.115 — Property-based testing for state machines
+- **time-machine** ≥ 2.16 — Mock datetime for time-sensitive tests
+
+### Configuration
+
+Already configured in pytest.ini:
+
+```ini
+addopts = -v -p no:logging --asyncio-mode=auto
+asyncio_mode = auto
+```
+
+The `--asyncio-mode=auto` flag automatically applies event loops to `@pytest.mark.asyncio` tests without manual setup.
+
+---
+
 ## Writing New Tests
 
 1. Use descriptive test names: `test_get_data_returns_empty_for_future_dates`
 2. Follow Arrange-Act-Assert pattern
 3. Always clean up resources (`manager.close()`)
 4. Mark network-dependent tests with `@pytest.mark.integration`
+5. For async tests, use `@pytest.mark.asyncio` and `async def` (no manual loop management needed)
 
 ---
 

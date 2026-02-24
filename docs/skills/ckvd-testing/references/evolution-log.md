@@ -4,6 +4,21 @@ Reverse-chronological log of skill improvements.
 
 ---
 
+## 2026-02-24: Add async streaming test patterns
+
+**Trigger**: Public streaming API release
+
+**Changes**:
+
+- Updated test organization diagram to include `tests/unit/streaming/`
+- Added `@pytest.mark.asyncio` marker to Test Markers table
+- New "Async Streaming Tests" section with pytest-asyncio setup
+- Example async test with StreamConfig, mock KlineStream, and async context manager
+- Template D: Write Async Stream Test (TodoWrite)
+- Documented async fixture patterns and AsyncMock usage
+
+---
+
 ## 2026-02-10: Add scaffolding
 
 **Trigger**: Alignment audit against skill-architecture standards

@@ -12,6 +12,7 @@ High-performance market data integration with Failover Control Protocol (FCP).
 - **Apache Arrow Cache**: Memory-mapped local cache for instant repeated access
 - **Binance Vision API**: Bulk historical data from AWS S3 (no rate limits, ~48h delay)
 - **Binance REST API**: Real-time data with built-in rate limit handling ([Spot](https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-endpoints), [USDS-M Futures](https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info), [Coin-M Futures](https://developers.binance.com/docs/derivatives/coin-margined-futures/general-info))
+- **WebSocket Streaming** (optional): Real-time kline updates via `KlineStream` with automatic reconnect and state machine ([install with `[streaming]` extra](#installation))
 - **Polars Engine**: Internal Polars LazyFrames + streaming; pandas or Polars output at API boundary
 - **AI Agent Introspection**: `__probe__.py` module for stateless API discovery
 - **Security**: Symbol validation (CWE-22 path traversal prevention)
@@ -46,6 +47,26 @@ dependencies = [
     "crypto-kline-vision-data @ git+https://github.com/terrylica/crypto-kline-vision-data.git"
 ]
 ```
+
+## Installation
+
+### Core Package (Historical & REST Data)
+
+```bash
+pip install crypto-kline-vision-data
+# or
+uv add crypto-kline-vision-data
+```
+
+### With Streaming (Optional WebSocket Real-Time)
+
+```bash
+pip install crypto-kline-vision-data[streaming]
+# or
+uv add crypto-kline-vision-data[streaming]
+```
+
+Streaming requires: `websockets>=16.0`, `orjson>=3.10`, `python-statemachine>=2.4`, `stamina>=24.3`
 
 ## For Claude Code Users
 
@@ -138,6 +159,49 @@ df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
 df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1, return_polars=True)
 ```
 
+### WebSocket Streaming (Optional)
+
+Real-time kline updates via WebSocket. Requires `pip install crypto-kline-vision-data[streaming]`.
+
+**Sync iteration**:
+
+```python
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType, StreamConfig
+
+# Create stream
+stream = CryptoKlineVisionData.create_stream(
+    DataProvider.BINANCE,
+    MarketType.FUTURES_USDT,
+    config=StreamConfig(symbols=["BTCUSDT", "ETHUSDT"], interval="1h")
+)
+
+# Iterate kline updates synchronously
+for update in stream.stream_data_sync():
+    print(f"{update.symbol}: {update.close_price}")
+    if update.is_closed:
+        print("  → Candle closed")
+```
+
+**Async iteration**:
+
+```python
+async def process_stream():
+    stream = CryptoKlineVisionData.create_stream(
+        DataProvider.BINANCE,
+        MarketType.FUTURES_USDT,
+        config=StreamConfig(symbols=["BTCUSDT"], interval="1h")
+    )
+
+    async for update in stream.stream_data():
+        print(f"{update.symbol}: {update.close_price} ({update.volume} vol)")
+```
+
+Streaming features:
+
+- **Automatic reconnect**: State machine handles connection drops
+- **KlineUpdate**: Named tuple with symbol, open/high/low/close/volume, is_closed, timestamp
+- **Rate-limited**: Respects Binance connection limits (10 concurrent streams)
+
 ### Error Handling
 
 ```python
@@ -150,6 +214,31 @@ except RateLimitError as e:
     print(f"Rate limited, retry after {e.retry_after}s. Details: {e.details}")
 except (RestAPIError, VisionAPIError) as e:
     print(f"Error: {e}. Details: {e.details}")
+```
+
+### Streaming API Types
+
+Available when installing with `[streaming]` extra:
+
+```python
+from ckvd import KlineUpdate, StreamConfig, KlineStream
+
+# KlineUpdate: Real-time candle data
+# - symbol: str
+# - open_price, high_price, low_price, close_price: float
+# - volume: float
+# - is_closed: bool (whether candle period has ended)
+# - timestamp: datetime.datetime (UTC)
+
+# StreamConfig: Configuration for real-time streams
+# - symbols: List[str]
+# - interval: str ("1m", "5m", "1h", "4h", "1d", etc.)
+# - buffer_size: int (default: 1000)
+
+# KlineStream: Main streaming manager
+# - stream_data(): AsyncIterator[KlineUpdate]
+# - stream_data_sync(): Iterator[KlineUpdate]
+# - close(): Graceful shutdown
 ```
 
 ### Environment Variables
@@ -165,7 +254,7 @@ except (RestAPIError, VisionAPIError) as e:
 ```bash
 uv sync --dev                    # Install dependencies
 mise trust                       # Load environment
-uv run -p 3.13 pytest tests/unit/ -v   # Run tests (399 passing)
+uv run -p 3.13 pytest tests/unit/ -v   # Run tests (682 passing)
 uv run -p 3.13 ruff check --fix .      # Lint
 ```
 

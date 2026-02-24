@@ -12,14 +12,14 @@ High-performance market data integration with Failover Control Protocol (FCP).
 
 Each directory has its own CLAUDE.md with domain-specific context, loaded on demand.
 
-| Directory     | CLAUDE.md                                    | Owns                                                                         |
-| ------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| `src/`        | [src/CLAUDE.md](src/CLAUDE.md)               | Package structure, FCP, exceptions, `__probe__`, symbol security, timestamps |
-| `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking                                    |
-| `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting                                    |
-| `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry                                        |
-| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools, Vision data utilities                  |
-| `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)                                     |
+| Directory     | CLAUDE.md                                    | Owns                                                                                    |
+| ------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `src/`        | [src/CLAUDE.md](src/CLAUDE.md)               | Package structure, FCP, streaming, exceptions, `__probe__`, symbol security, timestamps |
+| `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking                                               |
+| `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting                                               |
+| `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry                                                   |
+| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools, Vision data utilities                             |
+| `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)                                                |
 
 **Also**: [.claude/settings.md](.claude/settings.md) | [docs/INDEX.md](docs/INDEX.md) | [docs/GLOSSARY.md](docs/GLOSSARY.md) | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
@@ -65,6 +65,8 @@ Recent data (~48h) not in Vision API, falls through to REST. See [src/CLAUDE.md]
 
 ### API Boundary
 
+**Historical Data (FCP):**
+
 ```python
 # Default: pd.DataFrame (backward compatible)
 df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
@@ -73,7 +75,20 @@ df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
 df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1, return_polars=True)
 ```
 
-Internal processing always uses Polars (LazyFrames + streaming engine).
+**Real-time Streaming (WebSocket):**
+
+```python
+# Async streaming
+async with manager.create_stream(StreamConfig(market_type=MarketType.FUTURES_USDT)) as stream:
+    async for kline_update in stream.messages():
+        print(f"{kline_update.symbol}: {kline_update.close}")
+
+# Sync streaming (threading bridge)
+for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1):
+    print(f"Update: {kline_update.close}")
+```
+
+Internal processing always uses Polars (LazyFrames + streaming engine). Streaming updates yield `KlineUpdate` objects. See [src/CLAUDE.md](src/CLAUDE.md#streaming-api-real-time-websocket) for full API.
 
 ### AI Agent Discovery
 

@@ -236,6 +236,127 @@ manager.close()
 
 See the [README.md](/README.md#logging-control) for logging and cache environment variables.
 
+## Streaming Issues
+
+Streaming is a separate channel from FCP (Cache→Vision→REST). Issues below are specific to real-time kline updates via WebSocket.
+
+### Missing [streaming] Extras
+
+**Symptoms**: `ModuleNotFoundError: No module named 'wsproto'` or other streaming dependencies when calling `create_stream()`.
+
+**Cause**: Package installed without streaming dependencies.
+
+**Solutions**:
+
+```bash
+# Install with streaming extras
+pip install 'crypto-kline-vision-data[streaming]'
+
+# Or with uv
+uv add 'crypto-kline-vision-data[streaming]'
+```
+
+### StreamConnectionError
+
+**Symptoms**: WebSocket connection fails immediately or during subscription.
+
+**Causes**:
+
+1. Network connectivity issue
+2. Incorrect WebSocket URL
+3. Binance server temporarily unavailable
+
+**Solutions**:
+
+- Check network connectivity
+- Verify Binance API status (<https://status.binance.com>)
+- Automatic retry with backoff is built-in (5 attempts via stamina library)
+
+### StreamReconnectExhaustedError
+
+**Symptoms**: `StreamReconnectExhaustedError` after attempting reconnection.
+
+**Cause**: 5 reconnect attempts all failed — prolonged network outage or Binance downtime.
+
+**Solution**:
+
+- Restart the streaming session
+- Check Binance status and network connectivity
+- Increase `max_retries` in `StreamConfig` if transient failures expected
+
+### Dropped Messages
+
+**Symptoms**: `stream.dropped_count > 0` after iterating over updates.
+
+**Cause**: Message queue (default 1000) filled faster than consumer processes them.
+
+**Solutions**:
+
+```python
+from ckvd.streaming import create_stream, StreamConfig
+
+# Increase queue size
+config = StreamConfig(queue_maxsize=5000)
+stream = create_stream(config=config, symbol="BTCUSDT")
+
+# Or process updates faster (avoid blocking operations in loop)
+async for update in stream:
+    # Do minimal work here, offload heavy processing
+    process_quickly(update)
+```
+
+### No Updates Despite Confirmed Subscription
+
+**Symptoms**: Subscription confirmed but no `KlineUpdate` events received.
+
+**Cause**: `confirmed_only=True` (default) filters out mid-candle updates. Market is open with no closed candles in the subscribed interval.
+
+**Solutions**:
+
+```python
+from ckvd.streaming import create_stream, StreamConfig
+
+# See mid-candle updates (default is True)
+config = StreamConfig(confirmed_only=False)
+stream = create_stream(config=config, symbol="BTCUSDT", interval="1h")
+
+# Or wait for candle close:
+# 1h interval closes every hour at :00 UTC
+# 5m interval closes every 5 minutes past the hour (e.g., :05, :10, :15...)
+```
+
+### stream_data_sync() Blocks Forever
+
+**Symptoms**: Synchronous streaming method `stream_data_sync()` never returns.
+
+**Cause**: By design — streaming continues indefinitely until interrupt.
+
+**Solutions**:
+
+```python
+# Option 1: KeyboardInterrupt (Ctrl+C)
+# stream_data_sync() runs an event loop and handles SIGINT
+
+# Option 2: Max updates counter
+stream = create_stream(symbol="BTCUSDT")
+count = 0
+for update in stream_data_sync(stream):
+    print(update)
+    count += 1
+    if count >= 1000:
+        break
+stream.close()
+
+# Option 3: Time-based exit
+import time
+stream = create_stream(symbol="BTCUSDT")
+start = time.time()
+for update in stream_data_sync(stream):
+    if time.time() - start > 300:  # 5 minutes
+        break
+stream.close()
+```
+
 ## Telemetry Issues
 
 ### No events.jsonl File Created
