@@ -1,3 +1,10 @@
+# [4.4.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.11...v4.4.0) (2026-02-24)
+
+
+### Features
+
+* WebSocket streaming subsystem with async client, FSM connection manager, and drop-newest backpressure ([5e464ce](https://github.com/terrylica/crypto-kline-vision-data/commit/5e464ce782181c9d2fbeb2b48a4f821e44473fb1))
+
 ## [4.3.11](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.10...v4.3.11) (2026-02-20)
 
 
