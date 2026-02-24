@@ -258,3 +258,22 @@ run = "uv run -p 3.13 python examples/sync/ckvd_datetime_example.py"
 [tasks."demo:one-second"]
 description = "Run one-second interval test"
 run = "uv run -p 3.13 python examples/sync/ckvd_one_second_test.py"
+
+# -----------------------------------------------------------------------------
+# Streaming (WebSocket, optional extras)
+# ADR: docs/adr/2025-01-30-failover-control-protocol.md
+# -----------------------------------------------------------------------------
+
+[tasks."streaming:install"]
+description = "Install streaming optional extras (websockets, orjson, statemachine, stamina)"
+run = "uv sync --extra streaming --extra streaming-test"
+
+[tasks."test:streaming"]
+description = "Run streaming unit tests (requires streaming extras)"
+run = "uv run -p 3.13 pytest tests/unit/streaming/ -v"
+sources = ["src/ckvd/core/streaming/**/*.py", "src/ckvd/core/providers/binance/binance_stream_client.py", "tests/unit/streaming/**/*.py"]
+
+[tasks."test:streaming:stress"]
+description = "Run streaming stress tests (parse latency, backpressure, reconnection chaos)"
+run = "uv run -p 3.13 pytest tests/stress/streaming/ -v --memray"
+sources = ["src/ckvd/core/streaming/**/*.py", "tests/stress/streaming/**/*.py"]

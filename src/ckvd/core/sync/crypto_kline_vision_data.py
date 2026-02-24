@@ -38,7 +38,7 @@ Example:
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pandas as pd
 import polars as pl
@@ -80,6 +80,12 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market.validation import _SYMBOL_SAFE_PATTERN
 from ckvd.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 from ckvd.utils.time_utils import align_time_boundaries
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from ckvd.core.streaming.kline_stream import KlineStream
+    from ckvd.core.streaming.kline_update import KlineUpdate
 
 # Re-export for backward compatibility
 __all__ = [
@@ -1155,6 +1161,105 @@ class CryptoKlineVisionData:
 
             handle_error(e)
             return None  # unreachable, handle_error always raises
+
+    # -------------------------------------------------------------------------
+    # Streaming API (optional extras: pip install crypto-kline-vision-data[streaming])
+    # -------------------------------------------------------------------------
+
+    def create_stream(
+        self,
+        *,
+        confirmed_only: bool = True,
+        queue_maxsize: int = 1000,
+        max_reconnect_attempts: int = 5,
+    ) -> "KlineStream":
+        """Create a configured KlineStream for async WebSocket streaming.
+
+        Factory method that creates a KlineStream pre-configured for this
+        manager's market type and provider. Use as an async context manager.
+
+        Args:
+            confirmed_only: Only yield closed (k.x=True) candles. Default True.
+            queue_maxsize: Drop-newest backpressure queue size. Default 1000.
+            max_reconnect_attempts: FSM reconnect limit before exhausted. Default 5.
+
+        Returns:
+            KlineStream ready for use as an async context manager.
+
+        Raises:
+            ImportError: If streaming extras are not installed.
+                Install with: pip install crypto-kline-vision-data[streaming]
+
+        Example:
+            >>> stream = manager.create_stream()
+            >>> async with stream:
+            ...     await stream.subscribe("BTCUSDT", "1h")
+            ...     async for update in stream:
+            ...         print(update.close)
+        """
+        try:
+            from ckvd.core.providers.binance.binance_stream_client import BinanceStreamClient
+            from ckvd.core.streaming.kline_stream import KlineStream
+            from ckvd.core.streaming.stream_config import StreamConfig
+        except ImportError as exc:
+            raise ImportError(
+                "Streaming extras not installed. "
+                "Install with: pip install crypto-kline-vision-data[streaming]"
+            ) from exc
+
+        config = StreamConfig(
+            market_type=self.market_type,
+            provider=self.provider,
+            confirmed_only=confirmed_only,
+            queue_maxsize=queue_maxsize,
+            max_reconnect_attempts=max_reconnect_attempts,
+        )
+        client = BinanceStreamClient(config)
+        return KlineStream(config, client)
+
+    def stream_data_sync(
+        self,
+        symbol: str,
+        interval: str,
+        *,
+        confirmed_only: bool = True,
+        queue_maxsize: int = 1000,
+    ) -> "Iterator[KlineUpdate]":
+        """Synchronous iterator over real-time kline updates.
+
+        Convenience wrapper that creates and starts a WebSocket stream in a
+        background daemon thread, yielding KlineUpdate events to the caller.
+
+        Args:
+            symbol: Trading pair to subscribe (e.g. "BTCUSDT").
+            interval: Candle interval string (e.g. "1h").
+            confirmed_only: Only yield closed (k.x=True) candles. Default True.
+            queue_maxsize: Drop-newest backpressure queue size. Default 1000.
+
+        Yields:
+            KlineUpdate events in arrival order.
+
+        Raises:
+            ImportError: If streaming extras are not installed.
+            StreamingError: If the WebSocket connection fails.
+
+        Example:
+            >>> for update in manager.stream_data_sync("BTCUSDT", "1h"):
+            ...     print(f"{update.symbol} close={update.close}")
+        """
+        try:
+            from ckvd.core.streaming.sync_bridge import stream_data_sync as _bridge
+        except ImportError as exc:
+            raise ImportError(
+                "Streaming extras not installed. "
+                "Install with: pip install crypto-kline-vision-data[streaming]"
+            ) from exc
+
+        stream = self.create_stream(
+            confirmed_only=confirmed_only,
+            queue_maxsize=queue_maxsize,
+        )
+        return _bridge(stream, symbol, interval)
 
     def __enter__(self) -> "CryptoKlineVisionData":
         """Context manager entry point.

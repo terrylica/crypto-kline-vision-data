@@ -44,6 +44,21 @@ dev = [
     "GitPython>=3.1.0", # git operations (recmove)
     "rope>=1.0.0", # Python refactoring (recmove)
 ]
+streaming = [
+    "websockets>=16.0,<17.0", # async WebSocket client (RFC 6455 compliant)
+    "orjson>=3.10", # 3-10x faster JSON parsing than stdlib json
+    "python-statemachine>=2.4", # declarative FSM for connection lifecycle
+    "stamina>=24.3", # production-grade retry/backoff (wraps tenacity)
+]
+streaming-test = [
+    "hypothesis>=6.115", # property-based testing + RuleBasedStateMachine for FSM
+    "time-machine>=2.16", # 400x faster than freezegun, monotonic clock safe
+    "pytest-asyncio>=0.24", # async test runner
+]
+streaming-stress = [
+    "memray>=1.14", # native heap profiler (catches Polars/Arrow/Rust allocs)
+    "pytest-memray>=1.5", # @pytest.mark.limit_leaks decorator
+]
 # Command-line scripts defined here
 [project.scripts]
 recmove = "scripts.dev.refactor_move:app"
@@ -72,6 +87,7 @@ include = ["ckvd*"]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+asyncio_mode = "auto"
 
 # Align with project.requires-python (>=3.13)
 # Ruff comment - this cannot be inherited automatically

@@ -40,12 +40,14 @@ class DataSource(Enum):
         REST: Force use of the REST API only
         VISION: Force use of the Vision API only
         CACHE: Force use of the local cache only
+        STREAMING: Real-time WebSocket stream (highest merge priority)
     """
 
     AUTO = auto()  # Automatically select best source
     REST = auto()  # Force REST API
     VISION = auto()  # Force Vision API
     CACHE = auto()  # Force local cache
+    STREAMING = auto()  # WebSocket real-time stream (highest priority in merge)
 
 
 T = TypeVar("T")

@@ -36,6 +36,7 @@ The FCP automatically handles:
 All with automatic retry, data validation, and gap detection.
 """
 
+# ADR: docs/adr/2025-01-30-failover-control-protocol.md
 __version__ = "4.0.0"
 __author__ = "EonLabs"
 __email__ = "terry@eonlabs.com"
@@ -82,6 +83,37 @@ def __getattr__(name: str) -> Any:
         import importlib
 
         return importlib.import_module("ckvd.__probe__")
+    # Streaming extras (optional — requires pip install crypto-kline-vision-data[streaming])
+    if name == "KlineUpdate":
+        try:
+            from .core.streaming.kline_update import KlineUpdate
+
+            return KlineUpdate
+        except ImportError as exc:
+            raise ImportError(
+                f"Cannot import '{name}': streaming extras not installed. "
+                "Install with: pip install crypto-kline-vision-data[streaming]"
+            ) from exc
+    if name == "StreamConfig":
+        try:
+            from .core.streaming.stream_config import StreamConfig
+
+            return StreamConfig
+        except ImportError as exc:
+            raise ImportError(
+                f"Cannot import '{name}': streaming extras not installed. "
+                "Install with: pip install crypto-kline-vision-data[streaming]"
+            ) from exc
+    if name == "KlineStream":
+        try:
+            from .core.streaming.kline_stream import KlineStream
+
+            return KlineStream
+        except ImportError as exc:
+            raise ImportError(
+                f"Cannot import '{name}': streaming extras not installed. "
+                "Install with: pip install crypto-kline-vision-data[streaming]"
+            ) from exc
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
@@ -92,6 +124,9 @@ __all__ = [
     "DataProvider",
     "DataSource",
     "Interval",
+    "KlineStream",
+    "KlineUpdate",
     "MarketType",
+    "StreamConfig",
     "fetch_market_data",
 ]
