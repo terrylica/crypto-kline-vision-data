@@ -38,11 +38,10 @@ exclude = [
     "^https://data\\.binance\\.vision",
 ]
 
-# Markdown files only
-include = ["**/*.md"]
+# Check all files (filter via --files flag if needed)
 
 # Don't check mail addresses
-exclude_mail = true
+include_mail = false
 
 # Output format
 output = "compact"

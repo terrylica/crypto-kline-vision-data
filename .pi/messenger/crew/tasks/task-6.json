@@ -1,0 +1,18 @@
+{
+  "id": "task-6",
+  "title": "Internal Link Validation",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.536Z",
+  "updated_at": "2026-02-26T03:10:01.211Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:09:32.481Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "completed_at": "2026-02-26T03:10:01.211Z",
+  "summary": "Internal link validation complete. CLAUDE.md files: 73 links OK, 0 errors. In docs/, lychee reported 15 \"errors\" but these are false positives - root-relative links (/) that lychee can't resolve without root dir. All referenced files exist and are valid per project Link Conventions.",
+  "evidence": {
+    "tests": [
+      "lychee --offline on CLAUDE.md files: 73 OK, 0 errors"
+    ]
+  }
+}

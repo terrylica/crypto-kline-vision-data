@@ -1,0 +1,12 @@
+{
+  "id": "task-7",
+  "title": "Type Hints and Parameter Documentation",
+  "status": "in_progress",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.536Z",
+  "updated_at": "2026-02-26T03:17:34.428Z",
+  "attempt_count": 2,
+  "started_at": "2026-02-26T03:17:34.420Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "assigned_to": "IronBear"
+}

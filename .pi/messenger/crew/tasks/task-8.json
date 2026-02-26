@@ -1,0 +1,18 @@
+{
+  "id": "task-8",
+  "title": "Streaming API Documentation Accuracy",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.537Z",
+  "updated_at": "2026-02-26T03:11:39.203Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:10:53.526Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "completed_at": "2026-02-26T03:11:39.203Z",
+  "summary": "Streaming API documentation has several inaccuracies in README.md: (1) CryptoKlineVisionData.create_stream() shown as class method but is instance method requiring manager.create_stream(); (2) StreamConfig(symbols=..., interval=...) incorrect - actual is StreamConfig(market_type=MarketType.FUTURES_USDT); (3) update.close_price incorrect - actual is update.close; (4) update.timestamp incorrect - actual is update.open_time; (5) KlineStream doesn't have close() method - use async context manager. src/CLAUDE.md streaming docs are accurate.",
+  "evidence": {
+    "tests": [
+      "Verified streaming API implementations: KlineUpdate, StreamConfig, create_stream"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+Issues found in 4 inputs. Find details below.
+
+[docs/benchmarks/CLAUDE.md]:
+[ERROR] error: | Error building URL for "/docs/adr/2025-01-30-failover-control-protocol.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2025-01-30-failover-control-protocol.md' to a URI: To resolve root-relative links in local files, provide a root dir
+
+[docs/design/2025-01-30-failover-control-protocol/spec.md]:
+[ERROR] error: | Error building URL for "/docs/adr/2025-01-30-failover-control-protocol.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2025-01-30-failover-control-protocol.md' to a URI: To resolve root-relative links in local files, provide a root dir
+
+[docs/INDEX.md]:
+[ERROR] error: | Error building URL for "/.claude/" (Attribute: Some("href")): Cannot convert path '/.claude/' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/.claude/settings.md" (Attribute: Some("href")): Cannot convert path '/.claude/settings.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/CLAUDE.md" (Attribute: Some("href")): Cannot convert path '/CLAUDE.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/docs/adr/2025-01-30-failover-control-protocol.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2025-01-30-failover-control-protocol.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/docs/adr/2025-01-30-src-layout-package-structure.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2025-01-30-src-layout-package-structure.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/docs/adr/2026-01-30-claude-code-infrastructure.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2026-01-30-claude-code-infrastructure.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/docs/adr/2026-02-24-websocket-streaming-subsystem.md" (Attribute: Some("href")): Cannot convert path '/docs/adr/2026-02-24-websocket-streaming-subsystem.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/docs/design/2025-01-30-failover-control-protocol/spec.md" (Attribute: Some("href")): Cannot convert path '/docs/design/2025-01-30-failover-control-protocol/spec.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/examples/" (Attribute: Some("href")): Cannot convert path '/examples/' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/README.md" (Attribute: Some("href")): Cannot convert path '/README.md' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/src/CLAUDE.md" (Attribute: Some("href")): Cannot convert path '/src/CLAUDE.md' to a URI: To resolve root-relative links in local files, provide a root dir
+
+[docs/TROUBLESHOOTING.md]:
+[ERROR] error: | Error building URL for "/examples/CLAUDE.md#resilientlogger" (Attribute: Some("href")): Cannot convert path '/examples/CLAUDE.md#resilientlogger' to a URI: To resolve root-relative links in local files, provide a root dir
+[ERROR] error: | Error building URL for "/README.md#logging-control" (Attribute: Some("href")): Cannot convert path '/README.md#logging-control' to a URI: To resolve root-relative links in local files, provide a root dir
+
+🔍 118 Total (in 0s) ✅ 0 OK 🚫 15 Errors 👻 103 Excluded

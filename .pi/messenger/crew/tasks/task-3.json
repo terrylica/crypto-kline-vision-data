@@ -1,0 +1,24 @@
+{
+  "id": "task-3",
+  "title": "Example Scripts API Validation",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.535Z",
+  "updated_at": "2026-02-26T03:07:01.360Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:06:08.898Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "completed_at": "2026-02-26T03:07:01.360Z",
+  "summary": "Validated all 7 example scripts in examples/ directory - all pass with no API changes or import errors. Tested: quick_start.py, ckvd_cache_control_example.py, ckvd_lazy_initialization_demo.py, ckvd_logging_demo.py, clean_feature_engineering_example.py, sync/ckvd_datetime_example.py, sync/ckvd_one_second_test.py. Minor note: ckvd_one_second_test.py has an unclosed SSL socket warning but completes successfully.",
+  "evidence": {
+    "tests": [
+      "uv run -p 3.13 python examples/quick_start.py",
+      "uv run -p 3.13 python examples/ckvd_cache_control_example.py",
+      "uv run -p 3.13 python examples/ckvd_lazy_initialization_demo.py",
+      "uv run -p 3.13 python examples/ckvd_logging_demo.py",
+      "uv run -p 3.13 python examples/clean_feature_engineering_example.py",
+      "uv run -p 3.13 python examples/sync/ckvd_datetime_example.py",
+      "uv run -p 3.13 python examples/sync/ckvd_one_second_test.py"
+    ]
+  }
+}

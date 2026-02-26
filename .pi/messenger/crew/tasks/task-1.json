@@ -1,0 +1,12 @@
+{
+  "id": "task-1",
+  "title": "README vs Source Code API Alignment",
+  "status": "in_progress",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.534Z",
+  "updated_at": "2026-02-26T03:06:12.433Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:06:12.391Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "assigned_to": "GoldTiger"
+}

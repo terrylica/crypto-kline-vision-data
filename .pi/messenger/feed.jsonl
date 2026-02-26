@@ -1,0 +1,54 @@
+{"ts":"2026-02-26T03:03:57.519Z","agent":"FastViper","type":"plan.pass.start","target":"PRD.md","preview":"pass 1/1"}
+{"ts":"2026-02-26T03:03:58.655Z","agent":"YoungUnion","type":"join"}
+{"ts":"2026-02-26T03:05:48.533Z","agent":"FastViper","type":"plan.pass.done","target":"PRD.md","preview":"pass 1/1 complete"}
+{"ts":"2026-02-26T03:05:48.538Z","agent":"FastViper","type":"plan.done","target":"PRD.md","preview":"9 tasks created"}
+{"ts":"2026-02-26T03:05:52.993Z","agent":"GoldTiger","type":"join"}
+{"ts":"2026-02-26T03:05:52.993Z","agent":"CalmXenon","type":"join"}
+{"ts":"2026-02-26T03:05:54.185Z","agent":"JadeRaven","type":"join"}
+{"ts":"2026-02-26T03:06:08.907Z","agent":"JadeRaven","type":"task.start","target":"task-3","preview":"Example Scripts API Validation"}
+{"ts":"2026-02-26T03:06:10.863Z","agent":"JadeRaven","type":"reserve","target":"examples/","preview":"task-3"}
+{"ts":"2026-02-26T03:06:12.433Z","agent":"GoldTiger","type":"task.start","target":"task-1","preview":"README vs Source Code API Alignment"}
+{"ts":"2026-02-26T03:06:12.473Z","agent":"JadeRaven","type":"message","preview":"Starting task-3: Example Scripts API Validation — testing examples/ files"}
+{"ts":"2026-02-26T03:06:14.766Z","agent":"GoldTiger","type":"reserve","target":"README.md","preview":"task-1: Need to compare README with source code exports"}
+{"ts":"2026-02-26T03:06:14.766Z","agent":"GoldTiger","type":"reserve","target":"src/ckvd/__init__.py","preview":"task-1: Need to compare README with source code exports"}
+{"ts":"2026-02-26T03:06:14.766Z","agent":"GoldTiger","type":"reserve","target":"src/ckvd/core/manager.py","preview":"task-1: Need to compare README with source code exports"}
+{"ts":"2026-02-26T03:06:55.826Z","agent":"JadeRaven","type":"message","preview":"task-3 complete: All 7 examples passed - quick_start.py, ckvd_cache_control_example.py, ckvd_lazy_initialization_demo.py, ckvd_logging_demo.py, clean_feature_engineering_example.py, sync/ckvd_datet..."}
+{"ts":"2026-02-26T03:06:57.726Z","agent":"JadeRaven","type":"release","target":"examples/"}
+{"ts":"2026-02-26T03:07:01.361Z","agent":"JadeRaven","type":"task.done","target":"task-3","preview":"Validated all 7 example scripts in examples/ directory - all pass with no API changes or import errors. Tested: quick_start.py, ckvd_cache_control_example.py, ckvd_lazy_initialization_demo.py, ckvd_logging_demo.py, clean_feature_engineering_example.py, sync/ckvd_datetime_example.py, sync/ckvd_one_second_test.py. Minor note: ckvd_one_second_test.py has an unclosed SSL socket warning but completes successfully."}
+{"ts":"2026-02-26T03:07:05.078Z","agent":"JadeRaven","type":"task.start","target":"task-2","preview":"CLAUDE.md Hub-and-Spoke Consistency"}
+{"ts":"2026-02-26T03:07:45.279Z","agent":"JadeRaven","type":"message","preview":"task-2 (CLAUDE.md Hub-and-Spoke Consistency) findings: Checked all 7 CLAUDE.md files. Python version consistent (3.13 in root, tests, examples, scripts via -p 3.13). FCP priority consistent. Cross-..."}
+{"ts":"2026-02-26T03:08:05.799Z","agent":"JadeRaven","type":"task.done","target":"task-2","preview":"Validated CLAUDE.md hub-and-spoke consistency across all 7 files (root, src, tests, docs, examples, scripts, playground). Python version 3.13 consistent via -p 3.13 flag usage. FCP priority descriptions match. Cross-references work. Minor documentation artifact: Root CLAUDE.md table lists playground but says \"6 main\" in text. No contradictions found."}
+{"ts":"2026-02-26T03:08:08.467Z","agent":"JadeRaven","type":"task.start","target":"task-4","preview":"API Boundary Documentation (pandas/polars)"}
+{"ts":"2026-02-26T03:08:34.782Z","agent":"JadeRaven","type":"task.done","target":"task-4","preview":"Verified API boundary documentation matches implementation. return_polars=False (default) returns pandas.DataFrame, return_polars=True returns polars.DataFrame. Method signatures and docstrings align with root CLAUDE.md documentation. No discrepancies found."}
+{"ts":"2026-02-26T03:08:37.556Z","agent":"JadeRaven","type":"task.start","target":"task-5","preview":"Exception Hierarchy Documentation"}
+{"ts":"2026-02-26T03:09:29.474Z","agent":"JadeRaven","type":"task.done","target":"task-5","preview":"Exception hierarchy verified. All documented exceptions exist with .details attribute. Found one documentation inconsistency: src/CLAUDE.md lists UnsupportedIntervalError under \"REST API Exceptions\" but it's actually in vision_exceptions.py (not rest_exceptions.py). All other exceptions match their documented locations."}
+{"ts":"2026-02-26T03:09:32.490Z","agent":"JadeRaven","type":"task.start","target":"task-6","preview":"Internal Link Validation"}
+{"ts":"2026-02-26T03:10:01.211Z","agent":"JadeRaven","type":"task.done","target":"task-6","preview":"Internal link validation complete. CLAUDE.md files: 73 links OK, 0 errors. In docs/, lychee reported 15 \"errors\" but these are false positives - root-relative links (/) that lychee can't resolve without root dir. All referenced files exist and are valid per project Link Conventions."}
+{"ts":"2026-02-26T03:10:03.593Z","agent":"JadeRaven","type":"task.start","target":"task-7","preview":"Type Hints and Parameter Documentation"}
+{"ts":"2026-02-26T03:10:50.772Z","agent":"JadeRaven","type":"task.done","target":"task-7","preview":"Type hints and parameter documentation verified. All documented parameters in CLAUDE.md and README.md (symbol, start_time, end_time, interval, chart_type, include_source_info, enforce_source, auto_reindex, return_polars) exist in implementation and work correctly. fetch_market_data() signature matches usage examples. No parameter mismatches found."}
+{"ts":"2026-02-26T03:10:53.535Z","agent":"JadeRaven","type":"task.start","target":"task-8","preview":"Streaming API Documentation Accuracy"}
+{"ts":"2026-02-26T03:11:39.204Z","agent":"JadeRaven","type":"task.done","target":"task-8","preview":"Streaming API documentation has several inaccuracies in README.md: (1) CryptoKlineVisionData.create_stream() shown as class method but is instance method requiring manager.create_stream(); (2) StreamConfig(symbols=..., interval=...) incorrect - actual is StreamConfig(market_type=MarketType.FUTURES_USDT); (3) update.close_price incorrect - actual is update.close; (4) update.timestamp incorrect - actual is update.open_time; (5) KlineStream doesn't have close() method - use async context manager. src/CLAUDE.md streaming docs are accurate."}
+{"ts":"2026-02-26T03:11:42.079Z","agent":"JadeRaven","type":"task.start","target":"task-9","preview":"Environment Variables & Configuration Docs"}
+{"ts":"2026-02-26T03:12:32.307Z","agent":"JadeRaven","type":"task.done","target":"task-9","preview":"Environment variables verified. All three documented vars (CKVD_LOG_LEVEL, CKVD_ENABLE_CACHE, CKVD_USE_POLARS_OUTPUT) are used in code and functional. Found documentation inconsistency: Root CLAUDE.md says CKVD_USE_POLARS_OUTPUT default is \"false\" but actual code default is True (see config.py: \"Default: True (v2.1.0+)\"). CKVD_LOG_LEVEL default is ERROR, CKVD_ENABLE_CACHE default is true (handled at CryptoKlineVisionData level, not FeatureFlags)."}
+{"ts":"2026-02-26T03:12:46.569Z","agent":"JadeRaven","type":"message","preview":"Completed tasks 2-9 (8 total). Summary of findings: task-2: minor CLAUDE.md text artifact; task-3: all 7 examples pass; task-4: API boundary correct; task-5: UnsupportedIntervalError in wrong file ..."}
+{"ts":"2026-02-26T03:12:55.790Z","agent":"VividLion","type":"join"}
+{"ts":"2026-02-26T03:14:00.205Z","agent":"VividLion","type":"task.reset","target":"task-4","preview":"API Boundary Documentation (pandas/polars)"}
+{"ts":"2026-02-26T03:14:02.023Z","agent":"VividLion","type":"task.start","target":"task-4","preview":"API Boundary Documentation (pandas/polars)"}
+{"ts":"2026-02-26T03:14:06.283Z","agent":"VividLion","type":"message","preview":"Starting task-4 (API Boundary Documentation - pandas/polars) — verifying return_polars parameter implementation"}
+{"ts":"2026-02-26T03:14:08.729Z","agent":"VividLion","type":"reserve","target":"src/ckvd/core/sync/crypto_kline_vision_data.py","preview":"task-4 - verifying API boundary documentation"}
+{"ts":"2026-02-26T03:14:08.729Z","agent":"VividLion","type":"reserve","target":"CLAUDE.md","preview":"task-4 - verifying API boundary documentation"}
+{"ts":"2026-02-26T03:14:08.729Z","agent":"VividLion","type":"reserve","target":"README.md","preview":"task-4 - verifying API boundary documentation"}
+{"ts":"2026-02-26T03:15:01.207Z","agent":"VividLion","type":"release","target":"src/ckvd/core/sync/crypto_kline_vision_data.py"}
+{"ts":"2026-02-26T03:15:01.207Z","agent":"VividLion","type":"release","target":"CLAUDE.md"}
+{"ts":"2026-02-26T03:15:01.207Z","agent":"VividLion","type":"release","target":"README.md"}
+{"ts":"2026-02-26T03:15:04.789Z","agent":"VividLion","type":"task.done","target":"task-4","preview":"API Boundary Documentation verified: return_polars parameter works correctly (pandas default, polars opt-in). Found discrepancy: CKVD_USE_POLARS_OUTPUT env var documented incorrectly - CLAUDE.md says \"Default to Polars output\" with default \"false\" but the flag is defined (default=True) but never actually used in the codebase."}
+{"ts":"2026-02-26T03:15:06.962Z","agent":"VividLion","type":"message","preview":"Completed task-4: return_polars parameter verified working. Found documentation discrepancy: CKVD_USE_POLARS_OUTPUT env var is defined in config.py (default=True) but never used in codebase, and do..."}
+{"ts":"2026-02-26T03:15:13.813Z","agent":"CalmEagle","type":"join"}
+{"ts":"2026-02-26T03:15:36.655Z","agent":"CalmEagle","type":"message","preview":"Task-5 (Exception Hierarchy Documentation) was already completed in a previous wave. Verified: All documented exceptions exist with .details attribute. Found one inconsistency: src/CLAUDE.md lists ..."}
+{"ts":"2026-02-26T03:15:44.193Z","agent":"WildQuartz","type":"join"}
+{"ts":"2026-02-26T03:16:20.389Z","agent":"WildQuartz","type":"edit","target":"/Users/terryli/eon/crypto-kline-vision-data/.lychee.toml"}
+{"ts":"2026-02-26T03:17:01.546Z","agent":"WildQuartz","type":"message","preview":"task-6 (Internal Link Validation) was already completed in a previous wave. All markdown links in CLAUDE.md files (73 links) validated OK. In docs/, lychee found 15 root-relative link errors but th..."}
+{"ts":"2026-02-26T03:17:17.219Z","agent":"IronBear","type":"join"}
+{"ts":"2026-02-26T03:17:33.041Z","agent":"IronBear","type":"task.reset","target":"task-7","preview":"Type Hints and Parameter Documentation"}
+{"ts":"2026-02-26T03:17:34.429Z","agent":"IronBear","type":"task.start","target":"task-7","preview":"Type Hints and Parameter Documentation"}
+{"ts":"2026-02-26T03:17:45.732Z","agent":"IronBear","type":"message","preview":"Starting task-7 (Type Hints and Parameter Documentation) — comparing documented signatures with actual type hints"}

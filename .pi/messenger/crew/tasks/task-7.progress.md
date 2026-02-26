@@ -1,0 +1,2 @@
+[2026-02-26T03:05:51.236Z] (system) Assigned to crew-worker (attempt 1)
+[2026-02-26T03:19:00.640Z] (IronBear) Analyzed CryptoKlineVisionData.get_data() and fetch_market_data() type hints vs documentation. Found 3 discrepancies: 1) enforce_source type hint says str but accepts str|DataSource, 2) get_data has undocumented params (include_source_info, auto_reindex, chart_type), 3) create() factory method not documented

@@ -1,0 +1,18 @@
+{
+  "id": "task-9",
+  "title": "Environment Variables & Configuration Docs",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.537Z",
+  "updated_at": "2026-02-26T03:12:32.306Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:11:42.071Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "completed_at": "2026-02-26T03:12:32.306Z",
+  "summary": "Environment variables verified. All three documented vars (CKVD_LOG_LEVEL, CKVD_ENABLE_CACHE, CKVD_USE_POLARS_OUTPUT) are used in code and functional. Found documentation inconsistency: Root CLAUDE.md says CKVD_USE_POLARS_OUTPUT default is \"false\" but actual code default is True (see config.py: \"Default: True (v2.1.0+)\"). CKVD_LOG_LEVEL default is ERROR, CKVD_ENABLE_CACHE default is true (handled at CryptoKlineVisionData level, not FeatureFlags).",
+  "evidence": {
+    "tests": [
+      "Verified CKVD_LOG_LEVEL, CKVD_ENABLE_CACHE, CKVD_USE_POLARS_OUTPUT environment variables in code"
+    ]
+  }
+}

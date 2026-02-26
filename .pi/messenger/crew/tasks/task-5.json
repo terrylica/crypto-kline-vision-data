@@ -1,0 +1,18 @@
+{
+  "id": "task-5",
+  "title": "Exception Hierarchy Documentation",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-02-26T03:05:48.536Z",
+  "updated_at": "2026-02-26T03:09:29.473Z",
+  "attempt_count": 1,
+  "started_at": "2026-02-26T03:08:37.547Z",
+  "base_commit": "a1e3ecada039cf4baf0548d80ebbe1dc7fea1d4d",
+  "completed_at": "2026-02-26T03:09:29.473Z",
+  "summary": "Exception hierarchy verified. All documented exceptions exist with .details attribute. Found one documentation inconsistency: src/CLAUDE.md lists UnsupportedIntervalError under \"REST API Exceptions\" but it's actually in vision_exceptions.py (not rest_exceptions.py). All other exceptions match their documented locations.",
+  "evidence": {
+    "tests": [
+      "Exception import tests verified all documented exceptions exist and have .details attribute"
+    ]
+  }
+}
