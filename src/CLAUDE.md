@@ -155,7 +155,13 @@ The Failover Control Protocol orchestrates data retrieval:
 
 Key methods:
 
-- `get_data()` - Main entry point, implements FCP
+- `get_data(symbol, start_time, end_time, interval, *, chart_type=None, include_source_info=True, enforce_source=DataSource.AUTO, auto_reindex=True, return_polars=False)` - Main FCP entry point
+  - `chart_type`: Override instance chart type (e.g. `ChartType.FUNDING_RATE`)
+  - `include_source_info`: Adds `_data_source` column (CACHE/VISION/REST) to result
+  - `enforce_source`: Force a specific source; `DataSource.AUTO` = FCP default
+  - `auto_reindex`: Fill time gaps with NaN rows to create complete time series
+  - `return_polars`: Return `pl.DataFrame` instead of `pd.DataFrame`
+  - `enforce_source` accepts `DataSource` enum **or** its string name (e.g. `"CACHE"`, `"REST"`)
 - `_get_from_cache()` - Check local Arrow cache (no-op when `use_cache=False`)
 - `_save_to_cache()` - Persist to Arrow cache (no-op when `use_cache=False`)
 - `_fetch_from_vision()` - Fetch from Binance Vision
@@ -225,7 +231,7 @@ StreamingError (base, NOT ValueError)  # All carry .details dict (GitHub #23)
 ├── StreamMessageParseError           # JSON decoding or schema validation fails
 └── StreamBackpressureError           # Consumer too slow, queue limit exceeded
 
-UnsupportedIntervalError (ValueError)  # Also carries .details dict
+UnsupportedIntervalError (ValueError)  # In vision_exceptions.py — also carries .details dict
 ```
 
 **Exception `.details` dict** (GitHub #23): All exception base classes accept `details: dict[str, Any] | None = None` keyword arg. Default is `{}` (never `None`). `DataNotAvailableError` auto-populates `.details` from its structured attributes (symbol, market_type, requested_start, earliest_available). Backward compatible — existing `raise RestAPIError("msg")` still works.
@@ -251,15 +257,12 @@ import asyncio
 async def stream_live_data():
     manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
-    config = StreamConfig(
-        market_type=MarketType.FUTURES_USDT,
-        confirmed_only=True,  # Only @klines with k.x (candle confirmed)
-        queue_maxsize=1000,   # Drop oldest if queue fills
-        compression=None      # No compression
-    )
-
-    async with manager.create_stream(config) as stream:
-        async for kline_update in stream.messages():
+    async with manager.create_stream(
+        confirmed_only=True,   # Only @klines with k.x (candle confirmed)
+        queue_maxsize=1000,    # Drop-newest backpressure queue size
+    ) as stream:
+        await stream.subscribe("BTCUSDT", "1h")
+        async for kline_update in stream:
             # KlineUpdate: open_time, close, is_closed, symbol, interval, open, high, low, volume
             print(f"{kline_update.symbol} {kline_update.interval}: {kline_update.close}")
 
@@ -277,7 +280,7 @@ from ckvd import CryptoKlineVisionData, DataProvider, MarketType
 manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
 # Iterator-based sync API — internally uses threading
-for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1, confirmed_only=True):
+for kline_update in manager.stream_data_sync("BTCUSDT", "1h", confirmed_only=True):
     print(f"Update: {kline_update.open_time} → {kline_update.close}")
     # Yields KlineUpdate objects one-by-one
     # Stop by breaking out of loop
@@ -330,8 +333,9 @@ from ckvd.utils.for_core.streaming_exceptions import (
 )
 
 try:
-    async with manager.create_stream(config) as stream:
-        async for update in stream.messages():
+    async with manager.create_stream(confirmed_only=True) as stream:
+        await stream.subscribe("BTCUSDT", "1h")
+        async for update in stream:
             pass
 except StreamConnectionError as e:
     print(f"Connection failed: {e}")
@@ -357,7 +361,7 @@ df_historical = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1)
 print(f"Historical: {len(df_historical)} candles")
 
 # Stream future updates
-for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1):
+for kline_update in manager.stream_data_sync("BTCUSDT", "1h"):
     # Each update is a KlineUpdate object
     print(f"Live: {kline_update.open_time} → {kline_update.close}")
     # Combine with historical_df as needed

@@ -166,40 +166,37 @@ Real-time kline updates via WebSocket. Requires `pip install crypto-kline-vision
 **Sync iteration**:
 
 ```python
-from ckvd import CryptoKlineVisionData, DataProvider, MarketType, StreamConfig
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
 
-# Create stream
-stream = CryptoKlineVisionData.create_stream(
-    DataProvider.BINANCE,
-    MarketType.FUTURES_USDT,
-    config=StreamConfig(symbols=["BTCUSDT", "ETHUSDT"], interval="1h")
-)
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
-# Iterate kline updates synchronously
-for update in stream.stream_data_sync():
-    print(f"{update.symbol}: {update.close_price}")
+# Synchronous iterator — internally starts a WebSocket in a background thread
+for update in manager.stream_data_sync("BTCUSDT", "1h"):
+    print(f"{update.symbol}: {update.close}")
     if update.is_closed:
         print("  → Candle closed")
+
+manager.close()
 ```
 
 **Async iteration**:
 
 ```python
 async def process_stream():
-    stream = CryptoKlineVisionData.create_stream(
-        DataProvider.BINANCE,
-        MarketType.FUTURES_USDT,
-        config=StreamConfig(symbols=["BTCUSDT"], interval="1h")
-    )
+    manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
-    async for update in stream.stream_data():
-        print(f"{update.symbol}: {update.close_price} ({update.volume} vol)")
+    async with manager.create_stream(confirmed_only=True) as stream:
+        await stream.subscribe("BTCUSDT", "1h")
+        async for update in stream:
+            print(f"{update.symbol}: {update.close} ({update.volume} vol)")
+
+    manager.close()
 ```
 
 Streaming features:
 
 - **Automatic reconnect**: State machine handles connection drops
-- **KlineUpdate**: Named tuple with symbol, open/high/low/close/volume, is_closed, timestamp
+- **KlineUpdate**: Frozen dataclass with symbol, open/high/low/close/volume, open_time, is_closed
 - **Rate-limited**: Respects Binance connection limits (10 concurrent streams)
 
 ### Error Handling
@@ -221,24 +218,29 @@ except (RestAPIError, VisionAPIError) as e:
 Available when installing with `[streaming]` extra:
 
 ```python
-from ckvd import KlineUpdate, StreamConfig, KlineStream
+from ckvd import KlineUpdate, KlineStream
 
-# KlineUpdate: Real-time candle data
+# KlineUpdate: Frozen dataclass (real-time candle update)
 # - symbol: str
-# - open_price, high_price, low_price, close_price: float
+# - interval: str (e.g. "1h")
+# - open_time: datetime (UTC, start of candle)
+# - open, high, low, close: float
 # - volume: float
-# - is_closed: bool (whether candle period has ended)
-# - timestamp: datetime.datetime (UTC)
+# - is_closed: bool (True when k.x=True, candle is finalized)
+# - data_source: str (always "STREAMING")
 
-# StreamConfig: Configuration for real-time streams
-# - symbols: List[str]
-# - interval: str ("1m", "5m", "1h", "4h", "1d", etc.)
-# - buffer_size: int (default: 1000)
+# Async streaming (KlineStream):
+#   async with manager.create_stream(confirmed_only=True, queue_maxsize=1000) as stream:
+#       await stream.subscribe("BTCUSDT", "1h")
+#       async for update in stream:
+#           print(update.close)
+#
+# Sync streaming (iterator):
+#   for update in manager.stream_data_sync("BTCUSDT", "1h"):
+#       print(update.close)
 
-# KlineStream: Main streaming manager
-# - stream_data(): AsyncIterator[KlineUpdate]
-# - stream_data_sync(): Iterator[KlineUpdate]
-# - close(): Graceful shutdown
+# create_stream() kwargs: confirmed_only (default True), queue_maxsize (default 1000),
+#                         max_reconnect_attempts (default 5)
 ```
 
 ### Environment Variables
@@ -247,7 +249,7 @@ from ckvd import KlineUpdate, StreamConfig, KlineStream
 | ------------------------ | ---------------------------- | ------- |
 | `CKVD_LOG_LEVEL`         | Log level (DEBUG/INFO/ERROR) | ERROR   |
 | `CKVD_ENABLE_CACHE`      | Enable/disable cache         | true    |
-| `CKVD_USE_POLARS_OUTPUT` | Zero-copy Polars output      | false   |
+| `CKVD_USE_POLARS_OUTPUT` | Zero-copy Polars output      | true    |
 
 ## Development
 

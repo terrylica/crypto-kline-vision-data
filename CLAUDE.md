@@ -100,7 +100,7 @@ Stateless JSON-serializable API introspection. See [src/CLAUDE.md](src/CLAUDE.md
 
 ### Cache Toggle
 
-`use_cache=False` disables cache read/write. `CKVD_ENABLE_CACHE=false` env var also works. `enforce_source=CACHE` + `use_cache=False` raises `RuntimeError`. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#cache-toggle-issues).
+`use_cache=False` disables cache read/write. `CKVD_ENABLE_CACHE=false` env var also works. `enforce_source=DataSource.CACHE` + `use_cache=False` raises `ValueError`. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#cache-toggle-issues).
 
 ### Exception `.details`
 
@@ -112,7 +112,7 @@ All exceptions carry `.details: dict[str, Any]` (default `{}`, never `None`). Ma
 | ------------------------ | ---------------------------- | ------- |
 | `CKVD_LOG_LEVEL`         | Log level (DEBUG/INFO/ERROR) | ERROR   |
 | `CKVD_ENABLE_CACHE`      | Enable/disable Arrow cache   | true    |
-| `CKVD_USE_POLARS_OUTPUT` | Default to Polars output     | false   |
+| `CKVD_USE_POLARS_OUTPUT` | Default to Polars output     | true    |
 
 ### Security
 
