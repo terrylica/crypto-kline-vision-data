@@ -226,7 +226,12 @@ def get_market_capabilities(
     # Select the appropriate capabilities dictionary based on the provider
     capabilities_dict = OKX_MARKET_CAPABILITIES if data_provider.name == "OKX" else MARKET_CAPABILITIES
 
-    # Use name-based comparison for compatibility with module reloading
+    # Fast path: direct dict lookup (works when enum identity matches)
+    result = capabilities_dict.get(market_type)
+    if result is not None:
+        return result
+
+    # Slow path: name-based comparison for compatibility with module reloading
     for key, value in capabilities_dict.items():
         if market_type.name == key.name:
             return value

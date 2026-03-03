@@ -7,6 +7,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+import polars as pl
 
 from ckvd.utils.config import REST_IS_STANDARD
 from ckvd.utils.dataframe_utils import ensure_open_time_as_column, standardize_dataframe
@@ -208,6 +209,7 @@ def identify_missing_segments(
         gap_threshold=0.1,
         day_boundary_threshold=1.0,
         enforce_min_span=False,
+        pre_sorted=True,  # We sorted above, skip redundant sort
     )
     logger.debug(f"Gap detector found {stats['total_gaps']} gaps")
 
@@ -227,6 +229,88 @@ def identify_missing_segments(
     if missing_segments:
         missing_segments = merge_adjacent_ranges(missing_segments, interval)
     logger.debug(f"Final missing segments count: {len(missing_segments)}")
+    return missing_segments
+
+
+def identify_missing_segments_polars(
+    lf: pl.LazyFrame,
+    start_time: datetime,
+    end_time: datetime,
+    interval: Interval,
+    gap_threshold: float = 0.3,
+    day_boundary_threshold: float = 1.0,
+) -> list[tuple[datetime, datetime]]:
+    """Identify missing segments using Polars projection pushdown.
+
+    This function operates on a LazyFrame and only collects the open_time
+    column (projection pushdown), avoiding materialization of all columns.
+    Uses pl.col("open_time").diff() for O(n) gap detection entirely in Polars.
+
+    Args:
+        lf: Polars LazyFrame with at least an "open_time" column.
+        start_time: Expected start time of the data.
+        end_time: Expected end time of the data.
+        interval: Time interval between data points.
+        gap_threshold: Fraction above expected interval to flag as gap (default 0.3 = 30%).
+        day_boundary_threshold: Separate threshold for day boundary transitions (default 1.0).
+
+    Returns:
+        List of (start, end) tuples representing missing segments.
+    """
+    logger.debug(f"[POLARS GAP] Identifying missing segments between {start_time} and {end_time}")
+
+    expected_seconds = interval.to_seconds()
+    expected_duration = timedelta(seconds=expected_seconds)
+    gap_limit = expected_duration * (1 + gap_threshold)
+    day_gap_limit = expected_duration * (1 + day_boundary_threshold)
+    interval_offset = timedelta(seconds=expected_seconds)
+
+    # Projection pushdown: only collect open_time, sorted
+    times_df = lf.select("open_time").sort("open_time").collect()
+
+    if times_df.is_empty():
+        logger.debug("[POLARS GAP] LazyFrame is empty, entire range is missing")
+        return [(start_time, end_time)]
+
+    times = times_df["open_time"]
+    min_time = times[0]
+    max_time = times[-1]
+    logger.debug(f"[POLARS GAP] Data spans {min_time} to {max_time} ({len(times)} rows)")
+
+    # Compute diffs using Polars — O(n) vectorized
+    diffs = times.diff()
+
+    # Detect which transitions cross a day boundary
+    dates = times.dt.truncate("1d")
+    dates_shifted = dates.shift(-1)
+    crosses_day = dates != dates_shifted
+
+    # Build gap list
+    missing_segments: list[tuple[datetime, datetime]] = []
+
+    for i in range(1, len(times)):
+        diff = diffs[i]
+        if diff is None:
+            continue
+        is_day_boundary = crosses_day[i - 1]
+        threshold = day_gap_limit if is_day_boundary else gap_limit
+        if diff > threshold:
+            gap_start = times[i - 1] + interval_offset
+            gap_end = times[i]
+            missing_segments.append((gap_start, gap_end))
+
+    # Check boundaries
+    if min_time > start_time:
+        missing_segments.insert(0, (start_time, min_time))
+    if max_time < end_time:
+        boundary_end = max_time + interval_offset
+        if boundary_end < end_time:
+            missing_segments.append((boundary_end, end_time))
+
+    if missing_segments:
+        missing_segments = merge_adjacent_ranges(missing_segments, interval)
+
+    logger.debug(f"[POLARS GAP] Found {len(missing_segments)} missing segments")
     return missing_segments
 
 
@@ -260,15 +344,23 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
         # See: /tmp/memory_audit_findings.md - Priority 1 fix
         return standardize_columns(dfs[0])
 
-    # Log information about DataFrames to be merged
-    logger.debug(f"Merging {len(dfs)} DataFrames")
+    # Filter out empty DataFrames before processing (avoids unnecessary work in concat)
+    non_empty_dfs = [df for df in dfs if not df.empty]
+    if not non_empty_dfs:
+        logger.warning("All DataFrames are empty after filtering")
+        from ckvd.utils.config import create_empty_dataframe
+
+        return create_empty_dataframe()
+
+    if len(non_empty_dfs) == 1:
+        logger.debug("Only one non-empty DataFrame after filtering, standardizing and returning")
+        return standardize_columns(non_empty_dfs[0])
+
+    dfs = non_empty_dfs
+    logger.debug(f"Merging {len(dfs)} non-empty DataFrames")
 
     # Ensure all DataFrames have open_time as a column, not just an index
     for i, df in enumerate(dfs):
-        if df.empty:
-            logger.warning(f"DataFrame {i} is empty, skipping")
-            continue
-
         if "open_time" not in df.columns:
             logger.debug(f"Converting index to open_time column in DataFrame {i}")
             if df.index.name == "open_time":

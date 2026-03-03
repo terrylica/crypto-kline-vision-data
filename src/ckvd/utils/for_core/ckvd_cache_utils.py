@@ -23,6 +23,21 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import ChartType, DataProvider, Interval, MarketType
 
 
+def _batch_scan_ipc(paths: list[str | Path]) -> pl.LazyFrame:
+    """Batch-scan multiple Arrow IPC files in a single call.
+
+    More efficient than N individual pl.scan_ipc() calls because Polars builds
+    a single query plan for all files.
+
+    Args:
+        paths: List of Arrow IPC file paths.
+
+    Returns:
+        Single Polars LazyFrame scanning all files.
+    """
+    return pl.scan_ipc(paths)
+
+
 def _scan_cache_file(cache_path: str | Path) -> pl.LazyFrame:
     """Detect cache file format via magic bytes and return a LazyFrame scanner.
 
@@ -160,7 +175,8 @@ def get_cache_lazyframes(
 ) -> list[pl.LazyFrame]:
     """Get LazyFrames from cache for use with PolarsDataPipeline.
 
-    This function returns a list of filtered LazyFrames, one per cache file found.
+    Uses batch pl.scan_ipc() with a list of paths for efficient multi-file scanning
+    instead of per-file scan calls. Returns a single filtered LazyFrame in a list.
     The caller (PolarsDataPipeline) is responsible for concatenation and merge.
 
     This enables predicate pushdown and lazy evaluation through the entire pipeline.
@@ -188,12 +204,11 @@ def get_cache_lazyframes(
     current_date = pendulum.instance(start_time).start_of("day")
     end_date = pendulum.instance(end_time).start_of("day")
 
-    lazy_frames: list[pl.LazyFrame] = []
+    # Collect all valid cache file paths first
+    valid_paths: list[Path] = []
 
-    # Iterate through days
     while current_date <= end_date:
         try:
-            # Get cache path for this day
             cache_path = fs_handler.get_local_path_for_data(
                 symbol=symbol,
                 interval=interval,
@@ -202,34 +217,37 @@ def get_cache_lazyframes(
                 chart_type=chart_type,
             )
 
-            # Check if cache file exists
             if fs_handler.exists(cache_path):
                 logger.debug(f"Found cache file: {cache_path}")
-
-                try:
-                    # Use < end_time (exclusive) for consistency with OHLCV semantics:
-                    # open_time represents the START of a candle period, so a candle with
-                    # open_time == end_time would represent data AFTER the requested range.
-                    lf = _scan_cache_file(cache_path)
-
-                    lf = lf.filter((pl.col("open_time") >= start_time) & (pl.col("open_time") < end_time)).with_columns(
-                        pl.lit("CACHE").alias("_data_source")
-                    )
-
-                    lazy_frames.append(lf)
-                    logger.debug(f"Added LazyFrame for {current_date.format('YYYY-MM-DD')}")
-                except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
-                    logger.error(f"Error scanning cache file {cache_path}: {e}")
+                valid_paths.append(cache_path)
             else:
                 logger.debug(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
         except (OSError, ValueError, TypeError) as e:
             logger.error(f"Error processing cache for {current_date.format('YYYY-MM-DD')}: {e}")
 
-        # Move to next day
         current_date = current_date.add(days=1)
 
-    logger.debug(f"Returning {len(lazy_frames)} cache LazyFrames")
-    return lazy_frames
+    if not valid_paths:
+        logger.debug("Returning 0 cache LazyFrames")
+        return []
+
+    # Batch scan: single pl.scan_ipc() call with all paths instead of N individual calls.
+    # Cache always writes Arrow IPC format, so magic byte detection is unnecessary.
+    try:
+        lf = _batch_scan_ipc(valid_paths)
+
+        # Use < end_time (exclusive) for consistency with OHLCV semantics:
+        # open_time represents the START of a candle period, so a candle with
+        # open_time == end_time would represent data AFTER the requested range.
+        lf = lf.filter(
+            (pl.col("open_time") >= start_time) & (pl.col("open_time") < end_time)
+        ).with_columns(pl.lit("CACHE").alias("_data_source"))
+
+        logger.debug(f"Returning 1 batch LazyFrame from {len(valid_paths)} cache file(s)")
+        return [lf]
+    except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
+        logger.error(f"Error batch-scanning {len(valid_paths)} cache files: {e}")
+        return []
 
 
 def get_from_cache(
@@ -271,15 +289,11 @@ def get_from_cache(
     current_date = pendulum.instance(start_time).start_of("day")
     end_date = pendulum.instance(end_time).start_of("day")
 
-    # MEMORY OPTIMIZATION (Round 5): Keep everything as LazyFrames through the loop.
-    # Single .collect(engine="streaming") after pl.concat() instead of N per-day collections.
-    # For a 30-day request, this reduces from 30 materializations to 1.
-    daily_lfs: list[pl.LazyFrame] = []
+    # Collect all valid cache file paths first
+    valid_paths: list[Path] = []
 
-    # Iterate through days
     while current_date <= end_date:
         try:
-            # Get cache path for this day
             cache_path = fs_handler.get_local_path_for_data(
                 symbol=symbol,
                 interval=interval,
@@ -288,42 +302,38 @@ def get_from_cache(
                 chart_type=chart_type,
             )
 
-            # Check if cache file exists
             if fs_handler.exists(cache_path):
                 logger.info(f"Loading from cache: {cache_path}")
-
-                # Use Polars LazyFrame with predicate pushdown — stays lazy until final collect
-                try:
-                    lf = _scan_cache_file(cache_path)
-
-                    # Apply time range filter and add source info as lazy operations
-                    filtered_lf = lf.filter(
-                        (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
-                    ).with_columns(pl.lit("CACHE").alias("_data_source"))
-
-                    daily_lfs.append(filtered_lf)
-                    logger.debug(f"Added LazyFrame for {current_date.format('YYYY-MM-DD')}")
-                except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
-                    logger.error(f"Error scanning cache file {cache_path}: {e}")
+                valid_paths.append(cache_path)
             else:
                 logger.info(f"No cache file found for {current_date.format('YYYY-MM-DD')}")
         except (OSError, ValueError, TypeError) as e:
             logger.error(f"Error processing cache for {current_date.format('YYYY-MM-DD')}: {e}")
 
-        # Move to next day
         current_date = current_date.add(days=1)
 
-    # Single collect: concat all LazyFrames and materialize once
-    if daily_lfs:
-        combined_lf = pl.concat(daily_lfs)
-        combined_pl = combined_lf.collect(engine="streaming")
+    # Batch scan: single pl.scan_ipc() call with all paths, single collect.
+    # Cache always writes Arrow IPC format, so magic byte detection is unnecessary.
+    if valid_paths:
+        try:
+            lf = _batch_scan_ipc(valid_paths)
+
+            # Apply time range filter and add source info as lazy operations
+            combined_lf = lf.filter(
+                (pl.col("open_time") >= start_time) & (pl.col("open_time") <= end_time)
+            ).with_columns(pl.lit("CACHE").alias("_data_source"))
+
+            combined_pl = combined_lf.collect(engine="streaming")
+        except (OSError, pl.exceptions.ComputeError, ValueError, KeyError) as e:
+            logger.error(f"Error batch-scanning {len(valid_paths)} cache files: {e}")
+            combined_pl = pl.DataFrame()
         if len(combined_pl) > 0:
             result_df = combined_pl.to_pandas()
             # Ensure datetime columns are timezone-aware (Polars to_pandas may lose tz info)
             if "open_time" in result_df.columns and pd.api.types.is_datetime64_any_dtype(result_df["open_time"]):
                 if result_df["open_time"].dt.tz is None:
                     result_df["open_time"] = result_df["open_time"].dt.tz_localize("UTC")
-            logger.info(f"Loaded {len(result_df)} total records from {len(daily_lfs)} cache file(s)")
+            logger.info(f"Loaded {len(result_df)} total records from {len(valid_paths)} cache file(s)")
         else:
             result_df = pd.DataFrame()
     else:

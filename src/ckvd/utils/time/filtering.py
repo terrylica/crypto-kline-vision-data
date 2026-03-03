@@ -85,8 +85,7 @@ def filter_dataframe_by_time(
     start_time = enforce_utc_timezone(start_time)
     end_time = enforce_utc_timezone(end_time)
 
-    logger.debug(f"Filtering DataFrame by time: {start_time} to {end_time}")
-    logger.debug(f"Before filtering: {len(df)} rows")
+    _debug_enabled = logger.isEnabledFor("DEBUG")
 
     # FAIL-FAST: Timezone-aware timestamp debugging with rich exception context
     from ckvd.utils.time.timestamp_debug import (
@@ -95,8 +94,14 @@ def filter_dataframe_by_time(
         trace_dataframe_timestamps,
     )
 
-    # Rich timezone-aware debugging - fails fast on timezone issues
-    trace_dataframe_timestamps(df, time_column, start_time, end_time)
+    if _debug_enabled:
+        logger.debug(f"Filtering DataFrame by time: {start_time} to {end_time}")
+        logger.debug(f"Before filtering: {len(df)} rows")
+        # Rich timezone-aware debugging - fails fast on timezone issues
+        trace_dataframe_timestamps(df, time_column, start_time, end_time)
+
+    # analyze_filter_conditions raises TimezoneDebugError for impossible filter ranges
+    # (fail-fast safety check, not just debug logging)
     analyze_filter_conditions(df, start_time, end_time, time_column)
 
     # Check if the time column exists
@@ -159,6 +164,7 @@ def filter_dataframe_by_time(
                 logger.debug(f"Last timestamp: {max_ts} (represents BEGINNING of candle)")
 
     # FAIL-FAST: Timezone-aware validation of filtering results
-    compare_filtered_results(df, filtered_df, start_time, end_time, time_column)
+    if _debug_enabled:
+        compare_filtered_results(df, filtered_df, start_time, end_time, time_column)
 
     return filtered_df

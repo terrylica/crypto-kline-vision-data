@@ -25,6 +25,10 @@ from ckvd.utils.market.enums import DataProvider, Interval, MarketType
 # Allows: uppercase letters, digits, underscore (BTCUSD_PERP), hyphen (BTC-USDT, BTC-240315-50000-C)
 _SYMBOL_SAFE_PATTERN = re.compile(r"^[A-Z0-9_-]{1,30}$")
 
+# Cached frozensets of supported intervals per market type — avoids repeated
+# get_market_capabilities() + list scan in is_interval_supported() hot path
+_SUPPORTED_INTERVALS_CACHE: dict[MarketType, frozenset[Interval]] = {}
+
 __all__ = [
     "get_default_symbol",
     "get_market_symbol_format",
@@ -44,8 +48,12 @@ def is_interval_supported(market_type: MarketType, interval: Interval) -> bool:
     Returns:
         bool: True if the interval is supported for the market type, False otherwise
     """
-    capabilities = get_market_capabilities(market_type)
-    return interval in capabilities.supported_intervals
+    cached = _SUPPORTED_INTERVALS_CACHE.get(market_type)
+    if cached is None:
+        capabilities = get_market_capabilities(market_type)
+        cached = frozenset(capabilities.supported_intervals)
+        _SUPPORTED_INTERVALS_CACHE[market_type] = cached
+    return interval in cached
 
 
 def get_minimum_interval(market_type: MarketType) -> Interval:

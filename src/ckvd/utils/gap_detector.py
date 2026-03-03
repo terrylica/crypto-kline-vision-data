@@ -58,6 +58,7 @@ def detect_gaps(
     gap_threshold: float = 0.3,  # 30% threshold
     day_boundary_threshold: float = 1.5,  # Use higher threshold for day boundaries
     enforce_min_span: bool = True,  # Enforce minimum timespan requirement
+    pre_sorted: bool = False,  # Skip sort if caller guarantees sorted input
 ) -> tuple[list[Gap], dict[str, Any]]:
     """Detect gaps in time series data based on a fixed interval.
 
@@ -77,6 +78,7 @@ def detect_gaps(
             (default 1.5 = 150% for greater tolerance)
         enforce_min_span: If True, require dataset to span at least 23 hours
             to prevent analyzing individual daily files
+        pre_sorted: If True, skip sorting the DataFrame (caller guarantees sorted input)
 
     Returns:
         Tuple containing:
@@ -121,7 +123,11 @@ def detect_gaps(
     # Ensure DataFrame is sorted by time
     # MEMORY OPTIMIZATION (Round 6): Use ignore_index=True instead of chaining
     # .sort_values().reset_index(drop=True) — avoids a redundant DataFrame copy.
-    df_sorted = df.sort_values(time_column, ignore_index=True)
+    # Round 11: Skip sort when caller guarantees pre-sorted input.
+    if pre_sorted:
+        df_sorted = df.reset_index(drop=True)
+    else:
+        df_sorted = df.sort_values(time_column, ignore_index=True)
 
     # Get expected interval in seconds
     expected_seconds = interval.to_seconds()

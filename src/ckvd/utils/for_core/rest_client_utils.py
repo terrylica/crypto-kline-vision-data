@@ -10,11 +10,11 @@ This module provides common utilities for REST API client operations including:
 # Refactoring: Fix silent failure patterns (BLE001)
 """
 
-import json
 from datetime import datetime
 from typing import Any
 
-import requests
+import httpx
+import orjson
 
 from ckvd.utils.config import DEFAULT_HTTP_TIMEOUT_SECONDS, HTTP_OK
 from ckvd.utils.for_core.rest_exceptions import (
@@ -32,24 +32,23 @@ from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import Interval
 
 
-def create_optimized_client() -> requests.Session:
+def create_optimized_client() -> httpx.Client:
     """Create an optimized HTTP client for REST API requests.
 
     Returns:
-        HTTP client instance optimized for performance
+        httpx.Client instance with connection pooling and timeouts.
     """
-    session = requests.Session()
-
-    # Configure the session with reasonable defaults
-    session.headers.update(
-        {
+    # Round 13: httpx.Client is thread-safe, supports connection pooling,
+    # and has built-in timeout configuration.
+    return httpx.Client(
+        headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json",
             "Content-Type": "application/json",
-        }
+        },
+        timeout=DEFAULT_HTTP_TIMEOUT_SECONDS,
+        follow_redirects=True,
     )
-
-    return session
 
 
 # Apply retry decorator at module level (default retry_count=3).
@@ -57,7 +56,7 @@ def create_optimized_client() -> requests.Session:
 # the entire decorated function in tests (no retry logic applied to mocks).
 @create_retry_decorator()
 def fetch_chunk(
-    client: requests.Session,
+    client: httpx.Client,
     endpoint: str,
     params: dict[str, Any],
     timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
@@ -106,10 +105,10 @@ def fetch_chunk(
                 logger.warning(f"Error response from {endpoint}: {error_msg}")
                 raise HTTPError(response.status_code, error_msg)
 
-            # Parse JSON response
+            # Parse JSON response with orjson (3-10x faster than stdlib json)
             try:
-                data = response.json()
-            except json.JSONDecodeError as e:
+                data = orjson.loads(response.content)
+            except orjson.JSONDecodeError as e:
                 logger.error(f"Failed to decode JSON response: {e}")
                 raise JSONDecodeError(f"Failed to decode JSON response: {e!s}") from e
 
@@ -122,18 +121,16 @@ def fetch_chunk(
 
             return data
 
-        except requests.ConnectionError as e:
+        except httpx.ConnectError as e:
             logger.error(f"Network connection error: {e}")
             raise NetworkError(f"Connection error: {e!s}") from e
-        except requests.Timeout as e:
+        except httpx.TimeoutException as e:
             logger.error(f"Request timeout: {e}")
             raise RestTimeoutError(f"Request timed out: {e!s}") from e
-        except requests.RequestException as e:
-            # Catch remaining requests library exceptions (after ConnectionError, Timeout)
-            if not isinstance(e, RestAPIError):  # Avoid wrapping our own exceptions
-                logger.error(f"Request error: {e}")
-                raise RestAPIError(f"Request error: {e!s}") from e
-            raise
+        except httpx.HTTPError as e:
+            # Catch remaining httpx exceptions (after ConnectError, TimeoutException)
+            logger.error(f"Request error: {e}")
+            raise RestAPIError(f"Request error: {e!s}") from e
 
     # Call the wrapped function
     return _fetch(client, endpoint, params, timeout)
@@ -218,6 +215,28 @@ def validate_request_params(symbol: str, interval: Interval, start_time: datetim
         raise ValueError(f"Interval must be an Interval enum, got {type(interval)}")
 
 
+_INTERVAL_MS: dict[Interval, int] = {
+    Interval.SECOND_1: 1_000,
+    Interval.MINUTE_1: 60_000,
+    Interval.MINUTE_3: 180_000,
+    Interval.MINUTE_5: 300_000,
+    Interval.MINUTE_15: 900_000,
+    Interval.MINUTE_30: 1_800_000,
+    Interval.HOUR_1: 3_600_000,
+    Interval.HOUR_2: 7_200_000,
+    Interval.HOUR_4: 14_400_000,
+    Interval.HOUR_6: 21_600_000,
+    Interval.HOUR_8: 28_800_000,
+    Interval.HOUR_12: 43_200_000,
+    Interval.DAY_1: 86_400_000,
+    Interval.DAY_3: 259_200_000,
+    Interval.WEEK_1: 604_800_000,
+    Interval.MONTH_1: 2_592_000_000,
+}
+
+_INTERVAL_BY_VALUE: dict[str, Interval] = {i.value: i for i in Interval}
+
+
 def get_interval_ms(interval: Interval) -> int:
     """Get the interval duration in milliseconds.
 
@@ -227,28 +246,7 @@ def get_interval_ms(interval: Interval) -> int:
     Returns:
         Interval duration in milliseconds
     """
-    # Map of interval values to milliseconds
-    interval_map = {
-        Interval.SECOND_1: 1000,  # 1 second
-        Interval.MINUTE_1: 60 * 1000,  # 1 minute
-        Interval.MINUTE_3: 3 * 60 * 1000,  # 3 minutes
-        Interval.MINUTE_5: 5 * 60 * 1000,  # 5 minutes
-        Interval.MINUTE_15: 15 * 60 * 1000,  # 15 minutes
-        Interval.MINUTE_30: 30 * 60 * 1000,  # 30 minutes
-        Interval.HOUR_1: 60 * 60 * 1000,  # 1 hour
-        Interval.HOUR_2: 2 * 60 * 60 * 1000,  # 2 hours
-        Interval.HOUR_4: 4 * 60 * 60 * 1000,  # 4 hours
-        Interval.HOUR_6: 6 * 60 * 60 * 1000,  # 6 hours
-        Interval.HOUR_8: 8 * 60 * 60 * 1000,  # 8 hours
-        Interval.HOUR_12: 12 * 60 * 60 * 1000,  # 12 hours
-        Interval.DAY_1: 24 * 60 * 60 * 1000,  # 1 day
-        Interval.DAY_3: 3 * 24 * 60 * 60 * 1000,  # 3 days
-        Interval.WEEK_1: 7 * 24 * 60 * 60 * 1000,  # 1 week
-        Interval.MONTH_1: 30 * 24 * 60 * 60 * 1000,  # 1 month (approximation)
-    }
-
-    # Return the interval duration
-    return interval_map.get(interval, 60 * 1000)  # Default to 1 minute if unknown
+    return _INTERVAL_MS.get(interval, 60_000)
 
 
 def parse_interval_string(interval_str: str, default_interval: Interval = Interval.MINUTE_1) -> Interval:
@@ -262,8 +260,8 @@ def parse_interval_string(interval_str: str, default_interval: Interval = Interv
         Interval enum
     """
     try:
-        # Try direct value lookup first
-        interval_enum = next((i for i in Interval if i.value == interval_str), None)
+        # O(1) dict lookup instead of O(n) enum scan
+        interval_enum = _INTERVAL_BY_VALUE.get(interval_str)
         if interval_enum is None:
             # Try by enum name if value lookup failed
             try:

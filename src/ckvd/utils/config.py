@@ -361,10 +361,10 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with standardized column names
     """
-    for old_name, new_name in COLUMN_NAME_MAPPING.items():
-        if old_name in df.columns and new_name not in df.columns:
-            df[new_name] = df[old_name]
-            df = df.drop(columns=[old_name])
+    # Single rename() call instead of per-column copy+drop (avoids N intermediate DataFrames)
+    rename_dict = {old: new for old, new in COLUMN_NAME_MAPPING.items() if old in df.columns and new not in df.columns}
+    if rename_dict:
+        df = df.rename(columns=rename_dict)
 
     return df
 

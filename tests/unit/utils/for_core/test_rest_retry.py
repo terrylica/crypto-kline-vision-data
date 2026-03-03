@@ -3,7 +3,7 @@
 Verifies:
 - create_retry_decorator() factory produces working decorators
 - RateLimitError is excluded from retry (immediate propagation)
-- RestAPIError/requests exceptions are retried
+- RestAPIError/httpx exceptions are retried
 - retry_count parameter is wired correctly
 - reraise=True propagates original exceptions (not RetryError)
 
@@ -12,8 +12,8 @@ Related: GitHub Issue #18 (Rate Limit Handling Overhaul), Phase 2
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import requests
 
 from ckvd.utils.for_core.rest_exceptions import (
     HTTPError,
@@ -113,8 +113,8 @@ class TestCreateRetryDecorator:
         assert exc_info.value.status_code == 503
 
     @patch("ckvd.utils.for_core.rest_retry.logger")
-    def test_retries_on_requests_exception(self, _mock_logger):
-        """requests.RequestException triggers retry."""
+    def test_retries_on_httpx_exception(self, _mock_logger):
+        """httpx.HTTPError triggers retry."""
         call_count = 0
 
         @create_retry_decorator(retry_count=2)
@@ -122,7 +122,7 @@ class TestCreateRetryDecorator:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise requests.ConnectionError("Connection refused")
+                raise httpx.ConnectError("Connection refused")
             return "ok"
 
         result = connection_fails()

@@ -17,6 +17,16 @@ from enum import Enum, auto
 # Pre-compiled regex pattern for parsing interval strings (performance optimization)
 INTERVAL_PATTERN = re.compile(r"(\d+)([smhdwM])")
 
+# Hoisted from Interval.to_seconds() — avoids per-call dict creation
+_TIME_MULTIPLIERS: dict[str, int] = {
+    "s": 1,
+    "m": 60,
+    "h": 3600,
+    "d": 86400,
+    "w": 604800,
+    "M": 2592000,  # Approximate - 30 days
+}
+
 __all__ = [
     "ChartType",
     "DataProvider",
@@ -264,24 +274,19 @@ class Interval(Enum):
         Raises:
             ValueError: If the interval format is invalid
         """
+        # O(1) pre-computed lookup instead of per-call regex + dict build
+        result = _INTERVAL_SECONDS.get(self)
+        if result is not None:
+            return result
+
+        # Fallback for any future enum values not yet in the lookup
         value = self.value
         match = INTERVAL_PATTERN.match(value)
         if not match:
             raise ValueError(f"Invalid interval format: {value}")
 
         num, unit = match.groups()
-        num = int(num)
-
-        multipliers = {
-            "s": 1,
-            "m": 60,
-            "h": 3600,
-            "d": 86400,
-            "w": 604800,
-            "M": 2592000,
-        }  # Approximate - using 30 days
-
-        return num * multipliers[unit]
+        return int(num) * _TIME_MULTIPLIERS[unit]
 
     @classmethod
     def get_default(cls) -> "Interval":
@@ -299,6 +304,14 @@ class Interval(Enum):
             str: String representation (e.g., "1m", "1h")
         """
         return self.value
+
+
+# Pre-computed Interval→seconds lookup — avoids per-call regex + dict build in to_seconds()
+_INTERVAL_SECONDS: dict["Interval", int] = {
+    i: int(m.group(1)) * _TIME_MULTIPLIERS[m.group(2)]
+    for i in Interval
+    if (m := INTERVAL_PATTERN.match(i.value))
+}
 
 
 def safe_enum_compare(enum1: Enum, enum2: Enum) -> bool:

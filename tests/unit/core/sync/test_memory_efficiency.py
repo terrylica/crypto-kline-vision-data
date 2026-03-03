@@ -945,14 +945,8 @@ class TestCacheSinglePolarsConversion:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
-        # Mock _scan_cache_file to return LazyFrames
-        day_counter = {"count": 0}
-
-        def mock_scan(path):
-            day_counter["count"] += 1
-            if day_counter["count"] == 1:
-                return day1_data.lazy()
-            return day2_data.lazy()
+        # Mock _batch_scan_ipc to return a LazyFrame with both days concatenated
+        combined_data = pl.concat([day1_data, day2_data])
 
         mock_fs = MagicMock()
         mock_fs.exists.return_value = True
@@ -960,7 +954,7 @@ class TestCacheSinglePolarsConversion:
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", side_effect=mock_scan),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=combined_data.lazy()),
         ):
             from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
 
@@ -1432,13 +1426,8 @@ class TestDeferredCacheCollection:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
-        day_counter = {"count": 0}
-
-        def mock_scan(path):
-            day_counter["count"] += 1
-            if day_counter["count"] == 1:
-                return day1_data.lazy()
-            return day2_data.lazy()
+        # Mock _batch_scan_ipc to return a LazyFrame with both days concatenated
+        combined_data = pl.concat([day1_data, day2_data])
 
         mock_fs = MagicMock()
         mock_fs.exists.return_value = True
@@ -1446,13 +1435,8 @@ class TestDeferredCacheCollection:
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", side_effect=mock_scan),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=combined_data.lazy()),
         ):
-            # end_time is exclusive (<), so use end of day 2 to cover exactly 2 days
-            # The loop iterates current_date <= end_date, and end_date = start_of_day(end_time)
-            # With end_time = base_time + 2 days, end_date = Jan 17 00:00, loop covers Jan 15, 16, 17
-            # Use <= filter in get_from_cache means we get data from all scanned files
-            # that fall within [start_time, end_time]
             result_df, missing = get_from_cache(
                 symbol="BTCUSDT",
                 interval=Interval.HOUR_1,
@@ -1464,10 +1448,8 @@ class TestDeferredCacheCollection:
             )
 
         assert not result_df.empty
-        # 3 cache files scanned (Jan 15, 16, 17), but day1 has 24h, day2 has 24h,
-        # day3 also returns day2_data (24h duplicated). Filter keeps all within range.
-        # Exact count depends on mock; verify data is present and sorted.
-        assert len(result_df) >= 48
+        # 2 days of data (24h each) = 48 rows
+        assert len(result_df) == 48
         assert result_df["open_time"].is_monotonic_increasing
 
     def test_empty_cache_returns_empty(self, base_time):
@@ -1514,7 +1496,7 @@ class TestDeferredCacheCollection:
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", return_value=day_data.lazy()),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day_data.lazy()),
         ):
             result_df, missing = get_from_cache(
                 symbol="BTCUSDT",
@@ -1549,7 +1531,7 @@ class TestDeferredCacheCollection:
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._scan_cache_file", return_value=day_data.lazy()),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day_data.lazy()),
         ):
             result_df, _ = get_from_cache(
                 symbol="BTCUSDT",

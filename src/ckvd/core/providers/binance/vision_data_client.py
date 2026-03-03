@@ -219,9 +219,10 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         # Initialize FSSpecVisionHandler for path handling
         self.fs_handler = FSSpecVisionHandler(base_cache_dir=self.cache_dir)
 
-        # Create httpx client instead of requests Session
+        # Create httpx client with connection pooling to match MAXIMUM_CONCURRENT_DOWNLOADS
         self._client = httpx.Client(
             timeout=30.0,  # Increased timeout for better reliability
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
             headers={
                 "User-Agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -461,14 +462,9 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 if checksum_file_size >= MIN_CHECKSUM_SIZE:
                     # Verify checksum if available
                     try:
-                        import time
-
                         from ckvd.utils.for_core.vision_checksum import (
                             calculate_sha256_direct,
                         )
-
-                        # Small delay to ensure filesystem sync
-                        time.sleep(0.1)
 
                         # Calculate the checksum
                         actual_checksum = calculate_sha256_direct(temp_file_path)
@@ -546,6 +542,8 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             f.seek(0)
 
                         # Read CSV with or without header based on detection
+                        # Note: pl.read_csv is ~2x faster raw, but .to_pandas() conversion
+                        # negates the benefit at Vision CSV sizes (1440 rows). Keeping pd.read_csv.
                         if has_header:
                             logger.info("Headers detected in CSV, reading with header=0")
                             df = pd.read_csv(csv_path, header=0)

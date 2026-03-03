@@ -12,7 +12,7 @@ Related: GitHub Issue #18 (Rate Limit Handling Overhaul), Phase 2
 import json
 import random
 
-import requests
+import httpx
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -28,7 +28,7 @@ MAX_RETRY_WAIT_SECONDS = 120
 
 
 class _RetryIfNotRateLimit(retry_if_exception_type):
-    """Retry on RestAPIError/requests exceptions, but NOT on RateLimitError.
+    """Retry on RestAPIError/httpx exceptions, but NOT on RateLimitError.
 
     RateLimitError indicates a per-minute rate limit from the exchange.
     Retrying after a short delay is harmful — it triggers repeat 429s and
@@ -36,7 +36,7 @@ class _RetryIfNotRateLimit(retry_if_exception_type):
     """
 
     def __init__(self):
-        super().__init__((RestAPIError, requests.RequestException, json.JSONDecodeError))
+        super().__init__((RestAPIError, httpx.HTTPError, json.JSONDecodeError))
 
     def __call__(self, retry_state):
         # Never retry RateLimitError

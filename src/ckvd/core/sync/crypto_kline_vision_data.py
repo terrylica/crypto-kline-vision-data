@@ -979,16 +979,23 @@ class CryptoKlineVisionData:
                         polars_pipeline.add_source(lf, "CACHE")
                     logger.info(f"[FCP] Cache contributed {len(cache_lazyframes)} LazyFrame(s) to pipeline")
 
-                    # Still need to identify missing ranges for Vision/REST steps
-                    # Collect cache data to check coverage
-                    cache_df = polars_pipeline.collect_pandas(use_streaming=True)
-                    if not cache_df.empty:
-                        from ckvd.utils.for_core.ckvd_time_range_utils import identify_missing_segments
+                    # Polars-native gap detection: only collects open_time column
+                    # (projection pushdown), avoids full DataFrame materialization.
+                    from ckvd.utils.for_core.ckvd_time_range_utils import identify_missing_segments_polars
 
-                        missing_ranges = identify_missing_segments(cache_df, aligned_start, aligned_end, interval)
-                        result_df = cache_df
+                    # Use the first cache LazyFrame for gap detection
+                    # (batch scan returns 1 LazyFrame from all files)
+                    missing_ranges = identify_missing_segments_polars(
+                        cache_lazyframes[0], aligned_start, aligned_end, interval
+                    )
+
+                    # Defer full collection — only collect if Vision/REST
+                    # won't run (no missing ranges) or after all steps complete.
+                    if not missing_ranges:
+                        result_df = polars_pipeline.collect_pandas(use_streaming=True)
                     else:
-                        missing_ranges = [(aligned_start, aligned_end)]
+                        # Collect cache data for merge with Vision/REST results
+                        result_df = polars_pipeline.collect_pandas(use_streaming=True)
                 else:
                     missing_ranges = [(aligned_start, aligned_end)]
                     logger.debug(f"[FCP] No cache data available, entire range marked as missing: {aligned_start} to {aligned_end}")

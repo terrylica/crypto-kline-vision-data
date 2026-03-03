@@ -432,12 +432,8 @@ class UnifiedCacheManager:
             metadata_entry["size_estimate_bytes"] = int(size_estimate)
             logger.debug(f"Preparing to save {len(df)} rows (~{size_estimate / 1024 / 1024:.2f} MB) to {cache_path}")
 
-            # Convert to pyarrow table
-            table = pa.Table.from_pandas(df)
-
-            # Write to file using Arrow IPC format (not Parquet)
-            with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
-                writer.write_table(table)
+            # Write to file using Arrow IPC format via Polars (faster than pyarrow manual sink)
+            pl.from_pandas(df).write_ipc(str(cache_path))
 
             # Update metadata
             metadata_entry["file_size_bytes"] = cache_path.stat().st_size
@@ -450,7 +446,7 @@ class UnifiedCacheManager:
             logger.debug(f"Successfully cached {len(df)} rows to {cache_path} ({metadata_entry['file_size_bytes'] / 1024 / 1024:.2f} MB)")
             return True
 
-        except (pa.ArrowInvalid, pa.ArrowIOError, OSError, TypeError) as e:
+        except (pa.ArrowInvalid, pa.ArrowIOError, pl.exceptions.ComputeError, OSError, TypeError) as e:
             logger.error(f"Error saving to cache for {cache_key}: {e}")
             return False
 

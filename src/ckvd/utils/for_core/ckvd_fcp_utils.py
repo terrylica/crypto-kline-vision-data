@@ -14,7 +14,7 @@ from ckvd.utils.for_core.ckvd_time_range_utils import (
     merge_dataframes,
 )
 from ckvd.utils.for_core.rest_exceptions import RateLimitError
-from ckvd.utils.for_core.vision_exceptions import UnsupportedIntervalError
+from ckvd.utils.for_core.vision_exceptions import UnsupportedIntervalError, VisionAPIError
 from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market_constraints import (
     Interval,
@@ -62,6 +62,10 @@ def process_vision_step(
 ) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
     """Process the Vision API step (Step 2) of the FCP mechanism.
 
+    Round 15: Fetches multiple missing ranges in parallel using ThreadPoolExecutor.
+    Vision API has no rate limits, so parallel fetching is safe and significantly
+    faster when multiple ranges are missing (e.g., 7-day request with empty cache).
+
     Args:
         fetch_from_vision_func: Function to fetch data from Vision API
         symbol: Symbol to retrieve data for
@@ -75,42 +79,85 @@ def process_vision_step(
     """
     logger.info("[FCP] STEP 2: Checking Vision API for missing data")
 
-    # Process each missing range (no copy needed - list is only iterated, not modified)
-    remaining_ranges = []
+    if not missing_ranges:
+        return result_df, []
 
     n_vision_ranges = len(missing_ranges)
-    for range_idx, (miss_start, miss_end) in enumerate(missing_ranges):
-        logger.debug(f"[FCP] Fetching from Vision API range {range_idx + 1}/{n_vision_ranges}: {miss_start} to {miss_end}")
 
+    def _fetch_single_range(miss_start: datetime, miss_end: datetime) -> tuple[tuple[datetime, datetime], pd.DataFrame]:
+        """Fetch a single Vision range (thread-safe — Vision has no rate limits)."""
         range_df = fetch_from_vision_func(symbol, miss_start, miss_end, interval)
+        if not range_df.empty and include_source_info and "_data_source" not in range_df.columns:
+            range_df["_data_source"] = "VISION"
+        return (miss_start, miss_end), range_df
 
-        if not range_df.empty:
-            # Add source info
-            if include_source_info and "_data_source" not in range_df.columns:
-                range_df["_data_source"] = "VISION"
+    # Collect results: successful fetches and failed ranges
+    vision_dfs: list[pd.DataFrame] = []
+    failed_ranges: list[tuple[datetime, datetime]] = []
+    successful_ranges: list[tuple[datetime, datetime]] = []
 
-            # If we already have data, merge with the new data
-            if not result_df.empty:
-                logger.debug(f"[FCP] Merging {len(range_df)} Vision records with existing {len(result_df)} records")
-                result_df = merge_dataframes([result_df, range_df])
+    if n_vision_ranges == 1:
+        # Single range — skip ThreadPoolExecutor overhead
+        (ms, me) = missing_ranges[0]
+        logger.debug(f"[FCP] Fetching from Vision API range 1/1: {ms} to {me}")
+        try:
+            (ms, me), range_df = _fetch_single_range(ms, me)
+            if not range_df.empty:
+                vision_dfs.append(range_df)
+                successful_ranges.append((ms, me))
             else:
-                # Otherwise just use the Vision data
-                result_df = range_df
+                logger.debug("[FCP] Vision API returned no data for range")
+                failed_ranges.append((ms, me))
+        except (VisionAPIError, OSError) as e:
+            logger.warning(f"[FCP] Vision fetch failed for range: {e}")
+            failed_ranges.append((ms, me))
+    else:
+        # Parallel fetch for multiple ranges (Vision API has no rate limits)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            # Check if Vision API returned all expected records or if there are gaps
-            if not result_df.empty:
-                # Identify any remaining missing segments from Vision API
-                missing_segments = identify_missing_segments(result_df, miss_start, miss_end, interval)
+        max_workers = min(n_vision_ranges, 8)
+        logger.debug(f"[FCP] Parallel Vision fetch: {n_vision_ranges} ranges with {max_workers} workers")
 
-                if missing_segments:
-                    logger.debug(f"[FCP] Vision API left {len(missing_segments)} missing segments")
-                    remaining_ranges.extend(missing_segments)
-                else:
-                    logger.debug("[FCP] Vision API provided complete coverage for this range")
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_fetch_single_range, ms, me): (ms, me)
+                for ms, me in missing_ranges
+            }
+
+            for future in as_completed(futures):
+                original_range = futures[future]
+                try:
+                    (ms, me), range_df = future.result()
+                    if not range_df.empty:
+                        logger.debug(f"[FCP] Vision returned {len(range_df)} records for {ms} to {me}")
+                        vision_dfs.append(range_df)
+                        successful_ranges.append((ms, me))
+                    else:
+                        logger.debug(f"[FCP] Vision API returned no data for {ms} to {me}")
+                        failed_ranges.append(original_range)
+                except (VisionAPIError, OSError) as e:
+                    logger.warning(f"[FCP] Vision fetch failed for range {original_range}: {e}")
+                    failed_ranges.append(original_range)
+
+    # Merge all Vision results at once (single merge instead of per-range merges)
+    if vision_dfs:
+        all_dfs = ([result_df] if not result_df.empty else []) + vision_dfs
+        if len(all_dfs) == 1:
+            result_df = all_dfs[0]
         else:
-            # Vision API returned no data for this range
-            logger.debug("[FCP] Vision API returned no data for range")
-            remaining_ranges.append((miss_start, miss_end))
+            logger.debug(f"[FCP] Merging {len(vision_dfs)} Vision results with existing data")
+            result_df = merge_dataframes(all_dfs)
+
+    # Determine remaining missing ranges
+    remaining_ranges: list[tuple[datetime, datetime]] = list(failed_ranges)
+
+    # Check for gaps in successfully fetched ranges
+    if not result_df.empty:
+        for miss_start, miss_end in successful_ranges:
+            missing_segments = identify_missing_segments(result_df, miss_start, miss_end, interval)
+            if missing_segments:
+                logger.debug(f"[FCP] Vision API left {len(missing_segments)} missing segments in {miss_start} to {miss_end}")
+                remaining_ranges.extend(missing_segments)
 
     # Update missing_ranges to only include what's still missing after Vision API
     if remaining_ranges:

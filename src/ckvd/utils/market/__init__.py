@@ -12,29 +12,45 @@ Modules:
 
 # ADR: docs/adr/2026-01-30-claude-code-infrastructure.md
 # Refactoring: Split from market_constraints.py (1009 lines) for modularity
+# Round 14: Lazy imports via __getattr__ to reduce cold start time.
 """
 
-from ckvd.utils.market.capabilities import (
-    MARKET_CAPABILITIES,
-    OKX_MARKET_CAPABILITIES,
-    MarketCapabilities,
-    get_market_capabilities,
-)
-from ckvd.utils.market.endpoints import get_endpoint_url
-from ckvd.utils.market.enums import (
-    ChartType,
-    DataProvider,
-    Interval,
-    MarketType,
-    safe_enum_compare,
-)
-from ckvd.utils.market.validation import (
-    get_default_symbol,
-    get_market_symbol_format,
-    get_minimum_interval,
-    is_interval_supported,
-    validate_symbol_for_market_type,
-)
+import importlib
+from typing import Any
+
+# Map each exported name to its source module (relative to this package)
+_LAZY_IMPORTS: dict[str, str] = {
+    # From .capabilities
+    "MARKET_CAPABILITIES": ".capabilities",
+    "OKX_MARKET_CAPABILITIES": ".capabilities",
+    "MarketCapabilities": ".capabilities",
+    "get_market_capabilities": ".capabilities",
+    # From .endpoints
+    "get_endpoint_url": ".endpoints",
+    # From .enums
+    "ChartType": ".enums",
+    "DataProvider": ".enums",
+    "Interval": ".enums",
+    "MarketType": ".enums",
+    "safe_enum_compare": ".enums",
+    # From .validation
+    "get_default_symbol": ".validation",
+    "get_market_symbol_format": ".validation",
+    "get_minimum_interval": ".validation",
+    "is_interval_supported": ".validation",
+    "validate_symbol_for_market_type": ".validation",
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_IMPORTS:
+        module = importlib.import_module(_LAZY_IMPORTS[name], __name__)
+        val = getattr(module, name)
+        # Cache in module globals for subsequent access
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Capabilities
