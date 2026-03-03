@@ -109,6 +109,7 @@ scripts/binance_vision_api_aws_s3/reports/aws_cache
 examples/schema_standardization/schema_test/
 playground/rate_limit_test/results/
 playground/fsspec_benchmark/*.json
+playground/perf-agent*/
 docs/benchmarks/results/
 *benchmark*.json
 
