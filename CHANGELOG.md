@@ -1,3 +1,10 @@
+## [4.4.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.4.0...v4.4.1) (2026-03-03)
+
+
+### Performance Improvements
+
+* rounds 9-16 — algorithm optimizations, cache pipeline, gap detection, Vision/REST improvements, import optimization, FCP concurrency, copy chain elimination ([c8b1a53](https://github.com/terrylica/crypto-kline-vision-data/commit/c8b1a539471d80b5c0f6d3c4a7dbe3e5f0123cc3))
+
 # [4.4.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.3.11...v4.4.0) (2026-02-24)
 
 
