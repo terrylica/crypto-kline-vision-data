@@ -1,3 +1,16 @@
+# [4.5.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.4.1...v4.5.0) (2026-03-04)
+
+
+### Bug Fixes
+
+* **test:** fix toxiproxy-python API usage — toxics() returns dict, not list ([2b26924](https://github.com/terrylica/crypto-kline-vision-data/commit/2b269240e6c4f110b1239a0ae6a7f1f4b6e28d0c))
+
+
+### Features
+
+* **streaming:** add Rust reconciler core and Toxiproxy integration tests (Phases 7-8) ([b5f2da2](https://github.com/terrylica/crypto-kline-vision-data/commit/b5f2da210e84af923cf5b4e761f8651e02556fdd))
+* **streaming:** add WebSocket self-healing reconciliation (Phases 1-6) ([9268d50](https://github.com/terrylica/crypto-kline-vision-data/commit/9268d5054bfd13db8db8acb34dac33499cc9b91d))
+
 ## [4.4.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.4.0...v4.4.1) (2026-03-03)
 
 
