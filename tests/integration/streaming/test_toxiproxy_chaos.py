@@ -27,25 +27,6 @@ import pytest
 
 toxiproxy_mod = pytest.importorskip("toxiproxy", reason="toxiproxy-python not installed")
 
-from ckvd.core.streaming.stream_config import StreamConfig  # noqa: E402
-from ckvd.utils.market_constraints import MarketType  # noqa: E402
-
-
-def _make_config(**overrides) -> StreamConfig:
-    """Build a StreamConfig for Toxiproxy tests."""
-    defaults = {
-        "market_type": MarketType.FUTURES_USDT,
-        "max_reconnect_attempts": 3,
-        "reconnect_delay_base": 0.5,
-        "reconnect_delay_max": 2.0,
-        "ping_interval": 5.0,
-        "ping_timeout": 3.0,
-        "queue_maxsize": 100,
-        "confirmed_only": True,
-    }
-    defaults.update(overrides)
-    return StreamConfig(**defaults)
-
 
 @pytest.mark.integration
 class TestTcpResetMidStream:
@@ -63,14 +44,10 @@ class TestTcpResetMidStream:
             type="reset_peer",
             attributes={"timeout": 3000},
         )
-        # Verify toxic was applied
+        # Verify toxic was applied (toxics() returns dict keyed by name)
         toxics = binance_ws_proxy.toxics()
-        toxic_types = [t.type for t in toxics]
+        toxic_types = [t.type for t in toxics.values()]
         assert "reset_peer" in toxic_types
-
-        # Clean up
-        for toxic in toxics:
-            toxic.destroy()
 
 
 @pytest.mark.integration
@@ -115,12 +92,9 @@ class TestHighLatencyNoFalseGaps:
             attributes={"latency": 500, "jitter": 100},
         )
         toxics = binance_ws_proxy.toxics()
-        latency_toxics = [t for t in toxics if t.type == "latency"]
+        latency_toxics = [t for t in toxics.values() if t.type == "latency"]
         assert len(latency_toxics) == 1
         assert latency_toxics[0].attributes["latency"] == 500
-
-        for toxic in toxics:
-            toxic.destroy()
 
 
 @pytest.mark.integration
@@ -140,11 +114,8 @@ class TestFrameFragmentation:
             attributes={"average_size": 50, "size_variation": 10, "delay": 100},
         )
         toxics = binance_ws_proxy.toxics()
-        slicer_toxics = [t for t in toxics if t.type == "slicer"]
+        slicer_toxics = [t for t in toxics.values() if t.type == "slicer"]
         assert len(slicer_toxics) == 1
-
-        for toxic in toxics:
-            toxic.destroy()
 
 
 @pytest.mark.integration
@@ -163,11 +134,8 @@ class TestBandwidthThrottle:
             attributes={"rate": 1},  # 1 KB/s
         )
         toxics = binance_ws_proxy.toxics()
-        bw_toxics = [t for t in toxics if t.type == "bandwidth"]
+        bw_toxics = [t for t in toxics.values() if t.type == "bandwidth"]
         assert len(bw_toxics) == 1
-
-        for toxic in toxics:
-            toxic.destroy()
 
 
 @pytest.mark.integration
@@ -186,11 +154,8 @@ class TestLimitDataMidMessage:
             attributes={"bytes": 500},
         )
         toxics = binance_ws_proxy.toxics()
-        limit_toxics = [t for t in toxics if t.type == "limit_data"]
+        limit_toxics = [t for t in toxics.values() if t.type == "limit_data"]
         assert len(limit_toxics) == 1
-
-        for toxic in toxics:
-            toxic.destroy()
 
 
 @pytest.mark.integration
@@ -212,7 +177,5 @@ class TestRandomToxicity:
         )
         toxics = binance_ws_proxy.toxics()
         assert len(toxics) == 1
-        assert toxics[0].toxicity == 0.5
-
-        for toxic in toxics:
-            toxic.destroy()
+        toxic = next(iter(toxics.values()))
+        assert toxic.toxicity == 0.5
