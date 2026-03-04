@@ -256,7 +256,7 @@ from ckvd import KlineUpdate, KlineStream
 ```bash
 uv sync --dev                    # Install dependencies
 mise trust                       # Load environment
-uv run -p 3.13 pytest tests/unit/ -v   # Run tests (682 passing)
+uv run -p 3.13 pytest tests/unit/ -v   # Run tests (900 passing)
 uv run -p 3.13 ruff check --fix .      # Lint
 ```
 

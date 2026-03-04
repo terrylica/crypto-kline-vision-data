@@ -76,7 +76,7 @@ unit/
 └── test_ckvd_logging_improvements.py
 ```
 
-**Total unit tests**: 682 (520 baseline + 162 streaming)
+**Total unit tests**: 900 (520 baseline + 162 streaming + 127 reconciliation + 91 perf)
 
 ### conftest.py Hierarchy
 
@@ -101,7 +101,7 @@ unit/
 
 **Async Tests (pytest-asyncio)**
 
-Streaming tests use `@pytest.mark.asyncio` (automatically applied by pytest-asyncio with `--asyncio-mode=auto` in pytest.ini):
+Streaming tests use `@pytest.mark.asyncio` (automatically applied by pytest-asyncio with `--asyncio-mode=auto` in pyproject.toml):
 
 ```python
 @pytest.mark.asyncio
@@ -221,11 +221,11 @@ uv add --extra streaming-test
 
 ### Configuration
 
-Already configured in pytest.ini:
+Already configured in pyproject.toml `[tool.pytest.ini_options]`:
 
-```ini
-addopts = -v -p no:logging --asyncio-mode=auto
-asyncio_mode = auto
+```toml
+addopts = "-v -p no:logging --asyncio-mode=auto"
+asyncio_mode = "auto"
 ```
 
 The `--asyncio-mode=auto` flag automatically applies event loops to `@pytest.mark.asyncio` tests without manual setup.

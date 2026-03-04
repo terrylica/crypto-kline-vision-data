@@ -51,7 +51,7 @@ def get_capabilities() -> dict[str, Any]:
         "providers": [m.name for m in DataProvider],
         "market_types": [m.name for m in MarketType],
         "intervals": [i.value for i in Interval],
-        "data_sources": ["CACHE", "VISION", "REST"],
+        "data_sources": ["CACHE", "VISION", "REST", "STREAMING"],
         "output_formats": {
             "default": "pandas.DataFrame",
             "opt_in": "polars.DataFrame (return_polars=True)",

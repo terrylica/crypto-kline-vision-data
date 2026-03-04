@@ -186,7 +186,7 @@ class TestGetCapabilities:
         from ckvd.__probe__ import get_capabilities
 
         result = get_capabilities()
-        assert result["data_sources"] == ["CACHE", "VISION", "REST"]
+        assert result["data_sources"] == ["CACHE", "VISION", "REST", "STREAMING"]
 
 
 class TestProbeImport:
