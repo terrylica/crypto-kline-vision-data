@@ -242,7 +242,7 @@ Streaming is a separate channel from FCP (Cache→Vision→REST). Issues below a
 
 ### Missing [streaming] Extras
 
-**Symptoms**: `ModuleNotFoundError: No module named 'wsproto'` or other streaming dependencies when calling `create_stream()`.
+**Symptoms**: `ModuleNotFoundError: No module named 'websockets'` or other streaming dependencies when calling `create_stream()`.
 
 **Cause**: Package installed without streaming dependencies.
 
@@ -282,7 +282,7 @@ uv add 'crypto-kline-vision-data[streaming]'
 
 - Restart the streaming session
 - Check Binance status and network connectivity
-- Increase `max_retries` in `StreamConfig` if transient failures expected
+- Increase `max_reconnect_attempts` in `create_stream()` if transient failures expected
 
 ### Dropped Messages
 
@@ -293,16 +293,16 @@ uv add 'crypto-kline-vision-data[streaming]'
 **Solutions**:
 
 ```python
-from ckvd.streaming import create_stream, StreamConfig
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
+
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
 
 # Increase queue size
-config = StreamConfig(queue_maxsize=5000)
-stream = create_stream(config=config, symbol="BTCUSDT")
-
-# Or process updates faster (avoid blocking operations in loop)
-async for update in stream:
-    # Do minimal work here, offload heavy processing
-    process_quickly(update)
+async with manager.create_stream(queue_maxsize=5000) as stream:
+    await stream.subscribe("BTCUSDT", "1h")
+    # Process updates faster (avoid blocking operations in loop)
+    async for update in stream:
+        process_quickly(update)
 ```
 
 ### No Updates Despite Confirmed Subscription
@@ -314,11 +314,15 @@ async for update in stream:
 **Solutions**:
 
 ```python
-from ckvd.streaming import create_stream, StreamConfig
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
 
-# See mid-candle updates (default is True)
-config = StreamConfig(confirmed_only=False)
-stream = create_stream(config=config, symbol="BTCUSDT", interval="1h")
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
+# See mid-candle updates (default confirmed_only=True)
+async with manager.create_stream(confirmed_only=False) as stream:
+    await stream.subscribe("BTCUSDT", "1h")
+    async for update in stream:
+        print(update)
 
 # Or wait for candle close:
 # 1h interval closes every hour at :00 UTC
@@ -334,27 +338,29 @@ stream = create_stream(config=config, symbol="BTCUSDT", interval="1h")
 **Solutions**:
 
 ```python
+from ckvd import CryptoKlineVisionData, DataProvider, MarketType
+
+manager = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.FUTURES_USDT)
+
 # Option 1: KeyboardInterrupt (Ctrl+C)
 # stream_data_sync() runs an event loop and handles SIGINT
 
 # Option 2: Max updates counter
-stream = create_stream(symbol="BTCUSDT")
 count = 0
-for update in stream_data_sync(stream):
+for update in manager.stream_data_sync("BTCUSDT", "1h"):
     print(update)
     count += 1
     if count >= 1000:
         break
-stream.close()
 
 # Option 3: Time-based exit
 import time
-stream = create_stream(symbol="BTCUSDT")
 start = time.time()
-for update in stream_data_sync(stream):
+for update in manager.stream_data_sync("BTCUSDT", "1h"):
     if time.time() - start > 300:  # 5 minutes
         break
-stream.close()
+
+manager.close()
 ```
 
 ## Telemetry Issues

@@ -79,12 +79,13 @@ df = manager.get_data("BTCUSDT", start, end, Interval.HOUR_1, return_polars=True
 
 ```python
 # Async streaming
-async with manager.create_stream(StreamConfig(market_type=MarketType.FUTURES_USDT)) as stream:
-    async for kline_update in stream.messages():
+async with manager.create_stream(confirmed_only=True) as stream:
+    await stream.subscribe("BTCUSDT", "1h")
+    async for kline_update in stream:
         print(f"{kline_update.symbol}: {kline_update.close}")
 
 # Sync streaming (threading bridge)
-for kline_update in manager.stream_data_sync("BTCUSDT", Interval.HOUR_1):
+for kline_update in manager.stream_data_sync("BTCUSDT", "1h"):
     print(f"Update: {kline_update.close}")
 ```
 

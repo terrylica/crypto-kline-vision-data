@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from ckvd import CryptoKlineVisionData, DataProvider, Interval, MarketType
 from ckvd.utils.for_core.rest_exceptions import RateLimitError
-from ckvd.utils.for_core.vision_exceptions import VisionDataNotFoundError
+from ckvd.utils.for_core.vision_exceptions import DataNotAvailableError
 
 manager = CryptoKlineVisionData.create(
     DataProvider.BINANCE,
@@ -29,9 +29,9 @@ try:
 except RateLimitError as e:
     # REST API rate limited - wait and retry
     print(f"Rate limited, wait 60s: {e}")
-except VisionDataNotFoundError as e:
+except DataNotAvailableError as e:
     # Vision API doesn't have this data (e.g., too recent)
-    print(f"Vision unavailable: {e}")
+    print(f"Vision unavailable: {e}. Details: {e.details}")
 except Exception as e:
     # Log unexpected errors with context
     print(f"Unexpected error fetching BTCUSDT: {type(e).__name__}: {e}")
@@ -46,13 +46,12 @@ from ckvd.utils.market_constraints import validate_symbol_for_market_type
 symbol = "BTCUSDT"
 market_type = MarketType.FUTURES_COIN
 
-is_valid, suggestion = validate_symbol_for_market_type(symbol, market_type)
-
-if not is_valid:
-    print(f"Invalid symbol {symbol} for {market_type.name}")
-    print(f"Did you mean: {suggestion}")
-    # Use the suggestion or raise error
-    symbol = suggestion  # "BTCUSD_PERP"
+try:
+    validate_symbol_for_market_type(symbol, market_type)
+except ValueError as e:
+    print(f"Invalid symbol: {e}")
+    # e.g., "Invalid symbol format... Try using 'BTCUSD_PERP' instead."
+    symbol = "BTCUSD_PERP"
 ```
 
 ## Handle Empty Results
