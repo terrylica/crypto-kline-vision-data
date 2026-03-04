@@ -197,6 +197,4 @@ def parse_interval(interval_str: str) -> Interval:
 
         return interval_obj
     except (ValueError, KeyError, StopIteration) as e:
-        logger.error(f"Error parsing interval {interval_str}: {e}")
-        # Default to 1s as a failsafe
-        return Interval.SECOND_1
+        raise ValueError(f"Unknown interval string: {interval_str}") from e

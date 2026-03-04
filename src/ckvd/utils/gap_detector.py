@@ -9,7 +9,6 @@ This module provides a clean, streamlined implementation for detecting gaps in t
 based on expected intervals defined in market_constraints.py.
 """
 
-import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -86,18 +85,15 @@ def detect_gaps(
         - Dictionary with statistics about the gaps
 
     Raises:
-        SystemExit: If the data doesn't meet the minimum span requirement or if interval is not an Interval enum
+        TypeError: If interval is not an Interval enum
     """
     # Strictly validate that interval is an Interval enum from market_constraints.py
     if not isinstance(interval, Interval):
-        error_msg = (
-            f"CRITICAL ERROR: Invalid interval type: {type(interval)}. "
+        raise TypeError(
+            f"Invalid interval type: {type(interval)}. "
             f"Gap detection requires a valid Interval enum from market_constraints.py. "
             f"Available intervals: {', '.join([i.value for i in Interval])}"
         )
-        logger.critical(error_msg)
-        print(f"[bold red]{error_msg}[/bold red]")
-        sys.exit(1)
 
     if df.empty or len(df) < MIN_ROWS_FOR_GAP_DETECTION:
         logger.warning("DataFrame has fewer than 2 rows, cannot detect gaps")

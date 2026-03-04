@@ -227,15 +227,6 @@ def get_vision_url(
 
     logger.debug(f"Generated Vision API URL: {url}")
 
-    # Save URLs to file for debugging - write to /tmp to avoid issues with permissions
-    try:
-        debug_file = "/tmp/vision_api_urls.txt"
-        with open(debug_file, "a") as f:
-            f.write(f"{url}\n")
-        logger.debug(f"Saved URL to {debug_file}")
-    except (OSError, PermissionError) as e:
-        logger.debug(f"Failed to save URL to debug file: {e}")
-
     return url
 
 
