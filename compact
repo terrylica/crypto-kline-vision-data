@@ -1,11 +1,11 @@
 {
-  "total": 623,
+  "total": 631,
   "successful": 0,
   "unknown": 0,
   "unsupported": 0,
   "timeouts": 0,
   "redirects": 0,
-  "excludes": 623,
+  "excludes": 631,
   "errors": 0,
   "cached": 0,
   "success_map": {},
