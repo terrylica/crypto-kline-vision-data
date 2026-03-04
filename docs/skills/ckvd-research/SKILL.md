@@ -60,7 +60,7 @@ Provide:
 
 ```
 1. Read src/ckvd/core/sync/crypto_kline_vision_data.py get_data() method
-2. Trace cache check logic (_get_from_cache)
+2. Trace cache check logic (get_cache_lazyframes in ckvd_cache_utils)
 3. Trace Vision fetch logic (_fetch_from_vision)
 4. Trace REST fallback logic (_fetch_from_rest)
 5. Document FCP decision points with file:line references

@@ -162,7 +162,6 @@ Key methods:
   - `auto_reindex`: Fill time gaps with NaN rows to create complete time series
   - `return_polars`: Return `pl.DataFrame` instead of `pd.DataFrame`
   - `enforce_source` accepts `DataSource` enum **or** its string name (e.g. `"CACHE"`, `"REST"`)
-- `_get_from_cache()` - Check local Arrow cache (no-op when `use_cache=False`)
 - `_save_to_cache()` - Persist to Arrow cache (no-op when `use_cache=False`)
 - `_fetch_from_vision()` - Fetch from Binance Vision
 - `_fetch_from_rest()` - Fall back to REST API
