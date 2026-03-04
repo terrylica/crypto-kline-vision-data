@@ -19,8 +19,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
+from ckvd._reconciler import _INTERVAL_MS
 from ckvd.core.streaming.kline_update import KlineUpdate
 from ckvd.utils.for_core.streaming_exceptions import StreamReconciliationError
 from ckvd.utils.loguru_setup import logger
@@ -47,7 +48,7 @@ class ReconciliationRequest:
     interval: str
     gap_start: datetime
     gap_end: datetime
-    trigger: str  # SSoT-OK: enum overkill for 3 literal values
+    trigger: Literal["reconnect", "watermark", "backpressure"]
 
 
 @dataclass
@@ -69,29 +70,12 @@ class ReconciliationStats:
     total_deduped: int = 0
 
 
-# Mapping from interval string to timedelta for gap arithmetic
-_INTERVAL_DELTAS: dict[str, timedelta] = {
-    "1s": timedelta(seconds=1),
-    "1m": timedelta(minutes=1),
-    "3m": timedelta(minutes=3),
-    "5m": timedelta(minutes=5),
-    "15m": timedelta(minutes=15),
-    "30m": timedelta(minutes=30),
-    "1h": timedelta(hours=1),
-    "2h": timedelta(hours=2),
-    "4h": timedelta(hours=4),
-    "6h": timedelta(hours=6),
-    "8h": timedelta(hours=8),
-    "12h": timedelta(hours=12),
-    "1d": timedelta(days=1),
-    "3d": timedelta(days=3),
-    "1w": timedelta(weeks=1),
-    "1M": timedelta(days=30),
-}
-
 
 def _interval_to_timedelta(interval: str) -> timedelta:
     """Convert an interval string to a timedelta.
+
+    Uses ``_INTERVAL_MS`` from ``ckvd._reconciler`` (single source of truth
+    for interval-to-duration mapping).
 
     Args:
         interval: Candle interval string (e.g. "1h").
@@ -102,10 +86,10 @@ def _interval_to_timedelta(interval: str) -> timedelta:
     Raises:
         ValueError: If interval is not recognized.
     """
-    td = _INTERVAL_DELTAS.get(interval)
-    if td is None:
+    ms = _INTERVAL_MS.get(interval)
+    if ms is None:
         raise ValueError(f"Unknown interval: {interval!r}")
-    return td
+    return timedelta(milliseconds=ms)
 
 
 class Reconciler:
