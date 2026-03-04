@@ -102,12 +102,21 @@ Key terminology used in Crypto Kline Vision Data.
 
 ## Streaming Concepts
 
-| Term               | Definition                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| **k.x gate**       | Binance WebSocket field `k.x` (is_closed boolean) indicating a closed/finalized candle; filtered by confirmed_only |
-| **Drop-newest**    | Queue backpressure strategy discarding incoming messages when full, preserving older queued data                   |
-| **StreamingError** | Base exception hierarchy for streaming failures (NOT ValueError — critical for FCP compatibility)                  |
-| **Reconciliation** | Automatic REST backfill of klines missed during WebSocket disconnect gaps; opt-in via `reconciliation_enabled`     |
-| **Watermark**      | Periodic timer (`interval × watermark_factor`) detecting silence in stream — triggers reconciliation if no updates |
-| **Cooldown**       | Rate limit guard preventing rapid-fire reconciliation after repeated gaps (default 30s per symbol+interval)        |
-| **Dedup key**      | `(symbol, interval, open_time)` tuple for deduplicating backfilled updates with live stream data                   |
+| Term                | Definition                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **k.x gate**        | Binance WebSocket field `k.x` (is_closed boolean) indicating a closed/finalized candle; filtered by confirmed_only  |
+| **Drop-newest**     | Queue backpressure strategy discarding incoming messages when full, preserving older queued data                    |
+| **StreamingError**  | Base exception hierarchy for streaming failures (NOT ValueError — critical for FCP compatibility)                   |
+| **Reconciliation**  | Automatic REST backfill of klines missed during WebSocket disconnect gaps; opt-in via `reconciliation_enabled`      |
+| **Watermark**       | Periodic timer (`interval × watermark_factor`) detecting silence in stream — triggers reconciliation if no updates  |
+| **Cooldown**        | Rate limit guard preventing rapid-fire reconciliation after repeated gaps (default 30s per symbol+interval)         |
+| **Dedup key**       | `(symbol, interval, open_time)` tuple for deduplicating backfilled updates with live stream data                    |
+| **DedupEngine**     | Bounded dedup engine (Rust AHashSet or Python set+deque fallback) with FIFO eviction for dedup key tracking         |
+| **\_reconciler.py** | Python bridge module providing DedupEngine, detect_gap, and_INTERVAL_MS with auto-fallback from Rust to pure-Python |
+
+## Streaming Exceptions
+
+| Term                          | Definition                                                                                                  |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **StreamReconciliationError** | Raised when REST backfill during reconciliation fails (fetch_fn error); carries `.details` with gap context |
+| **StreamGapDetectedError**    | Informational exception signaling missed klines between last confirmed open_time and current update         |
