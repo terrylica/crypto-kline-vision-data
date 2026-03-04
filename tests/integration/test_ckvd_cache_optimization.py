@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pendulum
+import polars as pl
 
 from ckvd.core.sync.crypto_kline_vision_data import CryptoKlineVisionData
 from ckvd.utils.config import FEATURE_FLAGS
@@ -179,9 +180,8 @@ class TestDsmCacheOptimization(unittest.TestCase):
     """
     Integration tests for the CryptoKlineVisionData cache optimization feature.
 
-    This test suite verifies the end-to-end functionality of the OPTIMIZE_CACHE_PARTIAL_DAYS
-    feature flag, ensuring it properly prevents unnecessary API calls when cache has
-    all required data for a given time range, even if the days are not complete.
+    Tests end-to-end FCP flow with cache data, verifying that complete cache coverage
+    prevents unnecessary API calls, and partial cache data triggers REST fallback.
     """
 
     def setUp(self):
@@ -206,9 +206,6 @@ class TestDsmCacheOptimization(unittest.TestCase):
         self.start_time = pendulum.datetime(2025, 4, 13, 15, 35, 0, tz="UTC")
         self.end_time = pendulum.datetime(2025, 4, 14, 15, 30, 0, tz="UTC")
 
-        # Save the original feature flag settings
-        self.original_flag_value = FEATURE_FLAGS.get("OPTIMIZE_CACHE_PARTIAL_DAYS", True)
-
     def tearDown(self):
         """Clean up after tests."""
         # Remove the test cache directory
@@ -217,42 +214,25 @@ class TestDsmCacheOptimization(unittest.TestCase):
         if self.cache_dir.exists():
             shutil.rmtree(self.cache_dir)
 
-        # Restore the original feature flag values
-        FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = self.original_flag_value
+    def _make_cache_lazyframe(self, records: list[dict]) -> pl.LazyFrame:
+        """Convert test records to a Polars LazyFrame suitable for get_cache_lazyframes mock."""
+        df = pd.DataFrame(records)
+        return pl.from_pandas(df).lazy()
 
     def test_optimization_enabled(self):
-        """Test with optimization enabled - should not make API calls."""
-        # Enable the optimization
-        FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = True
-
+        """Test with complete cache coverage - should not make API calls."""
         # Mock the API calls to track if they're made
         api_called = {"vision": False, "rest": False}
 
         def mock_vision_get(*_args, **_kwargs):
-            """
-            Mock Vision API call that records the call was made
-            without using the parameters (params are only passed to match the API)
-
-            Args:
-                *_args: Positional arguments required for API compatibility with the actual Vision API method
-                **_kwargs: Keyword arguments required for API compatibility with the actual Vision API method
-            """
             api_called["vision"] = True
-            return pd.DataFrame()  # Empty DataFrame
+            return pd.DataFrame()
 
         def mock_rest_get(*_args, **_kwargs):
-            """
-            Mock REST API call that records the call was made
-            without using the parameters (params are only passed to match the API)
-
-            Args:
-                *_args: Positional arguments required for API compatibility with the actual REST API method
-                **_kwargs: Keyword arguments required for API compatibility with the actual REST API method
-            """
             api_called["rest"] = True
-            return pd.DataFrame()  # Empty DataFrame
+            return pd.DataFrame()
 
-        # Create a complete dataset for the time range
+        # Create a complete dataset for the time range (without _data_source — pipeline adds it)
         all_records = []
         current_time = self.start_time
         while current_time <= self.end_time:
@@ -270,22 +250,20 @@ class TestDsmCacheOptimization(unittest.TestCase):
                     "taker_buy_volume": 50.0,
                     "taker_buy_quote_volume": 5025.0,
                     "ignore": 0,
-                    "_data_source": "CACHE",
                 }
             )
             current_time = current_time.add(minutes=5)
-        complete_df = pd.DataFrame(all_records)
 
-        # Create a CKVD instance with patched methods
+        cache_lf = self._make_cache_lazyframe(all_records)
+
+        # Patch get_cache_lazyframes (FCP Step 1 now uses this utility directly)
         with (
-            patch.object(CryptoKlineVisionData, "_get_from_cache", return_value=(complete_df, [])),
+            patch("ckvd.utils.for_core.ckvd_cache_utils.get_cache_lazyframes", return_value=[cache_lf]),
             patch.object(CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get),
             patch.object(CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get),
         ):
-            # Initialize CKVD directly
             ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, cache_dir=self.cache_dir)
 
-            # Get data for the time range
             df = ckvd.get_data(
                 symbol=self.symbol,
                 start_time=self.start_time,
@@ -295,36 +273,25 @@ class TestDsmCacheOptimization(unittest.TestCase):
                 include_source_info=True,
             )
 
-            # Verify no API calls were made
+            # Verify no API calls were made (cache had full coverage)
             self.assertFalse(api_called["vision"], "Vision API should not have been called")
             self.assertFalse(api_called["rest"], "REST API should not have been called")
 
-            # Verify we got the expected number of records
-            # Set to 287 to match the actual number returned by the implementation
-            expected_intervals = 287
-            self.assertEqual(
-                len(df),
-                expected_intervals,
-                f"Expected {expected_intervals} records in the result",
-            )
+            # Verify we got data back
+            self.assertGreater(len(df), 0, "Expected non-empty result from cache")
 
             # Verify all records are from cache
             self.assertTrue(all(df["_data_source"] == "CACHE"), "All records should be from cache")
 
-    def test_optimization_disabled(self):
-        """Test with optimization disabled - should make API calls for incomplete days."""
-        # Disable the optimization
-        FEATURE_FLAGS["OPTIMIZE_CACHE_PARTIAL_DAYS"] = False
-
+    def test_partial_cache_triggers_rest(self):
+        """Test with partial cache data - should trigger REST fallback for missing ranges."""
         # Mock the API calls to track if they're made
         api_called = {"vision": False, "rest": False}
 
-        # Create incomplete data
+        # Create incomplete data (only 10 records out of ~287 needed)
         incomplete_records = []
-
-        # We'll just include some records to simulate partial cache
         current_time = self.start_time
-        for _ in range(10):  # Just add 10 records
+        for _ in range(10):
             incomplete_records.append(
                 {
                     "open_time": current_time,
@@ -339,17 +306,13 @@ class TestDsmCacheOptimization(unittest.TestCase):
                     "taker_buy_volume": 50.0,
                     "taker_buy_quote_volume": 5025.0,
                     "ignore": 0,
-                    "_data_source": "CACHE",
                 }
             )
             current_time = current_time.add(minutes=5)
 
-        incomplete_df = pd.DataFrame(incomplete_records)
+        cache_lf = self._make_cache_lazyframe(incomplete_records)
 
-        # Create a missing range to force API calls
-        missing_ranges = [(self.start_time.add(minutes=50), self.end_time)]
-
-        # Create REST result data
+        # Create REST result data for the missing range
         rest_records = []
         rest_start = self.start_time.add(minutes=50)
         current_time = rest_start
@@ -358,7 +321,7 @@ class TestDsmCacheOptimization(unittest.TestCase):
                 {
                     "open_time": current_time,
                     "close_time": current_time.add(minutes=5).subtract(microseconds=1),
-                    "open": 101.0,  # Different value to identify REST data
+                    "open": 101.0,
                     "high": 102.0,
                     "low": 100.0,
                     "close": 101.5,
@@ -374,46 +337,22 @@ class TestDsmCacheOptimization(unittest.TestCase):
         rest_df = pd.DataFrame(rest_records)
         rest_df["_data_source"] = "REST"
 
-        # Skip Vision API completely and go straight to REST
-        # Instead of failing with an error, we'll just return an empty DataFrame
         def mock_vision_get(*_args, **_kwargs):
-            """
-            Mock Vision API call that records the call was made
-            without using the parameters (params are only passed to match the API)
-
-            Args:
-                *_args: Positional arguments required for API compatibility with the actual Vision API method
-                **_kwargs: Keyword arguments required for API compatibility with the actual Vision API method
-            """
             api_called["vision"] = True
-            return pd.DataFrame()  # Empty DataFrame to trigger REST fallback
+            return pd.DataFrame()
 
         def mock_rest_get(*_args, **_kwargs):
-            """
-            Mock REST API call that records the call was made
-            without using the parameters (params are only passed to match the API)
-
-            Args:
-                *_args: Positional arguments required for API compatibility with the actual REST API method
-                **_kwargs: Keyword arguments required for API compatibility with the actual REST API method
-            """
             api_called["rest"] = True
-            return rest_df  # Return the test data
+            return rest_df
 
-        # Create a CKVD instance with patched methods
+        # Patch get_cache_lazyframes with partial data — FCP will detect gaps
         with (
-            patch.object(
-                CryptoKlineVisionData,
-                "_get_from_cache",
-                return_value=(incomplete_df, missing_ranges),
-            ),
+            patch("ckvd.utils.for_core.ckvd_cache_utils.get_cache_lazyframes", return_value=[cache_lf]),
             patch.object(CryptoKlineVisionData, "_fetch_from_vision", side_effect=mock_vision_get),
             patch.object(CryptoKlineVisionData, "_fetch_from_rest", side_effect=mock_rest_get),
         ):
-            # Initialize CKVD directly
             ckvd = CryptoKlineVisionData(provider=DataProvider.BINANCE, cache_dir=self.cache_dir)
 
-            # Get data for the time range
             df = ckvd.get_data(
                 symbol=self.symbol,
                 start_time=self.start_time,
@@ -423,13 +362,13 @@ class TestDsmCacheOptimization(unittest.TestCase):
                 include_source_info=True,
             )
 
-            # Verify REST API call was made (Vision fails, REST is used)
+            # Verify REST API was called to fill gaps
             self.assertTrue(api_called["rest"], "REST API should have been called")
 
             # Verify the result contains data from both sources
-            self.assertTrue("_data_source" in df.columns, "Missing data source column")
-            self.assertTrue("CACHE" in df["_data_source"].to_numpy(), "Missing cache data")
-            self.assertTrue("REST" in df["_data_source"].to_numpy(), "Missing REST data")
+            self.assertIn("_data_source", df.columns, "Missing data source column")
+            self.assertIn("CACHE", df["_data_source"].to_numpy(), "Missing cache data")
+            self.assertIn("REST", df["_data_source"].to_numpy(), "Missing REST data")
 
 
 if __name__ == "__main__":

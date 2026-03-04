@@ -179,8 +179,13 @@ def process_rest_step(
     include_source_info: bool,
     result_df: pd.DataFrame,
     save_to_cache_func=None,
+    rest_client=None,
 ) -> pd.DataFrame:
     """Process the REST API step (Step 3) of the FCP mechanism.
+
+    When multiple ranges need fetching and a rest_client with parallel capability
+    is available, uses fetch_klines_parallel() for concurrent fetching. Falls back
+    to sequential fetching for single ranges or when no client is provided.
 
     Args:
         fetch_from_rest_func: Function to fetch data from REST API
@@ -190,6 +195,7 @@ def process_rest_step(
         include_source_info: Whether to include source info in the DataFrame
         result_df: Existing results DataFrame to merge with
         save_to_cache_func: Function to save data to cache (optional)
+        rest_client: RestDataClient instance for parallel fetching (optional)
 
     Returns:
         Updated result DataFrame
@@ -198,9 +204,22 @@ def process_rest_step(
 
     # Merge adjacent ranges to minimize API calls
     merged_rest_ranges = merge_adjacent_ranges(missing_ranges, interval)
-
-    rate_limit_hit = False
     n_rest_ranges = len(merged_rest_ranges)
+
+    # Use parallel fetching when multiple ranges and rest_client supports it
+    if n_rest_ranges > 1 and rest_client is not None and hasattr(rest_client, "fetch_klines_parallel"):
+        return _process_rest_parallel(
+            rest_client=rest_client,
+            symbol=symbol,
+            merged_rest_ranges=merged_rest_ranges,
+            interval=interval,
+            include_source_info=include_source_info,
+            result_df=result_df,
+            save_to_cache_func=save_to_cache_func,
+        )
+
+    # Sequential path: single range or no parallel capability
+    rate_limit_hit = False
     for range_idx, (miss_start, miss_end) in enumerate(merged_rest_ranges):
         logger.debug(f"[FCP] Fetching from REST API range {range_idx + 1}/{n_rest_ranges}: {miss_start} to {miss_end}")
 
@@ -215,19 +234,15 @@ def process_rest_step(
             break
 
         if not rest_df.empty:
-            # Add source info
             if include_source_info and "_data_source" not in rest_df.columns:
                 rest_df["_data_source"] = "REST"
 
-            # If we already have data, merge with the new data
             if not result_df.empty:
                 logger.debug(f"[FCP] Merging {len(rest_df)} REST records with existing {len(result_df)} records")
                 result_df = merge_dataframes([result_df, rest_df])
             else:
-                # Otherwise just use the REST data
                 result_df = rest_df
 
-            # Save to cache if enabled
             if save_to_cache_func:
                 logger.debug("[FCP] Auto-saving REST data to cache")
                 save_to_cache_func(rest_df, symbol, interval, source="REST")
@@ -237,6 +252,71 @@ def process_rest_step(
         result_df.attrs["_fcp_partial"] = True
 
     return result_df
+
+
+def _process_rest_parallel(
+    rest_client,
+    symbol: str,
+    merged_rest_ranges: list[tuple[datetime, datetime]],
+    interval: Interval,
+    include_source_info: bool,
+    result_df: pd.DataFrame,
+    save_to_cache_func=None,
+) -> pd.DataFrame:
+    """Fetch multiple REST ranges in parallel using rest_client.fetch_klines_parallel().
+
+    Uses low concurrency (max_workers=3) to respect Binance rate limits.
+
+    Args:
+        rest_client: RestDataClient with fetch_klines_parallel method
+        symbol: Symbol to retrieve data for
+        merged_rest_ranges: Pre-merged list of date ranges
+        interval: Interval for data points
+        include_source_info: Whether to include source info
+        result_df: Existing results DataFrame to merge with
+        save_to_cache_func: Function to save data to cache (optional)
+
+    Returns:
+        Updated result DataFrame
+    """
+    n_ranges = len(merged_rest_ranges)
+    logger.debug(f"[FCP] Parallel REST fetch: {n_ranges} ranges")
+
+    try:
+        rest_dfs = rest_client.fetch_klines_parallel(
+            symbol=symbol,
+            interval=interval,
+            date_ranges=merged_rest_ranges,
+            max_workers=3,
+        )
+    except RateLimitError as e:
+        logger.warning(
+            f"[FCP] Rate limited during parallel REST fetch. "
+            f"Returning partial data. Retry after: {getattr(e, 'retry_after', 'unknown')}s"
+        )
+        if not result_df.empty:
+            result_df.attrs["_rate_limited"] = True
+            result_df.attrs["_fcp_partial"] = True
+        return result_df
+
+    # Merge all successful results
+    all_dfs = [result_df] if not result_df.empty else []
+    for rest_df in rest_dfs:
+        if not rest_df.empty:
+            if include_source_info and "_data_source" not in rest_df.columns:
+                rest_df["_data_source"] = "REST"
+            all_dfs.append(rest_df)
+
+            if save_to_cache_func:
+                save_to_cache_func(rest_df, symbol, interval, source="REST")
+
+    if len(all_dfs) == 0:
+        return result_df
+    if len(all_dfs) == 1:
+        return all_dfs[0]
+
+    logger.debug(f"[FCP] Merging {len(all_dfs)} DataFrames from parallel REST fetch")
+    return merge_dataframes(all_dfs)
 
 
 def verify_final_data(

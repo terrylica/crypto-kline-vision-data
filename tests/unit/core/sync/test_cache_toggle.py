@@ -82,19 +82,12 @@ class TestCacheToggleInitialization:
 
 
 class TestCacheReadDisabled:
-    """_get_from_cache() returns empty when cache is disabled."""
+    """Cache read is skipped when use_cache=False."""
 
-    def test_get_from_cache_returns_empty(self):
-        """_get_from_cache returns empty df + full range when use_cache=False."""
+    def test_skip_cache_flag_set(self):
+        """use_cache=False sets skip_cache in FCP flow."""
         mgr = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT, use_cache=False)
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(days=1)
-
-        df, missing = mgr._get_from_cache("BTCUSDT", start, end, Interval.HOUR_1)
-
-        assert df.empty
-        assert len(missing) == 1
-        assert missing[0] == (start, end)
+        assert mgr.use_cache is False
         mgr.close()
 
     @patch("ckvd.utils.for_core.ckvd_cache_utils.get_cache_lazyframes")
@@ -104,7 +97,12 @@ class TestCacheReadDisabled:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=1)
 
-        mgr._get_from_cache("BTCUSDT", start, end, Interval.HOUR_1)
+        # FCP skips cache step entirely when use_cache=False
+        # Mock Vision+REST to return empty data so get_data completes without network
+        with patch("ckvd.core.sync.crypto_kline_vision_data.process_vision_step", return_value=(pd.DataFrame(), [])):
+            with patch("ckvd.core.sync.crypto_kline_vision_data.process_rest_step", return_value=pd.DataFrame()):
+                with patch("ckvd.core.sync.crypto_kline_vision_data.verify_final_data"):
+                    mgr.get_data("BTCUSDT", start, end, Interval.HOUR_1)
         mock_get_lf.assert_not_called()
         mgr.close()
 
@@ -122,7 +120,10 @@ class TestCacheReadDisabled:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=1)
 
-        mgr._get_from_cache("BTCUSDT", start, end, Interval.HOUR_1)
+        with patch("ckvd.core.sync.crypto_kline_vision_data.process_vision_step", return_value=(pd.DataFrame(), [])):
+            with patch("ckvd.core.sync.crypto_kline_vision_data.process_rest_step", return_value=pd.DataFrame()):
+                with patch("ckvd.core.sync.crypto_kline_vision_data.verify_final_data"):
+                    mgr.get_data("BTCUSDT", start, end, Interval.HOUR_1)
         mock_get_cache.assert_not_called()
         mgr.close()
 

@@ -107,7 +107,6 @@ class TestPipelineGuardReturnPolars:
         result_df = _make_result_df(base_time)
 
         with (
-            patch.object(manager, "_get_from_cache", return_value=pd.DataFrame()),
             patch(
                 "ckvd.core.sync.crypto_kline_vision_data.process_vision_step",
                 side_effect=lambda **kw: (result_df.copy(), []),
@@ -149,7 +148,6 @@ class TestPipelineGuardReturnPolars:
             return original_add_pandas(self_pipeline, df, source)
 
         with (
-            patch.object(manager, "_get_from_cache", return_value=pd.DataFrame()),
             patch(
                 "ckvd.core.sync.crypto_kline_vision_data.process_vision_step",
                 side_effect=lambda **kw: (result_df.copy(), []),

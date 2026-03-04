@@ -308,20 +308,11 @@ class TestVisionEmptyRanges:
         assert remaining == []
 
 
-class TestRestStaysSequential:
-    """Verify REST step does NOT use ThreadPoolExecutor."""
+class TestRestSequentialFallback:
+    """Verify REST step is sequential when no rest_client or single range."""
 
-    def test_rest_no_threadpool(self):
-        """process_rest_step should NOT use ThreadPoolExecutor (rate-limit safe)."""
-        import inspect
-
-        source = inspect.getsource(process_rest_step)
-        assert "ThreadPoolExecutor" not in source, (
-            "process_rest_step should NOT use ThreadPoolExecutor — REST API is rate-limited"
-        )
-
-    def test_rest_calls_are_sequential(self):
-        """REST fetch calls should happen in order, one at a time."""
+    def test_rest_sequential_without_rest_client(self):
+        """Without rest_client, process_rest_step fetches ranges sequentially."""
         base = datetime(2024, 1, 1, tzinfo=timezone.utc)
         missing_ranges = [
             (base + timedelta(days=i), base + timedelta(days=i, hours=23))
@@ -346,3 +337,93 @@ class TestRestStaysSequential:
         assert not result_df.empty
         # Verify sequential execution order
         assert call_order == sorted(call_order), "REST calls should be in order"
+
+    def test_rest_single_range_stays_sequential(self):
+        """Single range should use sequential path even with rest_client."""
+        base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        missing_ranges = [(base, base + timedelta(hours=23))]
+
+        mock_client = MagicMock()
+
+        def fast_fetch(symbol, start, end, interval):
+            return _make_ohlcv_df(start, 24, source="REST")
+
+        result_df = process_rest_step(
+            fetch_from_rest_func=fast_fetch,
+            symbol="BTCUSDT",
+            missing_ranges=missing_ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+            result_df=pd.DataFrame(),
+            rest_client=mock_client,
+        )
+
+        assert not result_df.empty
+        # fetch_klines_parallel should NOT be called for single range
+        mock_client.fetch_klines_parallel.assert_not_called()
+
+
+class TestRestParallelWiring:
+    """Verify REST parallel path is wired via fetch_klines_parallel."""
+
+    def test_multiple_ranges_uses_parallel(self):
+        """Multiple merged ranges with rest_client should use fetch_klines_parallel."""
+        base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        # Gap of >1 interval between ranges so merge_adjacent_ranges keeps them separate
+        missing_ranges = [
+            (base, base + timedelta(hours=12)),
+            (base + timedelta(days=5), base + timedelta(days=5, hours=12)),
+        ]
+
+        mock_client = MagicMock()
+        # Return 2 DataFrames (one per range)
+        mock_client.fetch_klines_parallel.return_value = [
+            _make_ohlcv_df(base, 24, source="REST"),
+            _make_ohlcv_df(base + timedelta(days=2), 24, source="REST"),
+        ]
+
+        result_df = process_rest_step(
+            fetch_from_rest_func=MagicMock(),  # Should not be called
+            symbol="BTCUSDT",
+            missing_ranges=missing_ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+            result_df=pd.DataFrame(),
+            rest_client=mock_client,
+        )
+
+        # fetch_klines_parallel should have been called
+        mock_client.fetch_klines_parallel.assert_called_once()
+        assert not result_df.empty
+        assert len(result_df) == 48  # 2 × 24 hours
+
+    def test_parallel_rate_limit_returns_partial(self):
+        """Rate limit during parallel fetch should return existing data."""
+        from ckvd.utils.for_core.rest_exceptions import RateLimitError
+
+        base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        existing_df = _make_ohlcv_df(base, 24, source="CACHE")
+        # Gap of >1 interval between ranges so merge_adjacent_ranges keeps them separate
+        missing_ranges = [
+            (base + timedelta(days=1), base + timedelta(days=1, hours=23)),
+            (base + timedelta(days=7), base + timedelta(days=7, hours=23)),
+        ]
+
+        mock_client = MagicMock()
+        mock_client.fetch_klines_parallel.side_effect = RateLimitError(
+            retry_after=60, message="Rate limited"
+        )
+
+        result_df = process_rest_step(
+            fetch_from_rest_func=MagicMock(),
+            symbol="BTCUSDT",
+            missing_ranges=missing_ranges,
+            interval=Interval.HOUR_1,
+            include_source_info=True,
+            result_df=existing_df,
+            rest_client=mock_client,
+        )
+
+        # Should return existing data with rate-limit markers
+        assert len(result_df) == 24
+        assert result_df.attrs.get("_rate_limited") is True

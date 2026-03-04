@@ -467,52 +467,6 @@ class CryptoKlineVisionData:
         """
         return self.market_type
 
-    def _get_from_cache(
-        self, symbol: str, start_time: datetime, end_time: datetime, interval: Interval
-    ) -> tuple[pd.DataFrame, list[tuple[datetime, datetime]]]:
-        """Get data from cache and identify missing time ranges.
-
-        This method is part of the FCP's first phase - checking local cache.
-        It searches for cached data files that match the requested parameters
-        and identifies any missing time segments that need to be fetched from
-        other sources.
-
-        Args:
-            symbol: Symbol to retrieve data for (e.g., "BTCUSDT")
-            start_time: Start time for data retrieval (UTC)
-            end_time: End time for data retrieval (UTC)
-            interval: Time interval between data points (e.g., MINUTE_1)
-
-        Returns:
-            Tuple containing:
-            - pd.DataFrame: DataFrame with cached data (may be empty)
-            - list: List of time ranges (start, end) tuples that are missing from cache
-
-        Note:
-            If caching is disabled or the cache directory doesn't exist,
-            this returns an empty DataFrame and the entire requested time range
-            as missing.
-        """
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
-
-        if not self.use_cache or self.cache_dir is None:
-            # Return empty DataFrame and the entire date range as missing
-            return create_empty_dataframe(), [(start_time, end_time)]
-
-        logger.info(f"Checking cache for {symbol} from {start_time} to {end_time}")
-
-        # Use cache utils for Arrow file operations
-        return get_from_cache(
-            symbol=symbol,
-            start_time=start_time,
-            end_time=end_time,
-            interval=interval,
-            cache_dir=self.cache_dir,
-            market_type=self.market_type,
-            chart_type=self.chart_type,
-            provider=self.provider,
-        )
-
     def _save_to_cache(
         self,
         df: pd.DataFrame,
@@ -1046,6 +1000,7 @@ class CryptoKlineVisionData:
                     include_source_info=include_source_info,
                     result_df=result_df,
                     save_to_cache_func=self._save_to_cache if self.use_cache else None,
+                    rest_client=self.rest_client,
                 )
 
                 # Add REST data to Polars pipeline for final merge (skip when pandas output)
@@ -1179,6 +1134,7 @@ class CryptoKlineVisionData:
         confirmed_only: bool = True,
         queue_maxsize: int = 1000,
         max_reconnect_attempts: int = 5,
+        reconciliation_enabled: bool = False,
     ) -> "KlineStream":
         """Create a configured KlineStream for async WebSocket streaming.
 
@@ -1189,6 +1145,9 @@ class CryptoKlineVisionData:
             confirmed_only: Only yield closed (k.x=True) candles. Default True.
             queue_maxsize: Drop-newest backpressure queue size. Default 1000.
             max_reconnect_attempts: FSM reconnect limit before exhausted. Default 5.
+            reconciliation_enabled: Enable automatic REST backfill on reconnect
+                gaps. When True, passes self.get_data as the backfill function.
+                Default False (backward compatible).
 
         Returns:
             KlineStream ready for use as an async context manager.
@@ -1220,9 +1179,11 @@ class CryptoKlineVisionData:
             confirmed_only=confirmed_only,
             queue_maxsize=queue_maxsize,
             max_reconnect_attempts=max_reconnect_attempts,
+            reconciliation_enabled=reconciliation_enabled,
         )
         client = BinanceStreamClient(config)
-        return KlineStream(config, client)
+        fetch_fn = self.get_data if reconciliation_enabled else None
+        return KlineStream(config, client, fetch_fn=fetch_fn)
 
     def stream_data_sync(
         self,
@@ -1231,6 +1192,7 @@ class CryptoKlineVisionData:
         *,
         confirmed_only: bool = True,
         queue_maxsize: int = 1000,
+        reconciliation_enabled: bool = False,
     ) -> "Iterator[KlineUpdate]":
         """Synchronous iterator over real-time kline updates.
 
@@ -1242,6 +1204,8 @@ class CryptoKlineVisionData:
             interval: Candle interval string (e.g. "1h").
             confirmed_only: Only yield closed (k.x=True) candles. Default True.
             queue_maxsize: Drop-newest backpressure queue size. Default 1000.
+            reconciliation_enabled: Enable automatic REST backfill on reconnect
+                gaps. Default False (backward compatible).
 
         Yields:
             KlineUpdate events in arrival order.
@@ -1265,6 +1229,7 @@ class CryptoKlineVisionData:
         stream = self.create_stream(
             confirmed_only=confirmed_only,
             queue_maxsize=queue_maxsize,
+            reconciliation_enabled=reconciliation_enabled,
         )
         return _bridge(stream, symbol, interval)
 
