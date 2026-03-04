@@ -19,7 +19,7 @@ DataSource and CKVDConfig are imported from ckvd_types for backward compatibilit
 # Refactoring: Extract DataSource and CKVDConfig to ckvd_types.py
 
 Example:
-    >>> from core.sync.crypto_kline_vision_data import CryptoKlineVisionData, DataSource
+    >>> from ckvd.core.sync.crypto_kline_vision_data import CryptoKlineVisionData, DataSource
     >>> from ckvd import DataProvider, MarketType, Interval
     >>> from datetime import datetime
     >>>

@@ -38,10 +38,9 @@ Environment Variables:
     CKVD_LOG_FILE: Optional log file path for file output
     CKVD_DISABLE_COLORS: Set to "true" to disable colored output
 
-Migration from utils.logger_setup:
+Migration:
     Simply change the import:
-    # Old: from utils.loguru_setup import logger
-    # New: from utils.loguru_setup import logger
+    from ckvd.utils.loguru_setup import logger
 
     All existing code continues to work without changes.
 """

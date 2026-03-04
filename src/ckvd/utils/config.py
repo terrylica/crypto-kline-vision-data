@@ -11,7 +11,6 @@ scattered across multiple files, creating a single source of truth for system-wi
 import os
 from datetime import timedelta, timezone
 from enum import Enum, auto
-from pathlib import Path
 from typing import Final
 
 import attrs
@@ -194,10 +193,6 @@ FILE_EXTENSIONS: Final[dict[str, str]] = {
     "METADATA": ".json",
 }
 
-# File constraint values
-MIN_VALID_FILE_SIZE: Final[int] = 1024  # 1KB minimum for valid data files
-METADATA_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
-
 # Error classification
 ERROR_TYPES: Final[dict[str, str]] = {
     "NETWORK": "network_error",
@@ -211,11 +206,6 @@ ERROR_TYPES: Final[dict[str, str]] = {
 # Environment configuration
 ENV: Final = os.getenv("APP_ENV", "development")
 DEBUG: Final = os.getenv("DEBUG", "false").lower() == "true"
-
-# Base directories
-DEFAULT_CACHE_DIR = Path.home() / ".binance_data_cache"
-DEFAULT_LOG_DIR = Path.home() / ".binance_data_logs"
-
 
 def _parse_bool_env(env_var: str, default: bool) -> bool:
     """Parse boolean from environment variable with fallback to default.

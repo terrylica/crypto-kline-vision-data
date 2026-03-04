@@ -341,7 +341,6 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
         logger.debug("Only one DataFrame to merge, standardizing and returning")
         # MEMORY OPTIMIZATION: No defensive copy needed - standardize_columns
         # operates on the DataFrame and callers don't expect original preservation.
-        # See: /tmp/memory_audit_findings.md - Priority 1 fix
         return standardize_columns(dfs[0])
 
     # Filter out empty DataFrames before processing (avoids unnecessary work in concat)

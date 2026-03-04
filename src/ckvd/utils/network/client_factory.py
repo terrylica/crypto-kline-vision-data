@@ -66,7 +66,7 @@ def create_httpx_client(
         # Create default headers if none provided
         if headers is None:
             headers = {
-                "User-Agent": f"BinanceDataServices/0.1 Python/{platform.python_version()}",
+                "User-Agent": f"CryptoKlineVisionData Python/{platform.python_version()}",
                 "Accept": "application/json",
             }
 

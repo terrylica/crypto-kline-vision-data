@@ -130,11 +130,10 @@ except ImportError:
 
 __all__ = [
     "BACKEND",
-    "_INTERVAL_MS",
+    "INTERVAL_MS",
     "DedupEngine",
-    "_PythonDedupEngine",
-    "_dt_to_ms",
-    "_ms_to_dt",
-    "_python_detect_gap",
     "detect_gap",
 ]
+
+# Public alias for the interval mapping
+INTERVAL_MS = _INTERVAL_MS
