@@ -396,6 +396,60 @@ cat examples/logs/events.jsonl | jq 'select(.trace_id == "YOUR_TRACE_ID")'
 cat examples/logs/events.jsonl | jq 'select(.span_id == "cb72ce8f")'
 ```
 
+## Reconciliation Issues
+
+Reconciliation is opt-in (`reconciliation_enabled=True`) and automatically backfills klines missed during WebSocket disconnects via REST API.
+
+### Reconciliation Not Triggering
+
+**Symptoms**: Gaps in stream data after reconnect, no backfill.
+
+**Causes**:
+
+1. `reconciliation_enabled=False` (default — must opt in)
+2. No `last_confirmed_open_time` established (disconnect before any closed candle)
+3. Cooldown active from a recent reconciliation
+
+**Solutions**:
+
+```python
+# Enable reconciliation
+stream = manager.create_stream(reconciliation_enabled=True)
+
+# Check stats
+async with stream:
+    await stream.subscribe("BTCUSDT", "1h")
+    async for update in stream:
+        if stream.reconciliation_stats:
+            print(f"Requests: {stream.reconciliation_stats.total_requests}")
+            print(f"Backfilled: {stream.reconciliation_stats.total_backfilled}")
+```
+
+### Too Many REST Calls (Rate Limiting)
+
+**Symptoms**: `StreamReconciliationError` with cause `RateLimitError` in details.
+
+**Cause**: Frequent disconnects triggering reconciliation faster than cooldown allows.
+
+**Solutions**:
+
+```python
+# Increase cooldown (default 30s)
+config = StreamConfig(
+    market_type=MarketType.FUTURES_USDT,
+    reconciliation_enabled=True,
+    reconciliation_cooldown_seconds=60.0,  # 60s between REST calls per symbol
+)
+```
+
+### Large Gaps Capped
+
+**Symptoms**: Partial backfill — only some missing klines recovered.
+
+**Cause**: Gap exceeds `reconciliation_max_gap_intervals` (default 1440 = 1 day of 1m candles).
+
+**Solution**: Increase `reconciliation_max_gap_intervals` if longer gaps are expected (e.g., weekend outages).
+
 ## Getting Help
 
 1. Check [FCP Protocol Reference](skills/ckvd-usage/references/fcp-protocol.md)

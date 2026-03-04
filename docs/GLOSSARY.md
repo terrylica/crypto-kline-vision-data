@@ -97,6 +97,8 @@ Key terminology used in Crypto Kline Vision Data.
 | **ConnectionMachine**   | 10-state FSM managing WebSocket connection lifecycle                                                                                   |
 | **BinanceStreamClient** | Concrete StreamClient implementation for Binance WebSocket streams                                                                     |
 | **sync_bridge**         | Thread-safe bridge between async streaming and synchronous callers                                                                     |
+| **Reconciler**          | Detects gaps in WebSocket streams and backfills via REST API (asyncio.to_thread non-blocking)                                          |
+| **ReconciliationStats** | Counters for reconciliation observability (requests, successful, failed, backfilled, deduped)                                          |
 
 ## Streaming Concepts
 
@@ -105,3 +107,7 @@ Key terminology used in Crypto Kline Vision Data.
 | **k.x gate**       | Binance WebSocket field `k.x` (is_closed boolean) indicating a closed/finalized candle; filtered by confirmed_only |
 | **Drop-newest**    | Queue backpressure strategy discarding incoming messages when full, preserving older queued data                   |
 | **StreamingError** | Base exception hierarchy for streaming failures (NOT ValueError — critical for FCP compatibility)                  |
+| **Reconciliation** | Automatic REST backfill of klines missed during WebSocket disconnect gaps; opt-in via `reconciliation_enabled`     |
+| **Watermark**      | Periodic timer (`interval × watermark_factor`) detecting silence in stream — triggers reconciliation if no updates |
+| **Cooldown**       | Rate limit guard preventing rapid-fire reconciliation after repeated gaps (default 30s per symbol+interval)        |
+| **Dedup key**      | `(symbol, interval, open_time)` tuple for deduplicating backfilled updates with live stream data                   |

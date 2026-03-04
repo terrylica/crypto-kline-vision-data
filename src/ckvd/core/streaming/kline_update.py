@@ -59,6 +59,17 @@ class KlineUpdate:
     is_closed: bool  # k.x flag
     data_source: str = "STREAMING"
 
+    def dedup_key(self) -> tuple[str, str, datetime]:
+        """Return a deduplication key for this update.
+
+        Two KlineUpdates with the same (symbol, interval, open_time) represent
+        the same candle and should be deduplicated during reconciliation merge.
+
+        Returns:
+            Tuple of (symbol, interval, open_time).
+        """
+        return (self.symbol, self.interval, self.open_time)
+
     @classmethod
     def from_binance_ws(cls, raw: dict) -> KlineUpdate:
         """Parse a raw Binance WebSocket kline payload.

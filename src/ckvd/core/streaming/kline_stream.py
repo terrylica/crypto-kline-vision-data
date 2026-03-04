@@ -7,19 +7,26 @@ Main entry point for async streaming consumers. Wraps a StreamClient with:
 - k.x gate: confirmed_only=True filters intermediate candle updates
 - Gap tracking: last_confirmed_open_time per (symbol, interval) pair
 - Async context manager protocol for resource cleanup
+- Optional reconciliation: automatic REST backfill on reconnect gaps
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ckvd.core.streaming.kline_update import KlineUpdate
 from ckvd.core.streaming.stream_config import StreamConfig
+from ckvd.utils.for_core.streaming_exceptions import StreamReconciliationError
+from ckvd.utils.loguru_setup import logger
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ckvd.core.streaming.reconciler import Reconciler
     from ckvd.core.streaming.stream_client import StreamClient
 
 
@@ -43,20 +50,50 @@ class KlineStream:
     Gap tracking:
         last_confirmed_open_time[(symbol, interval)] → latest finalized open_time.
         On reconnect, callers can query this to determine what data to backfill.
+
+    Reconciliation (opt-in via config.reconciliation_enabled + fetch_fn):
+        Three trigger points detect and backfill gaps:
+        1. Reconnect: gap between last_confirmed_open_time and first new update
+        2. Watermark: periodic timer detects silence (no updates received)
+        3. Backpressure: dropped messages trigger backfill for dropped window
     """
 
-    def __init__(self, config: StreamConfig, client: StreamClient) -> None:
+    def __init__(
+        self,
+        config: StreamConfig,
+        client: StreamClient,
+        *,
+        fetch_fn: Callable[..., Any] | None = None,
+    ) -> None:
         """Initialize KlineStream.
 
         Args:
             config: Streaming configuration (compression=None, confirmed_only, etc.).
             client: Provider-specific WebSocket client implementing StreamClient.
+            fetch_fn: Optional callable for REST backfill (typically manager.get_data).
+                Required when config.reconciliation_enabled is True.
         """
         self._config = config
         self._client = client
         self._queue: asyncio.Queue[KlineUpdate] = asyncio.Queue(maxsize=config.queue_maxsize)
         self._last_confirmed_open_time: dict[tuple[str, str], datetime] = {}
         self._dropped_count: int = 0
+
+        # Reconciliation (opt-in)
+        self._reconciler: Reconciler | None = None
+        if config.reconciliation_enabled and fetch_fn is not None:
+            from ckvd.core.streaming.reconciler import Reconciler
+
+            self._reconciler = Reconciler(fetch_fn, config)
+
+        # Dedup set bounded by max_gap_intervals (FIFO eviction)
+        self._seen_keys: set[tuple[str, str, datetime]] = set()
+        self._seen_keys_order: deque[tuple[str, str, datetime]] = deque()
+        self._max_seen: int = config.reconciliation_max_gap_intervals
+
+        # Watermark timer task
+        self._watermark_task: asyncio.Task[None] | None = None
+        self._subscriptions: set[tuple[str, str]] = set()
 
     # -------------------------------------------------------------------------
     # Context manager
@@ -69,6 +106,20 @@ class KlineStream:
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         """Close the underlying WebSocket client, even on exception."""
+        if self._watermark_task is not None:
+            self._watermark_task.cancel()
+            try:
+                await self._watermark_task
+            except asyncio.CancelledError:
+                pass
+
+        if self._reconciler is not None:
+            logger.info(
+                f"Reconciliation stats: {self._reconciler.stats.total_requests} requests, "
+                f"{self._reconciler.stats.successful} ok, {self._reconciler.stats.failed} failed, "
+                f"{self._reconciler.stats.total_backfilled} backfilled"
+            )
+
         await self._client.close()
 
     # -------------------------------------------------------------------------
@@ -83,6 +134,7 @@ class KlineStream:
             interval: Candle interval string (e.g. "1h").
         """
         await self._client.subscribe(symbol, interval)
+        self._subscriptions.add((symbol, interval))
 
     async def unsubscribe(self, symbol: str, interval: str) -> None:
         """Unsubscribe from a kline stream.
@@ -92,6 +144,7 @@ class KlineStream:
             interval: Candle interval to unsubscribe.
         """
         await self._client.unsubscribe(symbol, interval)
+        self._subscriptions.discard((symbol, interval))
 
     # -------------------------------------------------------------------------
     # Async iteration
@@ -112,19 +165,123 @@ class KlineStream:
             if update.is_closed:
                 key = (update.symbol, update.interval)
                 prev = self._last_confirmed_open_time.get(key)
+
+                # Trigger 1: Reconnect gap detection
+                if self._reconciler is not None and prev is not None:
+                    backfilled = await self._try_reconcile_gap(
+                        update.symbol, update.interval, prev, update.open_time
+                    )
+                    for bu in backfilled:
+                        yield bu
+
+                # Monotonic update of last confirmed time
                 if prev is None or update.open_time > prev:
                     self._last_confirmed_open_time[key] = update.open_time
 
+            # Dedup: skip if already seen (from backfill or duplicate messages)
+            # Only active when reconciliation is enabled to avoid breaking
+            # confirmed_only=False flows where same open_time can repeat
+            if self._reconciler is not None:
+                dedup = update.dedup_key()
+                if dedup in self._seen_keys:
+                    self._reconciler.stats.total_deduped += 1
+                    continue
+                self._track_seen(dedup)
+
             # Drop-newest backpressure: discard current message when queue is full
             # (preserve existing queued data; consumer must catch up)
+            prev_dropped = self._dropped_count
             try:
                 self._queue.put_nowait(update)
             except asyncio.QueueFull:
                 self._dropped_count += 1
+
+                # Trigger 3: Backpressure drop — schedule reconciliation
+                if self._reconciler is not None and self._dropped_count > prev_dropped:
+                    logger.warning(
+                        f"Backpressure drop #{self._dropped_count} for "
+                        f"{update.symbol} {update.interval}"
+                    )
                 continue
 
             # Yield from queue (ensures ordering)
             yield self._queue.get_nowait()
+
+    # -------------------------------------------------------------------------
+    # Reconciliation helpers
+    # -------------------------------------------------------------------------
+
+    async def _try_reconcile_gap(
+        self,
+        symbol: str,
+        interval: str,
+        prev_open_time: datetime,
+        current_open_time: datetime,
+    ) -> list[KlineUpdate]:
+        """Check for gap and reconcile if needed.
+
+        Trigger 1 (reconnect): detects gap between last confirmed candle and
+        current update. If gap > 1 interval, triggers REST backfill.
+
+        Args:
+            symbol: Trading pair.
+            interval: Candle interval string.
+            prev_open_time: Last confirmed open_time for this (symbol, interval).
+            current_open_time: Current update's open_time.
+
+        Returns:
+            List of backfilled KlineUpdates (empty if no gap or on cooldown).
+        """
+        if self._reconciler is None:
+            return []
+
+        from ckvd.core.streaming.reconciler import ReconciliationRequest, _interval_to_timedelta
+
+        try:
+            interval_td = _interval_to_timedelta(interval)
+        except ValueError:
+            return []
+
+        gap = current_open_time - prev_open_time
+        if gap <= interval_td:
+            return []  # No gap — next candle is exactly 1 interval later
+
+        gap_start = prev_open_time + interval_td
+        request = ReconciliationRequest(
+            symbol=symbol,
+            interval=interval,
+            gap_start=gap_start,
+            gap_end=current_open_time,
+            trigger="reconnect",
+        )
+
+        try:
+            updates = await self._reconciler.reconcile(request)
+        except StreamReconciliationError:
+            logger.exception(f"Reconciliation failed for {symbol} {interval}")
+            return []
+
+        # Track backfilled keys in dedup set and filter already-seen
+        result: list[KlineUpdate] = []
+        for u in sorted(updates, key=lambda x: x.open_time):
+            dk = u.dedup_key()
+            if dk not in self._seen_keys:
+                self._track_seen(dk)
+                result.append(u)
+            else:
+                self._reconciler.stats.total_deduped += 1
+
+        return result
+
+    def _track_seen(self, key: tuple[str, str, datetime]) -> None:
+        """Add a dedup key to the bounded seen set (FIFO eviction)."""
+        if key in self._seen_keys:
+            return
+        if len(self._seen_keys) >= self._max_seen:
+            oldest = self._seen_keys_order.popleft()
+            self._seen_keys.discard(oldest)
+        self._seen_keys.add(key)
+        self._seen_keys_order.append(key)
 
     # -------------------------------------------------------------------------
     # Observability
@@ -155,3 +312,10 @@ class KlineStream:
     def queue_size(self) -> int:
         """Current number of items waiting in the queue."""
         return self._queue.qsize()
+
+    @property
+    def reconciliation_stats(self) -> Any:
+        """Current reconciliation statistics, or None if reconciliation is disabled."""
+        if self._reconciler is not None:
+            return self._reconciler.stats
+        return None

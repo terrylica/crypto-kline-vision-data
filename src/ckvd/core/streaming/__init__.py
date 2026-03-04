@@ -6,14 +6,19 @@ Provides async and sync iterators for Binance WebSocket kline streams
 alongside the existing FCP (Cache → Vision → REST) pipeline.
 
 Public API:
-    KlineUpdate      — frozen dataclass for a single kline event
-    KlineStream      — async context manager / async iterator
-    StreamConfig     — configuration attrs dataclass
-    stream_data_sync — synchronous bridge for blocking callers
+    KlineUpdate          — frozen dataclass for a single kline event
+    KlineStream          — async context manager / async iterator
+    StreamConfig         — configuration attrs dataclass
+    stream_data_sync     — synchronous bridge for blocking callers
+    ReconciliationStats  — reconciliation observability counters
+    ReconciliationRequest — gap backfill request dataclass
 
 Architecture:
     BinanceStreamClient (provider) → ConnectionMachine (FSM)
-    → KlineStream (queue + filtering) → consumer
+    → KlineStream (queue + filtering + reconciliation) → consumer
 """
 
-__all__: list[str] = []
+__all__: list[str] = [
+    "ReconciliationRequest",
+    "ReconciliationStats",
+]

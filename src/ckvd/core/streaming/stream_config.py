@@ -95,3 +95,21 @@ class StreamConfig:
         ],
         converter=str.upper,
     )
+
+    # Reconciliation: automatic REST backfill on reconnect (opt-in)
+    reconciliation_enabled: bool = attr.field(
+        default=False,
+        validator=attr.validators.instance_of(bool),
+    )
+    reconciliation_watermark_factor: float = attr.field(
+        default=2.0,
+        validator=[attr.validators.instance_of((int, float)), lambda _, __, v: v > 0],
+    )
+    reconciliation_max_gap_intervals: int = attr.field(
+        default=1440,
+        validator=[attr.validators.instance_of(int), lambda _, __, v: v > 0],
+    )
+    reconciliation_cooldown_seconds: float = attr.field(
+        default=30.0,
+        validator=[attr.validators.instance_of((int, float)), lambda _, __, v: v >= 0],
+    )

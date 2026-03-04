@@ -124,3 +124,38 @@ class StreamBackpressureError(StreamingError):
             **kwargs: Passed to StreamingError (e.g. ``details={'queue_size': N}``).
         """
         super().__init__(f"StreamBackpressureError: {message}", **kwargs)
+
+
+class StreamReconciliationError(StreamingError):
+    """Exception raised when REST backfill during reconciliation fails.
+
+    Raised by Reconciler when the fetch_fn (typically manager.get_data)
+    encounters an error while backfilling gaps detected after reconnect.
+    """
+
+    def __init__(self, message: str = "Stream reconciliation failed", **kwargs: Any) -> None:  # SSoT-OK: exception default msg
+        """Initialize StreamReconciliationError.
+
+        Args:
+            message: Error description.
+            **kwargs: Passed to StreamingError (e.g. ``details={'symbol': ..., 'gap_intervals': N}``).
+        """
+        super().__init__(f"StreamReconciliationError: {message}", **kwargs)
+
+
+class StreamGapDetectedError(StreamingError):
+    """Exception raised when a gap is detected in the kline stream.
+
+    Informational exception signaling that klines were missed between the
+    last confirmed open_time and the current update. The Reconciler uses
+    this internally; consumers may see it if reconciliation is disabled.
+    """
+
+    def __init__(self, message: str = "Gap detected in kline stream", **kwargs: Any) -> None:  # SSoT-OK: exception default msg
+        """Initialize StreamGapDetectedError.
+
+        Args:
+            message: Error description.
+            **kwargs: Passed to StreamingError (e.g. ``details={'gap_start': ..., 'gap_end': ...}``).
+        """
+        super().__init__(f"StreamGapDetectedError: {message}", **kwargs)
