@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Complete 4-phase release workflow"
+#MISE description="Complete 5-phase release workflow"
 #MISE depends=["release:preflight"]
 set -euo pipefail
 
@@ -9,6 +9,7 @@ echo ""
 mise run release:version
 mise run release:verify
 mise run release:pypi
+mise run release:postflight
 
 echo ""
 echo "✓ Release complete (including PyPI publish)!"

@@ -157,6 +157,7 @@ target/
 .lychee-results.json
 .lychee-results.txt
 .link-check-results.md
+compact
 
 # Lint results (hook output)
 .lint-relative-paths-results.txt
