@@ -1,3 +1,10 @@
+## [4.5.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.5.0...v4.5.1) (2026-03-04)
+
+
+### Bug Fixes
+
+* **streaming:** add Literal type hint and consolidate interval mappings ([79d5d46](https://github.com/terrylica/crypto-kline-vision-data/commit/79d5d4635b6e5f794dea42e84261d74de9c9f05a))
+
 # [4.5.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.4.1...v4.5.0) (2026-03-04)
 
 
