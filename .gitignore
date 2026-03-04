@@ -149,6 +149,9 @@ node_modules/
 CLAUDE.local.md
 *.local.md
 
+# Rust build artifacts
+target/
+
 # Lychee link checker cache
 .lycheecache
 .lychee-results.json

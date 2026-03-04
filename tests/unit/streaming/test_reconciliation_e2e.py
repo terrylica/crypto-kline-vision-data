@@ -117,9 +117,10 @@ class TestLargeGapCapped:
             _ = [u async for u in stream]
 
         # Verify fetch_fn was called with capped gap_end
+        # detect_gap caps at prev + max_gap * interval = base + 10h
         args = fetch_fn.call_args[0]
         gap_end = args[2]
-        expected_capped = _BASE_TIME + _HOUR * 1 + _HOUR * 10  # gap_start + 10h
+        expected_capped = _BASE_TIME + _HOUR * 10  # prev + max_gap_intervals * interval
         assert gap_end == expected_capped
 
 

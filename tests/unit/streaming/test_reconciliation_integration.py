@@ -281,8 +281,8 @@ class TestDedupMerge:
         async with stream:
             _ = [u async for u in stream]
 
-        # Seen set should be bounded
-        assert len(stream._seen_keys) <= max_intervals
+        # Dedup engine should be bounded
+        assert len(stream._dedup) <= max_intervals
 
 
 class TestCooldownIntegration:

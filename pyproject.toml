@@ -43,6 +43,7 @@ dev = [
     "typer>=0.16.0", # CLI for dev scripts (recmove)
     "GitPython>=3.1.0", # git operations (recmove)
     "rope>=1.0.0", # Python refactoring (recmove)
+    "maturin>=1.12,<2", # Rust PyO3 extension builder
 ]
 streaming = [
     "websockets>=16.0,<17.0", # async WebSocket client (RFC 6455 compliant)
@@ -54,6 +55,7 @@ streaming-test = [
     "hypothesis>=6.115", # property-based testing + RuleBasedStateMachine for FSM
     "time-machine>=2.16", # 400x faster than freezegun, monotonic clock safe
     "pytest-asyncio>=0.24", # async test runner
+    "toxiproxy-python>=0.1.0", # Toxiproxy TCP chaos proxy client
 ]
 streaming-stress = [
     "memray>=1.14", # native heap profiler (catches Polars/Arrow/Rust allocs)

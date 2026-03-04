@@ -13,7 +13,6 @@ Main entry point for async streaming consumers. Wraps a StreamClient with:
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -86,10 +85,11 @@ class KlineStream:
 
             self._reconciler = Reconciler(fetch_fn, config)
 
-        # Dedup set bounded by max_gap_intervals (FIFO eviction)
-        self._seen_keys: set[tuple[str, str, datetime]] = set()
-        self._seen_keys_order: deque[tuple[str, str, datetime]] = deque()
-        self._max_seen: int = config.reconciliation_max_gap_intervals
+        # Dedup engine bounded by max_gap_intervals (FIFO eviction)
+        # Uses Rust AHashSet when available, pure-Python set+deque fallback
+        from ckvd._reconciler import DedupEngine
+
+        self._dedup = DedupEngine(config.reconciliation_max_gap_intervals)
 
         # Watermark timer task
         self._watermark_task: asyncio.Task[None] | None = None
@@ -182,11 +182,13 @@ class KlineStream:
             # Only active when reconciliation is enabled to avoid breaking
             # confirmed_only=False flows where same open_time can repeat
             if self._reconciler is not None:
-                dedup = update.dedup_key()
-                if dedup in self._seen_keys:
+                from ckvd._reconciler import _dt_to_ms
+
+                open_time_ms = _dt_to_ms(update.open_time)
+                is_dup = self._dedup.check_and_insert(update.symbol, update.interval, open_time_ms)
+                if is_dup:
                     self._reconciler.stats.total_deduped += 1
                     continue
-                self._track_seen(dedup)
 
             # Drop-newest backpressure: discard current message when queue is full
             # (preserve existing queued data; consumer must catch up)
@@ -235,23 +237,30 @@ class KlineStream:
         if self._reconciler is None:
             return []
 
-        from ckvd.core.streaming.reconciler import ReconciliationRequest, _interval_to_timedelta
+        from ckvd._reconciler import _INTERVAL_MS, _dt_to_ms, _ms_to_dt
+        from ckvd._reconciler import detect_gap as _detect_gap
+        from ckvd.core.streaming.reconciler import ReconciliationRequest
 
-        try:
-            interval_td = _interval_to_timedelta(interval)
-        except ValueError:
+        interval_ms = _INTERVAL_MS.get(interval)
+        if interval_ms is None:
             return []
 
-        gap = current_open_time - prev_open_time
-        if gap <= interval_td:
-            return []  # No gap — next candle is exactly 1 interval later
+        prev_ms = _dt_to_ms(prev_open_time)
+        current_ms = _dt_to_ms(current_open_time)
 
-        gap_start = prev_open_time + interval_td
+        has_gap, capped_end_ms = _detect_gap(
+            prev_ms, current_ms, interval_ms, self._config.reconciliation_max_gap_intervals
+        )
+        if not has_gap:
+            return []
+
+        gap_start = _ms_to_dt(prev_ms + interval_ms)
+        gap_end = _ms_to_dt(capped_end_ms)
         request = ReconciliationRequest(
             symbol=symbol,
             interval=interval,
             gap_start=gap_start,
-            gap_end=current_open_time,
+            gap_end=gap_end,
             trigger="reconnect",
         )
 
@@ -261,27 +270,17 @@ class KlineStream:
             logger.exception(f"Reconciliation failed for {symbol} {interval}")
             return []
 
-        # Track backfilled keys in dedup set and filter already-seen
+        # Track backfilled keys in dedup engine and filter already-seen
         result: list[KlineUpdate] = []
         for u in sorted(updates, key=lambda x: x.open_time):
-            dk = u.dedup_key()
-            if dk not in self._seen_keys:
-                self._track_seen(dk)
+            open_time_ms = _dt_to_ms(u.open_time)
+            is_dup = self._dedup.check_and_insert(u.symbol, u.interval, open_time_ms)
+            if not is_dup:
                 result.append(u)
             else:
                 self._reconciler.stats.total_deduped += 1
 
         return result
-
-    def _track_seen(self, key: tuple[str, str, datetime]) -> None:
-        """Add a dedup key to the bounded seen set (FIFO eviction)."""
-        if key in self._seen_keys:
-            return
-        if len(self._seen_keys) >= self._max_seen:
-            oldest = self._seen_keys_order.popleft()
-            self._seen_keys.discard(oldest)
-        self._seen_keys.add(key)
-        self._seen_keys_order.append(key)
 
     # -------------------------------------------------------------------------
     # Observability

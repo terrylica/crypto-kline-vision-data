@@ -277,3 +277,28 @@ sources = ["src/ckvd/core/streaming/**/*.py", "src/ckvd/core/providers/binance/b
 description = "Run streaming stress tests (parse latency, backpressure, reconnection chaos)"
 run = "uv run -p 3.13 pytest tests/stress/streaming/ -v --memray"
 sources = ["src/ckvd/core/streaming/**/*.py", "tests/stress/streaming/**/*.py"]
+
+[tasks."test:streaming:toxiproxy"]
+description = "Run Toxiproxy integration tests (requires toxiproxy-server binary)"
+run = "uv run -p 3.13 pytest tests/integration/streaming/ -v -m integration"
+sources = ["src/ckvd/core/streaming/**/*.py", "tests/integration/streaming/**/*.py"]
+
+# -----------------------------------------------------------------------------
+# Rust (ckvd-reconciler PyO3 extension)
+# ADR: docs/adr/2026-02-24-websocket-streaming-subsystem.md
+# -----------------------------------------------------------------------------
+
+[tasks."rust:build"]
+description = "Build Rust reconciler extension (maturin develop)"
+run = "cd crates/ckvd-reconciler && maturin develop"
+sources = ["crates/ckvd-reconciler/src/**/*.rs", "crates/ckvd-reconciler/Cargo.toml"]
+
+[tasks."rust:test"]
+description = "Run Rust reconciler unit tests"
+run = "cd crates/ckvd-reconciler && cargo test"
+sources = ["crates/ckvd-reconciler/src/**/*.rs"]
+
+[tasks."rust:bench"]
+description = "Run Rust reconciler benchmarks"
+run = "cd crates/ckvd-reconciler && cargo bench"
+sources = ["crates/ckvd-reconciler/src/**/*.rs"]

@@ -430,7 +430,7 @@ class TestBackfillOverlap:
         async with stream:
             _ = [u async for u in stream]
 
-        assert len(stream._seen_keys) <= max_intervals
+        assert len(stream._dedup) <= max_intervals
 
 
 class TestCrossSymbolDedup:

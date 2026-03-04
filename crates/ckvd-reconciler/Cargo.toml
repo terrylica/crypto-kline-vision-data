@@ -1,0 +1,19 @@
+# ADR: docs/adr/2026-02-24-websocket-streaming-subsystem.md
+[package]
+name = "ckvd-reconciler"
+version = "0.1.0"
+edition = "2024"
+description = "Rust-accelerated dedup engine and gap detector for CKVD streaming reconciliation"
+
+[lib]
+name = "_reconciler_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24", features = ["extension-module"] }
+ahash = "0.8"
+
+# maturin config (replaces pyproject.toml to satisfy monorepo policy)
+[package.metadata.maturin]
+module-name = "ckvd._reconciler_rs"
+python-source = "../../src"
