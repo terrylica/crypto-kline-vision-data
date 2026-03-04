@@ -290,7 +290,7 @@ sources = ["src/ckvd/core/streaming/**/*.py", "tests/integration/streaming/**/*.
 
 [tasks."rust:build"]
 description = "Build Rust reconciler extension (maturin develop)"
-run = "cd crates/ckvd-reconciler && maturin develop"
+run = "cd crates/ckvd-reconciler && maturin develop --features python"
 sources = ["crates/ckvd-reconciler/src/**/*.rs", "crates/ckvd-reconciler/Cargo.toml"]
 
 [tasks."rust:test"]

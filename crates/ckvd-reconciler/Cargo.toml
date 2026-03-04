@@ -7,13 +7,27 @@ description = "Rust-accelerated dedup engine and gap detector for CKVD streaming
 
 [lib]
 name = "_reconciler_rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# "python" enables PyO3 bindings (cdylib for maturin).
+# Without it, only plain Rust types are built (rlib for cargo test).
+python = ["dep:pyo3"]
 
 [dependencies]
-pyo3 = { version = "0.24", features = ["extension-module"] }
+pyo3 = { version = "0.24", features = ["extension-module"], optional = true }
 ahash = "0.8"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.28"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ws-mock = "0.4"
 
 # maturin config (replaces pyproject.toml to satisfy monorepo policy)
 [package.metadata.maturin]
 module-name = "ckvd._reconciler_rs"
 python-source = "../../src"
+features = ["python"]

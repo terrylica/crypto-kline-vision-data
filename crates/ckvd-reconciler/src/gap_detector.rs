@@ -3,8 +3,9 @@
 //!
 //! Pure arithmetic — no datetime types, no chrono dependency.
 //! Python bridge converts `datetime → int(dt.timestamp() * 1000)` before calling.
-
-use pyo3::prelude::*;
+//!
+//! Core logic lives in `detect_gap()` (plain Rust).
+//! `py_detect_gap()` is a thin PyO3 wrapper, gated behind `feature = "python"`.
 
 /// Detect if there is a gap between two consecutive kline timestamps.
 ///
@@ -17,7 +18,6 @@ use pyo3::prelude::*;
 /// * `current_ms` - Current update's open_time in milliseconds
 /// * `interval_ms` - Candle interval in milliseconds (e.g. 3600000 for 1h)
 /// * `max_gap_intervals` - Maximum gap size in intervals (caps large gaps)
-#[pyfunction]
 pub fn detect_gap(prev_ms: i64, current_ms: i64, interval_ms: i64, max_gap_intervals: i64) -> (bool, i64) {
     let gap = current_ms - prev_ms;
 
@@ -34,6 +34,14 @@ pub fn detect_gap(prev_ms: i64, current_ms: i64, interval_ms: i64, max_gap_inter
     };
 
     (true, capped_end)
+}
+
+/// PyO3-exposed wrapper for `detect_gap`.
+#[cfg(feature = "python")]
+#[pyo3::pyfunction]
+#[pyo3(name = "detect_gap")]
+pub fn py_detect_gap(prev_ms: i64, current_ms: i64, interval_ms: i64, max_gap_intervals: i64) -> (bool, i64) {
+    detect_gap(prev_ms, current_ms, interval_ms, max_gap_intervals)
 }
 
 #[cfg(test)]
