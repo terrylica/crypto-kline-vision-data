@@ -92,14 +92,31 @@ def _metadata() -> dict[str, Any]:
 
 
 def _discover_classes() -> dict[str, Any]:
-    """Discover CryptoKlineVisionData and CKVDConfig."""
+    """Discover CryptoKlineVisionData, CKVDConfig, and streaming classes."""
     from .core.sync.ckvd_types import CKVDConfig
     from .core.sync.crypto_kline_vision_data import CryptoKlineVisionData
 
-    return {
+    result = {
         "CryptoKlineVisionData": _class_info(CryptoKlineVisionData),
         "CKVDConfig": _class_info(CKVDConfig),
     }
+
+    # Streaming classes (optional — requires [streaming] extras)
+    try:
+        from .core.streaming.kline_stream import KlineStream
+        from .core.streaming.kline_update import KlineUpdate
+        from .core.streaming.reconciler import Reconciler, ReconciliationStats
+        from .core.streaming.stream_config import StreamConfig
+
+        result["KlineUpdate"] = _class_info(KlineUpdate)
+        result["StreamConfig"] = _class_info(StreamConfig)
+        result["KlineStream"] = _class_info(KlineStream)
+        result["Reconciler"] = _class_info(Reconciler)
+        result["ReconciliationStats"] = _class_info(ReconciliationStats)
+    except ImportError:
+        pass  # streaming extras not installed
+
+    return result
 
 
 def _discover_functions() -> dict[str, Any]:
@@ -136,6 +153,17 @@ def _discover_exceptions() -> dict[str, Any]:
         RestAPIError,
         RestTimeoutError,
     )
+    from .utils.for_core.streaming_exceptions import (
+        StreamBackpressureError,
+        StreamConnectionError,
+        StreamGapDetectedError,
+        StreamMessageParseError,
+        StreamReconnectExhaustedError,
+        StreamReconciliationError,
+        StreamSubscriptionError,
+        StreamTimeoutError,
+        StreamingError,
+    )
     from .utils.for_core.vision_exceptions import (
         ChecksumVerificationError,
         DataFreshnessError,
@@ -160,6 +188,15 @@ def _discover_exceptions() -> dict[str, Any]:
         DownloadFailedError,
         DataNotAvailableError,
         UnsupportedIntervalError,
+        StreamingError,
+        StreamConnectionError,
+        StreamSubscriptionError,
+        StreamReconnectExhaustedError,
+        StreamTimeoutError,
+        StreamMessageParseError,
+        StreamBackpressureError,
+        StreamReconciliationError,
+        StreamGapDetectedError,
     ):
         bases = [b.__name__ for b in exc_cls.__mro__[1:] if b is not object]
         exceptions[exc_cls.__name__] = {

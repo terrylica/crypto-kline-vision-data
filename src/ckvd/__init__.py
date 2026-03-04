@@ -37,7 +37,9 @@ All with automatic retry, data validation, and gap detection.
 """
 
 # ADR: docs/adr/2025-01-30-failover-control-protocol.md
-__version__ = "4.0.0"
+import importlib.metadata as _metadata
+
+__version__ = _metadata.version("crypto-kline-vision-data")
 __author__ = "EonLabs"
 __email__ = "terry@eonlabs.com"
 

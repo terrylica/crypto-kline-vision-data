@@ -57,6 +57,17 @@ class TestDiscoverApiReturnsDict:
         result = discover_api()
         assert "CKVDConfig" in result["classes"]
 
+    @pytest.mark.parametrize(
+        "class_name",
+        ["KlineUpdate", "StreamConfig", "KlineStream", "Reconciler", "ReconciliationStats"],
+    )
+    def test_includes_streaming_classes(self, class_name):
+        """Streaming classes must be present when streaming extras are installed."""
+        from ckvd.__probe__ import discover_api
+
+        result = discover_api()
+        assert class_name in result["classes"], f"{class_name} not in classes section"
+
 
 class TestDiscoverApiEnums:
     """Verify discover_api() includes all public enums."""
@@ -101,7 +112,21 @@ class TestDiscoverApiExceptions:
 
     @pytest.mark.parametrize(
         "exc_name",
-        ["RestAPIError", "RateLimitError", "VisionAPIError", "DataNotAvailableError"],
+        [
+            "RestAPIError",
+            "RateLimitError",
+            "VisionAPIError",
+            "DataNotAvailableError",
+            "StreamingError",
+            "StreamConnectionError",
+            "StreamSubscriptionError",
+            "StreamReconnectExhaustedError",
+            "StreamTimeoutError",
+            "StreamMessageParseError",
+            "StreamBackpressureError",
+            "StreamReconciliationError",
+            "StreamGapDetectedError",
+        ],
     )
     def test_key_exceptions_present(self, exc_name):
         """Key exception classes must be documented."""
