@@ -19,6 +19,13 @@ Architecture:
 """
 
 __all__: list[str] = [
+    "ConnectionMachine",
+    "KlineStream",
+    "KlineUpdate",
+    "Reconciler",
     "ReconciliationRequest",
     "ReconciliationStats",
+    "StreamClient",
+    "StreamConfig",
+    "stream_data_sync",
 ]
