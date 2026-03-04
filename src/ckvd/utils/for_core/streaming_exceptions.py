@@ -17,6 +17,18 @@ from typing import Any
 
 from ckvd.utils.loguru_setup import logger
 
+__all__ = [
+    "StreamBackpressureError",
+    "StreamConnectionError",
+    "StreamGapDetectedError",
+    "StreamMessageParseError",
+    "StreamReconciliationError",
+    "StreamReconnectExhaustedError",
+    "StreamSubscriptionError",
+    "StreamTimeoutError",
+    "StreamingError",
+]
+
 
 class StreamingError(Exception):
     """Base exception for all WebSocket streaming errors.

@@ -88,7 +88,7 @@ def test_large_date_range():
 
 ## Marker Configuration
 
-In `pytest.ini` or `pyproject.toml`:
+In `pyproject.toml`:
 
 ```ini
 [pytest]
@@ -122,4 +122,4 @@ pytest -m "not integration and not slow"
 2. **Use slow marker** - Allows quick iteration during development
 3. **Mark serial tests** - Prevents race conditions with pytest-xdist
 4. **Combine markers** - Tests can have multiple markers
-5. **Document markers** - Keep pytest.ini markers list updated
+5. **Document markers** - Keep pyproject.toml markers list updated

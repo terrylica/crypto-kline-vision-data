@@ -90,7 +90,6 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "-v -p no:logging --asyncio-mode=auto"
-asyncio_mode = "auto"
 markers = [
     "serial: mark tests that should run serially (not in parallel with other tests)",
     "real: mark tests that run against real data/resources rather than mocks",
