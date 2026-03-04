@@ -89,8 +89,19 @@ include = ["ckvd*"]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+addopts = "-v -p no:logging --asyncio-mode=auto"
 asyncio_mode = "auto"
+markers = [
+    "serial: mark tests that should run serially (not in parallel with other tests)",
+    "real: mark tests that run against real data/resources rather than mocks",
+    "integration: mark tests that integrate with external services",
+    "okx: mark tests that specifically test OKX API integration",
+]
+filterwarnings = ["ignore::ResourceWarning"]
+log_cli_format = "%(levelname)s %(message)s"
+log_cli_level = "INFO"
 
+[tool.ruff]
 # Align with project.requires-python (>=3.13)
 # Ruff comment - this cannot be inherited automatically
 target-version = "py313"
