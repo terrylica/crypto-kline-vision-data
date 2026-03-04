@@ -1,3 +1,10 @@
+# [4.6.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.5.1...v4.6.0) (2026-03-04)
+
+
+### Features
+
+* **__probe__:** expand API introspection with streaming exceptions and classes ([f4d0283](https://github.com/terrylica/crypto-kline-vision-data/commit/f4d0283201b30d50e88bb37cc03a52701879181a))
+
 ## [4.5.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.5.0...v4.5.1) (2026-03-04)
 
 
