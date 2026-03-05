@@ -942,7 +942,19 @@ class CryptoKlineVisionData:
                         cache_lazyframes[0], aligned_start, aligned_end, interval
                     )
 
-                    # Defer full collection — only collect if Vision/REST
+                    # MEMORY OPTIMIZATION (Round 10): For return_polars=True with complete
+                    # cache (the 99% hot path), skip pandas materialization entirely.
+                    # The downstream pandas-only operations (verify_final_data,
+                    # standardize_columns, safely_reindex_dataframe) are unnecessary
+                    # when returning Polars directly from a complete cache hit.
+                    if return_polars and not missing_ranges:
+                        logger.info("[FCP] Cache complete + return_polars=True: fast Polars path")
+                        result_pl = polars_pipeline.collect_polars(use_streaming=True)
+                        if not include_source_info and "_data_source" in result_pl.columns:
+                            result_pl = result_pl.drop("_data_source")
+                        logger.info(f"[FCP] Successfully retrieved {len(result_pl)} records for {symbol}")
+                        return result_pl
+
                     # Collect cache data — either complete (no missing ranges) or partial (merge with Vision/REST later)
                     result_df = polars_pipeline.collect_pandas(use_streaming=True)
                 else:
