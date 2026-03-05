@@ -58,6 +58,7 @@ class KlineUpdate:
     close_time: datetime  # UTC, end of candle
     is_closed: bool  # k.x flag
     data_source: str = "STREAMING"
+    open_time_ms: int = 0  # Raw ms timestamp for O(1) dedup (avoids _dt_to_ms() per update)
 
     def dedup_key(self) -> tuple[str, str, datetime]:
         """Return a deduplication key for this update.
@@ -87,18 +88,20 @@ class KlineUpdate:
             KeyError: If required fields are missing from the payload.
         """
         k = raw["k"]
+        t_ms = k["t"]
         return cls(
             symbol=k["s"],
             interval=k["i"],
-            open_time=datetime.fromtimestamp(k["t"] / 1000, tz=timezone.utc),
+            open_time=datetime.fromtimestamp(t_ms / 1000, tz=timezone.utc),
             open=float(k["o"]),
             high=float(k["h"]),
             low=float(k["l"]),
             close=float(k["c"]),
             volume=float(k["v"]),
             close_time=datetime.fromtimestamp(k["T"] / 1000, tz=timezone.utc),
-            is_closed=bool(k["x"]),
+            is_closed=k["x"],  # Already bool from JSON — no wrapper needed
             data_source="STREAMING",
+            open_time_ms=t_ms,
         )
 
     @classmethod

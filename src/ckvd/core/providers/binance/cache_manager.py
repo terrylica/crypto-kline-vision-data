@@ -427,16 +427,15 @@ class UnifiedCacheManager:
                 metadata_entry["start_time"] = df["funding_time"].min().isoformat()
                 metadata_entry["end_time"] = df["funding_time"].max().isoformat()
 
-            # Calculate file size estimate
-            size_estimate = df.memory_usage(deep=True).sum()
-            metadata_entry["size_estimate_bytes"] = int(size_estimate)
-            logger.debug(f"Preparing to save {len(df)} rows (~{size_estimate / 1024 / 1024:.2f} MB) to {cache_path}")
+            logger.debug(f"Preparing to save {len(df)} rows to {cache_path}")
 
             # Write to file using Arrow IPC format via Polars (faster than pyarrow manual sink)
             pl.from_pandas(df).write_ipc(str(cache_path))
 
-            # Update metadata
-            metadata_entry["file_size_bytes"] = cache_path.stat().st_size
+            # Update metadata — use actual file size (skip pre-write memory_usage scan)
+            file_size = cache_path.stat().st_size
+            metadata_entry["size_estimate_bytes"] = file_size
+            metadata_entry["file_size_bytes"] = file_size
             self.metadata[cache_key] = metadata_entry
             self._metadata_dirty = True
 

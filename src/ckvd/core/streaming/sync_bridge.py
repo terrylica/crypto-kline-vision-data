@@ -68,7 +68,7 @@ def stream_data_sync(
         >>> for update in stream_data_sync(stream, "BTCUSDT", "1h"):
         ...     print(update.close)
     """
-    result_queue: queue.Queue[KlineUpdate | StreamingError | object] = queue.Queue()
+    result_queue: queue.Queue[KlineUpdate | StreamingError | object] = queue.Queue(maxsize=10_000)
 
     async def _run() -> None:
         try:

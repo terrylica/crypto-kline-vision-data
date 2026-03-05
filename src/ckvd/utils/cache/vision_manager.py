@@ -52,11 +52,11 @@ class VisionCacheManager:
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-        table = pa.Table.from_pandas(df)
-
         try:
-            with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
-                writer.write_table(table)
+            # Use Polars for faster pandas→Arrow IPC conversion (avoids pa.Table.from_pandas overhead)
+            import polars as pl
+
+            pl.from_pandas(df).write_ipc(str(cache_path))
 
             checksum = CacheValidator.calculate_checksum(cache_path)
             record_count = len(df)

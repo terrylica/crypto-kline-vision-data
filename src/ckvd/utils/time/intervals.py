@@ -19,6 +19,20 @@ from ckvd.utils.market_constraints import Interval as MarketInterval
 # Pre-compiled regex pattern for parsing interval strings (performance optimization)
 INTERVAL_VALUE_PATTERN = re.compile(r"(\d+)([a-zA-Z]+)")
 
+# MEMORY OPTIMIZATION (Round 9): Module-level constants avoid dict recreation per get_interval_micros() call.
+# Maps market interval unit symbols to TimeUnit enum value strings.
+_UNIT_MAPPING: dict[str, str] = {
+    "s": "s",    # seconds
+    "m": "min",  # minutes
+    "h": "h",    # hours
+    "d": "D",    # days
+    "w": "W",    # weeks
+    "M": "M",    # months
+}
+
+# Pre-built lookup from TimeUnit value to microseconds — eliminates O(n) scan in get_all_units().
+_UNIT_MICROS: dict[str, int] = {u.value: u.micros for u in TimeUnit}
+
 __all__ = [
     "align_time_boundaries",
     "estimate_record_count",
@@ -72,27 +86,17 @@ def get_interval_micros(interval: MarketInterval) -> int:
     value, unit_symbol = match.groups()
     value = int(value)
 
-    # Map market interval units to TimeUnit units
-    unit_mapping = {
-        "s": "s",  # seconds
-        "m": "min",  # minutes
-        "h": "h",  # hours
-        "d": "D",  # days
-        "w": "W",  # weeks
-        "M": "M",  # months
-    }
-
-    if unit_symbol not in unit_mapping:
+    if unit_symbol not in _UNIT_MAPPING:
         raise ValueError(f"Unsupported interval unit: {unit_symbol}")
 
-    time_unit_symbol = unit_mapping[unit_symbol]
+    time_unit_symbol = _UNIT_MAPPING[unit_symbol]
 
-    # Find matching TimeUnit
-    unit = next((u for u in TimeUnit.get_all_units() if u.value == time_unit_symbol), None)
-    if unit is None:
+    # O(1) lookup via pre-built _UNIT_MICROS dict (replaces O(n) get_all_units() scan)
+    micros = _UNIT_MICROS.get(time_unit_symbol)
+    if micros is None:
         raise ValueError(f"Unknown TimeUnit symbol: {time_unit_symbol}")
 
-    return value * unit.micros
+    return value * micros
 
 
 def get_interval_seconds(interval: MarketInterval) -> int:

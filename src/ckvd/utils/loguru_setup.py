@@ -47,6 +47,7 @@ Migration:
 
 import logging
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -229,9 +230,7 @@ class CKVDLogger:
         Returns:
             8-character hex string for trace correlation.
         """
-        import uuid
-
-        return str(uuid.uuid4())[:8]
+        return secrets.token_hex(4)
 
 
 # Create the global logger instance

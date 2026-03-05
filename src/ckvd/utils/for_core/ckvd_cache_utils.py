@@ -14,7 +14,6 @@ from pathlib import Path
 import pandas as pd
 import pendulum
 import polars as pl
-import pyarrow as pa
 
 from ckvd.core.providers.binance.vision_path_mapper import (
     FSSpecVisionHandler,
@@ -443,9 +442,7 @@ def save_to_cache(
                 # cache_manager.py and vision_manager.py, and to enable memory
                 # mapping and predicate pushdown via scan_ipc()
                 # No need to drop a temp column — groupby key is a separate Series
-                table = pa.Table.from_pandas(day_df)
-                with pa.OSFile(str(cache_path), "wb") as sink, pa.ipc.new_file(sink, table.schema) as writer:
-                    writer.write_table(table)
+                pl.from_pandas(day_df).write_ipc(str(cache_path))
                 logger.info(f"Saved {len(day_df)} records to cache: {cache_path}")
                 saved_files += 1
 

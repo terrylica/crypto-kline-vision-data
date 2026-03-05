@@ -287,7 +287,7 @@ class TestKlineStreamDedupIntegration:
         config = StreamConfig(market_type=MarketType.FUTURES_USDT)
         client = MagicMock()
         stream = KlineStream(config, client)
-        assert hasattr(stream, "_dedup")
+        assert hasattr(stream, "_dedup")  # Attribute exists (None when reconciliation disabled)
         assert not hasattr(stream, "_seen_keys")
 
     def test_dedup_engine_type(self):
@@ -297,10 +297,24 @@ class TestKlineStreamDedupIntegration:
         from ckvd.core.streaming.stream_config import StreamConfig
         from ckvd.utils.market_constraints import MarketType
 
-        config = StreamConfig(market_type=MarketType.FUTURES_USDT)
+        # DedupEngine is lazily initialized only when reconciliation is enabled
+        config = StreamConfig(market_type=MarketType.FUTURES_USDT, reconciliation_enabled=True)
         client = MagicMock()
-        stream = KlineStream(config, client)
+        stream = KlineStream(config, client, fetch_fn=MagicMock())
         # Should be an instance of DedupEngine (Rust or Python)
         assert hasattr(stream._dedup, "check_and_insert")
         assert hasattr(stream._dedup, "contains")
         assert hasattr(stream._dedup, "clear")
+
+    def test_dedup_engine_none_when_reconciliation_disabled(self):
+        from unittest.mock import MagicMock
+
+        from ckvd.core.streaming.kline_stream import KlineStream
+        from ckvd.core.streaming.stream_config import StreamConfig
+        from ckvd.utils.market_constraints import MarketType
+
+        config = StreamConfig(market_type=MarketType.FUTURES_USDT)
+        client = MagicMock()
+        stream = KlineStream(config, client)
+        # DedupEngine not allocated when reconciliation is disabled
+        assert stream._dedup is None

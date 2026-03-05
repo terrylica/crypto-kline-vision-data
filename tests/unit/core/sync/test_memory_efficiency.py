@@ -166,12 +166,12 @@ class TestPipelineGuardReturnPolars:
             )
 
             assert isinstance(result, pl.DataFrame)
-            # add_pandas SHOULD be called for Vision data
+            # add_pandas SHOULD be called for non-cache data (combined VISION/REST filter)
             assert len(add_pandas_calls) >= 1, (
                 f"add_pandas should be called when return_polars=True, got {add_pandas_calls}"
             )
-            assert "VISION" in add_pandas_calls, (
-                f"Vision data should be added to pipeline, got {add_pandas_calls}"
+            assert "MIXED" in add_pandas_calls or "VISION" in add_pandas_calls, (
+                f"Non-cache data should be added to pipeline, got {add_pandas_calls}"
             )
 
         manager.close()
@@ -1744,15 +1744,14 @@ class TestSaveToCacheNoMutation:
         mock_path.parent = MagicMock()
         mock_fs.get_local_path_for_data.return_value = mock_path
 
+        mock_pl_df = MagicMock()
+        mock_pl_df.write_ipc = MagicMock()
+
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils.pa") as mock_pa,
+            patch("ckvd.utils.for_core.ckvd_cache_utils.pl") as mock_pl,
         ):
-            mock_pa.Table.from_pandas.return_value = MagicMock()
-            mock_pa.OSFile.return_value.__enter__ = MagicMock()
-            mock_pa.OSFile.return_value.__exit__ = MagicMock(return_value=False)
-            mock_pa.ipc.new_file.return_value.__enter__ = MagicMock()
-            mock_pa.ipc.new_file.return_value.__exit__ = MagicMock(return_value=False)
+            mock_pl.from_pandas.return_value = mock_pl_df
 
             save_to_cache(
                 df=df,
@@ -1815,7 +1814,9 @@ class TestSaveToCacheNoMutation:
 
         def capture_from_pandas(pandas_df):
             saved_dfs.append(list(pandas_df.columns))
-            return MagicMock()
+            mock_pl_df = MagicMock()
+            mock_pl_df.write_ipc = MagicMock()
+            return mock_pl_df
 
         mock_fs = MagicMock()
         mock_path = MagicMock(spec=Path)
@@ -1824,13 +1825,9 @@ class TestSaveToCacheNoMutation:
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils.pa") as mock_pa,
+            patch("ckvd.utils.for_core.ckvd_cache_utils.pl") as mock_pl,
         ):
-            mock_pa.Table.from_pandas.side_effect = capture_from_pandas
-            mock_pa.OSFile.return_value.__enter__ = MagicMock()
-            mock_pa.OSFile.return_value.__exit__ = MagicMock(return_value=False)
-            mock_pa.ipc.new_file.return_value.__enter__ = MagicMock()
-            mock_pa.ipc.new_file.return_value.__exit__ = MagicMock(return_value=False)
+            mock_pl.from_pandas.side_effect = capture_from_pandas
 
             save_to_cache(
                 df=df,

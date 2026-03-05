@@ -210,11 +210,8 @@ class DataFrameValidator:
             formatted_df.index = formatted_df.index.tz_localize(timezone.utc)
         elif formatted_df.index.tz != timezone.utc:
             logger.debug(f"Converting from {formatted_df.index.tz} to timezone.utc")
-            new_index = pd.DatetimeIndex(
-                [dt.replace(tzinfo=timezone.utc) for dt in formatted_df.index.to_pydatetime()],
-                name=formatted_df.index.name,
-            )
-            formatted_df.index = new_index
+            # Vectorized tz conversion — avoids per-element to_pydatetime() + replace()
+            formatted_df.index = formatted_df.index.tz_convert("UTC")
 
         logger.debug(f"Final DataFrame timezone: {formatted_df.index.tz}")
         logger.debug(f"Final DataFrame shape: {formatted_df.shape}")

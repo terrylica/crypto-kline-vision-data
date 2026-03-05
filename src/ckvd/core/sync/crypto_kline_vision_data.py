@@ -74,7 +74,11 @@ from ckvd.utils.for_core.ckvd_time_range_utils import (
     standardize_columns,
 )
 from ckvd.utils.for_core.rest_exceptions import RateLimitError, RestAPIError
-from ckvd.utils.for_core.vision_exceptions import VisionAPIError
+from ckvd.utils.for_core.vision_exceptions import DataNotAvailableError, VisionAPIError
+from ckvd.utils.validation.availability_data import (
+    check_futures_counterpart_availability,
+    is_symbol_available_at,
+)
 from ckvd.utils.internal.polars_pipeline import PolarsDataPipeline
 from ckvd.utils.loguru_setup import logger
 from ckvd.utils.market.validation import _SYMBOL_SAFE_PATTERN
@@ -823,11 +827,12 @@ class CryptoKlineVisionData:
             )
             bound_logger.info(f"[FCP] Starting data retrieval trace_id={trace_id}")
 
-            logger.debug(
-                f"[FCP] get_data called with use_cache={self.use_cache}, auto_reindex={auto_reindex} for "
-                f"symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
-            )
-            logger.debug(f"[FCP] Time range: {start_time.isoformat()} to {end_time.isoformat()}")
+            if logger.isEnabledFor("DEBUG"):
+                logger.debug(
+                    f"[FCP] get_data called with use_cache={self.use_cache}, auto_reindex={auto_reindex} for "
+                    f"symbol={symbol}, interval={interval.value}, chart_type={chart_type.name}"
+                )
+                logger.debug(f"[FCP] Time range: {start_time.isoformat()} to {end_time.isoformat()}")
 
             # Validate time range
             if start_time >= end_time:
@@ -841,12 +846,6 @@ class CryptoKlineVisionData:
                 raise ValueError(f"Symbol contains invalid characters: '{symbol}'")
 
             # FAIL-LOUD: Validate symbol availability before any API calls (GitHub Issue #10)
-            from ckvd.utils.for_core.vision_exceptions import DataNotAvailableError
-            from ckvd.utils.validation.availability_data import (
-                check_futures_counterpart_availability,
-                is_symbol_available_at,
-            )
-
             is_available, earliest_date = is_symbol_available_at(self.market_type, symbol, start_time)
             if not is_available and earliest_date is not None:
                 raise DataNotAvailableError(
@@ -944,12 +943,8 @@ class CryptoKlineVisionData:
                     )
 
                     # Defer full collection — only collect if Vision/REST
-                    # won't run (no missing ranges) or after all steps complete.
-                    if not missing_ranges:
-                        result_df = polars_pipeline.collect_pandas(use_streaming=True)
-                    else:
-                        # Collect cache data for merge with Vision/REST results
-                        result_df = polars_pipeline.collect_pandas(use_streaming=True)
+                    # Collect cache data — either complete (no missing ranges) or partial (merge with Vision/REST later)
+                    result_df = polars_pipeline.collect_pandas(use_streaming=True)
                 else:
                     missing_ranges = [(aligned_start, aligned_end)]
                     logger.debug(f"[FCP] No cache data available, entire range marked as missing: {aligned_start} to {aligned_end}")
@@ -982,12 +977,6 @@ class CryptoKlineVisionData:
                     result_df=result_df,
                 )
 
-                # Add Vision data to Polars pipeline for final merge (skip when pandas output)
-                if return_polars and not result_df.empty and "_data_source" in result_df.columns:
-                    vision_df = result_df[result_df["_data_source"] == "VISION"]
-                    if not vision_df.empty:
-                        polars_pipeline.add_pandas(vision_df, "VISION")
-
             # ----------------------------------------------------------------
             # STEP 3: REST API Fallback with Final Merge
             # ----------------------------------------------------------------
@@ -1003,11 +992,11 @@ class CryptoKlineVisionData:
                     rest_client=self.rest_client,
                 )
 
-                # Add REST data to Polars pipeline for final merge (skip when pandas output)
-                if return_polars and not result_df.empty and "_data_source" in result_df.columns:
-                    rest_only_df = result_df[result_df["_data_source"] == "REST"]
-                    if not rest_only_df.empty:
-                        polars_pipeline.add_pandas(rest_only_df, "REST")
+            # Add non-cache data to Polars pipeline in a single filter (skip when pandas output)
+            if return_polars and not result_df.empty and "_data_source" in result_df.columns:
+                non_cache_df = result_df[result_df["_data_source"].isin(("VISION", "REST"))]
+                if not non_cache_df.empty:
+                    polars_pipeline.add_pandas(non_cache_df, "MIXED")
 
             # ----------------------------------------------------------------
             # Final check and standardization

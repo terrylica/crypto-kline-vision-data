@@ -17,6 +17,8 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from ckvd._reconciler import DedupEngine, _INTERVAL_MS, _dt_to_ms, _ms_to_dt
+from ckvd._reconciler import detect_gap as _detect_gap
 from ckvd.core.streaming.kline_update import KlineUpdate
 from ckvd.core.streaming.stream_config import StreamConfig
 from ckvd.utils.for_core.streaming_exceptions import StreamReconciliationError
@@ -87,9 +89,12 @@ class KlineStream:
 
         # Dedup engine bounded by max_gap_intervals (FIFO eviction)
         # Uses Rust AHashSet when available, pure-Python set+deque fallback
-        from ckvd._reconciler import DedupEngine
-
-        self._dedup = DedupEngine(config.reconciliation_max_gap_intervals)
+        # Lazy init: only allocate when reconciliation is actually enabled
+        self._dedup: DedupEngine | None = (
+            DedupEngine(config.reconciliation_max_gap_intervals)
+            if config.reconciliation_enabled
+            else None
+        )
 
         # Watermark timer task
         self._watermark_task: asyncio.Task[None] | None = None
@@ -181,11 +186,10 @@ class KlineStream:
             # Dedup: skip if already seen (from backfill or duplicate messages)
             # Only active when reconciliation is enabled to avoid breaking
             # confirmed_only=False flows where same open_time can repeat
-            if self._reconciler is not None:
-                from ckvd._reconciler import _dt_to_ms
-
-                open_time_ms = _dt_to_ms(update.open_time)
-                is_dup = self._dedup.check_and_insert(update.symbol, update.interval, open_time_ms)
+            if self._reconciler is not None and self._dedup is not None:
+                is_dup = self._dedup.check_and_insert(
+                    update.symbol, update.interval, update.open_time_ms or _dt_to_ms(update.open_time)
+                )
                 if is_dup:
                     self._reconciler.stats.total_deduped += 1
                     continue
@@ -237,8 +241,6 @@ class KlineStream:
         if self._reconciler is None:
             return []
 
-        from ckvd._reconciler import _INTERVAL_MS, _dt_to_ms, _ms_to_dt
-        from ckvd._reconciler import detect_gap as _detect_gap
         from ckvd.core.streaming.reconciler import ReconciliationRequest
 
         interval_ms = _INTERVAL_MS.get(interval)
@@ -271,10 +273,11 @@ class KlineStream:
             return []
 
         # Track backfilled keys in dedup engine and filter already-seen
+        updates.sort(key=lambda x: x.open_time)  # In-place sort avoids list copy
         result: list[KlineUpdate] = []
-        for u in sorted(updates, key=lambda x: x.open_time):
-            open_time_ms = _dt_to_ms(u.open_time)
-            is_dup = self._dedup.check_and_insert(u.symbol, u.interval, open_time_ms)
+        dedup = self._dedup
+        for u in updates:
+            is_dup = dedup.check_and_insert(u.symbol, u.interval, u.open_time_ms or _dt_to_ms(u.open_time)) if dedup is not None else False
             if not is_dup:
                 result.append(u)
             else:

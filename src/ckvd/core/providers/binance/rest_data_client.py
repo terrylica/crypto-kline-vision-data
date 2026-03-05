@@ -270,11 +270,12 @@ class RestDataClient(DataClientInterface):
         all_data = []
         rate_limited = False
         for i, (chunk_start, chunk_end) in enumerate(chunks):
-            logger.debug(
-                f"Fetching chunk {i + 1}/{len(chunks)} for {symbol}: "
-                f"{milliseconds_to_datetime(chunk_start).isoformat()} to "
-                f"{milliseconds_to_datetime(chunk_end).isoformat()}"
-            )
+            if logger.isEnabledFor("DEBUG"):
+                logger.debug(
+                    f"Fetching chunk {i + 1}/{len(chunks)} for {symbol}: "
+                    f"{milliseconds_to_datetime(chunk_start).isoformat()} to "
+                    f"{milliseconds_to_datetime(chunk_end).isoformat()}"
+                )
 
             try:
                 chunk_data = self._fetch_chunk_data(symbol, interval_enum, chunk_start, chunk_end)

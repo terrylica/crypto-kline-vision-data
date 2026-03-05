@@ -35,6 +35,27 @@ _RAW_KLINE_COLUMNS: list[str] = [
 ]
 
 # Define the column names as a constant for REST API output
+# MEMORY OPTIMIZATION (Round 9): Module-level constant avoids dict recreation per standardize_column_names() call.
+_COLUMN_MAPPING: dict[str, str] = {
+    # Quote volume variants
+    "quote_volume": "quote_asset_volume",
+    "quote_vol": "quote_asset_volume",
+    # Trade count variants
+    "trades": "count",
+    "number_of_trades": "count",
+    # Taker buy base volume variants
+    "taker_buy_base": "taker_buy_volume",
+    "taker_buy_base_volume": "taker_buy_volume",
+    "taker_buy_base_asset_volume": "taker_buy_volume",
+    # Taker buy quote volume variants
+    "taker_buy_quote": "taker_buy_quote_volume",
+    "taker_buy_quote_asset_volume": "taker_buy_quote_volume",
+    # Time field variants
+    "time": "open_time",
+    "timestamp": "open_time",
+    "date": "open_time",
+}
+
 REST_OUTPUT_COLUMNS = [
     "open",
     "high",
@@ -58,30 +79,9 @@ def standardize_column_names(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with standardized column names
     """
-    # Define mappings for column name standardization
-    column_mapping = {
-        # Quote volume variants
-        "quote_volume": "quote_asset_volume",
-        "quote_vol": "quote_asset_volume",
-        # Trade count variants
-        "trades": "count",
-        "number_of_trades": "count",
-        # Taker buy base volume variants
-        "taker_buy_base": "taker_buy_volume",
-        "taker_buy_base_volume": "taker_buy_volume",
-        "taker_buy_base_asset_volume": "taker_buy_volume",
-        # Taker buy quote volume variants
-        "taker_buy_quote": "taker_buy_quote_volume",
-        "taker_buy_quote_asset_volume": "taker_buy_quote_volume",
-        # Time field variants
-        "time": "open_time",
-        "timestamp": "open_time",
-        "date": "open_time",
-    }
-
     # Rename columns that need standardization — batch into single rename()
     # call to avoid creating a new DataFrame per column (memory efficiency)
-    rename_dict = {col: column_mapping[col.lower()] for col in df.columns if col.lower() in column_mapping}
+    rename_dict = {col: _COLUMN_MAPPING[col.lower()] for col in df.columns if col.lower() in _COLUMN_MAPPING}
     if rename_dict:
         df = df.rename(columns=rename_dict)
 
@@ -97,10 +97,14 @@ def _process_kline_data_polars(raw_data: list[list]) -> pl.DataFrame:
     Returns:
         Polars DataFrame with processed data
     """
-    # Create Polars DataFrame - all processing in a single expression chain
+    # Columnar construction: transpose rows to columns via zip(*), avoiding Polars'
+    # internal row-to-column transposition overhead.
+    columns = list(zip(*raw_data, strict=False))
+    col_dict = dict(zip(_RAW_KLINE_COLUMNS, columns, strict=False))
+    del col_dict["ignore"]
+
     return (
-        pl.DataFrame(raw_data, schema=_RAW_KLINE_COLUMNS, orient="row")
-        .drop("ignore")
+        pl.DataFrame(col_dict)
         .with_columns(
             [
                 # Convert milliseconds to datetime
@@ -154,20 +158,23 @@ def process_kline_data(raw_data: list[list]) -> pd.DataFrame:
     return df
 
 
+def _build_empty_rest_dataframe() -> pd.DataFrame:
+    """Build a typed empty DataFrame with REST output structure (internal, called once)."""
+    df = pd.DataFrame(columns=REST_OUTPUT_COLUMNS)
+    dtypes_to_apply = {col: dtype for col, dtype in OUTPUT_DTYPES.items() if col in df.columns}
+    if dtypes_to_apply:
+        df = df.astype(dtypes_to_apply)
+    return df
+
+
+# MEMORY OPTIMIZATION (Round 9): Singleton avoids rebuilding identical empty DataFrame per error-path call.
+_EMPTY_REST_DATAFRAME: pd.DataFrame = _build_empty_rest_dataframe()
+
+
 def create_empty_dataframe() -> pd.DataFrame:
     """Create an empty DataFrame with the correct structure for REST data.
 
     Returns:
-        Empty DataFrame
+        Empty DataFrame (copy of cached singleton to prevent mutation)
     """
-    # Create an empty DataFrame with the right columns and types
-    df = pd.DataFrame(columns=REST_OUTPUT_COLUMNS)
-
-    # MEMORY OPTIMIZATION: Batch dtype assignment instead of per-column loop
-    # Filter OUTPUT_DTYPES to only columns present in df (avoids KeyError)
-    # Source: docs/adr/2026-01-30-claude-code-infrastructure.md (memory efficiency refactoring)
-    dtypes_to_apply = {col: dtype for col, dtype in OUTPUT_DTYPES.items() if col in df.columns}
-    if dtypes_to_apply:
-        df = df.astype(dtypes_to_apply)
-
-    return df
+    return _EMPTY_REST_DATAFRAME.copy()

@@ -19,6 +19,9 @@ from ckvd.utils.time_utils import detect_timestamp_unit
 # Pre-compiled regex pattern for parsing interval strings
 INTERVAL_PATTERN = re.compile(r"(\d+)([smhdwM])")
 
+# MEMORY OPTIMIZATION (Round 9): O(1) lookup replaces O(n) linear scan in parse_interval().
+_INTERVAL_BY_VALUE: dict[str, Interval] = {i.value: i for i in Interval}
+
 
 def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFrame:
     """Process timestamp columns in the dataframe, handling various formats.
@@ -41,9 +44,10 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
         # Check timestamp format if dataframe has rows
         if len(df) > 0:
             # Debug: Log first few raw rows to track data through the pipeline
-            logger.debug(f"[TIMESTAMP TRACE] Input data to process_timestamp_columns has {len(df)} rows")
-            for i in range(min(3, len(df))):
-                logger.debug(f"[TIMESTAMP TRACE] Raw row {i}: open_time={df.iloc[i, 0]}, close={df.iloc[i, 4]}")
+            if logger.isEnabledFor("DEBUG"):
+                logger.debug(f"[TIMESTAMP TRACE] Input data to process_timestamp_columns has {len(df)} rows")
+                for i in range(min(3, len(df))):
+                    logger.debug(f"[TIMESTAMP TRACE] Raw row {i}: open_time={df.iloc[i, 0]}, close={df.iloc[i, 4]}")
 
             first_ts = df.iloc[0, 0]  # First timestamp in first column
             last_ts = df.iloc[-1, 0] if len(df) > 1 else first_ts
@@ -68,8 +72,9 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                     df["open_time"] = pd.to_datetime(df["open_time"], unit=timestamp_unit, utc=True)
                     logger.debug(f"Converted open_time: first value = {df['open_time'].iloc[0]} (BEGINNING of candle)")
                     # Debug: Log first few converted timestamps to track processing
-                    for i in range(min(3, len(df))):
-                        logger.debug(f"[TIMESTAMP TRACE] Converted row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
+                    if logger.isEnabledFor("DEBUG"):
+                        for i in range(min(3, len(df))):
+                            logger.debug(f"[TIMESTAMP TRACE] Converted row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
 
                 if "close_time" in df.columns:
                     df["close_time"] = pd.to_datetime(df["close_time"], unit=timestamp_unit, utc=True)
@@ -124,10 +129,11 @@ def process_timestamp_columns(df: pd.DataFrame, interval_str: str) -> pd.DataFra
                     logger.debug(f"Converted close_time using fallback method: first value = {df['close_time'].iloc[0]} (END of candle)")
 
         # Debug: Log output from timestamp processing
-        logger.debug(f"[TIMESTAMP TRACE] After process_timestamp_columns: {len(df)} rows")
-        if len(df) > 0 and "open_time" in df.columns:
-            for i in range(min(3, len(df))):
-                logger.debug(f"[TIMESTAMP TRACE] Processed row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
+        if logger.isEnabledFor("DEBUG"):
+            logger.debug(f"[TIMESTAMP TRACE] After process_timestamp_columns: {len(df)} rows")
+            if len(df) > 0 and "open_time" in df.columns:
+                for i in range(min(3, len(df))):
+                    logger.debug(f"[TIMESTAMP TRACE] Processed row {i}: open_time={df['open_time'].iloc[i]}, close={df.iloc[i, 4]}")
 
     except (ValueError, TypeError, KeyError) as e:
         logger.error(f"Error processing timestamp columns: {e}")
@@ -184,8 +190,8 @@ def parse_interval(interval_str: str) -> Interval:
         ValueError: If interval is invalid or not supported
     """
     try:
-        # Try to find the interval enum by value
-        interval_obj = next((i for i in Interval if i.value == interval_str), None)
+        # O(1) dict lookup replaces O(n) linear scan over Interval enum
+        interval_obj = _INTERVAL_BY_VALUE.get(interval_str)
         if interval_obj is None:
             # Try by enum name (upper case with _ instead of number)
             try:

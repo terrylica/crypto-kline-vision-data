@@ -23,7 +23,7 @@ directly with this client.
 """
 
 import re
-import tempfile
+import io
 import zipfile
 from concurrent.futures import BrokenExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -345,7 +345,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         logger.debug(f"Downloading data for {date.date()} for {self._symbol} {self._interval_str}")
 
         temp_file_path = None
-        temp_checksum_path = None
         checksum_failed = False
 
         try:
@@ -402,19 +401,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                 market_type=self.market_type_str,
             )
 
-            # Create temporary files with meaningful names
-            filename = f"{self._symbol}-{base_interval}-{date.strftime('%Y-%m-%d')}"
-            temp_dir = tempfile.gettempdir()
-
-            temp_file_path = Path(temp_dir) / f"{filename}.zip"
-            temp_checksum_path = Path(temp_dir) / f"{filename}.zip.CHECKSUM"
-
-            # Make sure we're not reusing existing files
-            if temp_file_path.exists():
-                temp_file_path.unlink()
-            if temp_checksum_path.exists():
-                temp_checksum_path.unlink()
-
             # Download the data file
             response = self._client.get(url)
             if response.status_code == HTTP_NOT_FOUND:
@@ -437,85 +423,55 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                     )
                 return None, f"HTTP error {response.status_code} for {date.date()}"
 
-            # Save to the temporary file
-            with open(temp_file_path, "wb") as f:
-                f.write(response.content)
+            # In-memory processing: avoid disk I/O for zip content
+            zip_bytes = response.content
 
-            # Download the checksum file
+            # Download the checksum file and verify against in-memory zip bytes
             checksum_response = self._client.get(checksum_url)
             if checksum_response.status_code == HTTP_NOT_FOUND:
                 logger.warning(f"Checksum file not available for {date.date()}")
             elif checksum_response.status_code != HTTP_OK:
                 logger.warning(f"HTTP error {checksum_response.status_code} when getting checksum for {date.date()}")
             else:
-                # Get checksum content
                 checksum_content = checksum_response.content
 
-                # Save checksum to the temporary file
-                with open(temp_checksum_path, "wb") as f:
-                    f.write(checksum_content)
-
-                # Log file size after saving
-                checksum_file_size = temp_checksum_path.stat().st_size
-
-                # If the checksum file is not empty or too small, verify checksum
-                if checksum_file_size >= MIN_CHECKSUM_SIZE:
-                    # Verify checksum if available
+                if len(checksum_content) >= MIN_CHECKSUM_SIZE:
                     try:
-                        from ckvd.utils.for_core.vision_checksum import (
-                            calculate_sha256_direct,
-                        )
+                        import hashlib
 
-                        # Calculate the checksum
-                        actual_checksum = calculate_sha256_direct(temp_file_path)
+                        # SHA256 on in-memory bytes — no disk round-trip
+                        actual_checksum = hashlib.sha256(zip_bytes).hexdigest()
 
                         # Extract expected checksum
-                        expected_checksum = None
-                        try:
-                            # Try to read the checksum file directly
-                            with open(temp_checksum_path, "rb") as f:
-                                checksum_content = f.read()
-                                if isinstance(checksum_content, bytes):
-                                    checksum_text = checksum_content.decode("utf-8", errors="replace").strip()
-                                else:
-                                    checksum_text = checksum_content.strip()
+                        checksum_text = checksum_content.decode("utf-8", errors="replace").strip()
+                        hash_match = SHA256_HASH_PATTERN.search(checksum_text)
+                        if hash_match:
+                            expected_checksum = hash_match.group(1)
 
-                                # Look for a SHA-256 hash pattern (64 hex chars)
-                                hash_match = SHA256_HASH_PATTERN.search(checksum_text)
-                                if hash_match:
-                                    expected_checksum = hash_match.group(1)
+                            if expected_checksum.lower() == actual_checksum.lower():
+                                logger.info(f"Checksum verification passed for {date.date()}")
+                            else:
+                                logger.critical(
+                                    f"Checksum verification failed for {date.date()}. "
+                                    f"Expected: {expected_checksum}, Actual: {actual_checksum}"
+                                )
+                                checksum_failed = True
 
-                                    if expected_checksum.lower() == actual_checksum.lower():
-                                        logger.info(f"Checksum verification passed for {date.date()}")
-                                    else:
-                                        logger.critical(
-                                            f"Checksum verification failed for {date.date()}. "
-                                            f"Expected: {expected_checksum}, Actual: {actual_checksum}"
-                                        )
-                                        checksum_failed = True
+                                if self._should_skip_retry_for_fresh_date(date):
+                                    logger.warning(
+                                        f"Checksum verification failed for recent data ({date.date()}). "
+                                        f"This may be expected for data within the freshness window."
+                                    )
 
-                                        # Check if the date is too fresh before treating checksum failures as critical
-                                        if self._should_skip_retry_for_fresh_date(date):
-                                            # For fresh dates, just log the warning and continue
-                                            logger.warning(
-                                                f"Checksum verification failed for recent data ({date.date()}). "
-                                                f"This may be expected for data within the freshness window."
-                                            )
-                        except (OSError, ValueError) as extract_e:
-                            # Extraction failed, but we can still self-verify
-                            logger.debug(f"Could not extract checksum from file: {extract_e}")
-
-                    except (OSError, ValueError, httpx.HTTPError) as e:
-                        # Log checksum verification errors at warning level for visibility
+                    except (ValueError, httpx.HTTPError) as e:
                         logger.warning(f"Checksum verification error for {date.date()}: {e}")
 
-            # Process the zip file
+            # Process the zip file from in-memory bytes (no disk extraction)
             try:
-                with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
-                    # Find the CSV file in the zip
-                    csv_files = [f for f in zip_ref.namelist() if f.endswith(".csv")]
-                    if not csv_files:
-                        # Check if date is too fresh when no CSV files found
+                with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zip_ref:
+                    # Find the first CSV file in the zip
+                    csv_file = next((f for f in zip_ref.namelist() if f.endswith(".csv")), None)
+                    if csv_file is None:
                         if self._should_skip_retry_for_fresh_date(date):
                             return (
                                 None,
@@ -523,57 +479,38 @@ class VisionDataClient(DataClientInterface, Generic[T]):
                             )
                         return None, f"No CSV file found in zip for {date.date()}"
 
-                    csv_file = csv_files[0]  # Take the first CSV file
+                    # Read CSV directly from zip stream — no temp directory needed
+                    with zip_ref.open(csv_file) as csv_stream:
+                        text_stream = io.TextIOWrapper(csv_stream, encoding="utf-8")
+                        first_line = text_stream.readline()
+                        has_header = "high" in first_line.lower()
+                        logger.debug(f"Headers detected: {has_header}")
+                        text_stream.seek(0)
 
-                    # Extract and process the CSV file
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        zip_ref.extract(csv_file, temp_dir)
-                        csv_path = Path(temp_dir) / csv_file
-
-                        # Read the CSV file
-                        with open(csv_path) as f:
-                            first_lines = [next(f) for _ in range(3)]
-
-                            # Check if the first line contains headers (e.g., 'high' keyword)
-                            has_header = any("high" in line.lower() for line in first_lines[:1])
-                            logger.debug(f"Headers detected: {has_header}")
-
-                            # Reopen the file to read from the beginning
-                            f.seek(0)
-
-                        # Read CSV with or without header based on detection
-                        # Note: pl.read_csv is ~2x faster raw, but .to_pandas() conversion
-                        # negates the benefit at Vision CSV sizes (1440 rows). Keeping pd.read_csv.
                         if has_header:
                             logger.info("Headers detected in CSV, reading with header=0")
-                            df = pd.read_csv(csv_path, header=0)
-                            # Map column names to standard names if needed
+                            df = pd.read_csv(text_stream, header=0)
                             if "open_time" not in df.columns and len(df.columns) == len(KLINE_COLUMNS):
                                 df.columns = KLINE_COLUMNS
                         else:
-                            # No headers detected, use the standard column names
                             logger.info("No headers detected in CSV, reading with header=None")
-                            df = pd.read_csv(csv_path, header=None, names=KLINE_COLUMNS)
+                            df = pd.read_csv(text_stream, header=None, names=KLINE_COLUMNS)
 
-                        logger.debug(f"Read {len(df)} rows from CSV")
+                    logger.debug(f"Read {len(df)} rows from CSV")
 
-                        # Process the data
-                        if not df.empty:
-                            # Store original timestamp info for later analysis if not already present
-                            if "original_timestamp" not in df.columns:
-                                df["original_timestamp"] = df.iloc[:, 0].astype(str)
+                    # Process the data
+                    if not df.empty:
+                        # Process timestamp columns using the imported utility function
+                        df = process_timestamp_columns(df, self._interval_str)
 
-                            # Process timestamp columns using the imported utility function
-                            df = process_timestamp_columns(df, self._interval_str)
+                        # Add warning to data if checksum failed (only if really failed)
+                        warning_msg = None
+                        if checksum_failed:
+                            warning_msg = f"Data used despite checksum verification failure for {date.date()}"
+                            logger.warning(warning_msg)
 
-                            # Add warning to data if checksum failed (only if really failed)
-                            warning_msg = None
-                            if checksum_failed:
-                                warning_msg = f"Data used despite checksum verification failure for {date.date()}"
-                                logger.warning(warning_msg)
-
-                            return df, warning_msg
-                        return None, f"Empty dataframe for {date.date()}"
+                        return df, warning_msg
+                    return None, f"Empty dataframe for {date.date()}"
             except (zipfile.BadZipFile, OSError, pd.errors.ParserError) as e:
                 logger.error(
                     f"Error processing zip file {temp_file_path}: {e!s}",
@@ -583,15 +520,6 @@ class VisionDataClient(DataClientInterface, Generic[T]):
         except (httpx.HTTPError, OSError, TimeoutError) as e:
             logger.error(f"Unexpected error processing {date.date()}: {e!s}")
             return None, f"Unexpected error: {e!s}"
-        finally:
-            # Clean up temp files
-            try:
-                if "temp_file_path" in locals() and temp_file_path.exists():
-                    temp_file_path.unlink()
-                if "temp_checksum_path" in locals() and temp_checksum_path.exists():
-                    temp_checksum_path.unlink()
-            except OSError as e:
-                logger.warning(f"Error cleaning up temporary files: {e}")
 
         return None, None
 

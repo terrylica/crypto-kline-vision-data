@@ -193,15 +193,41 @@ class Reconciler:
                 },
             ) from exc
 
-        # 4. Convert DataFrame rows to KlineUpdate
+        # 4. Convert DataFrame rows to KlineUpdate (columnar extraction avoids per-row iloc)
         updates: list[KlineUpdate] = []
         if df is not None and len(df) > 0:
+            # Extract columns as numpy arrays for fast iteration
+            open_times = df.index if df.index.name == "open_time" else df["open_time"]
+            opens = df["open"].to_numpy()
+            highs = df["high"].to_numpy()
+            lows = df["low"].to_numpy()
+            closes = df["close"].to_numpy()
+            volumes = df["volume"].to_numpy()
+            sources = df["_data_source"].to_numpy() if "_data_source" in df.columns else None
+
             for idx in range(len(df)):
-                row = df.iloc[idx]
-                update = KlineUpdate.from_historical_row(
-                    row, symbol=request.symbol, interval=request.interval
+                ot = open_times[idx]
+                if not isinstance(ot, datetime):
+                    ot = ot.to_pydatetime()
+                if ot.tzinfo is None:
+                    ot = ot.replace(tzinfo=timezone.utc)
+                ot_ms = int(ot.timestamp() * 1000)
+                updates.append(
+                    KlineUpdate(
+                        symbol=request.symbol,
+                        interval=request.interval,
+                        open_time=ot,
+                        open=float(opens[idx]),
+                        high=float(highs[idx]),
+                        low=float(lows[idx]),
+                        close=float(closes[idx]),
+                        volume=float(volumes[idx]),
+                        close_time=ot,  # historical rows don't carry explicit close_time
+                        is_closed=True,
+                        data_source=str(sources[idx]) if sources is not None else "REST",
+                        open_time_ms=ot_ms,
+                    )
                 )
-                updates.append(update)
 
         # 5. Update cooldown timer
         self._cooldown_until[key] = datetime.now(timezone.utc) + timedelta(

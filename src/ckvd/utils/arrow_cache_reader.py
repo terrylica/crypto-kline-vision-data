@@ -311,22 +311,23 @@ class ArrowCacheReader:
             f"dates in cache for {symbol} {interval} {market_type.name} ({availability['coverage_percentage']:.1f}% coverage)"
         )
 
-        # Read and combine data using Polars internally
-        polars_dfs: list[pl.DataFrame] = []
+        # Batch scan: collect all valid file paths, then use pl.scan_ipc() for single I/O pass
+        valid_paths: list[str] = []
         for date in availability["available_dates"]:
             file_path = availability["paths"][date]
-            try:
-                df_pl = self._read_arrow_file_polars(file_path)
-                if len(df_pl) > 0:
-                    polars_dfs.append(df_pl)
-            except (OSError, pl.exceptions.ComputeError) as e:
-                logger.error(f"Error reading file for {date}: {e}")
+            valid_paths.append(str(file_path))
 
-        if not polars_dfs:
+        if not valid_paths:
             return pd.DataFrame()
 
-        # Combine using Polars concat (more efficient than pandas)
-        combined_pl = pl.concat(polars_dfs)
+        try:
+            combined_pl = pl.scan_ipc(valid_paths).collect()
+        except (OSError, pl.exceptions.ComputeError) as e:
+            logger.error(f"Error batch-reading cache files: {e}")
+            return pd.DataFrame()
+
+        if len(combined_pl) == 0:
+            return pd.DataFrame()
 
         # Sort by open_time if present
         if "open_time" in combined_pl.columns:

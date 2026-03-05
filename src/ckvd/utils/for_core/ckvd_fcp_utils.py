@@ -219,6 +219,8 @@ def process_rest_step(
         )
 
     # Sequential path: single range or no parallel capability
+    # Collect all REST DataFrames, then merge once (avoids N intermediate merges)
+    rest_dfs: list[pd.DataFrame] = []
     rate_limit_hit = False
     for range_idx, (miss_start, miss_end) in enumerate(merged_rest_ranges):
         logger.debug(f"[FCP] Fetching from REST API range {range_idx + 1}/{n_rest_ranges}: {miss_start} to {miss_end}")
@@ -236,16 +238,20 @@ def process_rest_step(
         if not rest_df.empty:
             if include_source_info and "_data_source" not in rest_df.columns:
                 rest_df["_data_source"] = "REST"
-
-            if not result_df.empty:
-                logger.debug(f"[FCP] Merging {len(rest_df)} REST records with existing {len(result_df)} records")
-                result_df = merge_dataframes([result_df, rest_df])
-            else:
-                result_df = rest_df
+            rest_dfs.append(rest_df)
 
             if save_to_cache_func:
                 logger.debug("[FCP] Auto-saving REST data to cache")
                 save_to_cache_func(rest_df, symbol, interval, source="REST")
+
+    # Single merge of all REST results + existing data
+    if rest_dfs:
+        all_dfs = ([result_df] if not result_df.empty else []) + rest_dfs
+        if len(all_dfs) == 1:
+            result_df = all_dfs[0]
+        else:
+            logger.debug(f"[FCP] Merging {len(rest_dfs)} REST results with existing data")
+            result_df = merge_dataframes(all_dfs)
 
     if rate_limit_hit and not result_df.empty:
         result_df.attrs["_rate_limited"] = True

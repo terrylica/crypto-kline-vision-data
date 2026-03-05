@@ -41,6 +41,23 @@ _SOURCE_PRIORITY: dict[str, int] = {
     "REST": 3,
 }
 
+# MEMORY OPTIMIZATION (Round 9): Module-level constant avoids dict recreation per standardize_columns() call.
+_COLUMN_MAP: dict[str, str] = {
+    # Common name variations
+    "open_time_ms": "open_time",
+    "openTime": "open_time",
+    "close_time_ms": "close_time",
+    "closeTime": "close_time",
+    # Volume variants
+    "volume_base": "volume",
+    "baseVolume": "volume",
+    "volume_quote": "quote_asset_volume",
+    "quoteVolume": "quote_asset_volume",
+    # Other variants
+    "trades": "count",
+    "numberOfTrades": "count",
+}
+
 
 def merge_adjacent_ranges(ranges: list[tuple[datetime, datetime]], interval: Interval) -> list[tuple[datetime, datetime]]:
     """Merge adjacent or overlapping time ranges to minimize API calls.
@@ -99,26 +116,9 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
 
-    # Standardize column names
-    column_map = {
-        # Common name variations
-        "open_time_ms": "open_time",
-        "openTime": "open_time",
-        "close_time_ms": "close_time",
-        "closeTime": "close_time",
-        # Volume variants
-        "volume_base": "volume",
-        "baseVolume": "volume",
-        "volume_quote": "quote_asset_volume",
-        "quoteVolume": "quote_asset_volume",
-        # Other variants
-        "trades": "count",
-        "numberOfTrades": "count",
-    }
-
     # Apply column mapping — batch into single rename() call to avoid
     # creating a new DataFrame per column (memory efficiency)
-    rename_dict = {old: new for old, new in column_map.items() if old in df.columns and new not in df.columns}
+    rename_dict = {old: new for old, new in _COLUMN_MAP.items() if old in df.columns and new not in df.columns}
     if rename_dict:
         df = df.rename(columns=rename_dict)
 
@@ -277,27 +277,32 @@ def identify_missing_segments_polars(
     max_time = times[-1]
     logger.debug(f"[POLARS GAP] Data spans {min_time} to {max_time} ({len(times)} rows)")
 
-    # Compute diffs using Polars — O(n) vectorized
+    # Vectorized gap detection entirely in Polars — no Python loop
     diffs = times.diff()
-
-    # Detect which transitions cross a day boundary
     dates = times.dt.truncate("1d")
-    dates_shifted = dates.shift(-1)
-    crosses_day = dates != dates_shifted
+    crosses_day = dates != dates.shift(-1)
 
-    # Build gap list
+    # Build a DataFrame for filtering: row i has diff[i] and crosses_day[i-1]
+    gap_df = pl.DataFrame({
+        "diff": diffs,
+        "crosses_day": crosses_day.shift(1),  # Align: crosses_day[i-1] for row i
+        "prev_time": times.shift(1),
+        "curr_time": times,
+    }).slice(1)  # Skip row 0 (diff is null)
+
+    # Apply threshold based on day boundary crossing
+    gap_rows = gap_df.filter(
+        pl.when(pl.col("crosses_day").fill_null(False))
+        .then(pl.col("diff") > day_gap_limit)
+        .otherwise(pl.col("diff") > gap_limit)
+    )
+
+    # Extract gap starts/ends as Python datetimes
     missing_segments: list[tuple[datetime, datetime]] = []
-
-    for i in range(1, len(times)):
-        diff = diffs[i]
-        if diff is None:
-            continue
-        is_day_boundary = crosses_day[i - 1]
-        threshold = day_gap_limit if is_day_boundary else gap_limit
-        if diff > threshold:
-            gap_start = times[i - 1] + interval_offset
-            gap_end = times[i]
-            missing_segments.append((gap_start, gap_end))
+    if len(gap_rows) > 0:
+        prev_times = gap_rows["prev_time"].to_list()
+        curr_times = gap_rows["curr_time"].to_list()
+        missing_segments = [(pt + interval_offset, ct) for pt, ct in zip(prev_times, curr_times, strict=False)]
 
     # Check boundaries
     if min_time > start_time:
@@ -379,12 +384,13 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
             logger.debug(f"Adding unknown source tag to DataFrame {i}")
             dfs[i]["_data_source"] = "UNKNOWN"
 
-    # Log source counts before merging
-    for i, df in enumerate(dfs):
-        if not df.empty and "_data_source" in df.columns:
-            source_counts = df["_data_source"].value_counts()
-            for source, count in source_counts.items():
-                logger.debug(f"DataFrame {i} contains {count} records from source={source}")
+    # Log source counts before merging (guarded — value_counts() is expensive)
+    if logger.isEnabledFor("DEBUG"):
+        for i, df in enumerate(dfs):
+            if not df.empty and "_data_source" in df.columns:
+                source_counts = df["_data_source"].value_counts()
+                for source, count in source_counts.items():
+                    logger.debug(f"DataFrame {i} contains {count} records from source={source}")
 
     # Concatenate all DataFrames efficiently (copy=False avoids unnecessary copies)
     logger.debug(f"Concatenating {len(dfs)} DataFrames")
@@ -416,8 +422,8 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     # Final standardization to ensure consistency across all columns
     merged = standardize_columns(merged)
 
-    # Log statistics about the merged result
-    if "_data_source" in merged.columns and not merged.empty:
+    # Log statistics about the merged result (guarded — value_counts() is expensive)
+    if logger.isEnabledFor("DEBUG") and "_data_source" in merged.columns and not merged.empty:
         source_counts = merged["_data_source"].value_counts()
         for source, count in source_counts.items():
             percentage = (count / len(merged)) * 100
