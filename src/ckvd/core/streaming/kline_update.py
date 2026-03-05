@@ -139,4 +139,6 @@ class KlineUpdate:
             close_time=open_time,  # historical rows don't carry explicit close_time
             is_closed=True,  # historical rows are always finalized
             data_source=data_source,
+            # MEMORY OPTIMIZATION (Round 10): Set open_time_ms to avoid _dt_to_ms() fallback
+            open_time_ms=int(open_time.timestamp() * 1000),
         )

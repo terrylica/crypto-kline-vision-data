@@ -357,21 +357,23 @@ def verify_data_completeness(
         missing_timestamps = missing_timestamps.sort_values()
 
         # Group consecutive missing timestamps into ranges
+        # MEMORY OPTIMIZATION (Round 10): Hoist pd.Timedelta(freq) before loop
+        freq_delta = pd.Timedelta(freq)
         gap_start = missing_timestamps[0]
         prev_ts = missing_timestamps[0]
 
         for ts in missing_timestamps[1:]:
             # If this timestamp is not right after the previous one, we have a new gap
-            expected_next = prev_ts + pd.Timedelta(freq)
+            expected_next = prev_ts + freq_delta
             if ts != expected_next:
                 # Add the previous gap to our list
-                gaps.append((gap_start, prev_ts + pd.Timedelta(freq)))
+                gaps.append((gap_start, prev_ts + freq_delta))
                 # Start a new gap
                 gap_start = ts
             prev_ts = ts
 
         # Add the last gap
-        gaps.append((gap_start, prev_ts + pd.Timedelta(freq)))
+        gaps.append((gap_start, prev_ts + freq_delta))
 
     # Log information about gaps
     total_missing = len(missing_timestamps)

@@ -162,19 +162,24 @@ class KlineStream:
     async def _consume(self) -> AsyncGenerator[KlineUpdate, None]:
         """Internal async generator — filters, queues, and yields updates."""
         async for update in self._client.messages():
+            # MEMORY OPTIMIZATION (Round 10): Cache frozen dataclass attrs as locals
+            is_closed = update.is_closed
+            u_symbol = update.symbol
+            u_interval = update.interval
+
             # k.x gate: skip intermediate candle updates when confirmed_only=True
-            if self._config.confirmed_only and not update.is_closed:
+            if self._config.confirmed_only and not is_closed:
                 continue
 
             # Track last confirmed open_time for gap detection on reconnect
-            if update.is_closed:
-                key = (update.symbol, update.interval)
+            if is_closed:
+                key = (u_symbol, u_interval)
                 prev = self._last_confirmed_open_time.get(key)
 
                 # Trigger 1: Reconnect gap detection
                 if self._reconciler is not None and prev is not None:
                     backfilled = await self._try_reconcile_gap(
-                        update.symbol, update.interval, prev, update.open_time
+                        u_symbol, u_interval, prev, update.open_time
                     )
                     for bu in backfilled:
                         yield bu
@@ -188,7 +193,7 @@ class KlineStream:
             # confirmed_only=False flows where same open_time can repeat
             if self._reconciler is not None and self._dedup is not None:
                 is_dup = self._dedup.check_and_insert(
-                    update.symbol, update.interval, update.open_time_ms or _dt_to_ms(update.open_time)
+                    u_symbol, u_interval, update.open_time_ms or _dt_to_ms(update.open_time)
                 )
                 if is_dup:
                     self._reconciler.stats.total_deduped += 1
@@ -204,9 +209,10 @@ class KlineStream:
 
                 # Trigger 3: Backpressure drop — schedule reconciliation
                 if self._reconciler is not None and self._dropped_count > prev_dropped:
+                    # MEMORY OPTIMIZATION (Round 10): Lazy loguru formatting
                     logger.warning(
-                        f"Backpressure drop #{self._dropped_count} for "
-                        f"{update.symbol} {update.interval}"
+                        "Backpressure drop #{} for {} {}",
+                        self._dropped_count, update.symbol, update.interval,
                     )
                 continue
 
