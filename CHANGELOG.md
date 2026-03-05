@@ -1,3 +1,15 @@
+## [4.6.1](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.6.0...v4.6.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* remove /tmp debug write, fix ENV_VAR_PREFIX, replace sys.exit, fix silent fallback ([94b8ff1](https://github.com/terrylica/crypto-kline-vision-data/commit/94b8ff171f50eedc430a71ff0d0d1f6a7209e558))
+
+
+### Performance Improvements
+
+* memory efficiency Round 9 — 8 targeted optimizations across FCP and streaming ([38513a9](https://github.com/terrylica/crypto-kline-vision-data/commit/38513a9b83f515f8e01af67f8f9215c614b2f36b))
+
 # [4.6.0](https://github.com/terrylica/crypto-kline-vision-data/compare/v4.5.1...v4.6.0) (2026-03-04)
 
 
