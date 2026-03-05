@@ -346,7 +346,9 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
         logger.debug("Only one DataFrame to merge, standardizing and returning")
         # MEMORY OPTIMIZATION: No defensive copy needed - standardize_columns
         # operates on the DataFrame and callers don't expect original preservation.
-        return standardize_columns(dfs[0])
+        result = standardize_columns(dfs[0])
+        result.attrs["_standardized"] = True
+        return result
 
     # Filter out empty DataFrames before processing (avoids unnecessary work in concat)
     non_empty_dfs = [df for df in dfs if not df.empty]
@@ -358,7 +360,9 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
 
     if len(non_empty_dfs) == 1:
         logger.debug("Only one non-empty DataFrame after filtering, standardizing and returning")
-        return standardize_columns(non_empty_dfs[0])
+        result = standardize_columns(non_empty_dfs[0])
+        result.attrs["_standardized"] = True
+        return result
 
     dfs = non_empty_dfs
     logger.debug(f"Merging {len(dfs)} non-empty DataFrames")
@@ -421,6 +425,10 @@ def merge_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
 
     # Final standardization to ensure consistency across all columns
     merged = standardize_columns(merged)
+
+    # MEMORY OPTIMIZATION (Round 10): Mark as standardized so callers can skip
+    # a redundant standardize_columns() call (which triggers 2-4 DataFrame copies).
+    merged.attrs["_standardized"] = True
 
     # Log statistics about the merged result (guarded — value_counts() is expensive)
     if logger.isEnabledFor("DEBUG") and "_data_source" in merged.columns and not merged.empty:

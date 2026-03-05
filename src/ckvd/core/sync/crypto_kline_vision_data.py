@@ -1004,7 +1004,9 @@ class CryptoKlineVisionData:
             verify_final_data(result_df, aligned_start, aligned_end)
 
             # First standardize columns to ensure consistent data types and format
-            result_df = standardize_columns(result_df)
+            # MEMORY OPTIMIZATION (Round 10): Skip when merge_dataframes already standardized
+            if not result_df.attrs.get("_standardized"):
+                result_df = standardize_columns(result_df)
 
             # CRITICAL FIX: Filter to user's exact time range when auto_reindex=False
             if not auto_reindex and not result_df.empty:
