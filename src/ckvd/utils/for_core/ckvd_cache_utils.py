@@ -183,7 +183,9 @@ def get_cache_lazyframes(
                 chart_type=chart_type,
             )
 
-            if fs_handler.exists(cache_path):
+            # MEMORY OPTIMIZATION (Round 10): Use Path.exists() instead of
+            # fs_handler.exists() — avoids fsspec URL parsing overhead for local paths.
+            if cache_path.exists():
                 logger.debug(f"Found cache file: {cache_path}")
                 valid_paths.append(cache_path)
             else:
