@@ -139,21 +139,8 @@ class TestBatchScanIpcPerformance:
             shutil.rmtree(tmpdir)
 
 
-class TestMagicBytesRemoved:
-    """Verify _scan_cache_file is still available but batch path is preferred."""
-
-    def test_scan_cache_file_still_works(self):
-        """_scan_cache_file should still work for backward compatibility."""
-        from ckvd.utils.for_core.ckvd_cache_utils import _scan_cache_file
-
-        paths, tmpdir = _create_arrow_files(1)
-        try:
-            lf = _scan_cache_file(paths[0])
-            result = lf.collect()
-            assert len(result) == 24
-        finally:
-            import shutil
-            shutil.rmtree(tmpdir)
+class TestBatchScanCacheIntegration:
+    """Verify batch scan via get_cache_lazyframes works correctly."""
 
     def test_get_cache_lazyframes_returns_single_batch_frame(self):
         """get_cache_lazyframes should return at most 1 LazyFrame (batch scan)."""
@@ -195,39 +182,3 @@ class TestMagicBytesRemoved:
             shutil.rmtree(tmpdir)
 
 
-class TestGetFromCacheBatchScan:
-    """Verify get_from_cache uses batch scan internally."""
-
-    def test_get_from_cache_returns_data(self):
-        """get_from_cache should return valid DataFrame with batch scan."""
-        from unittest.mock import MagicMock, patch
-
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
-        from ckvd.utils.market.enums import Interval, MarketType
-
-        paths, tmpdir = _create_arrow_files(3)
-
-        try:
-            mock_handler = MagicMock()
-            mock_handler.exists.return_value = True
-            path_iter = iter(paths)
-            mock_handler.get_local_path_for_data.side_effect = lambda **kwargs: next(path_iter)
-
-            start = datetime(2024, 1, 1, tzinfo=timezone.utc)
-            end = datetime(2024, 1, 3, 23, 59, 59, tzinfo=timezone.utc)
-
-            with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_handler):
-                result_df, missing_ranges = get_from_cache(
-                    symbol="BTCUSDT",
-                    start_time=start,
-                    end_time=end,
-                    interval=Interval.HOUR_1,
-                    cache_dir=tmpdir,
-                    market_type=MarketType.FUTURES_USDT,
-                )
-
-            assert not result_df.empty
-            assert len(result_df) == 3 * 24  # 3 days × 24 hours
-        finally:
-            import shutil
-            shutil.rmtree(tmpdir)

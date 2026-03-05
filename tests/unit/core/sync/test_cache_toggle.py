@@ -113,9 +113,9 @@ class TestCacheReadDisabled:
         assert mgr.cache_dir is not None
         mgr.close()
 
-    @patch("ckvd.utils.for_core.ckvd_cache_utils.get_from_cache")
-    def test_get_from_cache_util_never_called(self, mock_get_cache):
-        """get_from_cache utility is never invoked when cache is off."""
+    @patch("ckvd.utils.for_core.ckvd_cache_utils.get_cache_lazyframes")
+    def test_get_cache_lazyframes_never_called(self, mock_get_cache):
+        """get_cache_lazyframes utility is never invoked when cache is off."""
         mgr = CryptoKlineVisionData.create(DataProvider.BINANCE, MarketType.SPOT, use_cache=False)
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=1)

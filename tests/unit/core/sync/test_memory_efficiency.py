@@ -22,7 +22,7 @@ Round 4 tests validate that:
 13. filter_dataframe_by_time avoids reset_index/set_index (Phase 2b)
 
 Round 5 tests validate that:
-14. get_from_cache() uses deferred LazyFrame collection (Finding 1)
+14. (Removed: get_from_cache() deleted as dead code in Round 10)
 15. add_source() does not call collect_schema() (Finding 2)
 16. detect_gaps() uses .dt.normalize() instead of .dt.date (Finding 3)
 17. save_to_cache() does not mutate input DataFrame (Finding 4)
@@ -913,20 +913,18 @@ class TestVectorizedTimestampPrecision:
 
 
 class TestCacheSinglePolarsConversion:
-    """Tests that get_from_cache() uses single Polars→pandas conversion.
+    """Tests for cache Polars conversion (Round 3, Phase 2c).
 
-    Validates Phase 2c (Round 3): Daily cache files are collected as Polars
-    DataFrames, concatenated in Polars, then a single to_pandas() converts
-    the result instead of N separate to_pandas() calls.
+    Note: get_from_cache() was removed as dead code in Round 10.
+    These tests now validate get_cache_lazyframes() which is the active path.
     """
 
-    def test_produces_correct_dataframe(self, base_time):
-        """get_from_cache() should return correct DataFrame with _data_source."""
+    def test_get_cache_lazyframes_returns_data_source(self, base_time):
+        """get_cache_lazyframes should add _data_source=CACHE column."""
         from unittest.mock import MagicMock
 
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+        from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
 
-        # Create mock Polars data for 2 days
         day1_data = pl.DataFrame(
             {
                 "open_time": [base_time + timedelta(hours=i) for i in range(24)],
@@ -935,48 +933,36 @@ class TestCacheSinglePolarsConversion:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
-        day2_data = pl.DataFrame(
-            {
-                "open_time": [base_time + timedelta(days=1, hours=i) for i in range(24)],
-                "open": [200.0 + i for i in range(24)],
-                "close": [205.0 + i for i in range(24)],
-            }
-        ).cast({"open_time": pl.Datetime("us", "UTC")})
-
-        # Mock _batch_scan_ipc to return a LazyFrame with both days concatenated
-        combined_data = pl.concat([day1_data, day2_data])
-
         mock_fs = MagicMock()
         mock_fs.exists.return_value = True
         mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=combined_data.lazy()),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day1_data.lazy()),
         ):
             from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
 
-            result_df, missing = get_from_cache(
+            result = get_cache_lazyframes(
                 symbol="BTCUSDT",
                 interval=Interval.HOUR_1,
                 start_time=base_time,
-                end_time=base_time + timedelta(days=2),
+                end_time=base_time + timedelta(days=1),
                 market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
                 cache_dir="/fake/cache",
+                provider=DataProvider.BINANCE,
             )
 
-        assert not result_df.empty
-        assert "_data_source" in result_df.columns
-        assert (result_df["_data_source"] == "CACHE").all()
-        # Should be sorted
-        assert result_df["open_time"].is_monotonic_increasing
+        assert len(result) == 1
+        collected = result[0].collect()
+        assert "_data_source" in collected.columns
+        assert (collected["_data_source"] == "CACHE").to_list() == ["CACHE"] * len(collected)
 
-    def test_empty_cache_returns_empty_dataframe(self, base_time):
-        """No cache files should return empty DataFrame."""
+    def test_empty_cache_returns_empty_list(self, base_time):
+        """No cache files should return empty list."""
         from unittest.mock import MagicMock
 
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+        from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
 
         mock_fs = MagicMock()
         mock_fs.exists.return_value = False
@@ -985,18 +971,17 @@ class TestCacheSinglePolarsConversion:
         with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs):
             from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
 
-            result_df, missing = get_from_cache(
+            result = get_cache_lazyframes(
                 symbol="BTCUSDT",
                 interval=Interval.HOUR_1,
                 start_time=base_time,
                 end_time=base_time + timedelta(days=1),
                 market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
                 cache_dir="/fake/cache",
+                provider=DataProvider.BINANCE,
             )
 
-        assert result_df.empty
-        assert len(missing) == 1  # Entire range is missing
+        assert result == []
 
 
 # =============================================================================
@@ -1394,21 +1379,19 @@ class TestFilterDataframeByTimeNoResetIndex:
 
 
 class TestDeferredCacheCollection:
-    """Tests that get_from_cache() uses deferred LazyFrame collection.
+    """Tests for deferred LazyFrame collection (Round 5, Finding 1).
 
-    Validates Finding 1 (Round 5): Daily cache files are kept as LazyFrames
-    throughout the loop, with a single .collect(engine="streaming") after
-    pl.concat() instead of N per-day collections.
+    Note: get_from_cache() was removed as dead code in Round 10.
+    get_cache_lazyframes() is the active cache read path (returns LazyFrames).
     """
 
-    def test_produces_correct_dataframe(self, base_time):
-        """Deferred collection should produce correct merged DataFrame."""
+    def test_cache_lazyframes_deferred_collection(self, base_time):
+        """get_cache_lazyframes returns LazyFrames (not collected DataFrames)."""
         from unittest.mock import MagicMock
 
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
+        from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
 
-        # Create mock Polars data for 2 days
-        day1_data = pl.DataFrame(
+        day_data = pl.DataFrame(
             {
                 "open_time": [base_time + timedelta(hours=i) for i in range(24)],
                 "open": [100.0 + i for i in range(24)],
@@ -1416,133 +1399,29 @@ class TestDeferredCacheCollection:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
-        day2_data = pl.DataFrame(
-            {
-                "open_time": [base_time + timedelta(days=1, hours=i) for i in range(24)],
-                "open": [200.0 + i for i in range(24)],
-                "close": [205.0 + i for i in range(24)],
-            }
-        ).cast({"open_time": pl.Datetime("us", "UTC")})
-
-        # Mock _batch_scan_ipc to return a LazyFrame with both days concatenated
-        combined_data = pl.concat([day1_data, day2_data])
-
         mock_fs = MagicMock()
         mock_fs.exists.return_value = True
         mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=combined_data.lazy()),
+            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day_data.lazy()),
         ):
-            result_df, missing = get_from_cache(
-                symbol="BTCUSDT",
-                interval=Interval.HOUR_1,
-                start_time=base_time,
-                end_time=base_time + timedelta(days=2),
-                market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
-                cache_dir="/fake/cache",
-            )
-
-        assert not result_df.empty
-        # 2 days of data (24h each) = 48 rows
-        assert len(result_df) == 48
-        assert result_df["open_time"].is_monotonic_increasing
-
-    def test_empty_cache_returns_empty(self, base_time):
-        """No cache files should return empty DataFrame with full missing range."""
-        from unittest.mock import MagicMock
-
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
-
-        mock_fs = MagicMock()
-        mock_fs.exists.return_value = False
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
-
-        with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs):
-            result_df, missing = get_from_cache(
+            result = get_cache_lazyframes(
                 symbol="BTCUSDT",
                 interval=Interval.HOUR_1,
                 start_time=base_time,
                 end_time=base_time + timedelta(days=1),
                 market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
                 cache_dir="/fake/cache",
+                provider=DataProvider.BINANCE,
             )
 
-        assert result_df.empty
-        assert len(missing) == 1  # Entire range is missing
-
-    def test_single_day_cache_correct(self, base_time):
-        """Single day of cache data should work with deferred collection."""
-        from unittest.mock import MagicMock
-
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
-
-        day_data = pl.DataFrame(
-            {
-                "open_time": [base_time + timedelta(hours=i) for i in range(12)],
-                "open": [100.0 + i for i in range(12)],
-                "close": [105.0 + i for i in range(12)],
-            }
-        ).cast({"open_time": pl.Datetime("us", "UTC")})
-
-        mock_fs = MagicMock()
-        mock_fs.exists.return_value = True
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
-
-        with (
-            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day_data.lazy()),
-        ):
-            result_df, missing = get_from_cache(
-                symbol="BTCUSDT",
-                interval=Interval.HOUR_1,
-                start_time=base_time,
-                end_time=base_time + timedelta(hours=12),
-                market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
-                cache_dir="/fake/cache",
-            )
-
-        assert not result_df.empty
-        assert len(result_df) == 12
-
-    def test_data_source_column_all_cache(self, base_time):
-        """All rows should have _data_source='CACHE' from lazy ops."""
-        from unittest.mock import MagicMock
-
-        from ckvd.utils.for_core.ckvd_cache_utils import get_from_cache
-
-        day_data = pl.DataFrame(
-            {
-                "open_time": [base_time + timedelta(hours=i) for i in range(6)],
-                "open": [100.0] * 6,
-                "close": [105.0] * 6,
-            }
-        ).cast({"open_time": pl.Datetime("us", "UTC")})
-
-        mock_fs = MagicMock()
-        mock_fs.exists.return_value = True
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
-
-        with (
-            patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
-            patch("ckvd.utils.for_core.ckvd_cache_utils._batch_scan_ipc", return_value=day_data.lazy()),
-        ):
-            result_df, _ = get_from_cache(
-                symbol="BTCUSDT",
-                interval=Interval.HOUR_1,
-                start_time=base_time,
-                end_time=base_time + timedelta(hours=6),
-                market_type=MarketType.FUTURES_USDT,
-                provider=DataProvider.BINANCE,
-                cache_dir="/fake/cache",
-            )
-
-        assert "_data_source" in result_df.columns
-        assert (result_df["_data_source"] == "CACHE").all()
+        assert len(result) == 1
+        # Verify it's a LazyFrame (deferred), not collected
+        assert isinstance(result[0], pl.LazyFrame)
+        collected = result[0].collect()
+        assert len(collected) > 0
 
 
 # =============================================================================
