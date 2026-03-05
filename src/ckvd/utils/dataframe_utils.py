@@ -413,16 +413,40 @@ def standardize_dataframe(df: pd.DataFrame, keep_as_column: bool = True) -> pd.D
         logger.debug("Empty DataFrame passed to standardize_dataframe")
         return df
 
-    # Ensure open_time is available as a column (needed for most operations)
-    df = ensure_open_time_as_column(df)
+    # MEMORY OPTIMIZATION (Round 10): Detect initial state to avoid unnecessary
+    # index round-trips. The old code always did ensure_open_time_as_column() →
+    # ensure_open_time_as_index() → reset_index(), creating 2-3 intermediate copies.
+    # For the common case (open_time already a column, keep_as_column=True), we
+    # can skip the set_index/reset_index round-trip entirely.
+    has_ot_column = CANONICAL_INDEX_NAME in df.columns
+    has_ot_index = (
+        isinstance(df.index, pd.DatetimeIndex)
+        and df.index.name == CANONICAL_INDEX_NAME
+    )
 
-    # Set index to open_time for proper sorting and lookup
-    df = ensure_open_time_as_index(df)
+    if has_ot_column and keep_as_column and not has_ot_index:
+        # Fast path: open_time is a column, we want it as column, no index set.
+        # Just ensure datetime/UTC type and sort — skip set_index/reset_index round-trip.
+        # One copy up front so the column assignments below never mutate the caller's frame.
+        df = df.copy()
+        col = df[CANONICAL_INDEX_NAME]
+        if not pd.api.types.is_datetime64_any_dtype(col):
+            df[CANONICAL_INDEX_NAME] = pd.to_datetime(col, utc=True)
+        elif hasattr(col, "dt") and hasattr(col.dt, "tz") and col.dt.tz is None:
+            df[CANONICAL_INDEX_NAME] = col.dt.tz_localize("UTC")
 
-    # If requested, keep open_time as a column too
-    if keep_as_column and CANONICAL_INDEX_NAME not in df.columns:
-        logger.debug("Adding open_time as column from index")
-        df = df.reset_index()
+        if not df[CANONICAL_INDEX_NAME].is_monotonic_increasing:
+            df = df.sort_values(CANONICAL_INDEX_NAME)
+        if df.duplicated(subset=[CANONICAL_INDEX_NAME]).any():
+            df = df.drop_duplicates(subset=[CANONICAL_INDEX_NAME], keep="first")
+    else:
+        # Standard path: delegate to ensure_* helpers for complex cases
+        df = ensure_open_time_as_column(df)
+        df = ensure_open_time_as_index(df)
+
+        if keep_as_column and CANONICAL_INDEX_NAME not in df.columns:
+            logger.debug("Adding open_time as column from index")
+            df = df.reset_index()
 
     # Fix: Handle the case where quote_volume exists but quote_asset_volume doesn't
     if "quote_volume" in df.columns:
