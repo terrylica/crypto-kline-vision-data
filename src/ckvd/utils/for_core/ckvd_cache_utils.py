@@ -261,11 +261,23 @@ def save_to_cache(
         # adding a "date" column to the caller's DataFrame. Uses .dt.normalize() to stay
         # in datetime64 dtype instead of creating Python date objects via .dt.date.
         groupby_dates = pd.to_datetime(df["open_time"]).dt.normalize()
-        grouped = df.groupby(groupby_dates)
+
+        # MEMORY OPTIMIZATION (Round 10): Convert entire DataFrame to Polars once
+        # before the per-day loop, then filter by day. Avoids N separate
+        # pl.from_pandas() calls (each with schema inference + Arrow bridge overhead).
+        pl_full = pl.from_pandas(df)
+
+        # Add truncated day column for partitioning
+        pl_full = pl_full.with_columns(
+            pl.col("open_time").dt.truncate("1d").alias("_day_key")
+        )
+
+        # Get unique days from the pandas groupby keys for path generation
+        day_keys = groupby_dates.drop_duplicates().sort_values()
 
         saved_files = 0
 
-        for date_key, day_df in grouped:
+        for date_key in day_keys:
             try:
                 # Convert date_key (pd.Timestamp at midnight) to pendulum DateTime
                 # This ensures the object has the tzinfo attribute needed by FSSpecVisionHandler
@@ -284,12 +296,10 @@ def save_to_cache(
                 # Ensure directory exists
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # Save to Arrow IPC format (not Parquet) for consistency with
-                # cache_manager.py and vision_manager.py, and to enable memory
-                # mapping and predicate pushdown via scan_ipc()
-                # No need to drop a temp column — groupby key is a separate Series
-                pl.from_pandas(day_df).write_ipc(str(cache_path))
-                logger.info(f"Saved {len(day_df)} records to cache: {cache_path}")
+                # Filter Polars DataFrame for this day and write
+                day_pl = pl_full.filter(pl.col("_day_key") == date_key).drop("_day_key")
+                day_pl.write_ipc(str(cache_path))
+                logger.info(f"Saved {len(day_pl)} records to cache: {cache_path}")
                 saved_files += 1
 
             except (OSError, PermissionError, pd.errors.ParserError) as e:
