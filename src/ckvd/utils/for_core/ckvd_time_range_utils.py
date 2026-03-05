@@ -97,6 +97,37 @@ def merge_adjacent_ranges(ranges: list[tuple[datetime, datetime]], interval: Int
     return merged
 
 
+def _normalize_timestamp_col(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
+    """Normalize a timestamp column to datetime64[ns, UTC].
+
+    MEMORY OPTIMIZATION (Round 10): Extracted from standardize_columns() to
+    eliminate duplicated dtype checks for open_time and close_time.
+
+    Args:
+        df: DataFrame containing the column.
+        col_name: Name of the timestamp column to normalize.
+
+    Returns:
+        DataFrame with the column normalized (modified in place when possible).
+    """
+    if col_name not in df.columns:
+        return df
+
+    col = df[col_name]
+    if pd.api.types.is_numeric_dtype(col):
+        logger.debug(f"Converting numeric {col_name} to datetime64[ns, UTC]")
+        df[col_name] = pd.to_datetime(col, unit="ms", utc=True)
+    elif pd.api.types.is_datetime64_any_dtype(col):
+        if col.dt.tz is None:
+            logger.debug(f"Localizing naive datetime {col_name} to UTC")
+            df[col_name] = col.dt.tz_localize("UTC")
+        elif str(col.dt.tz) != "UTC":
+            logger.debug(f"Converting {col_name} timezone from {col.dt.tz} to UTC")
+            df[col_name] = col.dt.tz_convert("UTC")
+
+    return df
+
+
 def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Standardize column names and data types to ensure consistency.
 
@@ -126,33 +157,9 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     # This function ensures proper column structure and data types
     df = standardize_dataframe(df)
 
-    # Ensure open_time is a proper datetime column with UTC timezone
-    if "open_time" in df.columns:
-        # Convert integer/float timestamps to datetime if needed
-        if pd.api.types.is_numeric_dtype(df["open_time"]):
-            logger.debug("Converting numeric open_time to datetime64[ns, UTC]")
-            df["open_time"] = pd.to_datetime(df["open_time"], unit="ms", utc=True)
-        # Ensure timezone awareness for datetime columns
-        elif pd.api.types.is_datetime64_dtype(df["open_time"]):
-            if df["open_time"].dt.tz is None:
-                logger.debug("Localizing naive datetime open_time to UTC")
-                df["open_time"] = df["open_time"].dt.tz_localize("UTC")
-            elif df["open_time"].dt.tz.zone != "UTC":
-                logger.debug(f"Converting open_time timezone from {df['open_time'].dt.tz.zone} to UTC")
-                df["open_time"] = df["open_time"].dt.tz_convert("UTC")
-
-    # Apply the same timezone standardization to close_time
-    if "close_time" in df.columns:
-        if pd.api.types.is_numeric_dtype(df["close_time"]):
-            logger.debug("Converting numeric close_time to datetime64[ns, UTC]")
-            df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)
-        elif pd.api.types.is_datetime64_dtype(df["close_time"]):
-            if df["close_time"].dt.tz is None:
-                logger.debug("Localizing naive datetime close_time to UTC")
-                df["close_time"] = df["close_time"].dt.tz_localize("UTC")
-            elif df["close_time"].dt.tz.zone != "UTC":
-                logger.debug(f"Converting close_time timezone from {df['close_time'].dt.tz.zone} to UTC")
-                df["close_time"] = df["close_time"].dt.tz_convert("UTC")
+    # Normalize timestamp columns to UTC datetime
+    df = _normalize_timestamp_col(df, "open_time")
+    df = _normalize_timestamp_col(df, "close_time")
 
     # Set the index to open_time for standard representation
     if "open_time" in df.columns and df.index.name != "open_time":
