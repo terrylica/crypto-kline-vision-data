@@ -921,6 +921,7 @@ class TestCacheSinglePolarsConversion:
 
     def test_get_cache_lazyframes_returns_data_source(self, base_time):
         """get_cache_lazyframes should add _data_source=CACHE column."""
+        from pathlib import Path
         from unittest.mock import MagicMock
 
         from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
@@ -933,9 +934,10 @@ class TestCacheSinglePolarsConversion:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
         mock_fs = MagicMock()
-        mock_fs.exists.return_value = True
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+        mock_fs.get_local_path_for_data.return_value = mock_path
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
@@ -956,17 +958,19 @@ class TestCacheSinglePolarsConversion:
         assert len(result) == 1
         collected = result[0].collect()
         assert "_data_source" in collected.columns
-        assert (collected["_data_source"] == "CACHE").to_list() == ["CACHE"] * len(collected)
+        assert collected["_data_source"].to_list() == ["CACHE"] * len(collected)
 
     def test_empty_cache_returns_empty_list(self, base_time):
         """No cache files should return empty list."""
+        from pathlib import Path
         from unittest.mock import MagicMock
 
         from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
 
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = False
         mock_fs = MagicMock()
-        mock_fs.exists.return_value = False
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+        mock_fs.get_local_path_for_data.return_value = mock_path
 
         with patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs):
             from ckvd.utils.market_constraints import DataProvider, Interval, MarketType
@@ -1387,6 +1391,7 @@ class TestDeferredCacheCollection:
 
     def test_cache_lazyframes_deferred_collection(self, base_time):
         """get_cache_lazyframes returns LazyFrames (not collected DataFrames)."""
+        from pathlib import Path
         from unittest.mock import MagicMock
 
         from ckvd.utils.for_core.ckvd_cache_utils import get_cache_lazyframes
@@ -1399,9 +1404,10 @@ class TestDeferredCacheCollection:
             }
         ).cast({"open_time": pl.Datetime("us", "UTC")})
 
+        mock_path = MagicMock(spec=Path)
+        mock_path.exists.return_value = True
         mock_fs = MagicMock()
-        mock_fs.exists.return_value = True
-        mock_fs.get_local_path_for_data.return_value = "/fake/path.arrow"
+        mock_fs.get_local_path_for_data.return_value = mock_path
 
         with (
             patch("ckvd.utils.for_core.ckvd_cache_utils.FSSpecVisionHandler", return_value=mock_fs),
