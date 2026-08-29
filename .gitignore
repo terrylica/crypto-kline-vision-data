@@ -164,3 +164,6 @@ compact
 
 # Vale linting cache
 .vale-cache/
+
+# AI agent tool-call transcripts (local only, never publish)
+.pi/
