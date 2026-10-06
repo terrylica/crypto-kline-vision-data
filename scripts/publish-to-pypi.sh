@@ -226,11 +226,16 @@ if ! command -v op &> /dev/null; then
 fi
 
 # Try to get PyPI token from 1Password (Claude Automation vault)
-# Use service account token for headless access (no biometric prompt)
-OP_SA_TOKEN_FILE="$HOME/.claude/.secrets/op-service-account-token"
-if [[ -f "$OP_SA_TOKEN_FILE" ]]; then
-    export OP_SERVICE_ACCOUNT_TOKEN
-    OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_SA_TOKEN_FILE")"
+# Use the service account token if available (headless), otherwise biometric.
+# The token lives in the operator's self-custody vault (scope op-service-account, path
+# token); the old plaintext file ~/.claude/.secrets/op-service-account-token is retired and
+# deliberately NOT read. It reaches `op` only via OP_SERVICE_ACCOUNT_TOKEN, never argv.
+if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]] && command -v vault >/dev/null 2>&1; then
+    _op_sa=""
+    if _op_sa="$(vault get op-service-account token 2>/dev/null)" && [[ -n "$_op_sa" ]]; then
+        export OP_SERVICE_ACCOUNT_TOKEN="$_op_sa"
+    fi
+    _op_sa=""
 fi
 if ! PYPI_TOKEN=$(op item get "$OP_PYPI_ITEM" --vault "$OP_PYPI_VAULT" --fields credential --reveal 2>/dev/null); then
     echo "   ERROR: PyPI token not found in 1Password"
