@@ -18,7 +18,7 @@ Each directory has its own CLAUDE.md with domain-specific context, loaded on dem
 | `tests/`      | [tests/CLAUDE.md](tests/CLAUDE.md)           | Test commands, markers, fixtures, mocking                                               |
 | `docs/`       | [docs/CLAUDE.md](docs/CLAUDE.md)             | ADRs, skills, benchmarks, troubleshooting                                               |
 | `examples/`   | [examples/CLAUDE.md](examples/CLAUDE.md)     | Example conventions, NDJSON telemetry                                                   |
-| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, mise tasks, cache tools, Vision data utilities                             |
+| `scripts/`    | [scripts/CLAUDE.md](scripts/CLAUDE.md)       | Dev scripts, release scripts, cache tools, Vision data utilities                             |
 | `playground/` | [playground/CLAUDE.md](playground/CLAUDE.md) | Experimental prototypes (not production)                                                |
 
 **Also**: [.claude/settings.md](.claude/settings.md) | [docs/INDEX.md](docs/INDEX.md) | [docs/GLOSSARY.md](docs/GLOSSARY.md) | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
@@ -32,7 +32,7 @@ Each directory has its own CLAUDE.md with domain-specific context, loaded on dem
 **Python 3.13 ONLY. Never use 3.14 or any other version.**
 
 - All `uv run` commands: use `-p 3.13`
-- Never change version in `mise.toml`, `.python-version`, or `pyproject.toml`
+- Never change version in `.python-version` or `pyproject.toml`
 
 ### Verification (CRITICAL)
 
@@ -50,12 +50,11 @@ uv run -p 3.13 python -c "from ckvd import CryptoKlineVisionData; print('OK')"  
 
 ### Essential Commands
 
-| Command                | Purpose                   |
-| ---------------------- | ------------------------- |
-| `mise run test`        | Run unit tests            |
-| `mise run check:all`   | Lint + format + typecheck |
-| `mise run quick`       | Quick validation          |
-| `mise run release:dry` | Preview semantic-release  |
+| Command                     | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `moon run ckvd:test`        | Run unit tests                                             |
+| `moon run ckvd:check`       | Lint + format + types + import contracts + all unit tests  |
+| `moon run ckvd:release-dry` | Preview semantic-release                                   |
 
 ### FCP Priority
 
@@ -141,11 +140,11 @@ Symbol inputs validated against `^[A-Z0-9_-]{1,30}$` — rejects path traversal,
 ## Environment Setup
 
 ```bash
-uv sync --dev                    # Install dependencies
-mise trust                       # Load env (GH_TOKEN from .mise.local.toml)
+proto install                    # Tool versions from .prototools
+uv sync --all-extras             # Install dependencies (dev tools live in extras)
 ```
 
-**Release**: semantic-release v25+ (global npm install, no per-repo node_modules). Config: `.releaserc.yml`. Run: `mise run release:full` / `mise run release:dry`. Requires GH_TOKEN in `.mise.local.toml`. CHANGELOG.md is auto-generated.
+**Release**: semantic-release v25+ (global npm install, no per-repo node_modules). Config: `.releaserc.yml`. Run: `moon run ckvd:release` / `moon run ckvd:release-dry` (both run `scripts/release.sh`). Release credential resolves fresh via `~/.claude/tools/bin/gh-token-for-repo`. CHANGELOG.md is auto-generated.
 
 **Commit trailers** (hook-enforced):
 

@@ -244,7 +244,7 @@ The `--asyncio-mode=auto` flag automatically applies event loops to `@pytest.mar
 
 ## FCP Edge Case Test Suite (tests/fcp_pm/test_fcp_edge_cases.py)
 
-Comprehensive edge case tests for Failover Control Protocol. Run with `mise run test:fcp-edge`.
+Comprehensive edge case tests for Failover Control Protocol. Run with `uv run --all-extras pytest tests/fcp_pm/test_fcp_edge_cases.py -v`.
 
 ### Test Classes (11 edge case categories)
 

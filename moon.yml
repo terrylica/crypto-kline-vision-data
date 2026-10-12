@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+# crypto-kline-vision-data — repo tasks.
+#
+#   moon run ckvd:check          offline gate: lint, format, types, import contracts, unit + Rust tests, doc links
+#   moon run ckvd:release-dry    semantic-release dry run (preflight first)
+#   moon run ckvd:release        full release: preflight, semantic-release, verify, PyPI, postflight
+#
+# Dev tools live in optional extras (pytest/ruff/import-linter in `dev`, pytest-asyncio in
+# `streaming-test`) and src imports orjson from `streaming`, so Python tasks run with --all-extras.
+layer: 'library'
+language: 'python'
+
+tasks:
+  test:
+    script: 'uv run --all-extras pytest tests/unit/ -v'
+    inputs: ['src/**/*', 'tests/unit/**/*', 'pyproject.toml', 'uv.lock']
+  test-integration:
+    script: 'uv run --all-extras pytest tests/integration/ -v'
+    options: { cache: false }
+  lint:
+    script: 'uv run --all-extras ruff check src/ tests/'
+    inputs: ['src/**/*', 'tests/**/*', 'pyproject.toml']
+  format:
+    script: 'uv run --all-extras ruff format src/ tests/'
+    options: { cache: false }
+  format-check:
+    script: 'uv run --all-extras ruff format --check src/ tests/'
+    inputs: ['src/**/*', 'tests/**/*', 'pyproject.toml']
+  typecheck:
+    script: 'uv run --with pyright pyright src/'
+    inputs: ['src/**/*', 'pyproject.toml']
+  lint-imports:
+    script: 'uv run --all-extras lint-imports'
+    inputs: ['src/**/*', 'pyproject.toml']
+  rust-test:
+    script: 'cargo test --manifest-path crates/ckvd-reconciler/Cargo.toml'
+    inputs: ['crates/ckvd-reconciler/**/*']
+  docs-links:
+    script: 'lychee --offline --root-dir . .'
+    inputs: ['**/*.md']
+  check:
+    deps: ['~:lint', '~:format-check', '~:typecheck', '~:lint-imports', '~:test', '~:rust-test', '~:docs-links']
+    script: "echo 'ckvd:check passed'"
+    options: { cache: false }
+  build:
+    script: 'uv build'
+    options: { cache: false }
+  release-dry:
+    script: 'bash scripts/release.sh --dry-run'
+    options: { cache: false, interactive: true }
+  release:
+    script: 'bash scripts/release.sh'
+    options: { cache: false, interactive: true }

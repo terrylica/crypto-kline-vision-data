@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-#MISE description="Phase 5 of 5: Post-release git state validation. Resets build artifacts (lockfiles, lychee cache), then verifies no uncommitted changes and no unpushed commits remain. Exits non-zero on any failure."
 set -euo pipefail
 
 echo "═══════════════════════════════════════════════════════════"

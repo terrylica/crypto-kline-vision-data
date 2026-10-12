@@ -8,7 +8,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 - Python 3.13 (enforced via `.python-version`)
 - [uv](https://docs.astral.sh/uv/) for Python package management
-- [mise](https://mise.jdx.dev/) for task orchestration
+- [proto](https://moonrepo.dev/proto) for tool versions (`.prototools`) and [moon](https://moonrepo.dev/moon) for tasks (`moon.yml`)
 - Node.js 25+ (for semantic-release)
 
 ### Initial Setup
@@ -18,11 +18,9 @@ Thank you for your interest in contributing! This guide will help you get starte
 git clone https://github.com/terrylica/crypto-kline-vision-data.git
 cd crypto-kline-vision-data
 
-# Install dependencies
-uv sync --dev
-
-# Trust mise configuration
-mise trust
+# Install tools and dependencies (dev tools live in extras)
+proto install
+uv sync --all-extras
 
 # Verify setup
 uv run -p 3.13 python -c "from ckvd import CryptoKlineVisionData; print('OK')"
@@ -34,39 +32,33 @@ uv run -p 3.13 python -c "from ckvd import CryptoKlineVisionData; print('OK')"
 
 ```bash
 # Unit tests (fast, no network)
-mise run test
-
-# All tests
-mise run test:all
+moon run ckvd:test
 
 # Integration tests (requires network)
-mise run test:integration
-
-# Test with coverage report
-mise run test:cov
+moon run ckvd:test-integration
 ```
 
 ### Code Quality
 
 ```bash
-# Lint and auto-fix
-mise run lint
+# Lint
+moon run ckvd:lint
 
 # Format code
-mise run format
+moon run ckvd:format
 
 # Type checking
-mise run typecheck
+moon run ckvd:typecheck
 
-# Run all checks
-mise run check:all
+# Run the whole offline gate (lint, format, types, import contracts, unit + Rust tests, doc links)
+moon run ckvd:check
 ```
 
 ### Making Changes
 
 1. Create a feature branch: `git checkout -b feat/my-feature`
 2. Make your changes
-3. Run checks: `mise run check:all && mise run test`
+3. Run checks: `moon run ckvd:check`
 4. Commit with conventional commit format (see below)
 5. Push and open a PR
 

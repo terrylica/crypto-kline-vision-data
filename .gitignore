@@ -115,7 +115,6 @@ docs/benchmarks/results/
 
 
 # Local-only files (not tracked in public repo)
-.mise.local.toml
 EMERGENCY_RESTORE.md
 CRITICAL_BUG_FIX_REPORT.md
 CKVD_AUTO_REINDEX_FIX_SUMMARY.md
@@ -167,3 +166,7 @@ compact
 
 # AI agent tool-call transcripts (local only, never publish)
 .pi/
+
+# moon (task runner) local cache
+.moon/cache/
+.moon/docker/

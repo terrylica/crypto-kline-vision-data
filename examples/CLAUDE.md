@@ -9,9 +9,8 @@ Context-specific instructions for working with CKVD examples.
 ## Quick Start
 
 ```bash
-# Run any example (direct or via mise)
-uv run -p 3.13 python examples/quick_start.py
-mise run demo:quickstart
+# Run any example
+uv run python examples/quick_start.py
 
 # Run with debug logging
 CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
@@ -23,25 +22,25 @@ CKVD_LOG_LEVEL=DEBUG uv run -p 3.13 python examples/ckvd_logging_demo.py
 
 ### Basic Usage
 
-| Example          | Description               | mise task         |
-| ---------------- | ------------------------- | ----------------- |
-| `quick_start.py` | Minimal FCP usage example | `demo:quickstart` |
+| Example          | Description               |
+| ---------------- | ------------------------- |
+| `quick_start.py` | Minimal FCP usage example |
 
 ### Advanced Patterns
 
-| Example                                | Description                    | mise task       |
-| -------------------------------------- | ------------------------------ | --------------- |
-| `ckvd_lazy_initialization_demo.py`     | Lazy manager initialization    | `demo:lazy`     |
-| `clean_feature_engineering_example.py` | Feature engineering pipeline   | `demo:features` |
-| `ckvd_logging_demo.py`                 | Logging configuration patterns | `demo:logging`  |
-| `ckvd_cache_control_example.py`        | Cache toggle mechanisms        | `demo:cache`    |
+| Example                                | Description                    |
+| -------------------------------------- | ------------------------------ |
+| `ckvd_lazy_initialization_demo.py`     | Lazy manager initialization    |
+| `clean_feature_engineering_example.py` | Feature engineering pipeline   |
+| `ckvd_logging_demo.py`                 | Logging configuration patterns |
+| `ckvd_cache_control_example.py`        | Cache toggle mechanisms        |
 
 ### Synchronous Examples
 
-| Example                         | Description                          | mise task         |
-| ------------------------------- | ------------------------------------ | ----------------- |
-| `sync/ckvd_datetime_example.py` | Timezone handling and gap detection  | `demo:datetime`   |
-| `sync/ckvd_one_second_test.py`  | One-second interval retrieval (SPOT) | `demo:one-second` |
+| Example                         | Description                          |
+| ------------------------------- | ------------------------------------ |
+| `sync/ckvd_datetime_example.py` | Timezone handling and gap detection  |
+| `sync/ckvd_one_second_test.py`  | One-second interval retrieval (SPOT) |
 
 ### Support Files
 

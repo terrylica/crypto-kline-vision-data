@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-#MISE description="Phase 1: Validate prerequisites"
 set -euo pipefail
 
 echo "=== Release Preflight ==="
@@ -16,15 +15,15 @@ echo "✓ Working directory clean"
 # Check 2: GitHub authentication (token exists)
 if [[ -z "${GH_TOKEN:-}" ]] || [[ -z "$(echo "$GH_TOKEN" | tr -d '[:space:]')" ]]; then
     echo "✗ GH_TOKEN not set or empty"
-    echo "  Run: eval \"\$(mise env)\" or check .mise.local.toml"
+    echo "  Run via: bash scripts/release.sh (it sets GH_TOKEN from gh-token-for-repo)"
     exit 1
 fi
 echo "✓ GH_TOKEN configured"
 
 # Check 3: GitHub token format validation (no gh CLI - avoids process storms)
-# Valid formats: ghp_* (classic PAT) or github_pat_* (fine-grained PAT)
-if [[ ! "$GH_TOKEN" =~ ^ghp_[a-zA-Z0-9]{36}$ ]] && [[ ! "$GH_TOKEN" =~ ^github_pat_ ]]; then
-    echo "⚠ GH_TOKEN format may be invalid (expected ghp_* or github_pat_*)"
+# Valid formats: gho_* (gh CLI OAuth), ghp_* (classic PAT) or github_pat_* (fine-grained PAT)
+if [[ ! "$GH_TOKEN" =~ ^gho_ ]] && [[ ! "$GH_TOKEN" =~ ^ghp_[a-zA-Z0-9]{36}$ ]] && [[ ! "$GH_TOKEN" =~ ^github_pat_ ]]; then
+    echo "⚠ GH_TOKEN format may be invalid (expected gho_*, ghp_* or github_pat_*)"
     echo "  Token starts with: ${GH_TOKEN:0:10}..."
     # Don't exit - let it try anyway
 fi
@@ -33,7 +32,7 @@ echo "✓ GH_TOKEN format validated"
 # Check 4: Node.js available
 if ! command -v node &>/dev/null; then
     echo "✗ Node.js not available"
-    echo "  Run: mise install"
+    echo "  Run: proto install"
     exit 1
 fi
 echo "✓ Node.js $(node --version) available"
@@ -60,7 +59,7 @@ else
 fi
 
 # Check 7: Python version (enforce 3.13)
-PYTHON_VERSION=$(python --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
+PYTHON_VERSION=$(uv run python --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
 if [[ "$PYTHON_VERSION" != "3.13" ]]; then
     echo "⚠ Python version is $PYTHON_VERSION (expected 3.13)"
 fi

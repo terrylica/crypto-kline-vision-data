@@ -177,10 +177,10 @@ manager.close()
 uv run -p 3.13 python -c "from ckvd import CryptoKlineVisionData; print('OK')"
 
 # Check cache size
-mise run cache:stats
+du -sh "$(uv run python -c 'from ckvd.utils.app_paths import get_cache_dir; print(get_cache_dir())')"
 
-# Clear cache (nuclear option)
-mise run cache:clear
+# Clear cache (nuclear option; macOS path via platformdirs)
+rm -rf ~/Library/Caches/crypto-kline-vision-data
 
 # Run FCP diagnostic script
 uv run -p 3.13 python docs/skills/ckvd-usage/scripts/diagnose_fcp.py BTCUSDT futures_usdt 1h

@@ -82,7 +82,7 @@ CLAUDE.md (root hub)
 ├── tests/CLAUDE.md       → Test commands, markers, fixtures, mocking patterns
 ├── docs/CLAUDE.md        → ADRs, skills, benchmarks, troubleshooting
 ├── examples/CLAUDE.md    → Example conventions, NDJSON telemetry schema
-├── scripts/CLAUDE.md     → Dev scripts, mise tasks, cache tools
+├── scripts/CLAUDE.md     → Dev scripts, release scripts, cache tools
 └── playground/CLAUDE.md  → Experimental prototypes
 ```
 
@@ -105,17 +105,7 @@ Each spoke contains only the context relevant to that directory. Claude Code loa
 ## Examples
 
 ```bash
-# Via mise tasks
-mise run demo:quickstart          # Minimal FCP usage
-mise run demo:features            # Feature engineering pipeline
-mise run demo:cache               # Cache toggle mechanisms
-mise run demo:logging             # Logging configuration
-mise run demo:datetime            # Timezone handling
-mise run demo:one-second          # 1s interval (SPOT only)
-mise run demo:lazy                # Lazy initialization
-
-# Or directly
-uv run -p 3.13 python examples/quick_start.py
+uv run python examples/quick_start.py   # every example runs the same way; see examples/CLAUDE.md
 ```
 
 All examples emit **NDJSON telemetry** to `examples/logs/events.jsonl`. See [examples/CLAUDE.md](examples/CLAUDE.md) for schema and parsing.
@@ -254,8 +244,7 @@ from ckvd import KlineUpdate, KlineStream
 ## Development
 
 ```bash
-uv sync --dev                    # Install dependencies
-mise trust                       # Load environment
+uv sync --all-extras             # Install dependencies (dev tools live in extras)
 uv run -p 3.13 pytest tests/unit/ -v   # Run tests (900 passing)
 uv run -p 3.13 ruff check --fix .      # Lint
 ```

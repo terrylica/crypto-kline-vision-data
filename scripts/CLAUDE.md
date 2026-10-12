@@ -19,7 +19,7 @@ Utility scripts for development, maintenance, and deployment.
 
 | Script                   | Purpose                                   |
 | ------------------------ | ----------------------------------------- |
-| `publish-to-pypi.sh`     | PyPI publishing (use mise tasks)          |
+| `publish-to-pypi.sh`     | PyPI publishing (run by `release.sh`)     |
 | `claude-code-migrate.sh` | Claude Code session migration for renames |
 
 ---
@@ -35,22 +35,20 @@ Located in `scripts/dev/`:
 
 ---
 
-## Preferred: Use mise Tasks
+## Preferred: Use moon Tasks
 
-Most script functionality is available via mise tasks:
+Repo tasks live in `moon.yml` (`moon query tasks` lists them):
 
 ```bash
-# Instead of running scripts directly
-mise run test           # Run tests
-mise run check:all      # Lint + format + typecheck
-mise run release:full   # Full release (semantic-release)
+moon run ckvd:test      # Run unit tests
+moon run ckvd:check     # Full offline gate
+moon run ckvd:release   # Full release: scripts/release.sh (preflight, semantic-release, verify, PyPI, postflight)
 ```
-
-See `mise run help` for all available tasks.
 
 ---
 
 ## Related
 
-- @mise.toml - Task definitions
+- @moon.yml - Task definitions
+- @release.sh - Release orchestrator (phases in `release/`)
 - @docs/benchmarks/ - Performance benchmark scripts

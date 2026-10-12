@@ -171,7 +171,7 @@ Key methods:
 
 **Cache population rules**: Cache complete days from Vision/REST. Never cache partial days, future timestamps, error responses, or data <48h old. The `OPTIMIZE_CACHE_PARTIAL_DAYS` flag in `utils/config.py` controls partial-day optimization (always on).
 
-**Cache storage**: Apache Arrow IPC (`.arrow`) files with atomic writes (temp-file-then-rename). One file per day. Cache location via `platformdirs.user_cache_path('crypto-kline-vision-data')`. Clear with `mise run cache:clear`.
+**Cache storage**: Apache Arrow IPC (`.arrow`) files with atomic writes (temp-file-then-rename). One file per day. Cache location via `platformdirs.user_cache_path('crypto-kline-vision-data')`. Clear with `rm -rf ~/Library/Caches/crypto-kline-vision-data` (macOS).
 
 **Tracking data sources**: `get_data(..., include_source_info=True)` adds a `_data_source` column (CACHE/VISION/REST) to the returned DataFrame.
 

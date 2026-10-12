@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Phase 4: Verify release artifacts"
-# Note: No depends — called sequentially from release:full after version/tag is created.
-# Adding depends=["release:preflight"] would fail because preflight checks "commits since tag"
-# and the tag was just created by release:version.
+# Runs after semantic-release has tagged (see scripts/release.sh), so it must not re-run preflight:
+# preflight's "commits since tag" check would fail right after tagging.
 set -euo pipefail
 
 echo "=== Verifying Release ==="

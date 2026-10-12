@@ -18,7 +18,6 @@ This module tests all FCP edge cases with real-world scenarios:
 
 Run with:
     uv run -p 3.13 pytest tests/fcp_pm/test_fcp_edge_cases.py -v
-    mise run test:fcp-edge
 
 Import Before Invent: Patterns imported from test_fcp_pm.py, test_rest_enforcement.py
 """

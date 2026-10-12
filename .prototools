@@ -1,0 +1,3 @@
+# proto — repo-local toolchain versions. uv owns Python (.python-version); node runs semantic-release.
+uv = "latest"
+node = "25"

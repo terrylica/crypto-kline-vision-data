@@ -77,9 +77,6 @@ Run infrastructure validation:
 ```bash
 # Verify Claude Code setup
 uv run -p 3.13 python docs/skills/ckvd-usage/scripts/validate_infrastructure.py
-
-# Or via mise
-mise run claude:validate
 ```
 
 ## Authoring Checklist
