@@ -146,13 +146,6 @@ uv sync --all-extras             # Install dependencies (dev tools live in extra
 
 **Release**: semantic-release v25+ (global npm install, no per-repo node_modules). Config: `.releaserc.yml`. Run: `moon run ckvd:release` / `moon run ckvd:release-dry` (both run `scripts/release.sh`). Release credential resolves fresh via `~/.claude/tools/bin/gh-token-for-repo`. CHANGELOG.md is auto-generated.
 
-**Commit trailers** (hook-enforced):
-
-```
-SRED-Type: experimental-development | applied-research | basic-research | support-work
-SRED-Claim: CKVD
-```
-
 ---
 
 ## Claude Code Extensions

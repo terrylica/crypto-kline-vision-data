@@ -76,25 +76,6 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) f
 | `refactor:`                | No release    | `refactor: simplify cache logic`      |
 | `test:`                    | No release    | `test: add coverage for gap detector` |
 
-### SRED Trailers (Required)
-
-All commits must include SR&ED trailers for tax credit compliance:
-
-```
-feat: implement new feature
-
-Description of what was done.
-
-SRED-Type: support-work
-SRED-Claim: CKVD-FEATURE
-```
-
-Valid SRED-Type values:
-
-- `experimental-development` - Technological advancement through systematic work
-- `applied-research` - Scientific knowledge with practical application
-- `support-work` - Programming, testing, data collection supporting SR&ED
-
 ## Code Style
 
 - **Python version**: 3.13 ONLY (never use other versions)
